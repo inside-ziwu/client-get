@@ -1,0 +1,25 @@
+{
+  "name": "client-get-web",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev:admin": "pnpm --filter @apps/admin dev",
+    "dev:tenant": "pnpm --filter @apps/tenant dev",
+    "build:admin": "pnpm --filter @apps/admin build",
+    "build:tenant": "pnpm --filter @apps/tenant build",
+    "build": "pnpm -r build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
+    "type-check": "pnpm -r type-check",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
