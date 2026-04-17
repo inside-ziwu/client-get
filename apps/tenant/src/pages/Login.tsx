@@ -10,25 +10,11 @@ export function Component() {
   const setToken = useAuthStore((s) => s.setToken);
   const [loading, setLoading] = React.useState(false);
 
-  const onFinish = async (values: { slug: string; email: string; password: string }) => {
+  const onFinish = async (_values: { email: string; password: string }) => {
     setLoading(true);
-    // TODO: replace with real API call when backend is ready
     await new Promise((r) => setTimeout(r, 600));
-    const b64 = (obj: object) =>
-      btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    const mockToken = [
-      b64({ alg: 'HS256', typ: 'JWT' }),
-      b64({
-        sub: 'user-001',
-        tid: 'tenant-001',
-        slug: values.slug,
-        roles: ['member'],
-        exp: Math.floor(Date.now() / 1000) + 86400 * 7,
-        iat: Math.floor(Date.now() / 1000),
-      }),
-      'mock-sig',
-    ].join('.');
-    setToken(mockToken);
+    // 固定 mock token，header.payload.sig 均为合法 base64url，exp 设为超远未来
+    setToken('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTAwMSIsInRpZCI6InRlbmFudC0wMDEiLCJyb2xlcyI6WyJtZW1iZXIiXSwiZXhwIjo5OTk5OTk5OTk5fQ.mock-sig');
     setLoading(false);
     navigate('/', { replace: true });
   };
@@ -38,9 +24,6 @@ export function Component() {
       <Card style={{ width: 400 }}>
         <Title level={3} style={{ textAlign: 'center' }}>ClientGet 客户管理</Title>
         <Form layout="vertical" onFinish={onFinish}>
-          <Form.Item name="slug" label="企业标识" rules={[{ required: true, message: '请输入企业标识' }]}>
-            <Input placeholder="your-company" />
-          </Form.Item>
           <Form.Item name="email" label="邮箱" rules={[{ required: true, message: '请输入邮箱' }]}>
             <Input placeholder="user@example.com" />
           </Form.Item>
