@@ -1,20 +1,26 @@
 import type { AxiosInstance } from 'axios';
-import type { ApiResponse } from '@shared/types';
+import type { ApiResponse, PaginatedResponse } from '@shared/types';
 
 export interface TenantScoringTemplate {
+  id: string;
+  name?: string;
+  is_active?: boolean;
   dimensions: Array<{
     name: string;
     weight: number;
-    criteria: string;
+    criteria?: string;
+    [key: string]: unknown;
   }>;
-  updated_at: string;
+  grade_thresholds?: Record<string, number>;
+  version?: number;
+  updated_at?: string;
 }
 
 export function scoringApi(client: AxiosInstance) {
   return {
     get: () =>
-      client.get<ApiResponse<TenantScoringTemplate>>('/api/v1/scoring'),
-    update: (data: TenantScoringTemplate) =>
-      client.put<ApiResponse<TenantScoringTemplate>>('/api/v1/scoring', data),
+      client.get<PaginatedResponse<TenantScoringTemplate>>('/api/v1/scoring-templates'),
+    update: (id: string, data: Partial<TenantScoringTemplate>) =>
+      client.put<ApiResponse<TenantScoringTemplate>>(`/api/v1/scoring-templates/${id}`, data),
   };
 }

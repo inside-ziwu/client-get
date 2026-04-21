@@ -7,5 +7,7 @@ export function dashboardApi(client: AxiosInstance) {
       client.get<ApiResponse<DashboardOverview>>('/api/v1/dashboard/overview'),
     funnel: () =>
       client.get<ApiResponse<DashboardFunnel>>('/api/v1/dashboard/funnel'),
+    aiCapabilities: () =>
+      client.get<ApiResponse<Record<string, unknown>>>('/api/v1/ai-capabilities'),
   };
 }

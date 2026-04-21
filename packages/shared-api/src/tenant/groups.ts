@@ -19,12 +19,14 @@ export function groupsApi(client: AxiosInstance) {
     create: (data: { name: string; description?: string }) =>
       client.post<ApiResponse<Group>>('/api/v1/groups', data),
     update: (id: string, data: { name?: string; description?: string }) =>
-      client.put<ApiResponse<Group>>(`/api/v1/groups/${id}`, data),
+      client.patch<ApiResponse<Group>>(`/api/v1/groups/${id}`, data),
     delete: (id: string) =>
       client.delete(`/api/v1/groups/${id}`),
-    batchAddMembers: (id: string, prospectIds: string[]) =>
-      client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-add`, { prospect_ids: prospectIds }),
-    batchRemoveMembers: (id: string, prospectIds: string[]) =>
-      client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-remove`, { prospect_ids: prospectIds }),
+    listMembers: (id: string) =>
+      client.get<PaginatedResponse<Record<string, unknown>>>(`/api/v1/groups/${id}/members`),
+    batchAddMembers: (id: string, tenantCompanyIds: string[]) =>
+      client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-add`, { tenant_company_ids: tenantCompanyIds }),
+    batchRemoveMembers: (id: string, memberIds: string[]) =>
+      client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-remove`, { member_ids: memberIds }),
   };
 }

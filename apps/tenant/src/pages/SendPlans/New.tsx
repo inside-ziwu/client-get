@@ -1,348 +1,431 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Steps,
+  Alert,
   Button,
+  Card,
+  Descriptions,
+  Empty,
   Form,
   Input,
+  InputNumber,
   Select,
-  Radio,
-  Checkbox,
   Space,
-  Typography,
+  Spin,
+  Steps,
   Table,
   Tag,
-  InputNumber,
-  Alert,
-  Descriptions,
+  Typography,
   message,
-  Divider,
 } from 'antd';
-import {
-  ArrowLeftOutlined,
-  ArrowRightOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-  SaveOutlined,
-  CheckCircleOutlined,
-} from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
+import { ArrowLeftOutlined, ArrowRightOutlined, CheckCircleOutlined, SaveOutlined } from '@ant-design/icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys, type TenantDomainInfo } from '@shared/api';
+import { tenantApi } from '../../lib/api';
 
-const { Text, Title } = Typography;
-const { Option } = Select;
-const { TextArea } = Input;
+const { Title } = Typography;
 
-const MOCK_GROUPS = [
-  { id: 'g1', name: '德国A级客户', count: 45 },
-  { id: 'g2', name: '美国PCB采购商', count: 78 },
-  { id: 'g3', name: '优先跟进', count: 23 },
-  { id: 'g4', name: '日本精密客户', count: 31 },
-];
+type WizardFormValues = {
+  name: string;
+  description?: string;
+  group_id: string;
+  first_template_id: string;
+  domain_id: string;
+  sender_name: string;
+  sender_email: string;
+};
 
-const MOCK_TEMPLATES = [
-  { id: 'pt1', name: '首次触达-PCB行业通用', category: '首次触达', subject: 'Inquiry about {{产品标签}} Products' },
-  { id: 'ct1', name: '我的跟进模板', category: '跟进', subject: 'Re: {{产品标签}} — Quick Update' },
-  { id: 'pt3', name: '促成下单-通用', category: '促成下单', subject: 'Special Offer: {{产品标签}}' },
-];
-
-const MOCK_DOMAINS = [
-  { id: 'd1', domain: 'mail.xxx.com', stage: 3, remaining: '67/100', verified: true },
-  { id: 'd2', domain: 'mx2.xxx.com', stage: null, remaining: '—', verified: false },
-];
-
-interface SequenceStep {
+type DraftStep = {
   id: string;
   step_number: number;
-  condition: string;
-  delay_days: number;
   template_id: string;
+  delay_days: number;
+  condition_type: string;
+};
+
+const STEP_TITLES = ['基本信息', '收件人', '首封模板', '发送域名', '序列', '确认'];
+
+function localId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const STEPS = ['基本信息', '收件人', '模板', '策略', '序列', '确认'];
+function formatDomain(record: TenantDomainInfo) {
+  return `${record.domain} / ${record.verification_status} / 日限 ${record.daily_limit ?? 0}`;
+}
 
 export function Component() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [current, setCurrent] = useState(0);
-  const [form] = Form.useForm();
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('pt1');
-  const [selectedDomainId, setSelectedDomainId] = useState<string>('d1');
-  const [sequence, setSequence] = useState<SequenceStep[]>([
-    { id: 's1', step_number: 1, condition: '立即发送', delay_days: 0, template_id: 'pt1' },
-    { id: 's2', step_number: 2, condition: '未回复', delay_days: 3, template_id: '' },
-    { id: 's3', step_number: 3, condition: '未回复', delay_days: 5, template_id: '' },
-  ]);
+  const [form] = Form.useForm<WizardFormValues>();
+  const [sequence, setSequence] = useState<DraftStep[]>([]);
+  const [submittingMode, setSubmittingMode] = useState<'draft' | 'lock' | null>(null);
 
-  const totalSelected = MOCK_GROUPS.filter((g) => selectedGroups.includes(g.id)).reduce((s, g) => s + g.count, 0);
-  const excluded = Math.round(totalSelected * 0.12);
-  const actualSend = totalSelected - excluded;
+  const groupsQuery = useQuery({
+    queryKey: ['tenant', 'groups', 'list', 'send-plan-new'],
+    queryFn: async () => (await tenantApi.groups.list({ limit: 100 })).data.data,
+  });
 
-  const addSequenceStep = () => {
-    setSequence((prev) => [...prev, {
-      id: `s${Date.now()}`,
-      step_number: prev.length + 1,
-      condition: '未回复',
-      delay_days: 7,
-      template_id: '',
-    }]);
+  const templatesQuery = useQuery({
+    queryKey: ['tenant', 'templates', 'list', 'send-plan-new'],
+    queryFn: async () => (await tenantApi.emailTemplates.list()).data.data,
+  });
+
+  const domainsQuery = useQuery({
+    queryKey: ['tenant', 'domains', 'list', 'send-plan-new'],
+    queryFn: async () => (await tenantApi.domains.list()).data.data,
+  });
+
+  const groups = groupsQuery.data ?? [];
+  const templates = templatesQuery.data ?? [];
+  const domains = domainsQuery.data ?? [];
+  const verifiedDomains = useMemo(
+    () => domains.filter((item) => item.verification_status === 'verified'),
+    [domains],
+  );
+
+  const addStep = () => {
+    setSequence((prev) => [
+      ...prev,
+      {
+        id: localId(),
+        step_number: prev.length + 2,
+        template_id: '',
+        delay_days: 3,
+        condition_type: 'no_reply',
+      },
+    ]);
+  };
+
+  const updateStep = (id: string, payload: Partial<DraftStep>) => {
+    setSequence((prev) => prev.map((item) => (item.id === id ? { ...item, ...payload } : item)));
   };
 
   const removeStep = (id: string) => {
-    setSequence((prev) => prev.filter((s) => s.id !== id).map((s, i) => ({ ...s, step_number: i + 1 })));
+    setSequence((prev) =>
+      prev
+        .filter((item) => item.id !== id)
+        .map((item, index) => ({ ...item, step_number: index + 2 })),
+    );
   };
 
-  const seqCols: ColumnsType<SequenceStep> = [
-    { title: '序列#', dataIndex: 'step_number', width: 60 },
+  const submitMutation = useMutation({
+    mutationFn: async (mode: 'draft' | 'lock') => {
+      const values = await form.validateFields();
+      const created = await tenantApi.sendingPlans.create({
+        name: values.name.trim(),
+        description: values.description?.trim() || undefined,
+        recipient_source: 'group',
+        recipient_config: { group_id: values.group_id },
+        send_strategy: {
+          timezone_aware: true,
+          preferred_hours: [9, 17],
+        },
+        sender_name: values.sender_name.trim(),
+        sender_email: values.sender_email.trim(),
+        domain_id: values.domain_id,
+      });
+
+      const plan = created.data.data;
+      await tenantApi.sendingPlans.createStep(plan.id, {
+        step_number: 1,
+        template_id: values.first_template_id,
+        delay_days: 0,
+        condition_type: 'always',
+      });
+
+      for (const item of sequence) {
+        await tenantApi.sendingPlans.createStep(plan.id, {
+          step_number: item.step_number,
+          template_id: item.template_id,
+          delay_days: item.delay_days,
+          condition_type: item.condition_type,
+        });
+      }
+
+      if (mode === 'lock') {
+        await tenantApi.sendingPlans.previewRecipients(plan.id);
+        await tenantApi.sendingPlans.lockRecipients(plan.id);
+      }
+
+      return { planId: plan.id, mode };
+    },
+    onSuccess: async ({ planId, mode }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.sendingPlans.all() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all() }),
+      ]);
+      message.success(mode === 'lock' ? '发送计划已创建并锁定收件人' : '发送计划草稿已创建');
+      navigate(`/send-plans/${planId}`, { replace: true });
+    },
+    onError: () => message.error('发送计划创建失败，请检查配置与接口状态'),
+    onSettled: () => setSubmittingMode(null),
+  });
+
+  const firstTemplateId = Form.useWatch('first_template_id', form);
+  const selectedGroupId = Form.useWatch('group_id', form);
+  const selectedDomainId = Form.useWatch('domain_id', form);
+
+  const selectedGroup = groups.find((item) => item.id === selectedGroupId);
+  const selectedTemplate = templates.find((item) => item.id === firstTemplateId);
+  const selectedDomain = domains.find((item) => item.id === selectedDomainId);
+
+  const sequenceColumns: ColumnsType<DraftStep> = [
     {
-      title: '触发条件', dataIndex: 'condition', width: 120,
-      render: (v, r) => r.step_number === 1 ? <Text type="secondary">立即发送</Text> : (
-        <Select value={v} size="small" style={{ width: 110 }}
-          onChange={(val) => setSequence(prev => prev.map(s => s.id === r.id ? { ...s, condition: val } : s))}>
-          <Option value="未回复">未回复</Option>
-          <Option value="未打开">未打开</Option>
-          <Option value="已打开">已打开</Option>
-        </Select>
+      title: '序列',
+      dataIndex: 'step_number',
+      width: 80,
+      render: (value) => <Tag color="blue">第 {value} 封</Tag>,
+    },
+    {
+      title: '模板',
+      dataIndex: 'template_id',
+      render: (value, record) => (
+        <Select
+          value={value || undefined}
+          placeholder="选择模板"
+          style={{ width: '100%' }}
+          onChange={(next) => updateStep(record.id, { template_id: next })}
+          options={templates.map((item) => ({
+            label: `${item.name} / ${item.category ?? 'uncategorized'}`,
+            value: item.id,
+          }))}
+        />
       ),
     },
     {
-      title: '间隔天数', dataIndex: 'delay_days', width: 100,
-      render: (v, r) => r.step_number === 1 ? <Text type="secondary">—</Text> : (
-        <InputNumber value={v} min={1} size="small" style={{ width: 80 }}
-          onChange={(val) => setSequence(prev => prev.map(s => s.id === r.id ? { ...s, delay_days: val ?? 3 } : s))} />
+      title: '触发条件',
+      dataIndex: 'condition_type',
+      width: 180,
+      render: (value, record) => (
+        <Select
+          value={value}
+          style={{ width: '100%' }}
+          onChange={(next) => updateStep(record.id, { condition_type: next })}
+          options={[
+            { label: '未回复', value: 'no_reply' },
+            { label: '未打开', value: 'not_opened' },
+            { label: '已打开', value: 'opened' },
+          ]}
+        />
       ),
     },
     {
-      title: '模板', dataIndex: 'template_id',
-      render: (v, r) => r.step_number === 1 ? (
-        <Tag color="blue">{MOCK_TEMPLATES.find(t => t.id === selectedTemplateId)?.name ?? '(Step 3 选择)'}</Tag>
-      ) : (
-        <Select value={v || undefined} placeholder="选择模板" size="small" style={{ width: 200 }}
-          onChange={(val) => setSequence(prev => prev.map(s => s.id === r.id ? { ...s, template_id: val } : s))}>
-          {MOCK_TEMPLATES.map(t => <Option key={t.id} value={t.id}>{t.name}</Option>)}
-        </Select>
+      title: '延迟天数',
+      dataIndex: 'delay_days',
+      width: 120,
+      render: (value, record) => (
+        <InputNumber
+          min={1}
+          value={value}
+          onChange={(next) => updateStep(record.id, { delay_days: next ?? 3 })}
+          style={{ width: '100%' }}
+        />
       ),
     },
     {
-      title: '', width: 50,
-      render: (_, r) => r.step_number > 1 ? (
-        <Button type="text" danger size="small" icon={<DeleteOutlined />} onClick={() => removeStep(r.id)} />
-      ) : null,
+      title: '操作',
+      width: 100,
+      render: (_, record) => (
+        <Button type="link" danger size="small" onClick={() => removeStep(record.id)}>
+          删除
+        </Button>
+      ),
     },
   ];
 
-  const stepContent = [
-    /* Step 1: 基本信息 */
-    <Form form={form} layout="vertical" key="step1">
-      <Form.Item name="name" label="计划名称" rules={[{ required: true, message: '请输入计划名称' }]}>
-        <Input placeholder="如：德国PCB采购商首轮开发" />
-      </Form.Item>
-      <Form.Item name="description" label="说明备注（选填）">
-        <TextArea rows={3} />
-      </Form.Item>
-    </Form>,
-
-    /* Step 2: 收件人 */
-    <Space direction="vertical" style={{ width: '100%' }} size="middle" key="step2">
-      <Form layout="vertical">
-        <Form.Item label="收件人来源">
-          <Radio.Group defaultValue="group">
-            <Radio value="group">从群组选择</Radio>
-            <Radio value="filter">从公司列表筛选</Radio>
-          </Radio.Group>
+  const stepViews = [
+    <Card key="basic" size="small">
+      <Form form={form} layout="vertical">
+        <Form.Item name="name" label="计划名称" rules={[{ required: true, message: '请输入计划名称' }]}>
+          <Input placeholder="例如：德国 PCB 首轮开发" />
+        </Form.Item>
+        <Form.Item name="description" label="计划说明">
+          <Input.TextArea rows={4} placeholder="用于团队协作说明，可选" />
         </Form.Item>
       </Form>
-      <div>
-        <Text strong>选择群组：</Text>
-        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {MOCK_GROUPS.map((g) => (
-            <Checkbox
-              key={g.id}
-              checked={selectedGroups.includes(g.id)}
-              onChange={(e) => {
-                if (e.target.checked) setSelectedGroups(prev => [...prev, g.id]);
-                else setSelectedGroups(prev => prev.filter(id => id !== g.id));
-              }}
-            >
-              {g.name} ({g.count}人)
-            </Checkbox>
-          ))}
-        </div>
-      </div>
-      {totalSelected > 0 && (
-        <div style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, padding: 12 }}>
-          <Space direction="vertical" size={4}>
-            <Text>已选收件人: <Text strong>{totalSelected}</Text> 人</Text>
-            <Text type="secondary">自动排除: 黑名单 / 已退订 / 待补全 → {excluded} 人</Text>
-            <Text>实际发送: <Text strong style={{ color: '#52c41a' }}>{actualSend}</Text> 人</Text>
-          </Space>
-        </div>
-      )}
-    </Space>,
+    </Card>,
 
-    /* Step 3: 模板 */
-    <Space direction="vertical" style={{ width: '100%' }} size="middle" key="step3">
-      <Text type="secondary">选择第 1 封邮件模板（后续序列模板在 Step 5 中配置）</Text>
-      <Radio.Group value={selectedTemplateId} onChange={(e) => setSelectedTemplateId(e.target.value)} style={{ width: '100%' }}>
-        <Space direction="vertical" style={{ width: '100%' }}>
-          {MOCK_TEMPLATES.map((t) => (
-            <div
-              key={t.id}
-              style={{
-                padding: '12px 16px',
-                border: `1px solid ${selectedTemplateId === t.id ? '#1677ff' : '#f0f0f0'}`,
-                borderRadius: 6,
-                background: selectedTemplateId === t.id ? '#e6f4ff' : '#fff',
-                cursor: 'pointer',
-              }}
-              onClick={() => setSelectedTemplateId(t.id)}
-            >
-              <Space>
-                <Radio value={t.id} />
-                <div>
-                  <Text strong>{t.name}</Text>
-                  <Tag color="cyan" style={{ marginLeft: 8, fontSize: 11 }}>{t.category}</Tag>
-                  <div><Text type="secondary" style={{ fontSize: 12 }}>{t.subject}</Text></div>
-                </div>
-              </Space>
-            </div>
-          ))}
-        </Space>
-      </Radio.Group>
-    </Space>,
-
-    /* Step 4: 发送策略 */
-    <Form layout="vertical" key="step4">
-      <Form.Item label="目标时区">
-        <Select defaultValue="auto" style={{ width: 300 }}>
-          <Option value="auto">自动匹配收件人时区</Option>
-          <Option value="CET">CET（中欧标准时间）</Option>
-          <Option value="EST">EST（美东标准时间）</Option>
-          <Option value="JST">JST（日本标准时间）</Option>
-        </Select>
-      </Form.Item>
-      <Form.Item label="发送时段（目标国当地时间）">
-        <Space>
-          <Select defaultValue={9} style={{ width: 100 }}>
-            {Array.from({ length: 24 }, (_, i) => <Option key={i} value={i}>{String(i).padStart(2, '0')}:00</Option>)}
-          </Select>
-          <Text>~</Text>
-          <Select defaultValue={11} style={{ width: 100 }}>
-            {Array.from({ length: 24 }, (_, i) => <Option key={i} value={i}>{String(i).padStart(2, '0')}:00</Option>)}
-          </Select>
-        </Space>
-      </Form.Item>
-      <Form.Item label="发送间隔（随机）">
-        <Space>
-          <InputNumber defaultValue={30} min={5} suffix="秒" style={{ width: 110 }} />
-          <Text>~</Text>
-          <InputNumber defaultValue={120} min={10} suffix="秒" style={{ width: 110 }} />
-        </Space>
-      </Form.Item>
-      <Form.Item label="发送域名" required>
-        <Radio.Group value={selectedDomainId} onChange={(e) => setSelectedDomainId(e.target.value)}>
-          <Space direction="vertical">
-            {MOCK_DOMAINS.map((d) => (
-              <Radio key={d.id} value={d.id} disabled={!d.verified}>
-                <Space>
-                  <Text>{d.domain}</Text>
-                  {d.verified ? (
-                    <>
-                      <Tag color="blue">阶段{d.stage}</Tag>
-                      <Text type="secondary" style={{ fontSize: 12 }}>今日剩余: {d.remaining}</Text>
-                    </>
-                  ) : (
-                    <Tag>DNS验证中</Tag>
-                  )}
-                </Space>
-              </Radio>
-            ))}
-          </Space>
-        </Radio.Group>
-      </Form.Item>
-    </Form>,
-
-    /* Step 5: 序列邮件 */
-    <Space direction="vertical" style={{ width: '100%' }} size="middle" key="step5">
-      <Alert type="info" showIcon message="收到回复后自动停止该联系人的后续序列邮件" />
-      <Table
-        rowKey="id"
-        columns={seqCols}
-        dataSource={sequence}
-        size="small"
-        pagination={false}
-        footer={() => (
-          <Button size="small" icon={<PlusOutlined />} onClick={addSequenceStep}>添加序列</Button>
-        )}
+    <Card key="recipients" size="small">
+      <Form form={form} layout="vertical">
+        <Form.Item name="group_id" label="收件人群组" rules={[{ required: true, message: '请选择群组' }]}>
+          <Select
+            loading={groupsQuery.isLoading}
+            placeholder="选择一个群组"
+            options={groups.map((item) => ({
+              label: `${item.name} (${item.member_count})`,
+              value: item.id,
+            }))}
+          />
+        </Form.Item>
+      </Form>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginTop: 16 }}
+        message={selectedGroup ? `当前群组成员数：${selectedGroup.member_count}` : '请选择群组后继续'}
       />
-    </Space>,
+    </Card>,
 
-    /* Step 6: 确认 */
-    <Space direction="vertical" style={{ width: '100%' }} size="large" key="step6">
-      <Descriptions bordered column={2} title="发送计划摘要">
-        <Descriptions.Item label="计划名称" span={2}>
-          {form.getFieldValue('name') || '(未填写)'}
+    <Card key="template" size="small">
+      <Form form={form} layout="vertical">
+        <Form.Item name="first_template_id" label="第 1 封模板" rules={[{ required: true, message: '请选择模板' }]}>
+          <Select
+            loading={templatesQuery.isLoading}
+            placeholder="选择首封模板"
+            options={templates.map((item) => ({
+              label: `${item.name} / ${item.category ?? item.source_type}`,
+              value: item.id,
+            }))}
+          />
+        </Form.Item>
+      </Form>
+      {selectedTemplate ? (
+        <Descriptions size="small" bordered column={1} style={{ marginTop: 16 }}>
+          <Descriptions.Item label="模板名称">{selectedTemplate.name}</Descriptions.Item>
+          <Descriptions.Item label="来源">{selectedTemplate.source_type}</Descriptions.Item>
+          <Descriptions.Item label="主题">{selectedTemplate.subject}</Descriptions.Item>
+        </Descriptions>
+      ) : (
+        <Empty description="请选择一个模板" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      )}
+    </Card>,
+
+    <Card key="domain" size="small">
+      <Form form={form} layout="vertical">
+        <Form.Item name="domain_id" label="发送域名" rules={[{ required: true, message: '请选择发送域名' }]}>
+          <Select
+            loading={domainsQuery.isLoading}
+            placeholder="仅展示已验证域名"
+            options={verifiedDomains.map((item) => ({
+              label: formatDomain(item),
+              value: item.id,
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="sender_name" label="发件人名称" rules={[{ required: true, message: '请输入发件人名称' }]}>
+          <Input placeholder="ClientGet Demo" />
+        </Form.Item>
+        <Form.Item name="sender_email" label="发件邮箱" rules={[{ required: true, message: '请输入发件邮箱' }]}>
+          <Input placeholder="hello@mail.example.com" />
+        </Form.Item>
+      </Form>
+      {selectedDomain && (
+        <Alert
+          style={{ marginTop: 16 }}
+          type="info"
+          showIcon
+          message={`当前域名 ${selectedDomain.domain}，预热阶段 ${selectedDomain.warmup_level ?? 0}，日上限 ${selectedDomain.daily_limit ?? 0}`}
+        />
+      )}
+    </Card>,
+
+    <Card
+      key="sequence"
+      size="small"
+      title="后续序列"
+      extra={
+        <Button onClick={addStep}>
+          添加后续序列
+        </Button>
+      }
+    >
+      {sequence.length === 0 ? (
+        <Empty description="当前只发送首封邮件，如需后续跟进可在这里补充序列。" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      ) : (
+        <Table rowKey="id" columns={sequenceColumns} dataSource={sequence} pagination={false} />
+      )}
+    </Card>,
+
+    <Card key="confirm" size="small">
+      <Descriptions column={1} bordered size="small">
+        <Descriptions.Item label="计划名称">{form.getFieldValue('name') || '—'}</Descriptions.Item>
+        <Descriptions.Item label="说明">{form.getFieldValue('description') || '—'}</Descriptions.Item>
+        <Descriptions.Item label="群组">{selectedGroup ? `${selectedGroup.name} (${selectedGroup.member_count})` : '—'}</Descriptions.Item>
+        <Descriptions.Item label="首封模板">{selectedTemplate?.name ?? '—'}</Descriptions.Item>
+        <Descriptions.Item label="发送域名">{selectedDomain?.domain ?? '—'}</Descriptions.Item>
+        <Descriptions.Item label="发件设置">
+          {form.getFieldValue('sender_name') || '—'} / {form.getFieldValue('sender_email') || '—'}
         </Descriptions.Item>
-        <Descriptions.Item label="收件人数">
-          {actualSend}人（来自 {selectedGroups.length} 个群组）
-        </Descriptions.Item>
-        <Descriptions.Item label="序列封数">{sequence.length} 封</Descriptions.Item>
-        <Descriptions.Item label="发送域名">
-          {MOCK_DOMAINS.find(d => d.id === selectedDomainId)?.domain ?? '—'}
-        </Descriptions.Item>
-        <Descriptions.Item label="时区策略">自动匹配 09:00–11:00</Descriptions.Item>
+        <Descriptions.Item label="后续序列数">{sequence.length}</Descriptions.Item>
       </Descriptions>
-      <Alert type="warning" showIcon message={'确认后将进入草稿状态，需手动点击"执行"开始发送。'} />
-    </Space>,
+      <Alert
+        style={{ marginTop: 16 }}
+        type="warning"
+        showIcon
+        message="保存草稿只会创建计划和步骤。创建并锁定会额外调用 previewRecipients + lockRecipients，之后可直接在详情页启动。"
+      />
+    </Card>,
   ];
 
-  const handleNext = () => {
-    if (current === 0) {
-      form.validateFields().then(() => setCurrent((c) => c + 1)).catch(() => {});
-    } else {
-      setCurrent((c) => c + 1);
+  const nextStep = async () => {
+    if (current < STEP_TITLES.length - 1) {
+      if (current <= 3) {
+        await form.validateFields();
+      }
+      setCurrent((prev) => prev + 1);
     }
   };
 
   return (
-    <div style={{ maxWidth: 800 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/send-plans')}>返回</Button>
-        <Title level={4} style={{ margin: 0 }}>新建发送计划</Title>
-      </div>
+    <Space direction="vertical" style={{ width: '100%' }} size="large">
+      <Space>
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/send-plans')}>
+          返回列表
+        </Button>
+        <Title level={4} style={{ margin: 0 }}>
+          新建发送计划
+        </Title>
+      </Space>
 
-      <Steps current={current} items={STEPS.map((s) => ({ title: s }))} style={{ marginBottom: 32 }} />
+      <Steps current={current} items={STEP_TITLES.map((title) => ({ title }))} />
 
-      <div style={{ minHeight: 300, marginBottom: 24 }}>
-        {stepContent[current]}
-      </div>
+      {(groupsQuery.isLoading || templatesQuery.isLoading || domainsQuery.isLoading) && current > 0 ? (
+        <Card size="small">
+          <Spin />
+        </Card>
+      ) : (
+        stepViews[current]
+      )}
 
-      <Divider />
       <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-        <Button disabled={current === 0} icon={<ArrowLeftOutlined />} onClick={() => setCurrent((c) => c - 1)}>
+        <Button disabled={current === 0} onClick={() => setCurrent((prev) => prev - 1)}>
           上一步
         </Button>
         <Space>
-          {current === STEPS.length - 1 ? (
+          {current < STEP_TITLES.length - 1 ? (
+            <Button type="primary" icon={<ArrowRightOutlined />} onClick={() => void nextStep()}>
+              下一步
+            </Button>
+          ) : (
             <>
-              <Button icon={<SaveOutlined />} onClick={() => { message.success('已保存为草稿'); navigate('/send-plans'); }}>
-                保存为草稿
+              <Button
+                icon={<SaveOutlined />}
+                loading={submittingMode === 'draft' && submitMutation.isPending}
+                onClick={() => {
+                  setSubmittingMode('draft');
+                  submitMutation.mutate('draft');
+                }}
+              >
+                保存草稿
               </Button>
               <Button
                 type="primary"
                 icon={<CheckCircleOutlined />}
-                onClick={() => { message.success('发送计划已创建！'); navigate('/send-plans'); }}
+                loading={submittingMode === 'lock' && submitMutation.isPending}
+                onClick={() => {
+                  setSubmittingMode('lock');
+                  submitMutation.mutate('lock');
+                }}
               >
-                确认创建
+                创建并锁定收件人
               </Button>
             </>
-          ) : (
-            <Button type="primary" icon={<ArrowRightOutlined />} onClick={handleNext}>
-              下一步
-            </Button>
           )}
         </Space>
       </Space>
-    </div>
+    </Space>
   );
 }
 

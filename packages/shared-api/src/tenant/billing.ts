@@ -26,6 +26,6 @@ export function billingApi(client: AxiosInstance) {
     usageSummary: (period?: string) =>
       client.get<ApiResponse<UsageSummary>>('/api/v1/billing/usage-summary', { params: { period } }),
     usageTrend: (params?: { date_from?: string; date_to?: string }) =>
-      client.get<ApiResponse<UsageTrend[]>>('/api/v1/billing/usage-trend', { params }),
+      client.get<PaginatedResponse<UsageTrend>>('/api/v1/billing/usage-trend', { params }),
   };
 }

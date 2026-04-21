@@ -1,139 +1,292 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Table,
   Button,
-  Tag,
-  Space,
   Drawer,
-  Tabs,
   Form,
   Input,
-  InputNumber,
-  Switch,
-  Typography,
-  Popconfirm,
-  message,
-  Descriptions,
-  Badge,
   Modal,
+  Popconfirm,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  message,
 } from 'antd';
-import { PlusOutlined, EditOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { adminApi } from '../../lib/api';
+import type {
+  DataSource as ApiDataSource,
+  DataSourceCredential as ApiDataSourceCredential,
+} from '@shared/api';
 
 const { Text } = Typography;
 
-interface DataSource {
-  id: string;
+type SourceFormValues = {
+  source_type: string;
   name: string;
-  system_alias: string;   // 系统内部编码，如 waimao_tong
-  display_alias: string;  // 租户展示别名，如 贸易数据
-  usage: string;
-  account_count: number;
+  alias_code?: string;
+  purpose?: string;
+  config_json: string;
+};
+
+type CredentialFormValues = {
+  account_label?: string;
   is_active: boolean;
-  daily_quota: number;
-  today_used: number;
+};
+
+const EMPTY_SOURCE: SourceFormValues = {
+  source_type: '',
+  name: '',
+  alias_code: '',
+  purpose: '',
+  config_json: '{}',
+};
+
+const EMPTY_CREDENTIAL: CredentialFormValues = {
+  account_label: '',
+  is_active: true,
+};
+
+function parseJson(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  return JSON.parse(trimmed);
 }
 
-interface Account {
-  id: string;
-  username: string;
-  account_no?: string;
-  is_active: boolean;
-  daily_quota: number;
-  today_used: number;
-  consecutive_errors: number;
-  last_used_at?: string;
-  // 账号级采集频率
-  request_interval: number;   // 秒
-  batch_size: number;
-  window_start: string;
-  window_end: string;
+function formatJson(value: unknown) {
+  return JSON.stringify(value ?? {}, null, 2);
 }
 
-const MOCK_SOURCES: DataSource[] = [
-  { id: 's1', name: '网易外贸通', system_alias: 'waimao_tong', display_alias: '贸易数据', usage: '公司信息搜索', account_count: 3, is_active: true, daily_quota: 1000, today_used: 342 },
-  { id: 's2', name: '腾道', system_alias: 'tengdao', display_alias: '采购数据', usage: '海关进出口数据', account_count: 2, is_active: true, daily_quota: 500, today_used: 120 },
-  { id: 's3', name: '励销云', system_alias: 'lixiaoyun', display_alias: '企业数据', usage: '精准客户反查', account_count: 1, is_active: true, daily_quota: 200, today_used: 87 },
-];
+export function Component() {
+  const [items, setItems] = useState<ApiDataSource[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<ApiDataSource | null>(null);
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
+  const [credentials, setCredentials] = useState<ApiDataSourceCredential[]>([]);
+  const [editingCredential, setEditingCredential] = useState<ApiDataSourceCredential | null>(null);
+  const [credentialDrawerOpen, setCredentialDrawerOpen] = useState(false);
+  const [sourceForm] = Form.useForm<SourceFormValues>();
+  const [credentialForm] = Form.useForm<CredentialFormValues>();
 
-const MOCK_ACCOUNTS: Account[] = [
-  { id: 'a1', username: 'admin@waimao.com', account_no: 'ACC001', is_active: true, daily_quota: 400, today_used: 150, consecutive_errors: 0, last_used_at: '2026-04-17 14:32', request_interval: 30, batch_size: 100, window_start: '02:00', window_end: '06:00' },
-  { id: 'a2', username: 'user2@waimao.com', account_no: 'ACC002', is_active: true, daily_quota: 400, today_used: 130, consecutive_errors: 0, last_used_at: '2026-04-17 14:28', request_interval: 45, batch_size: 80, window_start: '01:00', window_end: '05:00' },
-  { id: 'a3', username: 'user3@waimao.com', account_no: 'ACC003', is_active: false, daily_quota: 200, today_used: 62, consecutive_errors: 3, last_used_at: '2026-04-16 09:12', request_interval: 60, batch_size: 50, window_start: '03:00', window_end: '07:00' },
-];
-
-function AccountTab() {
-  const [addOpen, setAddOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [addForm] = Form.useForm();
-  const [editForm] = Form.useForm();
-
-  const openEdit = (account: Account) => {
-    setEditingAccount(account);
-    editForm.setFieldsValue({
-      username: account.username,
-      account_no: account.account_no,
-      daily_quota: account.daily_quota,
-      request_interval: account.request_interval,
-      batch_size: account.batch_size,
-      window_start: account.window_start,
-      window_end: account.window_end,
-    });
-    setEditOpen(true);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const response = await adminApi.dataSources.list();
+      setItems(response.data.data);
+    } catch {
+      message.error('加载数据源失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const cols: ColumnsType<Account> = [
+  const loadCredentials = async (sourceType: string) => {
+    setCredentialsLoading(true);
+    try {
+      const response = await adminApi.dataSources.getCredentials(sourceType);
+      setCredentials(response.data.data);
+    } catch {
+      message.error('加载凭证失败');
+    } finally {
+      setCredentialsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const openCreate = () => {
+    setEditing(null);
+    sourceForm.setFieldsValue(EMPTY_SOURCE);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (record: ApiDataSource) => {
+    setEditing(record);
+    sourceForm.setFieldsValue({
+      source_type: record.source_type,
+      name: record.name,
+      alias_code: record.alias_code ?? '',
+      purpose: record.purpose ?? '',
+      config_json: formatJson(record.config ?? {}),
+    });
+    setDrawerOpen(true);
+  };
+
+  const openCredentials = async (record: ApiDataSource) => {
+    setEditing(record);
+    setEditingCredential(null);
+    setCredentialsOpen(true);
+    credentialForm.setFieldsValue(EMPTY_CREDENTIAL);
+    await loadCredentials(record.source_type);
+  };
+
+  const openCreateCredential = () => {
+    setEditingCredential(null);
+    credentialForm.setFieldsValue(EMPTY_CREDENTIAL);
+    setCredentialDrawerOpen(true);
+  };
+
+  const openEditCredential = (record: ApiDataSourceCredential) => {
+    setEditingCredential(record);
+    credentialForm.setFieldsValue({
+      account_label: record.account_label ?? '',
+      is_active: record.is_active,
+    });
+    setCredentialDrawerOpen(true);
+  };
+
+  const saveSource = async () => {
+    try {
+      const values = await sourceForm.validateFields();
+      setSaving(true);
+      const payload = {
+        source_type: values.source_type.trim(),
+        name: values.name.trim(),
+        alias_code: values.alias_code?.trim() || undefined,
+        purpose: values.purpose?.trim() || undefined,
+        config: parseJson(values.config_json),
+      };
+
+      if (editing) {
+        await adminApi.dataSources.update(editing.source_type, payload);
+        message.success('数据源已更新');
+      } else {
+        await adminApi.dataSources.create(payload);
+        message.success('数据源已创建');
+      }
+
+      setDrawerOpen(false);
+      setEditing(null);
+      sourceForm.resetFields();
+      await load();
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        message.error('配置 JSON 格式不正确');
+        return;
+      }
+
+      message.error('保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveCredential = async () => {
+    if (!editing) {
+      return;
+    }
+
+    try {
+      const values = await credentialForm.validateFields();
+      const payload = {
+        account_label: values.account_label?.trim() || undefined,
+        is_active: values.is_active,
+      };
+
+      if (editingCredential) {
+        await adminApi.dataSources.updateCredential(editing.source_type, editingCredential.id, payload);
+        message.success('凭证已更新');
+      } else {
+        await adminApi.dataSources.createCredential(editing.source_type, payload);
+        message.success('凭证已创建');
+      }
+
+      setCredentialDrawerOpen(false);
+      setEditingCredential(null);
+      credentialForm.resetFields();
+      await loadCredentials(editing.source_type);
+    } catch {
+      message.error('保存凭证失败');
+    }
+  };
+
+  const deleteCredential = async (id: string) => {
+    if (!editing) {
+      return;
+    }
+
+    try {
+      await adminApi.dataSources.deleteCredential(editing.source_type, id);
+      message.success('凭证已删除');
+      await loadCredentials(editing.source_type);
+    } catch {
+      message.error('删除失败');
+    }
+  };
+
+  const sourceColumns: ColumnsType<ApiDataSource> = [
+    { title: '名称', dataIndex: 'name', render: (value) => <Text strong>{value}</Text> },
+    { title: '类型', dataIndex: 'source_type', width: 180, render: (value) => <Tag color="blue">{value}</Tag> },
+    { title: '别名编码', dataIndex: 'alias_code', width: 160, render: (value) => value ? <Tag>{value}</Tag> : '—' },
+    { title: '用途', dataIndex: 'purpose', ellipsis: true, render: (value) => value ?? '—' },
     {
-      title: '账号',
-      width: 220,
-      render: (_, r) => (
-        <Space direction="vertical" size={0}>
-          <Space size={6}>
-            <Text style={{ whiteSpace: 'nowrap' }}>{r.username}</Text>
-            {r.consecutive_errors > 0 && <Badge count={r.consecutive_errors} title="连续出错次数" />}
-          </Space>
-          {r.account_no && (
-            <Text type="secondary" style={{ fontSize: 11 }}>编号：{r.account_no}</Text>
-          )}
+      title: '操作',
+      width: 200,
+      render: (_, record) => (
+        <Space>
+          <Button type="link" icon={<EditOutlined />} onClick={() => openEdit(record)}>
+            编辑
+          </Button>
+          <Button type="link" onClick={() => void openCredentials(record)}>
+            凭证
+          </Button>
         </Space>
       ),
     },
+  ];
+
+  const credentialColumns: ColumnsType<ApiDataSourceCredential> = [
+    { title: '账号标签', dataIndex: 'account_label', render: (value, record) => value ?? record.id },
     {
       title: '状态',
       dataIndex: 'is_active',
-      width: 70,
-      render: (v) => <Switch checked={v} size="small" onChange={() => message.info('状态已更新')} />,
-    },
-    {
-      title: '日配额 / 已用',
-      width: 120,
-      render: (_, r) => <Text style={{ whiteSpace: 'nowrap' }}>{r.today_used} / {r.daily_quota}</Text>,
-    },
-    {
-      title: '采集频率',
-      width: 160,
-      render: (_, r) => (
-        <Space direction="vertical" size={0}>
-          <Text style={{ fontSize: 12 }}>间隔 {r.request_interval}s · 批量 {r.batch_size} 条</Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>{r.window_start} ~ {r.window_end}</Text>
-        </Space>
+      width: 100,
+      render: (value, record) => (
+        <Switch
+          checked={value}
+          size="small"
+          onChange={async (checked) => {
+            if (!editing) {
+              return;
+            }
+
+            try {
+              await adminApi.dataSources.updateCredential(editing.source_type, record.id, {
+                account_label: record.account_label,
+                is_active: checked,
+              });
+              message.success('状态已更新');
+              await loadCredentials(editing.source_type);
+            } catch {
+              message.error('状态更新失败');
+            }
+          }}
+        />
       ),
     },
-    {
-      title: '最后使用',
-      dataIndex: 'last_used_at',
-      width: 140,
-      render: (v) => v ?? '—',
-    },
+    { title: '创建时间', dataIndex: 'created_at', width: 180 },
     {
       title: '操作',
-      width: 110,
+      width: 160,
       render: (_, record) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
-          <Popconfirm title="确认删除该账号？" onConfirm={() => message.success('已删除')}>
-            <Button type="link" size="small" danger>删除</Button>
+          <Button type="link" icon={<EditOutlined />} onClick={() => openEditCredential(record)}>
+            编辑
+          </Button>
+          <Popconfirm title="确认删除该凭证？" onConfirm={() => void deleteCredential(record.id)}>
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -142,186 +295,88 @@ function AccountTab() {
 
   return (
     <>
-      <div style={{ marginBottom: 12 }}>
-        <Button icon={<PlusOutlined />} onClick={() => setAddOpen(true)}>添加账号</Button>
-      </div>
-      <Table rowKey="id" columns={cols} dataSource={MOCK_ACCOUNTS} size="small" pagination={false} scroll={{ x: 700 }} />
-
-      {/* 添加账号 */}
-      <Modal
-        title="添加账号"
-        open={addOpen}
-        onOk={() => addForm.validateFields().then(() => { message.success('账号已添加'); setAddOpen(false); addForm.resetFields(); })}
-        onCancel={() => { setAddOpen(false); addForm.resetFields(); }}
-      >
-        <Form form={addForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="username" label="登录邮箱" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="password" label="密码" rules={[{ required: true }]}><Input.Password /></Form.Item>
-          <Form.Item name="account_no" label="账号编号（选填）"><Input /></Form.Item>
-          <Form.Item name="daily_quota" label="日配额" initialValue={400}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item label="采集时间窗口">
-            <Space>
-              <Form.Item name="window_start" noStyle initialValue="02:00"><Input style={{ width: 90 }} placeholder="HH:mm" /></Form.Item>
-              <Text>~</Text>
-              <Form.Item name="window_end" noStyle initialValue="06:00"><Input style={{ width: 90 }} placeholder="HH:mm" /></Form.Item>
-            </Space>
-          </Form.Item>
-          <Form.Item name="request_interval" label="请求间隔（秒）" initialValue={30}><InputNumber min={5} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="batch_size" label="批量上限（条/批）" initialValue={100}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-        </Form>
-      </Modal>
-
-      {/* 编辑账号（含频率） */}
-      <Modal
-        title={`编辑账号 — ${editingAccount?.username}`}
-        open={editOpen}
-        onOk={() => editForm.validateFields().then(() => { message.success('已保存'); setEditOpen(false); })}
-        onCancel={() => setEditOpen(false)}
-      >
-        <Form form={editForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="username" label="登录邮箱" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="account_no" label="账号编号（选填）"><Input /></Form.Item>
-          <Form.Item name="daily_quota" label="日配额"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item label="采集时间窗口">
-            <Space>
-              <Form.Item name="window_start" noStyle><Input style={{ width: 90 }} placeholder="HH:mm" /></Form.Item>
-              <Text>~</Text>
-              <Form.Item name="window_end" noStyle><Input style={{ width: 90 }} placeholder="HH:mm" /></Form.Item>
-            </Space>
-          </Form.Item>
-          <Form.Item name="request_interval" label="请求间隔（秒）"><InputNumber min={5} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="batch_size" label="批量上限（条/批）"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-        </Form>
-      </Modal>
-    </>
-  );
-}
-
-export function Component() {
-  const [editingSource, setEditingSource] = useState<DataSource | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sourceForm] = Form.useForm();
-
-  const openConfig = (source: DataSource) => {
-    setEditingSource(source);
-    sourceForm.setFieldsValue({
-      display_alias: source.display_alias,
-      usage: source.usage,
-      is_active: source.is_active,
-    });
-    setDrawerOpen(true);
-  };
-
-  const columns: ColumnsType<DataSource> = [
-    {
-      title: '渠道名称',
-      dataIndex: 'name',
-      render: (name, r) => (
-        <Space>
-          <Text strong>{name}</Text>
-          {!r.is_active && <Tag>已禁用</Tag>}
-        </Space>
-      ),
-    },
-    {
-      title: '系统编码',
-      dataIndex: 'system_alias',
-      width: 130,
-      render: (v) => <Tag color="default" style={{ fontFamily: 'monospace' }}>{v}</Tag>,
-    },
-    {
-      title: '租户展示别名',
-      dataIndex: 'display_alias',
-      width: 130,
-      render: (v) => <Tag color="blue">{v}</Tag>,
-    },
-    { title: '用途', dataIndex: 'usage' },
-    {
-      title: '账号数',
-      dataIndex: 'account_count',
-      width: 80,
-      render: (n) => <Badge count={n} style={{ backgroundColor: '#52c41a' }} />,
-    },
-    {
-      title: '今日用量',
-      width: 160,
-      render: (_, r) => (
-        <Space direction="vertical" size={2}>
-          <Text style={{ fontSize: 12 }}>{r.today_used} / {r.daily_quota}</Text>
-          <div style={{ background: '#f0f0f0', borderRadius: 4, width: 120, height: 6, overflow: 'hidden' }}>
-            <div style={{
-              background: r.today_used / r.daily_quota > 0.8 ? '#ff4d4f' : '#1677ff',
-              width: `${Math.min((r.today_used / r.daily_quota) * 100, 100)}%`,
-              height: '100%',
-            }} />
-          </div>
-        </Space>
-      ),
-    },
-    {
-      title: '操作',
-      width: 90,
-      render: (_, record) => (
-        <Button type="link" icon={<EditOutlined />} onClick={() => openConfig(record)}>
-          配置
-        </Button>
-      ),
-    },
-  ];
-
-  return (
-    <>
       <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />}>添加渠道</Button>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+          新增数据源
+        </Button>
       </div>
 
-      <Table rowKey="id" columns={columns} dataSource={MOCK_SOURCES} size="middle" pagination={false} />
+      <Table rowKey="id" columns={sourceColumns} dataSource={items} loading={loading} pagination={false} />
 
       <Drawer
-        title={`配置 — ${editingSource?.name}`}
-        width={680}
+        title={editing ? `编辑数据源 - ${editing.name}` : '新增数据源'}
+        width={640}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        extra={<Button type="primary" onClick={() => { message.success('配置已保存'); setDrawerOpen(false); }}>保存</Button>}
+        extra={<Button type="primary" loading={saving} onClick={() => void saveSource()}>保存</Button>}
       >
-        <Tabs items={[
-          {
-            key: 'accounts',
-            label: '账号管理',
-            children: <AccountTab />,
-          },
-          {
-            key: 'basic',
-            label: '基本配置',
-            children: (
-              <Form form={sourceForm} layout="vertical">
-                <Form.Item name="display_alias" label="租户展示别名" extra="租户在公司列表、数据标记等处看到的名称，不暴露真实数据源">
-                  <Input placeholder="如：贸易数据" style={{ width: 240 }} />
-                </Form.Item>
-                <Form.Item name="usage" label="用途说明">
-                  <Input />
-                </Form.Item>
-                <Form.Item name="is_active" label="启用状态" valuePropName="checked">
-                  <Switch />
-                </Form.Item>
-              </Form>
-            ),
-          },
-          {
-            key: 'rules',
-            label: '落库规则',
-            children: (
-              <Space direction="vertical" style={{ width: '100%' }}>
-                <Descriptions bordered column={1} size="small">
-                  <Descriptions.Item label="路径1">直接采集 → shared_companies</Descriptions.Item>
-                  <Descriptions.Item label="路径2">竞品反查 → competitor → shared_companies</Descriptions.Item>
-                  <Descriptions.Item label="去重策略">数据源ID为主，公司名辅助</Descriptions.Item>
-                </Descriptions>
-                <Text type="secondary" style={{ fontSize: 12 }}>落库规则由平台统一维护，不支持自定义修改。</Text>
-              </Space>
-            ),
-          },
-        ]} />
+        <Form form={sourceForm} layout="vertical" initialValues={EMPTY_SOURCE}>
+          <Form.Item name="source_type" label="数据源类型" rules={[{ required: true, message: '请输入数据源类型' }]}>
+            <Input placeholder="waimao_tong" />
+          </Form.Item>
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="alias_code" label="别名编码">
+            <Input placeholder="trade_data" />
+          </Form.Item>
+          <Form.Item name="purpose" label="用途说明">
+            <Input placeholder="公司信息搜索" />
+          </Form.Item>
+          <Form.Item name="config_json" label="配置 JSON">
+            <Input.TextArea rows={8} placeholder='{"region":"cn"}' />
+          </Form.Item>
+        </Form>
+      </Drawer>
+
+      <Modal
+        title={editing ? `凭证管理 - ${editing.name}` : '凭证管理'}
+        open={credentialsOpen}
+        onCancel={() => {
+          setCredentialsOpen(false);
+          setEditing(null);
+          setEditingCredential(null);
+          setCredentials([]);
+          credentialForm.resetFields();
+        }}
+        footer={null}
+        width={760}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateCredential} disabled={!editing}>
+            新建凭证
+          </Button>
+
+          <Table
+            rowKey="id"
+            columns={credentialColumns}
+            dataSource={credentials}
+            loading={credentialsLoading}
+            pagination={false}
+            size="small"
+          />
+        </Space>
+      </Modal>
+
+      <Drawer
+        title={editingCredential ? '编辑凭证' : '新建凭证'}
+        width={420}
+        open={credentialDrawerOpen}
+        onClose={() => {
+          setCredentialDrawerOpen(false);
+          setEditingCredential(null);
+          credentialForm.resetFields();
+        }}
+        extra={<Button type="primary" onClick={() => void saveCredential()}>保存</Button>}
+      >
+        <Form form={credentialForm} layout="vertical" initialValues={EMPTY_CREDENTIAL}>
+          <Form.Item name="account_label" label="账号标签">
+            <Input />
+          </Form.Item>
+          <Form.Item name="is_active" label="启用" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
       </Drawer>
     </>
   );

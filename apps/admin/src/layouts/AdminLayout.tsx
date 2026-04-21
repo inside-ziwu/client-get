@@ -1,4 +1,5 @@
 import { Outlet, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   DatabaseOutlined,
   StarOutlined,
@@ -11,6 +12,7 @@ import {
 import { AppLayout, RequireAuth } from '@shared/ui';
 import type { SidebarItem } from '@shared/ui';
 import { useAuthStore } from '@shared/hooks';
+import { adminApi } from '../lib/api';
 
 const sidebarItems: SidebarItem[] = [
   { key: 'data-sources', path: '/data-sources', icon: <DatabaseOutlined />, label: '数据源管理' },
@@ -24,18 +26,30 @@ const sidebarItems: SidebarItem[] = [
 
 function AdminLayout() {
   const navigate = useNavigate();
+  const payload = useAuthStore((s) => s.payload);
   const logout = useAuthStore((s) => s.logout);
+  const meQuery = useQuery({
+    queryKey: ['admin', 'auth', 'me'],
+    queryFn: async () => (await adminApi.auth.me()).data.data,
+  });
 
   const handleLogout = () => {
     logout();
     navigate('/login', { replace: true });
   };
 
+  const currentUser = meQuery.data
+    ? { name: meQuery.data.name, email: meQuery.data.email }
+    : {
+        name: payload?.roles?.includes('platform_admin') ? 'Platform Admin' : 'Admin',
+        email: 'platform-admin',
+      };
+
   return (
     <RequireAuth>
       <AppLayout
         sidebarItems={sidebarItems}
-        currentUser={{ name: 'Admin', email: 'admin@clientget.com' }}
+        currentUser={currentUser}
         onLogout={handleLogout}
       >
         <Outlet />

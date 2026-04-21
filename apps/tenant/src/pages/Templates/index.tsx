@@ -1,362 +1,379 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Table,
+  Alert,
   Button,
-  Tag,
-  Space,
-  Tabs,
+  Descriptions,
   Drawer,
-  Modal,
+  Empty,
   Form,
   Input,
-  Select,
-  Typography,
+  Modal,
   Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
   message,
-  Radio,
-  Spin,
-  Card,
-  Empty,
 } from 'antd';
-import {
-  PlusOutlined,
-  RobotOutlined,
-  CopyOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  SendOutlined,
-} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { CopyOutlined, DeleteOutlined, EditOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { BillingBalance } from '@shared/types';
 import { AIBalanceGuard } from '@shared/ui';
+import type { EmailTemplate } from '@shared/api';
+import { queryKeys } from '@shared/api';
+import { tenantApi } from '../../lib/api';
 
-const { Text } = Typography;
-const { Option } = Select;
-const { TextArea } = Input;
+const { Text, Paragraph } = Typography;
 
-interface Template {
-  id: string;
+type EditorValues = {
   name: string;
   category: string;
-  source: 'platform' | 'custom';
   subject: string;
-  body_preview: string;
-  use_count: number;
-  is_ai_generated?: boolean;
-}
-
-const MOCK_PLATFORM_TEMPLATES: Template[] = [
-  { id: 'pt1', name: '首次触达-PCB行业通用', category: '首次触达', source: 'platform', subject: 'Inquiry about {{产品标签}} Products', body_preview: 'Dear {{联系人姓名}},\n\nI am reaching out regarding our {{产品标签}} products and believe there may be a great opportunity for collaboration...', use_count: 128 },
-  { id: 'pt2', name: '跟进询价-PCB', category: '跟进', source: 'platform', subject: 'Follow-up: {{产品标签}} Inquiry', body_preview: 'Dear {{联系人姓名}},\n\nI hope this email finds you well. I\'m following up on my previous message regarding {{产品标签}}...', use_count: 67 },
-  { id: 'pt3', name: '促成下单-通用', category: '促成下单', source: 'platform', subject: 'Special Offer: {{产品标签}} — Limited Time', body_preview: 'Dear {{联系人姓名}},\n\nWe have a special promotional offer for {{产品标签}} that I\'d like to share with you...', use_count: 34 },
-  { id: 'pt4', name: '节日问候-新年', category: '节日问候', source: 'platform', subject: 'Happy New Year from {{公司名称}}', body_preview: 'Dear {{联系人姓名}},\n\nAs we step into the new year, I wanted to take a moment to express our gratitude...', use_count: 215 },
-];
-
-const MOCK_CUSTOM_TEMPLATES: Template[] = [
-  { id: 'ct1', name: '我的跟进模板', category: '跟进', source: 'custom', subject: 'Re: {{产品标签}} — Quick Update', body_preview: 'Hi {{联系人姓名}},\n\nJust checking in on our previous conversation about {{产品标签}}...', use_count: 12, is_ai_generated: true },
-  { id: 'ct2', name: '技术专业开发信', category: '首次触达', source: 'custom', subject: 'Technical Partnership Opportunity — {{产品标签}}', body_preview: 'Dear {{联系人姓名}},\n\nAs a technical specialist in {{产品标签}} manufacturing...', use_count: 5 },
-];
-
-const VARIABLES = ['{{公司名称}}', '{{联系人姓名}}', '{{联系人职位}}', '{{产品标签}}'];
-
-const CATEGORY_COLOR: Record<string, string> = {
-  '首次触达': 'blue',
-  '跟进': 'cyan',
-  '促成下单': 'green',
-  '节日问候': 'orange',
+  body_html: string;
+  body_text: string;
 };
 
-interface AIGenerateResult {
-  version: string;
-  subject: string;
-  body: string;
-}
+type AiValues = {
+  name: string;
+  category: string;
+  company_name: string;
+  prompt: string;
+  subject?: string;
+};
 
-const MOCK_AI_RESULTS: AIGenerateResult[] = [
-  { version: 'A', subject: 'Innovative {{产品标签}} Solutions for Your Business', body: 'Dear {{联系人姓名}},\n\nI hope this message finds you well. I am reaching out from {{公司名称}}, a leading manufacturer of {{产品标签}}...' },
-  { version: 'B', subject: 'Hi {{联系人姓名}}, Quick Question About Your {{产品标签}} Needs', body: 'Hi {{联系人姓名}},\n\nI came across {{公司名称}} and noticed you work in the {{产品标签}} space...' },
-  { version: 'C', subject: '{{产品标签}} Technical Partnership — {{公司名称}}', body: 'Dear {{联系人姓名}},\n\nAs a certified {{产品标签}} specialist, we at {{公司名称}} have been serving global clients since 2005...' },
+const CATEGORY_OPTIONS = [
+  { label: 'cold_outreach', value: 'cold_outreach' },
+  { label: 'follow_up', value: 'follow_up' },
+  { label: 'promotion', value: 'promotion' },
+  { label: 'festival', value: 'festival' },
 ];
 
-function TemplateEditorDrawer({ template, open, onClose }: { template: Template | null; open: boolean; onClose: () => void }) {
-  const [bodyValue, setBodyValue] = useState(template?.body_preview ?? '');
-  const insertVar = (v: string) => setBodyValue((prev) => prev + v);
-
-  return (
-    <Drawer
-      title={template ? `编辑模板 — ${template.name}` : '新建模板'}
-      width={640}
-      open={open}
-      onClose={onClose}
-      extra={<Button type="primary" onClick={() => { message.success('模板已保存'); onClose(); }}>保存</Button>}
-    >
-      <Form layout="vertical" initialValues={{ category: template?.category, name: template?.name, subject: template?.subject }}>
-        <Form.Item name="name" label="模板名称" rules={[{ required: true }]}><Input /></Form.Item>
-        <Form.Item name="category" label="场景标签" rules={[{ required: true }]}>
-          <Select>
-            <Option value="首次触达">首次触达</Option>
-            <Option value="跟进">跟进</Option>
-            <Option value="促成下单">促成下单</Option>
-            <Option value="节日问候">节日问候</Option>
-          </Select>
-        </Form.Item>
-        <Form.Item name="subject" label="邮件主题" rules={[{ required: true }]}><Input /></Form.Item>
-        <Form.Item label="正文">
-          <TextArea
-            value={bodyValue}
-            onChange={(e) => setBodyValue(e.target.value)}
-            rows={12}
-            style={{ fontFamily: 'monospace', fontSize: 13 }}
-          />
-        </Form.Item>
-        <Form.Item label="插入变量">
-          <Space wrap>
-            {VARIABLES.map((v) => (
-              <Tag key={v} color="blue" style={{ cursor: 'pointer' }} onClick={() => insertVar(v)}>{v}</Tag>
-            ))}
-          </Space>
-        </Form.Item>
-        {bodyValue && (
-          <Form.Item label="预览效果">
-            <div style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 6, padding: 12, fontSize: 13, whiteSpace: 'pre-wrap' }}>
-              {bodyValue
-                .replace(/{{联系人姓名}}/g, 'John Doe')
-                .replace(/{{公司名称}}/g, 'ABC Co Ltd')
-                .replace(/{{产品标签}}/g, 'FPC PCB')
-                .replace(/{{联系人职位}}/g, 'Purchasing Manager')}
-            </div>
-          </Form.Item>
-        )}
-      </Form>
-    </Drawer>
-  );
-}
-
-function AIGenerateModal({ open, onClose, balance }: { open: boolean; onClose: () => void; balance: number }) {
-  const [step, setStep] = useState<'form' | 'loading' | 'result'>('form');
-  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
-
-  const handleGenerate = () => {
-    setStep('loading');
-    setTimeout(() => setStep('result'), 2000);
-  };
-
-  const handleSelect = (version: string) => {
-    setSelectedVersion(version);
-    message.success(`已选择版本 ${version}，即将进入模板编辑器`);
-    onClose();
-    setStep('form');
-  };
-
-  const handleClose = () => {
-    onClose();
-    setStep('form');
-  };
-
-  return (
-    <Modal title="🤖 AI生成邮件模板" open={open} onCancel={handleClose} footer={null} width={700}>
-      {step === 'form' && (
-        <Form layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item label="场景">
-            <Select defaultValue="首次触达" style={{ width: '100%' }}>
-              <Option value="首次触达">首次触达</Option>
-              <Option value="跟进">跟进</Option>
-              <Option value="促成下单">促成下单</Option>
-              <Option value="节日问候">节日问候</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item label="产品信息（简述你的产品）">
-            <TextArea rows={3} placeholder="如：PCB printed circuit board manufacturer, specializing in FPC and HDI boards..." />
-          </Form.Item>
-          <Form.Item label="语气风格">
-            <Radio.Group defaultValue="formal">
-              <Radio value="formal">正式商务</Radio>
-              <Radio value="friendly">友好轻松</Radio>
-              <Radio value="technical">技术专业</Radio>
-            </Radio.Group>
-          </Form.Item>
-          <Form.Item label="使用模型">
-            <Select defaultValue="deepseek" style={{ width: 200 }}>
-              <Option value="deepseek">DeepSeek V3</Option>
-              <Option value="gemini">Gemini 2.5</Option>
-              <Option value="glm">GLM-5</Option>
-            </Select>
-          </Form.Item>
-          <AIBalanceGuard balance={balance}>
-            <Button type="primary" block icon={<RobotOutlined />} onClick={handleGenerate}>
-              生成
-            </Button>
-          </AIBalanceGuard>
-        </Form>
-      )}
-
-      {step === 'loading' && (
-        <div style={{ textAlign: 'center', padding: '48px 0' }}>
-          <Spin size="large" />
-          <div style={{ marginTop: 16 }}>
-            <Text type="secondary">AI 正在生成模板，请稍候…</Text>
-          </div>
-        </div>
-      )}
-
-      {step === 'result' && (
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <Text>已生成 3 个版本，请选择最适合的：</Text>
-          <div style={{ display: 'flex', gap: 12 }}>
-            {MOCK_AI_RESULTS.map((r) => (
-              <Card
-                key={r.version}
-                size="small"
-                style={{ flex: 1, cursor: 'pointer', border: selectedVersion === r.version ? '2px solid #1677ff' : undefined }}
-                hoverable
-                actions={[<Button type="link" size="small" onClick={() => handleSelect(r.version)}>选择此版本</Button>]}
-              >
-                <Text strong>版本 {r.version}</Text>
-                <div style={{ marginTop: 6 }}>
-                  <Text style={{ fontSize: 12 }}>{r.subject}</Text>
-                </div>
-                <div style={{ marginTop: 4, fontSize: 11, color: '#999', overflow: 'hidden', maxHeight: 60 }}>
-                  {r.body.slice(0, 80)}…
-                </div>
-              </Card>
-            ))}
-          </div>
-        </Space>
-      )}
-    </Modal>
-  );
-}
-
 export function Component() {
-  const [activeTab, setActiveTab] = useState('platform');
+  const queryClient = useQueryClient();
   const [editorOpen, setEditorOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [aiModalOpen, setAiModalOpen] = useState(false);
-  const AI_BALANCE = 520;
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [editing, setEditing] = useState<EmailTemplate | null>(null);
+  const [previewData, setPreviewData] = useState<{ subject?: string; body_html?: string; body_text?: string } | null>(null);
+  const [editorForm] = Form.useForm<EditorValues>();
+  const [aiForm] = Form.useForm<AiValues>();
 
-  const openEditor = (t?: Template) => {
-    setEditingTemplate(t ?? null);
+  const templatesQuery = useQuery({
+    queryKey: queryKeys.emailTemplates.list(),
+    queryFn: async () => (await tenantApi.emailTemplates.list()).data.data,
+  });
+
+  const balanceQuery = useQuery({
+    queryKey: queryKeys.billing.balance(),
+    queryFn: async () => (await tenantApi.billing.balance()).data.data as BillingBalance,
+  });
+
+  const balance = balanceQuery.data?.balance ?? balanceQuery.data?.amount ?? 0;
+
+  const createOrUpdateMutation = useMutation({
+    mutationFn: async (values: EditorValues) => {
+      const payload = {
+        name: values.name.trim(),
+        category: values.category.trim(),
+        subject: values.subject.trim(),
+        body_html: values.body_html,
+        body_text: values.body_text,
+        variables: [],
+        source_type: editing?.source_type ?? 'custom',
+      };
+      if (editing) {
+        return tenantApi.emailTemplates.update(editing.id, payload);
+      }
+      return tenantApi.emailTemplates.create(payload);
+    },
+    onSuccess: async () => {
+      message.success(editing ? '模板已更新' : '模板已创建');
+      setEditorOpen(false);
+      setEditing(null);
+      editorForm.resetFields();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.emailTemplates.all() });
+    },
+    onError: () => message.error('模板保存失败'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => tenantApi.emailTemplates.delete(id),
+    onSuccess: async () => {
+      message.success('模板已删除');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.emailTemplates.all() });
+    },
+    onError: () => message.error('模板删除失败'),
+  });
+
+  const cloneMutation = useMutation({
+    mutationFn: (id: string) => tenantApi.emailTemplates.clone(id),
+    onSuccess: async () => {
+      message.success('模板已克隆');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.emailTemplates.all() });
+    },
+    onError: () => message.error('模板克隆失败'),
+  });
+
+  const aiMutation = useMutation({
+    mutationFn: async (values: AiValues) =>
+      (
+        await tenantApi.emailTemplates.aiGenerate({
+          prompt: values.prompt,
+          company_name: values.company_name,
+          category: values.category,
+          subject: values.subject,
+          name: values.name || undefined,
+        })
+      ).data.data,
+    onSuccess: async (template) => {
+      message.success('AI 模板已生成');
+      setAiOpen(false);
+      aiForm.resetFields();
+      await queryClient.invalidateQueries({ queryKey: queryKeys.emailTemplates.all() });
+      setEditing(template);
+      editorForm.setFieldsValue({
+        name: template.name,
+        category: template.category ?? 'cold_outreach',
+        subject: template.subject,
+        body_html: template.body_html,
+        body_text: template.body_text ?? '',
+      });
+      setEditorOpen(true);
+    },
+    onError: () => message.error('AI 生成失败'),
+  });
+
+  const openCreate = () => {
+    setEditing(null);
+    editorForm.setFieldsValue({
+      name: '',
+      category: 'cold_outreach',
+      subject: '',
+      body_html: '',
+      body_text: '',
+    });
     setEditorOpen(true);
   };
 
-  const expandedRowRender = (record: Template) => (
-    <div style={{ padding: '8px 16px 16px', background: '#fafafa', borderRadius: 4 }}>
-      <div style={{ marginBottom: 8 }}>
-        <Text type="secondary" style={{ fontSize: 11 }}>主题行</Text>
-        <div style={{ marginTop: 2, padding: '6px 10px', background: '#fff', border: '1px solid #f0f0f0', borderRadius: 4, fontSize: 13 }}>
-          {record.subject}
-        </div>
-      </div>
-      <div>
-        <Text type="secondary" style={{ fontSize: 11 }}>正文预览</Text>
-        <div style={{ marginTop: 2, padding: '10px 12px', background: '#fff', border: '1px solid #f0f0f0', borderRadius: 4, fontSize: 13, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-          {record.body_preview}
-        </div>
-      </div>
-    </div>
+  const openEdit = async (template: EmailTemplate) => {
+    setEditing(template);
+    const detail = (await tenantApi.emailTemplates.detail(template.id)).data.data;
+    editorForm.setFieldsValue({
+      name: detail.name,
+      category: detail.category ?? 'cold_outreach',
+      subject: detail.subject,
+      body_html: detail.body_html,
+      body_text: detail.body_text ?? '',
+    });
+    setEditorOpen(true);
+  };
+
+  const openPreview = async (template: EmailTemplate) => {
+    try {
+      const preview = (await tenantApi.emailTemplates.preview(template.id)).data.data;
+      setPreviewData(preview);
+      setPreviewOpen(true);
+    } catch {
+      message.error('模板预览加载失败');
+    }
+  };
+
+  const templates = templatesQuery.data ?? [];
+  const platformTemplates = useMemo(
+    () => templates.filter((item) => item.source_type === 'platform_copy'),
+    [templates],
+  );
+  const customTemplates = useMemo(
+    () => templates.filter((item) => item.source_type !== 'platform_copy'),
+    [templates],
   );
 
-  const platformCols: ColumnsType<Template> = [
-    {
-      title: '模板名称', dataIndex: 'name',
-      render: (v) => <Text strong>{v}</Text>,
-    },
-    { title: '场景标签', dataIndex: 'category', width: 100, render: (v) => <Tag color={CATEGORY_COLOR[v] ?? 'default'}>{v}</Tag> },
-    { title: '使用次数', dataIndex: 'use_count', width: 90 },
-    {
-      title: '操作', width: 140,
-      render: () => (
-        <Space>
-          <Button type="link" size="small" icon={<SendOutlined />} onClick={() => message.success('已加入发送计划选择')}>使用</Button>
-          <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => message.success('已复制为自有模板')}>复制</Button>
-        </Space>
-      ),
-    },
-  ];
-
-  const customCols: ColumnsType<Template> = [
+  const columns: ColumnsType<EmailTemplate> = [
     {
       title: '模板名称',
       dataIndex: 'name',
-      render: (v, r) => (
+      render: (value, record) => (
         <Space>
-          <Text strong>{v}</Text>
-          {r.is_ai_generated && <Tag color="purple" style={{ fontSize: 11 }}>AI生成</Tag>}
+          <Text strong>{value}</Text>
+          {record.is_ai_generated && <Tag color="purple">AI</Tag>}
         </Space>
       ),
     },
-    { title: '场景标签', dataIndex: 'category', width: 100, render: (v) => <Tag color={CATEGORY_COLOR[v] ?? 'default'}>{v}</Tag> },
-    { title: '使用次数', dataIndex: 'use_count', width: 90 },
     {
-      title: '操作', width: 160,
+      title: '分类',
+      dataIndex: 'category',
+      width: 140,
+      render: (value) => <Tag>{value ?? 'uncategorized'}</Tag>,
+    },
+    {
+      title: '主题',
+      dataIndex: 'subject',
+      render: (value) => <Text type="secondary">{value}</Text>,
+    },
+    {
+      title: '更新时间',
+      dataIndex: 'updated_at',
+      width: 180,
+    },
+    {
+      title: '操作',
+      width: 260,
       render: (_, record) => (
-        <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEditor(record)}>编辑</Button>
-          <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => message.success('已复制')}>复制</Button>
-          <Popconfirm title="确认删除此模板？" onConfirm={() => message.success('已删除')}>
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>删除</Button>
-          </Popconfirm>
+        <Space size={0}>
+          <Button type="link" size="small" onClick={() => void openPreview(record)}>
+            预览
+          </Button>
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => void openEdit(record)}>
+            编辑
+          </Button>
+          <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => cloneMutation.mutate(record.id)}>
+            克隆
+          </Button>
+          {record.source_type !== 'platform_copy' && (
+            <Popconfirm title="确认删除此模板？" onConfirm={() => deleteMutation.mutate(record.id)}>
+              <Button type="link" size="small" danger icon={<DeleteOutlined />}>
+                删除
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
   ];
 
   return (
-    <>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openEditor()}>新建模板</Button>
-        <AIBalanceGuard balance={AI_BALANCE}>
-          <Button icon={<RobotOutlined />} onClick={() => setAiModalOpen(true)}>AI生成</Button>
-        </AIBalanceGuard>
-      </div>
+    <Space direction="vertical" style={{ width: '100%' }} size="large">
+      <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+        <div>
+          <Text strong style={{ fontSize: 16 }}>邮件模板</Text>
+          <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            平台模板、副本模板和 AI 生成模板全部来自真实后端。
+          </Paragraph>
+        </div>
+        <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            新建模板
+          </Button>
+          <AIBalanceGuard balance={balance}>
+            <Button icon={<RobotOutlined />} onClick={() => setAiOpen(true)}>
+              AI 生成
+            </Button>
+          </AIBalanceGuard>
+        </Space>
+      </Space>
+
+      {templatesQuery.isError && (
+        <Alert type="error" showIcon message="模板加载失败" />
+      )}
 
       <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
         items={[
           {
             key: 'platform',
-            label: `平台官方模板 (${MOCK_PLATFORM_TEMPLATES.length})`,
+            label: `平台模板 (${platformTemplates.length})`,
             children: (
               <Table
                 rowKey="id"
-                columns={platformCols}
-                dataSource={MOCK_PLATFORM_TEMPLATES}
-                size="middle"
+                columns={columns}
+                dataSource={platformTemplates}
+                loading={templatesQuery.isLoading}
                 pagination={false}
-                expandable={{ expandedRowRender }}
+                locale={{ emptyText: <Empty description="暂无平台模板副本" /> }}
               />
             ),
           },
           {
             key: 'custom',
-            label: `我的模板 (${MOCK_CUSTOM_TEMPLATES.length})`,
-            children: MOCK_CUSTOM_TEMPLATES.length === 0 ? (
-              <Empty
-                description="还没有自建模板"
-                style={{ padding: '48px 0' }}
-              >
-                <Space>
-                  <Button type="primary" onClick={() => openEditor()}>新建模板</Button>
-                  <Button icon={<RobotOutlined />} onClick={() => setAiModalOpen(true)}>AI生成</Button>
-                </Space>
-              </Empty>
-            ) : (
+            label: `自有模板 (${customTemplates.length})`,
+            children: (
               <Table
                 rowKey="id"
-                columns={customCols}
-                dataSource={MOCK_CUSTOM_TEMPLATES}
-                size="middle"
+                columns={columns}
+                dataSource={customTemplates}
+                loading={templatesQuery.isLoading}
                 pagination={false}
-                expandable={{ expandedRowRender }}
+                locale={{ emptyText: <Empty description="暂无自有模板" /> }}
               />
             ),
           },
         ]}
       />
 
-      <TemplateEditorDrawer template={editingTemplate} open={editorOpen} onClose={() => setEditorOpen(false)} />
-      <AIGenerateModal open={aiModalOpen} onClose={() => setAiModalOpen(false)} balance={AI_BALANCE} />
-    </>
+      <Drawer
+        title={editing ? `编辑模板 / ${editing.name}` : '新建模板'}
+        width={720}
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        extra={
+          <Button
+            type="primary"
+            loading={createOrUpdateMutation.isPending}
+            onClick={async () => createOrUpdateMutation.mutate(await editorForm.validateFields())}
+          >
+            保存
+          </Button>
+        }
+      >
+        <Form form={editorForm} layout="vertical">
+          <Form.Item name="name" label="模板名称" rules={[{ required: true, message: '请输入模板名称' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="category" label="分类" rules={[{ required: true, message: '请输入分类' }]}>
+            <Select options={CATEGORY_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="subject" label="主题" rules={[{ required: true, message: '请输入主题' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="body_html" label="HTML 正文" rules={[{ required: true, message: '请输入 HTML 正文' }]}>
+            <Input.TextArea rows={8} />
+          </Form.Item>
+          <Form.Item name="body_text" label="纯文本正文">
+            <Input.TextArea rows={6} />
+          </Form.Item>
+        </Form>
+      </Drawer>
+
+      <Modal title="模板预览" open={previewOpen} onCancel={() => setPreviewOpen(false)} footer={null} width={760}>
+        <Descriptions column={1} bordered size="small">
+          <Descriptions.Item label="主题">{previewData?.subject ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="纯文本">
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{previewData?.body_text ?? '—'}</pre>
+          </Descriptions.Item>
+          <Descriptions.Item label="HTML">
+            <div dangerouslySetInnerHTML={{ __html: previewData?.body_html ?? '<p>—</p>' }} />
+          </Descriptions.Item>
+        </Descriptions>
+      </Modal>
+
+      <Modal
+        title="AI 生成模板"
+        open={aiOpen}
+        onCancel={() => setAiOpen(false)}
+        onOk={async () => aiMutation.mutate(await aiForm.validateFields())}
+        confirmLoading={aiMutation.isPending}
+      >
+        <Form form={aiForm} layout="vertical" initialValues={{ category: 'cold_outreach' }}>
+          <Form.Item name="name" label="模板名称">
+            <Input placeholder="AI 首触模板" />
+          </Form.Item>
+          <Form.Item name="category" label="分类" rules={[{ required: true, message: '请选择分类' }]}>
+            <Select options={CATEGORY_OPTIONS} />
+          </Form.Item>
+          <Form.Item name="company_name" label="公司/行业描述" rules={[{ required: true, message: '请输入公司或行业描述' }]}>
+            <Input placeholder="PCB manufacturer" />
+          </Form.Item>
+          <Form.Item name="prompt" label="生成要求" rules={[{ required: true, message: '请输入生成要求' }]}>
+            <Input.TextArea rows={4} placeholder="强调交付能力、报价响应速度、德语客户场景" />
+          </Form.Item>
+          <Form.Item name="subject" label="主题偏好">
+            <Input placeholder="可选，留空由后端生成" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Space>
   );
 }
 

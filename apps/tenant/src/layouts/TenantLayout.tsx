@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   DashboardOutlined,
   BankOutlined,
@@ -9,8 +10,11 @@ import {
   ReadOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 import { AppLayout, RequireAuth } from '@shared/ui';
 import type { SidebarItem } from '@shared/ui';
+import { useAuthStore } from '@shared/hooks';
+import { tenantApi } from '../lib/api';
 
 const sidebarItems: SidebarItem[] = [
   { key: 'dashboard', icon: <DashboardOutlined />, label: '工作台', path: '/dashboard' },
@@ -36,9 +40,36 @@ const sidebarItems: SidebarItem[] = [
 ];
 
 function TenantLayout() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const logout = useAuthStore((s) => s.logout);
+  const meQuery = useQuery({
+    queryKey: ['tenant', 'auth', 'me'],
+    queryFn: async () => (await tenantApi.auth.me()).data.data,
+  });
+  const notificationsQuery = useQuery({
+    queryKey: ['tenant', 'notifications', 'layout'],
+    queryFn: async () => (await tenantApi.notifications.list()).data.data,
+  });
+
+  useEffect(() => {
+    if (meQuery.data?.needs_onboarding && location.pathname !== '/onboarding') {
+      navigate('/onboarding', { replace: true });
+    }
+  }, [location.pathname, meQuery.data?.needs_onboarding, navigate]);
+
   return (
     <RequireAuth>
-      <AppLayout sidebarItems={sidebarItems}>
+      <AppLayout
+        sidebarItems={sidebarItems}
+        currentUser={meQuery.data ? { name: meQuery.data.name, email: meQuery.data.email } : undefined}
+        notificationCount={(notificationsQuery.data ?? []).filter((item) => !item.is_read).length}
+        onNotificationClick={() => navigate('/dashboard')}
+        onLogout={() => {
+          logout();
+          navigate('/login', { replace: true });
+        }}
+      >
         <Outlet />
       </AppLayout>
     </RequireAuth>

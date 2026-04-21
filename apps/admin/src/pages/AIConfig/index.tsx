@@ -1,207 +1,323 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Table,
   Button,
-  Tag,
-  Space,
-  Modal,
   Form,
   Input,
-  Select,
   InputNumber,
-  Typography,
+  Modal,
   Popconfirm,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
   message,
-  Alert,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
+import { EditOutlined, EyeInvisibleOutlined, EyeOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { adminApi } from '../../lib/api';
+import type {
+  AiModel as ApiAiModel,
+  AiSceneDefault as ApiAiSceneDefault,
+  AiPricingResponse,
+} from '@shared/api';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
-interface AiModel {
-  id: string;
-  name: string;
+type ModelFormValues = {
+  display_name: string;
   provider: string;
   model_id: string;
-  api_key_masked: string;
+  model_type: string;
   input_price: number;
   output_price: number;
   is_active: boolean;
+  config_json: string;
+};
+
+const EMPTY_MODEL: ModelFormValues = {
+  display_name: '',
+  provider: '',
+  model_id: '',
+  model_type: '',
+  input_price: 0,
+  output_price: 0,
+  is_active: true,
+  config_json: '{}',
+};
+
+function formatJson(value: unknown) {
+  return JSON.stringify(value ?? {}, null, 2);
 }
 
-interface SceneDefault {
-  scene: string;
-  scene_label: string;
-  model_id: string;
+function parseJson(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  return JSON.parse(trimmed);
 }
-
-const MOCK_MODELS: AiModel[] = [
-  { id: 'm1', name: 'Gemini 2.5', provider: 'OpenRouter', model_id: 'google/gemini-2.5', api_key_masked: '****xxxx', input_price: 0.01, output_price: 0.03, is_active: true },
-  { id: 'm2', name: 'DeepSeek V3', provider: 'OpenRouter', model_id: 'deepseek/deepseek-v3', api_key_masked: '****yyyy', input_price: 0.008, output_price: 0.024, is_active: true },
-  { id: 'm3', name: 'GLM-5', provider: 'OpenRouter', model_id: 'zhipuai/glm-5', api_key_masked: '****zzzz', input_price: 0.012, output_price: 0.036, is_active: true },
-];
-
-const MOCK_SCENE_DEFAULTS: SceneDefault[] = [
-  { scene: 'intelligence', scene_label: '情报摘要', model_id: 'm1' },
-  { scene: 'email_generation', scene_label: '邮件生成', model_id: 'm2' },
-  { scene: 'data_analysis', scene_label: '数据分析', model_id: 'm1' },
-  { scene: 'scoring_llm', scene_label: '评分LLM辅助', model_id: 'm2' },
-];
-
-const BILLING_RULES = [
-  { scene: '情报摘要', attribution: '均摊（所有租户共担）' },
-  { scene: '邮件生成', attribution: '租户自负' },
-  { scene: '评分LLM辅助', attribution: '租户自负' },
-  { scene: '数据分析', attribution: '平台承担' },
-];
 
 export function Component() {
-  const [models] = useState<AiModel[]>(MOCK_MODELS);
-  const [sceneDefaults, setSceneDefaults] = useState<SceneDefault[]>(MOCK_SCENE_DEFAULTS);
-  const [modelModalOpen, setModelModalOpen] = useState(false);
-  const [editingModel, setEditingModel] = useState<AiModel | null>(null);
-  const [showKey, setShowKey] = useState<Record<string, boolean>>({});
-  const [form] = Form.useForm();
+  const [models, setModels] = useState<ApiAiModel[]>([]);
+  const [sceneDefaults, setSceneDefaults] = useState<ApiAiSceneDefault[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [modelDrawerOpen, setModelDrawerOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingModel, setEditingModel] = useState<ApiAiModel | null>(null);
+  const [showConfig, setShowConfig] = useState<Record<string, boolean>>({});
+  const [form] = Form.useForm<ModelFormValues>();
 
-  const openEdit = (model?: AiModel) => {
-    setEditingModel(model ?? null);
-    form.setFieldsValue(model ?? {});
-    setModelModalOpen(true);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const response = await adminApi.aiConfig.getPricing();
+      const data = response.data.data as AiPricingResponse;
+      setModels(data.models ?? []);
+      setSceneDefaults(data.scene_defaults ?? []);
+    } catch {
+      message.error('加载 AI 配置失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveModel = () => {
-    form.validateFields().then(() => {
-      message.success(editingModel ? '模型已更新' : '模型已添加');
-      setModelModalOpen(false);
-      form.resetFields();
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const openCreate = () => {
+    setEditingModel(null);
+    form.setFieldsValue(EMPTY_MODEL);
+    setModelDrawerOpen(true);
+  };
+
+  const openEdit = (record: ApiAiModel) => {
+    setEditingModel(record);
+    form.setFieldsValue({
+      display_name: record.display_name,
+      provider: record.provider,
+      model_id: record.model_id,
+      model_type: record.model_type,
+      input_price: record.input_price,
+      output_price: record.output_price,
+      is_active: record.is_active,
+      config_json: formatJson(record.config ?? {}),
     });
+    setModelDrawerOpen(true);
   };
 
-  const updateSceneDefault = (scene: string, model_id: string) => {
-    setSceneDefaults((prev) => prev.map((s) => s.scene === scene ? { ...s, model_id } : s));
-    message.success('场景默认模型已更新');
+  const saveModel = async () => {
+    try {
+      const values = await form.validateFields();
+      setSaving(true);
+      const payload = {
+        display_name: values.display_name.trim(),
+        provider: values.provider.trim(),
+        model_id: values.model_id.trim(),
+        model_type: values.model_type.trim(),
+        input_price: values.input_price,
+        output_price: values.output_price,
+        is_active: values.is_active,
+        config: parseJson(values.config_json),
+      };
+
+      if (editingModel) {
+        await adminApi.aiConfig.updateModel(editingModel.id, payload);
+        message.success('模型已更新');
+      } else {
+        await adminApi.aiConfig.createModel(payload);
+        message.success('模型已创建');
+      }
+
+      setModelDrawerOpen(false);
+      setEditingModel(null);
+      form.resetFields();
+      await load();
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        message.error('配置 JSON 格式不正确');
+        return;
+      }
+
+      message.error('保存失败');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const modelColumns: ColumnsType<AiModel> = [
-    { title: '模型名称', dataIndex: 'name', render: (v) => <Text strong>{v}</Text> },
-    { title: '路由方式', dataIndex: 'provider', render: (v) => <Tag color="purple">{v}</Tag> },
-    { title: 'Model ID', dataIndex: 'model_id', render: (v) => <Text code style={{ fontSize: 12 }}>{v}</Text> },
+  const deleteModel = async (id: string) => {
+    try {
+      await adminApi.aiConfig.deleteModel(id);
+      message.success('模型已删除');
+      await load();
+    } catch {
+      message.error('删除失败');
+    }
+  };
+
+  const updateSceneDefault = async (scene: string, modelId: string) => {
+    const next = sceneDefaults.map((item) => (
+      item.scene === scene ? { ...item, model_id: modelId } : item
+    ));
+
+    setSceneDefaults(next);
+
+    try {
+      await adminApi.aiConfig.updateSceneDefaults(next);
+      message.success('场景默认模型已更新');
+    } catch {
+      message.error('场景默认模型更新失败');
+      await load();
+    }
+  };
+
+  const modelColumns: ColumnsType<ApiAiModel> = [
+    { title: '名称', dataIndex: 'display_name', render: (value) => <Text strong>{value}</Text> },
+    { title: 'Provider', dataIndex: 'provider', width: 140, render: (value) => <Tag color="purple">{value}</Tag> },
+    { title: 'Model ID', dataIndex: 'model_id', render: (value) => <Text code>{value}</Text> },
+    { title: '类型', dataIndex: 'model_type', width: 120 },
     {
-      title: 'API Key', dataIndex: 'api_key_masked', width: 140,
-      render: (v, r) => (
-        <Space size={4}>
-          <Text style={{ fontFamily: 'monospace' }}>{showKey[r.id] ? 'sk-...' : v}</Text>
-          <Button
-            type="text"
-            size="small"
-            icon={showKey[r.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-            onClick={() => setShowKey((prev) => ({ ...prev, [r.id]: !prev[r.id] }))}
-          />
-        </Space>
+      title: '价格',
+      width: 180,
+      render: (_, record) => (
+        <Text style={{ fontSize: 12 }}>
+          输入 ¥{record.input_price} / 输出 ¥{record.output_price}
+        </Text>
       ),
     },
     {
-      title: '单价（元/千token）', width: 180,
-      render: (_, r) => <Text style={{ fontSize: 12 }}>输入 ¥{r.input_price} / 输出 ¥{r.output_price}</Text>,
+      title: '启用',
+      dataIndex: 'is_active',
+      width: 90,
+      render: (value, record) => (
+        <Switch
+          checked={Boolean(value)}
+          size="small"
+          onChange={async (checked) => {
+            try {
+              await adminApi.aiConfig.updateModel(record.id, { is_active: checked });
+              message.success('状态已更新');
+              await load();
+            } catch {
+              message.error('状态更新失败');
+            }
+          }}
+        />
+      ),
     },
     {
-      title: '操作', width: 120,
+      title: '配置',
+      width: 110,
+      render: (_, record) => (
+        <Button
+          type="text"
+          icon={showConfig[record.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+          onClick={() => setShowConfig((prev) => ({ ...prev, [record.id]: !prev[record.id] }))}
+        />
+      ),
+    },
+    {
+      title: '操作',
+      width: 160,
       render: (_, record) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)}>编辑</Button>
-          <Popconfirm title="确认删除该模型？" onConfirm={() => message.success('已删除')}>
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>删除</Button>
+          <Button type="link" icon={<EditOutlined />} onClick={() => openEdit(record)}>
+            编辑
+          </Button>
+          <Popconfirm title="确认删除该模型？" onConfirm={() => void deleteModel(record.id)}>
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
           </Popconfirm>
         </Space>
       ),
     },
   ];
 
+  const sceneColumns: ColumnsType<ApiAiSceneDefault> = [
+    { title: '场景', dataIndex: 'scene', width: 180 },
+    {
+      title: '默认模型',
+      render: (_, record) => (
+        <Select
+          value={record.model_id}
+          style={{ width: 260 }}
+          onChange={(value) => void updateSceneDefault(record.scene, value)}
+        >
+          {models.map((model) => (
+            <Select.Option key={model.id} value={model.id}>
+              {model.display_name}
+            </Select.Option>
+          ))}
+        </Select>
+      ),
+    },
+    { title: '备用模型', dataIndex: 'fallback_model_ids', render: (value) => (value?.length ? value.join(', ') : '—') },
+  ];
+
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={24}>
-      {/* 模型管理 */}
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Title level={5} style={{ margin: 0 }}>模型管理</Title>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openEdit()}>添加模型</Button>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <Title level={5} style={{ margin: 0 }}>
+            AI 配置
+          </Title>
+          <Text type="secondary">模型、价格和场景默认值都直接写入后端。</Text>
         </div>
-        <Table rowKey="id" columns={modelColumns} dataSource={models} size="middle" pagination={false} />
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+          添加模型
+        </Button>
       </div>
 
-      {/* 场景配置：默认模型 + 费用归属合并 */}
+      <Table rowKey="id" columns={modelColumns} dataSource={models} loading={loading} pagination={false} />
+
       <div>
-        <Title level={5} style={{ marginBottom: 12 }}>场景配置</Title>
-        <Table
-          rowKey="scene"
-          dataSource={sceneDefaults}
-          size="middle"
-          pagination={false}
-          columns={[
-            {
-              title: '场景',
-              dataIndex: 'scene_label',
-              width: 140,
-            },
-            {
-              title: '默认模型',
-              width: 220,
-              render: (_, r) => (
-                <Select
-                  value={r.model_id}
-                  style={{ width: 200 }}
-                  onChange={(val) => updateSceneDefault(r.scene, val)}
-                >
-                  {models.map((m) => (
-                    <Option key={m.id} value={m.id}>{m.name}</Option>
-                  ))}
-                </Select>
-              ),
-            },
-            {
-              title: '费用归属',
-              render: (_, r) => {
-                const billing = BILLING_RULES.find((b) => b.scene === r.scene_label);
-                return <Text type="secondary" style={{ fontSize: 12 }}>{billing?.attribution ?? '—'}</Text>;
-              },
-            },
-          ]}
-        />
-        <Alert
-          type="info"
-          showIcon
-          message="修改单价后立即生效，将影响后续所有AI调用的扣费计算"
-          style={{ marginTop: 12 }}
-        />
+        <Title level={5} style={{ marginBottom: 12 }}>
+          场景默认模型
+        </Title>
+        <Table rowKey={(record) => record.id ?? record.scene} columns={sceneColumns} dataSource={sceneDefaults} pagination={false} />
       </div>
 
-      {/* 添加/编辑模型弹窗 */}
       <Modal
         title={editingModel ? '编辑模型' : '添加模型'}
-        open={modelModalOpen}
-        onOk={handleSaveModel}
-        onCancel={() => { setModelModalOpen(false); form.resetFields(); }}
+        open={modelDrawerOpen}
+        onOk={() => void saveModel()}
+        onCancel={() => {
+          setModelDrawerOpen(false);
+          setEditingModel(null);
+          form.resetFields();
+        }}
         okText="保存"
-        width={520}
+        confirmLoading={saving}
+        width={620}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="name" label="模型显示名称" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="model_id" label="OpenRouter Model ID" rules={[{ required: true }]}>
-            <Input placeholder="google/gemini-2.5" />
+        <Form form={form} layout="vertical" initialValues={EMPTY_MODEL}>
+          <Form.Item name="display_name" label="显示名称" rules={[{ required: true, message: '请输入显示名称' }]}>
+            <Input />
           </Form.Item>
-          <Form.Item name="api_key" label="API Key" rules={[{ required: !editingModel }]}>
-            <Input.Password placeholder={editingModel ? '留空则不修改' : '请输入 API Key'} />
+          <Form.Item name="provider" label="Provider" rules={[{ required: true, message: '请输入 Provider' }]}>
+            <Input />
           </Form.Item>
-          <Form.Item label="计费单价（元/千token）" required>
-            <Space>
-              <Form.Item name="input_price" noStyle rules={[{ required: true }]}>
-                <InputNumber prefix="输入 ¥" min={0} step={0.001} style={{ width: 150 }} />
-              </Form.Item>
-              <Form.Item name="output_price" noStyle rules={[{ required: true }]}>
-                <InputNumber prefix="输出 ¥" min={0} step={0.001} style={{ width: 150 }} />
-              </Form.Item>
-            </Space>
+          <Form.Item name="model_id" label="Model ID" rules={[{ required: true, message: '请输入 Model ID' }]}>
+            <Input placeholder="openrouter/google/gemini-2.5" />
+          </Form.Item>
+          <Form.Item name="model_type" label="模型类型" rules={[{ required: true, message: '请输入模型类型' }]}>
+            <Input placeholder="chat" />
+          </Form.Item>
+          <Form.Item name="input_price" label="输入单价" rules={[{ required: true, message: '请输入输入单价' }]}>
+            <InputNumber min={0} step={0.001} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="output_price" label="输出单价" rules={[{ required: true, message: '请输入输出单价' }]}>
+            <InputNumber min={0} step={0.001} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="config_json" label="配置 JSON">
+            <Input.TextArea rows={8} placeholder='{"temperature":0.2}' />
+          </Form.Item>
+          <Form.Item name="is_active" label="启用" valuePropName="checked">
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>

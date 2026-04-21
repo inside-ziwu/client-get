@@ -1,177 +1,142 @@
-import { useState } from 'react';
-import {
-  Table,
-  Button,
-  InputNumber,
-  Typography,
-  message,
-  Alert,
-  Form,
-  Space,
-  Card,
-} from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Card, Form, Input, InputNumber, Space, Table, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { createAdminApi, createApiClient, type WarmupRuleLevel, type WarmupRules as WarmupRulesType } from '@shared/api';
 
-const { Text, Title } = Typography;
-
-interface WarmupStage {
-  stage: number;
-  daily_limit: number;
-  min_delivery_rate: number;
-  max_bounce_rate: number;
-  min_days: number;
-}
-
-const DEFAULT_STAGES: WarmupStage[] = [
-  { stage: 1, daily_limit: 20,   min_delivery_rate: 95, max_bounce_rate: 2, min_days: 1 },
-  { stage: 2, daily_limit: 50,   min_delivery_rate: 95, max_bounce_rate: 2, min_days: 1 },
-  { stage: 3, daily_limit: 100,  min_delivery_rate: 95, max_bounce_rate: 2, min_days: 1 },
-  { stage: 4, daily_limit: 200,  min_delivery_rate: 95, max_bounce_rate: 2, min_days: 1 },
-  { stage: 5, daily_limit: 500,  min_delivery_rate: 95, max_bounce_rate: 2, min_days: 3 },
-  { stage: 6, daily_limit: 1000, min_delivery_rate: 0,  max_bounce_rate: 100, min_days: 0 },
-];
+const { Title, Text } = Typography;
+const adminApi = createAdminApi(createApiClient('admin'));
 
 export function Component() {
-  const [stages, setStages] = useState<WarmupStage[]>(DEFAULT_STAGES);
-  const [bounceAlertThreshold, setBounceAlertThreshold] = useState(5);
+  const [form] = Form.useForm<WarmupRulesType>();
+  const [levels, setLevels] = useState<WarmupRuleLevel[]>([]);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const updateStage = (stageNum: number, field: keyof WarmupStage, value: number) => {
-    setStages((prev) => prev.map((s) => s.stage === stageNum ? { ...s, [field]: value } : s));
-  };
+  useEffect(() => {
+    let active = true;
 
-  const handleSave = () => {
-    setSaving(true);
-    setTimeout(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const response = await adminApi.warmupRules.get();
+        const rule = response.data.data[0];
+        if (active) {
+          if (!rule) {
+            setLoadError('后台暂无预热规则，请先初始化后端配置');
+            form.resetFields();
+            setLevels([]);
+            return;
+          }
+          setLoadError(null);
+          form.setFieldsValue({
+            name: rule.name,
+            min_observation_emails: rule.min_observation_emails,
+            bounce_alert_rate: rule.bounce_alert_rate,
+          });
+          setLevels(rule.levels ?? []);
+        }
+      } catch {
+        if (active) {
+          setLoadError('预热规则加载失败，请检查接口与配置初始化状态');
+          form.resetFields();
+          setLevels([]);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      active = false;
+    };
+  }, [form]);
+
+  const onSave = async () => {
+    try {
+      const values = await form.validateFields();
+      setSaving(true);
+      await adminApi.warmupRules.update({
+        ...values,
+        levels,
+      });
+      message.success('预热规则已保存');
+    } catch {
+      message.error('保存失败');
+    } finally {
       setSaving(false);
-      message.success('预热规则已保存，全平台生效');
-    }, 800);
+    }
   };
 
-  const columns: ColumnsType<WarmupStage> = [
-    {
-      title: '阶段',
-      dataIndex: 'stage',
-      width: 80,
-      render: (v) => <Text strong>阶段 {v}</Text>,
-    },
-    {
-      title: '每日上限（封）',
-      dataIndex: 'daily_limit',
-      width: 140,
-      render: (v, r) => (
-        <InputNumber
-          value={v}
-          min={1}
-          size="small"
-          style={{ width: 100 }}
-          onChange={(val) => updateStage(r.stage, 'daily_limit', val ?? v)}
-        />
-      ),
-    },
-    {
-      title: '升阶：最低触达率',
-      dataIndex: 'min_delivery_rate',
-      width: 150,
-      render: (v, r) => r.stage === 6 ? (
-        <Text type="secondary">— 最高阶段</Text>
-      ) : (
-        <InputNumber
-          value={v}
-          min={0}
-          max={100}
-          size="small"
-          style={{ width: 100 }}
-          formatter={(v) => `${v}%`}
-          parser={(v) => Number(v?.replace('%', '') ?? 0) as unknown as number}
-          onChange={(val) => updateStage(r.stage, 'min_delivery_rate', val ?? v)}
-        />
-      ),
-    },
-    {
-      title: '升阶：最高退信率',
-      dataIndex: 'max_bounce_rate',
-      width: 150,
-      render: (v, r) => r.stage === 6 ? (
-        <Text type="secondary">—</Text>
-      ) : (
-        <InputNumber
-          value={v}
-          min={0}
-          max={100}
-          size="small"
-          style={{ width: 100 }}
-          formatter={(v) => `${v}%`}
-          parser={(v) => Number(v?.replace('%', '') ?? 0) as unknown as number}
-          onChange={(val) => updateStage(r.stage, 'max_bounce_rate', val ?? v)}
-        />
-      ),
-    },
-    {
-      title: '最少停留（天）',
-      dataIndex: 'min_days',
-      width: 130,
-      render: (v, r) => r.stage === 6 ? (
-        <Text type="secondary">—</Text>
-      ) : (
-        <InputNumber
-          value={v}
-          min={1}
-          size="small"
-          style={{ width: 80 }}
-          onChange={(val) => updateStage(r.stage, 'min_days', val ?? v)}
-        />
-      ),
-    },
-  ];
+  const columns = useMemo<ColumnsType<WarmupRuleLevel>>(
+    () => [
+      { title: '档位', dataIndex: 'level', width: 80 },
+      {
+        title: '每日上限',
+        dataIndex: 'daily_limit',
+        render: (value, record) => (
+          <InputNumber
+            min={1}
+            value={value}
+            onChange={(next) =>
+              setLevels((prev) =>
+                prev.map((item) => (item.level === record.level ? { ...item, daily_limit: next ?? item.daily_limit } : item)),
+              )
+            }
+          />
+        ),
+      },
+      {
+        title: '最少停留天数',
+        dataIndex: 'min_stay_days',
+        render: (value, record) => (
+          <InputNumber
+            min={1}
+            value={value}
+            onChange={(next) =>
+              setLevels((prev) =>
+                prev.map((item) => (item.level === record.level ? { ...item, min_stay_days: next ?? item.min_stay_days } : item)),
+              )
+            }
+          />
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
-      {/* 标题 + 保存 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={5} style={{ margin: 0 }}>预热阶段配置</Title>
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          loading={saving}
-          onClick={handleSave}
-        >
-          保存
-        </Button>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <div>
+        <Title level={4} style={{ marginBottom: 4 }}>
+          预热规则
+        </Title>
+        <Text type="secondary">直接编辑并保存到后端。</Text>
       </div>
 
       <Alert
         type="warning"
         showIcon
-        message="规则全平台生效，所有租户域名共享此预热策略"
+        message="这里是全局配置，保存后会影响所有租户域名的预热策略。"
       />
+      {loadError && <Alert type="error" showIcon message={loadError} />}
 
-      <Table
-        rowKey="stage"
-        columns={columns}
-        dataSource={stages}
-        size="middle"
-        pagination={false}
-      />
-
-      {/* 告警配置 */}
-      <Card size="small" title="告警配置">
-        <Form layout="inline">
-          <Form.Item label="退信率告警阈值">
-            <InputNumber
-              value={bounceAlertThreshold}
-              min={1}
-              max={50}
-              formatter={(v) => `${v}%`}
-              parser={(v) => Number(v?.replace('%', '') ?? 5) as unknown as number}
-              onChange={(v) => setBounceAlertThreshold(v ?? 5)}
-              style={{ width: 100 }}
-            />
+      <Card loading={loading} title="规则配置" extra={<Button type="primary" loading={saving} onClick={onSave} disabled={Boolean(loadError)}>保存</Button>}>
+        <Form form={form} layout="vertical">
+          <Form.Item name="name" label="规则名称" rules={[{ required: true }]}>
+            <Input />
           </Form.Item>
-          <Form.Item label="触发行为">
-            <Text type="secondary">自动降阶 + 通知运营人员（系统固定逻辑）</Text>
+          <Form.Item name="min_observation_emails" label="最小观察样本数" rules={[{ required: true }]}>
+            <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
+          <Form.Item name="bounce_alert_rate" label="退信报警阈值" rules={[{ required: true }]}>
+            <InputNumber min={0} max={1} step={0.001} style={{ width: '100%' }} />
+          </Form.Item>
+          <Table rowKey="level" columns={columns} dataSource={levels} pagination={false} />
         </Form>
       </Card>
     </Space>

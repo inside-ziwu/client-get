@@ -72,12 +72,17 @@ export interface TenantFilters extends PaginationParams {
 // Dashboard types
 export interface DashboardOverview {
   total_companies: number;
-  new_companies_this_week: number;
-  total_prospects: number;
-  active_plans: number;
-  emails_sent_this_month: number;
-  reply_rate: number;
-  ai_balance: number;
+  scored_companies?: number;
+  total_plans?: number;
+  running_plans?: number;
+  unread_notifications?: number;
+  balance?: number | null;
+  new_companies_this_week?: number;
+  total_prospects?: number;
+  active_plans?: number;
+  emails_sent_this_month?: number;
+  reply_rate?: number;
+  ai_balance?: number;
 }
 
 export interface DashboardFunnel {
@@ -90,27 +95,31 @@ export interface DashboardFunnel {
 
 // Email stats
 export interface EmailStats {
-  total_sent: number;
-  delivered: number;
-  opened: number;
-  clicked: number;
-  replied: number;
-  bounced: number;
-  delivery_rate: number;
-  open_rate: number;
-  click_rate: number;
-  reply_rate: number;
-  bounce_rate: number;
+  total?: number;
+  sent?: number;
+  delivered?: number;
+  opened?: number;
+  clicked?: number;
+  replied?: number;
+  bounced?: number;
+  unsubscribed?: number;
+  total_sent?: number;
+  delivery_rate?: number;
+  open_rate?: number;
+  click_rate?: number;
+  reply_rate?: number;
+  bounce_rate?: number;
 }
 
 export interface EmailTrend {
   date: string;
-  sent: number;
-  delivered: number;
-  opened: number;
-  clicked: number;
-  replied: number;
-  bounced: number;
+  total?: number;
+  sent?: number;
+  delivered?: number;
+  opened?: number;
+  clicked?: number;
+  replied?: number;
+  bounced?: number;
 }
 
 // AI related
@@ -122,14 +131,21 @@ export interface AiAnalysisRequest {
 
 export interface AiAnalysisResult {
   summary: string;
-  insights: string[];
-  recommendations: string[];
-  model_used: string;
+  stats?: Record<string, unknown>;
+  insights?: string[];
+  recommendations?: string[];
+  model_used?: string;
 }
 
 export interface AiGenerateTemplateRequest {
-  industry: string;
-  purpose: string;
+  company_name: string;
+  prompt: string;
+  category?: string;
+  subject?: string;
+  name?: string;
+  estimated_cost?: number | string;
+  industry?: string;
+  purpose?: string;
   tone?: string;
   language?: string;
   additional_instructions?: string;
@@ -143,24 +159,35 @@ export interface AiGenerateTemplateResult {
 
 // Billing
 export interface BillingBalance {
-  amount: number;
-  currency: string;
+  tenant_id?: string;
+  amount?: number;
+  balance?: number;
+  currency?: string;
 }
 
 export interface UsageSummary {
-  period: string;
-  total_cost: number;
-  breakdown: Array<{
+  period?: string;
+  total_cost?: number;
+  breakdown?: Array<{
     usage_type: string;
     count: number;
     cost: number;
   }>;
+  items?: Array<{
+    usage_type: string;
+    total_calls: number;
+    total_cost: number;
+    total_tokens: number;
+  }>;
 }
 
 export interface UsageTrend {
-  date: string;
-  cost: number;
-  usage_type: string;
+  date?: string;
+  cost?: number;
+  usage_type?: string;
+  usage_date?: string;
+  total_calls?: number;
+  total_cost?: number;
 }
 
 // Import results

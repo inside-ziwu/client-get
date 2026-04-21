@@ -1,42 +1,55 @@
 import type { AxiosInstance } from 'axios';
-import type { ApiResponse } from '@shared/types';
+import type { ApiResponse, PaginatedResponse } from '@shared/types';
 
 export interface AiModel {
   id: string;
-  name: string;
+  display_name: string;
   provider: string;
+  model_id: string;
   model_type: string;
+  input_price: number;
+  output_price: number;
   is_active: boolean;
   config: Record<string, unknown>;
 }
 
 export interface AiPricing {
   model_id: string;
-  input_price_per_1k: number;
-  output_price_per_1k: number;
-  currency: string;
+  input_price: number;
+  output_price: number;
 }
 
 export interface AiSceneDefault {
+  id?: string;
   scene: string;
   model_id: string;
-  temperature: number;
-  max_tokens: number;
+  model_display_name?: string;
+  fallback_model_ids?: string[];
+  config?: Record<string, unknown>;
+}
+
+export interface AiPricingResponse {
+  models: AiModel[];
+  scene_defaults: AiSceneDefault[];
 }
 
 export function aiConfigApi(client: AxiosInstance) {
   return {
     getModels: () =>
-      client.get<ApiResponse<AiModel[]>>('/api/v1/ai-config/models'),
-    updateModels: (data: AiModel[]) =>
-      client.put<ApiResponse<AiModel[]>>('/api/v1/ai-config/models', data),
+      client.get<PaginatedResponse<AiModel>>('/api/v1/ai-config/models'),
+    createModel: (data: Partial<AiModel>) =>
+      client.post<ApiResponse<AiModel>>('/api/v1/ai-config/models', data),
+    updateModel: (id: string, data: Partial<AiModel>) =>
+      client.patch<ApiResponse<AiModel>>(`/api/v1/ai-config/models/${id}`, data),
+    deleteModel: (id: string) =>
+      client.delete(`/api/v1/ai-config/models/${id}`),
     getPricing: () =>
-      client.get<ApiResponse<AiPricing[]>>('/api/v1/ai-config/pricing'),
+      client.get<ApiResponse<AiPricingResponse>>('/api/v1/ai-config/pricing'),
     updatePricing: (data: AiPricing[]) =>
-      client.put<ApiResponse<AiPricing[]>>('/api/v1/ai-config/pricing', data),
+      client.put<ApiResponse<AiPricingResponse>>('/api/v1/ai-config/pricing', { items: data }),
     getSceneDefaults: () =>
-      client.get<ApiResponse<AiSceneDefault[]>>('/api/v1/ai-config/scene-defaults'),
+      client.get<PaginatedResponse<AiSceneDefault>>('/api/v1/ai-config/scene-defaults'),
     updateSceneDefaults: (data: AiSceneDefault[]) =>
-      client.put<ApiResponse<AiSceneDefault[]>>('/api/v1/ai-config/scene-defaults', data),
+      client.put<ApiResponse<AiSceneDefault[]>>('/api/v1/ai-config/scene-defaults', { items: data }),
   };
 }

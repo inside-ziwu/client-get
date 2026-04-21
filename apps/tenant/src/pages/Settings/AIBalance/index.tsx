@@ -1,175 +1,229 @@
 import {
+  Alert,
   Card,
-  Row,
   Col,
+  Descriptions,
+  Progress,
+  Row,
+  Space,
   Statistic,
   Table,
   Tag,
-  Space,
   Typography,
-  Alert,
-  Progress,
 } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useQueries } from '@tanstack/react-query';
+import { createApiClient, createTenantApi, queryKeys } from '@shared/api';
+import type { BillingBalance, UsageSummary, UsageTrend } from '@shared/types';
 
 const { Text, Title } = Typography;
 
-interface UsageRecord {
+interface BalanceTransaction {
   id: string;
-  date: string;
-  function: string;
-  tokens: number;
-  model: string;
-}
-
-interface RechargeRecord {
-  id: string;
-  date: string;
+  type: string;
   amount: number;
-  by: string;
-  note: string;
+  balance_after: number;
+  description?: string;
+  created_at: string;
 }
 
-const MOCK_USAGE: UsageRecord[] = [
-  { id: 'u1', date: '2026-04-17', function: '客户评分分析', tokens: 4200, model: 'DeepSeek V3' },
-  { id: 'u2', date: '2026-04-16', function: 'AI 邮件模板生成', tokens: 2100, model: 'DeepSeek V3' },
-  { id: 'u3', date: '2026-04-16', function: '情报洞察推送', tokens: 1800, model: 'DeepSeek V3' },
-  { id: 'u4', date: '2026-04-15', function: '发送效果分析', tokens: 3100, model: 'Gemini 2.5' },
-  { id: 'u5', date: '2026-04-14', function: 'AI 邮件模板生成', tokens: 1900, model: 'DeepSeek V3' },
-  { id: 'u6', date: '2026-04-13', function: '客户评分分析', tokens: 5600, model: 'DeepSeek V3' },
-];
+const api = createTenantApi(createApiClient('tenant'));
 
-const MOCK_RECHARGE: RechargeRecord[] = [
-  { id: 'r1', date: '2026-04-01', amount: 500, by: '平台管理员', note: '月度额度补充' },
-  { id: 'r2', date: '2026-03-01', amount: 500, by: '平台管理员', note: '月度额度补充' },
-  { id: 'r3', date: '2026-02-01', amount: 300, by: '平台管理员', note: '初始额度' },
-];
-
-const FUNCTION_USAGE = [
-  { name: '客户评分分析', tokens: 9800, color: '#1677ff' },
-  { name: 'AI 模板生成', tokens: 4000, color: '#52c41a' },
-  { name: '情报洞察', tokens: 1800, color: '#faad14' },
-  { name: '发送效果分析', tokens: 3100, color: '#722ed1' },
-];
-
-const TOTAL_USED = FUNCTION_USAGE.reduce((s, f) => s + f.tokens, 0);
-const CURRENT_BALANCE = 520;
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('zh-CN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
 
 export function Component() {
-  const usageCols: ColumnsType<UsageRecord> = [
-    { title: '日期', dataIndex: 'date', width: 110 },
-    { title: '功能', dataIndex: 'function', render: (v) => <Text>{v}</Text> },
-    { title: '模型', dataIndex: 'model', width: 130, render: (v) => <Tag>{v}</Tag> },
+  const [balanceQuery, transactionsQuery, summaryQuery, trendQuery] = useQueries({
+    queries: [
+      {
+        queryKey: queryKeys.billing.balance(),
+        queryFn: async () => (await api.billing.balance()).data.data as BillingBalance,
+      },
+      {
+        queryKey: queryKeys.billing.transactions({ limit: 20 }),
+        queryFn: async () => (await api.billing.transactions({ limit: 20 })).data.data as BalanceTransaction[],
+      },
+      {
+        queryKey: queryKeys.billing.usageSummary('month'),
+        queryFn: async () => (await api.billing.usageSummary('month')).data.data as UsageSummary,
+      },
+      {
+        queryKey: queryKeys.billing.usageTrend({ period: 'month' }),
+        queryFn: async () => (await api.billing.usageTrend()).data.data as UsageTrend[],
+      },
+    ],
+  });
+
+  const balance = balanceQuery.data;
+  const transactions = transactionsQuery.data ?? [];
+  const summary = summaryQuery.data;
+  const trend = trendQuery.data ?? [];
+  const currentBalance = balance?.balance ?? balance?.amount ?? 0;
+  const balanceUnit = balance?.currency ?? 'credits';
+  const summaryItems = summary?.items ?? [];
+  const totalCost = summary?.total_cost ?? summaryItems.reduce((acc, item) => acc + item.total_cost, 0);
+
+  const usageColumns: ColumnsType<BalanceTransaction> = [
     {
-      title: 'Token 用量', dataIndex: 'tokens', width: 120,
-      render: (v) => <Text>{v.toLocaleString()}</Text>,
+      title: '时间',
+      dataIndex: 'created_at',
+      width: 180,
+      render: (value: string) => <Text type="secondary">{formatDate(value)}</Text>,
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      width: 120,
+      render: (value: string) => <Tag>{value}</Tag>,
+    },
+    {
+      title: '金额',
+      dataIndex: 'amount',
+      width: 120,
+      render: (value: number) => <Text strong>{value.toLocaleString()}</Text>,
+    },
+    {
+      title: '余额',
+      dataIndex: 'balance_after',
+      width: 120,
+      render: (value: number) => <Text>{value.toLocaleString()}</Text>,
+    },
+    {
+      title: '说明',
+      dataIndex: 'description',
+      render: (value?: string) => <Text type="secondary">{value ?? '—'}</Text>,
     },
   ];
 
-  const rechargeCols: ColumnsType<RechargeRecord> = [
-    { title: '日期', dataIndex: 'date', width: 110 },
+  const trendColumns: ColumnsType<UsageTrend> = [
     {
-      title: '充值额度', dataIndex: 'amount', width: 120,
-      render: (v) => <Text strong style={{ color: '#52c41a' }}>+{v.toLocaleString()} tokens</Text>,
+      title: '日期',
+      dataIndex: 'usage_date',
+      width: 120,
+      render: (value: string, record) => <Text type="secondary">{value ?? record.date ?? '—'}</Text>,
     },
-    { title: '操作人', dataIndex: 'by', width: 120 },
-    { title: '备注', dataIndex: 'note', render: (v) => <Text type="secondary">{v}</Text> },
+    {
+      title: '场景',
+      dataIndex: 'usage_type',
+      width: 160,
+      render: (value: string) => <Tag color="blue">{value ?? 'all'}</Tag>,
+    },
+    {
+      title: '费用',
+      dataIndex: 'total_cost',
+      width: 120,
+      render: (value: number, record) => <Text strong>{(value ?? record.cost ?? 0).toLocaleString()}</Text>,
+    },
   ];
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       <Title level={5} style={{ marginBottom: 0 }}>AI 额度</Title>
 
-      {CURRENT_BALANCE < 200 && (
+      {currentBalance < 200 && (
         <Alert
           type="warning"
           showIcon
-          message="AI 额度不足 200 tokens，部分 AI 功能即将不可用。请联系平台管理员充值。"
+          message="AI 额度不足 200，部分 AI 功能可能受限。"
         />
       )}
 
-      {/* 余额概览 */}
       <Row gutter={[16, 16]}>
         <Col span={6}>
-          <Card size="small">
+          <Card size="small" loading={balanceQuery.isLoading}>
             <Statistic
               title="当前余额"
-              value={CURRENT_BALANCE}
-              suffix="tokens"
-              valueStyle={{ color: CURRENT_BALANCE < 200 ? '#ff4d4f' : '#1677ff' }}
+              value={currentBalance}
+              suffix={balanceUnit}
               prefix={<RobotOutlined />}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card size="small">
-            <Statistic title="本月已用" value={TOTAL_USED} suffix="tokens" />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small">
-            <Statistic title="累计充值" value={1300} suffix="tokens" />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card size="small">
+          <Card size="small" loading={summaryQuery.isLoading}>
             <Statistic
-              title="本月剩余天数"
-              value={13}
-              suffix="天"
+              title="本期总费用"
+              value={totalCost}
+              suffix={balanceUnit}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small" loading={transactionsQuery.isLoading}>
+            <Statistic
+              title="最近流水"
+              value={transactions.length}
+              suffix="条"
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card size="small" loading={trendQuery.isLoading}>
+            <Statistic
+              title="趋势记录"
+              value={trend.length}
+              suffix="条"
             />
           </Card>
         </Col>
       </Row>
 
-      {/* 功能用量分布 */}
-      <Card title="功能用量分布（本月）" size="small">
+      <Card title="费用构成" size="small" loading={summaryQuery.isLoading}>
         <Space direction="vertical" style={{ width: '100%' }} size={12}>
-          {FUNCTION_USAGE.map((f) => (
-            <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <Text style={{ width: 130, flexShrink: 0, fontSize: 13 }}>{f.name}</Text>
-              <Progress
-                percent={Math.round((f.tokens / TOTAL_USED) * 100)}
-                strokeColor={f.color}
-                style={{ flex: 1, marginBottom: 0 }}
-                format={(p) => `${p}%`}
-              />
-              <Text style={{ width: 80, textAlign: 'right', fontSize: 12, flexShrink: 0 }}>
-                {f.tokens.toLocaleString()} tokens
-              </Text>
-            </div>
-          ))}
+          {summaryItems.map((item) => {
+            const percent = totalCost ? Math.round((item.total_cost / totalCost) * 100) : 0;
+            return (
+              <div key={item.usage_type} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Text style={{ width: 140, flexShrink: 0 }}>{item.usage_type}</Text>
+                <Progress percent={percent} style={{ flex: 1, marginBottom: 0 }} />
+                <Text style={{ width: 120, textAlign: 'right', flexShrink: 0 }}>
+                  {item.total_calls} 次 / {item.total_cost.toLocaleString()}
+                </Text>
+              </div>
+            );
+          })}
+          {summaryItems.length === 0 && (
+            <Text type="secondary">暂无费用构成数据</Text>
+          )}
         </Space>
       </Card>
 
-      {/* 使用明细 */}
-      <Card title="近期使用明细" size="small">
-        <Table
+      <Card title="近期交易" size="small">
+        <Table<BalanceTransaction>
           rowKey="id"
-          columns={usageCols}
-          dataSource={MOCK_USAGE}
+          columns={usageColumns}
+          dataSource={transactions}
+          loading={transactionsQuery.isLoading}
           size="small"
           pagination={{ pageSize: 5, size: 'small' }}
+          locale={{ emptyText: '暂无交易记录' }}
         />
       </Card>
 
-      {/* 充值记录 */}
-      <Card title="充值记录" size="small">
-        <Table
-          rowKey="id"
-          columns={rechargeCols}
-          dataSource={MOCK_RECHARGE}
+      <Card title="费用趋势" size="small">
+        <Table<UsageTrend>
+          rowKey={(record, index) => `${record.usage_date ?? record.date}-${record.usage_type ?? 'all'}-${index}`}
+          columns={trendColumns}
+          dataSource={trend}
+          loading={trendQuery.isLoading}
           size="small"
-          pagination={false}
+          pagination={{ pageSize: 7, size: 'small' }}
+          locale={{ emptyText: '暂无趋势数据' }}
         />
-        <div style={{ marginTop: 12 }}>
-          <Alert
-            type="info"
-            showIcon
-            message="如需充值 AI 额度，请联系平台管理员操作。额度由管理员统一管理和分配。"
-          />
-        </div>
+      </Card>
+
+      <Card size="small">
+        <Descriptions column={2} size="small" title={<Text strong style={{ fontSize: 13 }}>额度说明</Text>}>
+          <Descriptions.Item label="当前余额更新时间">{balance ? '实时查询' : '—'}</Descriptions.Item>
+          <Descriptions.Item label="数据来源">/api/v1/billing/*</Descriptions.Item>
+          <Descriptions.Item label="账单口径">本页仅展示后端返回结果，不做本地汇总。</Descriptions.Item>
+          <Descriptions.Item label="提示">额度不足时请联系平台管理员。</Descriptions.Item>
+        </Descriptions>
       </Card>
     </Space>
   );

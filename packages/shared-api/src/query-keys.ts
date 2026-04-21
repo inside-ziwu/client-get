@@ -35,6 +35,7 @@ export const queryKeys = {
   intelligence: {
     all: () => ['tenant', tenantScope(), 'intelligence'] as const,
     list: (filters?: Record<string, unknown>) => [...queryKeys.intelligence.all(), 'list', filters] as const,
+    subscriptions: () => [...queryKeys.intelligence.all(), 'subscriptions'] as const,
   },
   emailTemplates: {
     all: () => ['tenant', tenantScope(), 'emailTemplates'] as const,

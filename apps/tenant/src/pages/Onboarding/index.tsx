@@ -1,29 +1,50 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Steps,
+  Alert,
   Button,
+  Card,
+  Descriptions,
   Form,
   Input,
-  Space,
-  Typography,
-  Tag,
-  Card,
-  Alert,
   Result,
+  Space,
+  Steps,
+  Tag,
+  Typography,
   message,
 } from 'antd';
 import {
-  LockOutlined,
-  TagsOutlined,
-  StarOutlined,
-  TeamOutlined,
-  CheckCircleOutlined,
-  ArrowRightOutlined,
   ArrowLeftOutlined,
+  ArrowRightOutlined,
+  CheckCircleOutlined,
+  LockOutlined,
+  StarOutlined,
+  TagsOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  createApiClient,
+  createTenantApi,
+  queryKeys,
+  type ContactRules,
+  type ContactRuleSet,
+  type Keyword,
+  type TenantScoringTemplate,
+} from '@shared/api';
 
 const { Text, Paragraph } = Typography;
+
+const api = createTenantApi(createApiClient('tenant'));
+
+function pickActiveTemplate(items: TenantScoringTemplate[]): TenantScoringTemplate | null {
+  return items.find((item) => item.is_active) ?? items[0] ?? null;
+}
+
+function pickActiveRule(items: ContactRules[]): ContactRules | null {
+  return items.find((item) => item.is_active) ?? items[0] ?? null;
+}
 
 const STEP_DEFS = [
   { title: '修改密码', icon: <LockOutlined />, required: true },
@@ -33,20 +54,43 @@ const STEP_DEFS = [
   { title: '完成', icon: <CheckCircleOutlined />, required: false },
 ];
 
-const SUGGESTED_KEYWORDS = ['PCB', 'printed circuit board', 'FPC', 'HDI', 'PCBA', '电路板', '线路板', 'multilayer PCB'];
+function StepPassword({
+  onSuccess,
+  onSubmitReady,
+}: {
+  onSuccess: () => void;
+  onSubmitReady: (submit: () => void) => void;
+}) {
+  const [form] = Form.useForm();
+  const changePasswordMutation = useMutation({
+    mutationFn: (values: { old_password: string; new_password: string }) => api.auth.changePassword(values),
+    onSuccess: () => {
+      message.success('密码已修改');
+      form.resetFields();
+      onSuccess();
+    },
+    onError: () => message.error('密码修改失败，请检查输入后重试'),
+  });
 
-function StepPassword() {
+  useEffect(() => {
+    onSubmitReady(() => form.submit());
+  }, [form, onSubmitReady]);
+
   return (
-    <div style={{ maxWidth: 400 }}>
+    <div style={{ maxWidth: 440 }}>
       <Alert
         type="warning"
         showIcon
         message="首次登录必须修改初始密码"
         style={{ marginBottom: 24 }}
       />
-      <Form layout="vertical">
+      <Form
+        layout="vertical"
+        form={form}
+        onFinish={(values) => changePasswordMutation.mutate(values)}
+      >
         <Form.Item
-          name="current_password"
+          name="old_password"
           label="初始密码"
           rules={[{ required: true, message: '请输入初始密码' }]}
         >
@@ -57,192 +101,162 @@ function StepPassword() {
           label="新密码"
           rules={[
             { required: true, message: '请设置新密码' },
-            { min: 8, message: '密码至少8位' },
+            { min: 8, message: '密码至少 8 位' },
           ]}
         >
-          <Input.Password placeholder="至少8位，包含字母和数字" />
+          <Input.Password placeholder="至少 8 位，包含字母和数字" />
         </Form.Item>
         <Form.Item
           name="confirm_password"
           label="确认新密码"
-          rules={[{ required: true, message: '请再次输入新密码' }]}
+          dependencies={['new_password']}
+          rules={[
+            { required: true, message: '请再次输入新密码' },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue('new_password') === value) return Promise.resolve();
+                return Promise.reject(new Error('两次输入的密码不一致'));
+              },
+            }),
+          ]}
         >
           <Input.Password placeholder="再次输入新密码" />
         </Form.Item>
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={changePasswordMutation.isPending}
+        >
+          确认修改
+        </Button>
       </Form>
     </div>
   );
 }
 
-function StepKeywords({ keywords, onChange }: {
-  keywords: string[];
-  onChange: (kw: string[]) => void;
+function StepKeywords({
+  keywords,
+  onAdd,
+  onRemove,
+}: {
+  keywords: Keyword[];
+  onAdd: (keyword: string) => void;
+  onRemove: (id: string) => void;
 }) {
   const [inputVal, setInputVal] = useState('');
 
-  const addKeyword = (kw: string) => {
-    const trimmed = kw.trim();
-    if (!trimmed || keywords.includes(trimmed)) return;
-    onChange([...keywords, trimmed]);
-    setInputVal('');
-  };
-
-  const removeKeyword = (kw: string) => {
-    onChange(keywords.filter((k) => k !== kw));
-  };
-
-  const toggleSuggested = (kw: string) => {
-    if (keywords.includes(kw)) removeKeyword(kw);
-    else addKeyword(kw);
-  };
-
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 640 }}>
       <Paragraph type="secondary">
-        关键词用于从海量数据中筛选与您产品相关的目标客户。请填写描述您产品的核心词汇。
+        关键词用于筛选与你产品相关的目标客户。这里直接读取和写入真实关键词接口。
       </Paragraph>
 
-      <div style={{ marginBottom: 20 }}>
-        <Text strong style={{ display: 'block', marginBottom: 8 }}>推荐关键词（点击添加 / 再次点击移除）</Text>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {SUGGESTED_KEYWORDS.map((kw) => (
-            <Tag
-              key={kw}
-              color={keywords.includes(kw) ? 'blue' : 'default'}
-              style={{ cursor: 'pointer', fontSize: 13, userSelect: 'none' }}
-              onClick={() => toggleSuggested(kw)}
-            >
-              {keywords.includes(kw) ? `✓ ${kw}` : `+ ${kw}`}
-            </Tag>
-          ))}
-        </div>
-      </div>
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space.Compact style={{ width: '100%' }}>
+          <Input
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            placeholder="输入关键词后添加"
+            onPressEnter={() => {
+              const value = inputVal.trim();
+              if (!value) return;
+              onAdd(value);
+              setInputVal('');
+            }}
+          />
+          <Button
+            type="primary"
+            onClick={() => {
+              const value = inputVal.trim();
+              if (!value) return;
+              onAdd(value);
+              setInputVal('');
+            }}
+          >
+            添加
+          </Button>
+        </Space.Compact>
+      </Card>
 
       <div style={{ marginBottom: 20 }}>
         <Text strong style={{ display: 'block', marginBottom: 8 }}>
-          已选关键词
+          当前关键词
           <Tag style={{ marginLeft: 8 }}>{keywords.length}</Tag>
         </Text>
         {keywords.length === 0 ? (
-          <Text type="secondary" style={{ fontSize: 13 }}>尚未选择任何关键词</Text>
+          <Alert type="warning" showIcon message="至少添加 1 个关键词后才能继续" />
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {keywords.map((kw) => (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {keywords.map((item) => (
               <Tag
-                key={kw}
+                key={item.id}
                 closable
-                onClose={() => removeKeyword(kw)}
+                onClose={() => onRemove(item.id)}
                 color="blue"
                 style={{ fontSize: 13 }}
               >
-                {kw}
+                {item.keyword}
               </Tag>
             ))}
           </div>
         )}
       </div>
-
-      <Space>
-        <Input
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          onPressEnter={() => addKeyword(inputVal)}
-          placeholder="自定义关键词，按回车添加"
-          style={{ width: 260 }}
-        />
-        <Button onClick={() => addKeyword(inputVal)}>添加</Button>
-      </Space>
-
-      {keywords.length === 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          message="至少需要1个关键词才能继续"
-          style={{ marginTop: 16 }}
-        />
-      )}
     </div>
   );
 }
 
-function StepScoring() {
+function StepScoring({ template }: { template?: TenantScoringTemplate | null }) {
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 680 }}>
       <Paragraph type="secondary">
-        平台已根据 PCB 行业特征预置了评分规则，开箱即用，无需立即配置。
+        评分模板已从后端加载。当前页面只做预览，设置页可以进一步调整。
       </Paragraph>
-      <Card size="small" style={{ background: '#fafafa', marginBottom: 16 }}>
+      <Card size="small" style={{ marginBottom: 16 }}>
         <Space direction="vertical" style={{ width: '100%' }} size={10}>
-          {[
-            { name: '采购相关性', weight: 30, desc: '职位/描述含PCB采购关键词' },
-            { name: '公司规模', weight: 25, desc: '员工数 / 营收规模' },
-            { name: '近期活跃度', weight: 20, desc: '近90天采购记录/动态' },
-            { name: '决策层联系人', weight: 15, desc: '是否有Purchasing/Sourcing职级联系人' },
-            { name: '地区优先级', weight: 10, desc: '目标国家匹配程度' },
-          ].map((d) => (
-            <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          {(template?.dimensions ?? []).map((dim) => (
+            <div key={dim.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
               <div>
-                <Text style={{ fontSize: 13 }}>{d.name}</Text>
-                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{d.desc}</Text>
+                <Text style={{ fontSize: 13 }}>{dim.name}</Text>
+                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{dim.criteria ?? '—'}</Text>
               </div>
-              <Tag style={{ flexShrink: 0 }}>{d.weight}%</Tag>
+              <Tag>{dim.weight}%</Tag>
             </div>
           ))}
+          {(template?.dimensions?.length ?? 0) === 0 && (
+            <Text type="secondary">暂无评分维度</Text>
+          )}
         </Space>
       </Card>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        如需调整权重和评级阈值，入门后前往 <Text strong style={{ fontSize: 12 }}>设置 → 评分配置</Text> 修改。
+        最后同步：{template?.updated_at ? new Date(template.updated_at).toLocaleString('zh-CN') : '—'}
       </Text>
     </div>
   );
 }
 
-function StepContactRules() {
+function StepContactRules({ rules }: { rules?: ContactRules | null }) {
+  const config: ContactRuleSet | undefined = rules?.rules;
   return (
-    <div style={{ maxWidth: 560 }}>
+    <div style={{ maxWidth: 680 }}>
       <Paragraph type="secondary">
-        系统根据联系人职位头衔判断其决策层级，每次触达自动选择公司中<Text strong>职级最高的1位联系人</Text>发送邮件，无需手动选择。
+        联系人触达规则已从后端加载。系统会据此控制发送频次和退订处理。
       </Paragraph>
-      <Card size="small" style={{ background: '#fafafa', marginBottom: 16 }}>
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-          <div>
-            <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 6 }}>联系人职级（优先级从高到低）</Text>
-            <Space direction="vertical" size={4}>
-              {[
-                { grade: 'A', label: '核心决策层', example: 'Purchasing Director、CPO、采购总监' },
-                { grade: 'B', label: '采购执行层', example: 'Purchasing Manager、采购经理' },
-                { grade: 'C', label: '采购专员', example: 'Buyer、Purchasing Engineer' },
-                { grade: 'D', label: '其他相关岗', example: 'Supply Chain、Operations' },
-              ].map((t) => (
-                <div key={t.grade} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Tag color={t.grade === 'A' ? 'gold' : t.grade === 'B' ? 'green' : t.grade === 'C' ? 'blue' : 'default'} style={{ width: 32, textAlign: 'center' }}>
-                    {t.grade}级
-                  </Tag>
-                  <Text style={{ fontSize: 12, width: 80 }}>{t.label}</Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{t.example}</Text>
-                </div>
-              ))}
-            </Space>
-          </div>
-          <div>
-            <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>优先部门</Text>
-            <Space>
-              {['Purchasing / Procurement', 'Supply Chain', 'Engineering / R&D'].map((d) => (
-                <Tag key={d} color="cyan">{d}</Tag>
-              ))}
-            </Space>
-          </div>
-        </Space>
+      <Card size="small">
+        <Descriptions column={2} size="small">
+          <Descriptions.Item label="每日最大发送数">{config?.max_emails_per_prospect_per_day ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="每周最大发送数">{config?.max_emails_per_prospect_per_week ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="最小间隔（小时）">{config?.min_interval_hours ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="退信阈值">{config?.bounce_threshold ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="遵守退订">{config?.respect_unsubscribe ? '是' : '否'}</Descriptions.Item>
+          <Descriptions.Item label="最后同步">{rules ? new Date(rules.updated_at).toLocaleString('zh-CN') : '—'}</Descriptions.Item>
+        </Descriptions>
       </Card>
       <Alert
         type="info"
         showIcon
-        message="收到回复后自动停止该公司的后续序列邮件。"
-        style={{ marginBottom: 12 }}
+        message="这些规则会直接影响后续发送行为。"
+        style={{ marginTop: 16 }}
       />
-      <Text type="secondary" style={{ fontSize: 12 }}>
-        如需调整职级关键词或优先部门，入门后前往 <Text strong style={{ fontSize: 12 }}>设置 → 触达规则</Text> 修改。
-      </Text>
     </div>
   );
 }
@@ -251,8 +265,8 @@ function StepDone() {
   return (
     <Result
       status="success"
-      title="配置完成，开始获客之旅！"
-      subTitle="系统正在为您采集和筛选目标客户，通常需要24小时完成首次数据同步。"
+      title="配置完成，开始使用系统"
+      subTitle="你的租户已完成基础设置，系统会在后续同步真实数据。"
       style={{ padding: '24px 0' }}
     />
   );
@@ -260,8 +274,51 @@ function StepDone() {
 
 export function Component() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [current, setCurrent] = useState(0);
-  const [keywords, setKeywords] = useState<string[]>(['PCB', 'printed circuit board']);
+  const [passwordSubmit, setPasswordSubmit] = useState<(() => void) | null>(null);
+
+  const keywordsQuery = useQuery<Keyword[]>({
+    queryKey: queryKeys.keywords.list(),
+    queryFn: async () => (await api.keywords.list()).data.data,
+  });
+  const scoringQuery = useQuery<TenantScoringTemplate | null>({
+    queryKey: queryKeys.scoring.all(),
+    queryFn: async () => pickActiveTemplate((await api.scoring.get()).data.data),
+  });
+  const rulesQuery = useQuery<ContactRules | null>({
+    queryKey: queryKeys.contactRules.all(),
+    queryFn: async () => pickActiveRule((await api.contactRules.get()).data.data),
+  });
+
+  const addKeywordMutation = useMutation({
+    mutationFn: (keyword: string) => api.keywords.create({ keyword }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.keywords.list() });
+      message.success('关键词已添加');
+    },
+    onError: () => message.error('添加关键词失败'),
+  });
+
+  const removeKeywordMutation = useMutation({
+    mutationFn: (id: string) => api.keywords.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.keywords.list() });
+      message.success('关键词已删除');
+    },
+    onError: () => message.error('删除关键词失败'),
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: () => api.onboarding.complete(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['tenant', 'auth', 'me'] });
+      navigate('/dashboard', { replace: true });
+    },
+    onError: () => message.error('完成引导失败，请确认关键词已配置'),
+  });
+
+  const keywords = keywordsQuery.data ?? [];
 
   const canNext = () => {
     if (current === 1) return keywords.length > 0;
@@ -269,20 +326,21 @@ export function Component() {
   };
 
   const handleNext = () => {
-    if (current === 0) {
-      message.success('密码已修改');
-    }
-    setCurrent((c) => c + 1);
+    setCurrent((value) => Math.min(value + 1, STEP_DEFS.length - 1));
   };
 
-  const handleSkip = () => setCurrent((c) => c + 1);
+  const handleStepOneSuccess = () => {
+    handleNext();
+  };
 
-  const handleFinish = () => navigate('/dashboard');
+  const handleSkip = () => handleNext();
 
-  const stepItems = STEP_DEFS.map((s, i) => ({
-    title: s.title,
-    icon: s.icon,
-    status: i < current ? 'finish' as const : i === current ? 'process' as const : 'wait' as const,
+  const handleFinish = () => completeMutation.mutate();
+
+  const stepItems = STEP_DEFS.map((step, index) => ({
+    title: step.title,
+    icon: step.icon,
+    status: index < current ? 'finish' as const : index === current ? 'process' as const : 'wait' as const,
   }));
 
   const currentStep = STEP_DEFS[current]!;
@@ -290,10 +348,19 @@ export function Component() {
   const isSkippable = !currentStep.required && current > 1 && !isLast;
 
   const stepContents = [
-    <StepPassword key="password" />,
-    <StepKeywords key="keywords" keywords={keywords} onChange={setKeywords} />,
-    <StepScoring key="scoring" />,
-    <StepContactRules key="contact" />,
+    <StepPassword
+      key="password"
+      onSuccess={handleStepOneSuccess}
+      onSubmitReady={setPasswordSubmit}
+    />,
+    <StepKeywords
+      key="keywords"
+      keywords={keywords}
+      onAdd={(keyword) => addKeywordMutation.mutate(keyword)}
+      onRemove={(id) => removeKeywordMutation.mutate(id)}
+    />,
+    <StepScoring key="scoring" template={scoringQuery.data} />,
+    <StepContactRules key="contact" rules={rulesQuery.data} />,
     <StepDone key="done" />,
   ];
 
@@ -306,46 +373,35 @@ export function Component() {
       padding: '24px',
       boxSizing: 'border-box',
     }}>
-      {/* 居中约束容器，flex 列撑满剩余高度 */}
       <div style={{
         width: '100%',
-        maxWidth: 720,
+        maxWidth: 760,
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
       }}>
-        {/* 步骤条 */}
-        <Steps
-          current={current}
-          items={stepItems}
-          style={{ marginBottom: 20, flexShrink: 0 }}
-        />
+        <Steps current={current} items={stepItems} style={{ marginBottom: 20, flexShrink: 0 }} />
 
-        {/* 内容卡片：按内容自适应高度，超出时内部滚动，不撑满全屏 */}
         <Card style={{ flexShrink: 0, overflow: 'auto', maxHeight: 'calc(100vh - 180px)', marginBottom: 16 }}>
           {stepContents[current]}
         </Card>
 
-        {/* 弹性垫片：将按钮推到底部 */}
         <div style={{ flex: 1 }} />
 
-        {/* 导航按钮：始终可见 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
           <Button
             icon={<ArrowLeftOutlined />}
             disabled={current === 0}
-            onClick={() => setCurrent((c) => c - 1)}
+            onClick={() => setCurrent((value) => Math.max(value - 1, 0))}
           >
             上一步
           </Button>
           <Space>
-            {isSkippable && (
-              <Button onClick={handleSkip}>跳过此步</Button>
-            )}
+            {isSkippable && <Button onClick={handleSkip}>跳过此步</Button>}
             {isLast ? (
-              <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleFinish}>
+              <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleFinish} loading={completeMutation.isPending}>
                 进入控制台
               </Button>
             ) : (
@@ -353,7 +409,7 @@ export function Component() {
                 type="primary"
                 icon={<ArrowRightOutlined />}
                 disabled={!canNext()}
-                onClick={handleNext}
+                onClick={current === 0 ? passwordSubmit ?? undefined : handleNext}
               >
                 {current === 0 ? '确认修改' : '下一步'}
               </Button>

@@ -1,257 +1,370 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Card,
-  Table,
+  Alert,
+  Badge,
   Button,
-  Tag,
-  Space,
-  Typography,
-  Modal,
+  Card,
   Form,
   Input,
-  Select,
+  Modal,
   Popconfirm,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
   message,
-  Badge,
 } from 'antd';
-import {
-  PlusOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createApiClient, createTenantApi, queryKeys, type TeamUser } from '@shared/api';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
-type Role = 'owner' | 'admin' | 'member';
-type MemberStatus = 'active' | 'invited' | 'disabled';
+type Role = 'admin' | 'operator' | 'viewer';
+type MemberStatus = 'active' | 'disabled';
 
-interface TeamMember {
-  id: string;
-  name: string;
+type TeamFormValues = {
   email: string;
+  name: string;
   role: Role;
-  status: MemberStatus;
-  joined_at: string;
-  last_active?: string;
-}
+};
+
+const api = createTenantApi(createApiClient('tenant'));
 
 const ROLE_LABELS: Record<Role, string> = {
-  owner: '所有者',
   admin: '管理员',
-  member: '成员',
+  operator: '运营',
+  viewer: '只读',
 };
 
 const ROLE_COLORS: Record<Role, string> = {
-  owner: 'gold',
   admin: 'blue',
-  member: 'default',
-};
-
-const STATUS_COLORS: Record<MemberStatus, 'success' | 'warning' | 'error'> = {
-  active: 'success',
-  invited: 'warning',
-  disabled: 'error',
+  operator: 'purple',
+  viewer: 'default',
 };
 
 const STATUS_LABELS: Record<MemberStatus, string> = {
   active: '已激活',
-  invited: '邀请中',
   disabled: '已禁用',
 };
 
-const MOCK_MEMBERS: TeamMember[] = [
-  { id: 'm1', name: '张伟', email: 'zhang.wei@company.com', role: 'owner', status: 'active', joined_at: '2026-01-01', last_active: '2026-04-17' },
-  { id: 'm2', name: '李娜', email: 'li.na@company.com', role: 'admin', status: 'active', joined_at: '2026-02-10', last_active: '2026-04-16' },
-  { id: 'm3', name: '王磊', email: 'wang.lei@company.com', role: 'member', status: 'active', joined_at: '2026-03-01', last_active: '2026-04-15' },
-  { id: 'm4', name: '赵敏', email: 'zhao.min@company.com', role: 'member', status: 'invited', joined_at: '2026-04-10' },
-];
+const STATUS_COLOR: Record<MemberStatus, 'success' | 'error'> = {
+  active: 'success',
+  disabled: 'error',
+};
 
-const ROLE_DESCRIPTIONS: { role: Role; label: string; perms: string[] }[] = [
-  {
-    role: 'owner',
-    label: '所有者',
-    perms: ['管理团队成员和角色', '管理账户和计费', '所有管理员权限'],
-  },
-  {
-    role: 'admin',
-    label: '管理员',
-    perms: ['创建和管理发送计划', '编辑评分规则和关键词', '查看所有数据和报告', '管理邮件模板'],
-  },
-  {
-    role: 'member',
-    label: '成员',
-    perms: ['查看公司和联系人列表', '查看发送计划和报告', '使用模板（不可编辑）'],
-  },
-];
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString('zh-CN');
+}
+
+function readPrimaryRole(user: TeamUser): Role {
+  const first = user.roles?.[0];
+  if (first === 'admin' || first === 'operator' || first === 'viewer') {
+    return first;
+  }
+  return 'viewer';
+}
+
+function readStatus(user: TeamUser): MemberStatus {
+  return user.status === 'disabled' ? 'disabled' : 'active';
+}
 
 export function Component() {
-  const [members, setMembers] = useState<TeamMember[]>(MOCK_MEMBERS);
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [form] = Form.useForm();
+  const queryClient = useQueryClient();
+  const [inviteForm] = Form.useForm<TeamFormValues>();
+  const [editForm] = Form.useForm<TeamFormValues>();
+  const [open, setOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamUser | null>(null);
 
-  const handleInvite = () => {
-    form.validateFields().then((values) => {
-      const newMember: TeamMember = {
-        id: `m${Date.now()}`,
-        name: values.email.split('@')[0],
+  const teamQuery = useQuery<TeamUser[]>({
+    queryKey: queryKeys.team.list(),
+    queryFn: async () => (await api.team.list()).data.data,
+  });
+
+  useEffect(() => {
+    if (!open) {
+      inviteForm.resetFields();
+    }
+  }, [open, inviteForm]);
+
+  useEffect(() => {
+    if (editingMember) {
+      editForm.setFieldsValue({
+        name: editingMember.name,
+        email: editingMember.email,
+        role: readPrimaryRole(editingMember),
+      });
+    } else {
+      editForm.resetFields();
+    }
+  }, [editingMember, editForm]);
+
+  const createMutation = useMutation({
+    mutationFn: (values: TeamFormValues) =>
+      api.team.create({
         email: values.email,
-        role: values.role,
-        status: 'invited',
-        joined_at: new Date().toISOString().slice(0, 10),
-      };
-      setMembers((prev) => [...prev, newMember]);
-      message.success(`已向 ${values.email} 发送邀请邮件`);
-      setInviteOpen(false);
-      form.resetFields();
-    }).catch(() => {});
-  };
+        name: values.name,
+        roles: [values.role],
+        must_change_pwd: true,
+        status: 'active',
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.team.list() });
+      message.success('成员已创建');
+      setOpen(false);
+      inviteForm.resetFields();
+    },
+    onError: () => message.error('成员创建失败，请稍后重试'),
+  });
 
-  const handleDisable = (id: string) => {
-    setMembers((prev) => prev.map((m) => m.id === id ? { ...m, status: 'disabled' } : m));
-    message.success('已禁用该成员');
-  };
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; roles?: Role[]; status?: MemberStatus } }) =>
+      api.team.update(id, data),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.team.list() });
+      message.success('成员信息已更新');
+      setEditingMember(null);
+    },
+    onError: () => message.error('更新失败，请稍后重试'),
+  });
 
-  const handleEnable = (id: string) => {
-    setMembers((prev) => prev.map((m) => m.id === id ? { ...m, status: 'active' } : m));
-    message.success('已重新启用该成员');
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.team.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.team.list() });
+      message.success('成员已移除');
+    },
+    onError: () => message.error('删除失败，请稍后重试'),
+  });
 
-  const columns: ColumnsType<TeamMember> = [
-    {
-      title: '成员',
-      render: (_, r) => (
-        <Space>
-          <div style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: '#e6f4ff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <UserOutlined style={{ color: '#1677ff' }} />
-          </div>
-          <div>
-            <div><Text strong>{r.name}</Text></div>
-            <div><Text type="secondary" style={{ fontSize: 12 }}>{r.email}</Text></div>
-          </div>
-        </Space>
-      ),
-    },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      width: 100,
-      render: (v: Role) => <Tag color={ROLE_COLORS[v]}>{ROLE_LABELS[v]}</Tag>,
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      width: 100,
-      render: (v: MemberStatus) => (
-        <Badge status={STATUS_COLORS[v]} text={STATUS_LABELS[v]} />
-      ),
-    },
-    {
-      title: '加入时间',
-      dataIndex: 'joined_at',
-      width: 110,
-      render: (v) => <Text type="secondary" style={{ fontSize: 12 }}>{v}</Text>,
-    },
-    {
-      title: '最后活跃',
-      dataIndex: 'last_active',
-      width: 110,
-      render: (v) => <Text type="secondary" style={{ fontSize: 12 }}>{v ?? '—'}</Text>,
-    },
-    {
-      title: '操作',
-      width: 140,
-      render: (_, r) => (
-        <Space size={4}>
-          {r.role !== 'owner' && r.status !== 'disabled' && (
-            <Popconfirm title="确认禁用此成员？" onConfirm={() => handleDisable(r.id)}>
-              <Button type="link" size="small" danger>禁用</Button>
-            </Popconfirm>
-          )}
-          {r.status === 'disabled' && (
-            <Button type="link" size="small" onClick={() => handleEnable(r.id)}>启用</Button>
-          )}
-          {r.status === 'invited' && (
-            <Button type="link" size="small" onClick={() => message.success('已重新发送邀请')}>
-              重发邀请
-            </Button>
-          )}
-        </Space>
-      ),
-    },
-  ];
+  const columns: ColumnsType<TeamUser> = useMemo(
+    () => [
+      {
+        title: '成员',
+        render: (_, record) => (
+          <Space>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#e6f4ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <UserOutlined style={{ color: '#1677ff' }} />
+            </div>
+            <div>
+              <div><Text strong>{record.name}</Text></div>
+              <div><Text type="secondary" style={{ fontSize: 12 }}>{record.email}</Text></div>
+            </div>
+          </Space>
+        ),
+      },
+      {
+        title: '角色',
+        width: 180,
+        render: (_, record) => (
+          <Space wrap>
+            {(record.roles ?? []).map((role) => (
+              <Tag key={role} color={ROLE_COLORS[role as Role] ?? 'default'}>
+                {ROLE_LABELS[role as Role] ?? role}
+              </Tag>
+            ))}
+          </Space>
+        ),
+      },
+      {
+        title: '状态',
+        width: 100,
+        render: (_, record) => {
+          const status = readStatus(record);
+          return <Badge status={STATUS_COLOR[status]} text={STATUS_LABELS[status]} />;
+        },
+      },
+      {
+        title: '创建时间',
+        dataIndex: 'created_at',
+        width: 110,
+        render: (value: string) => <Text type="secondary">{formatDate(value)}</Text>,
+      },
+      {
+        title: '操作',
+        width: 220,
+        render: (_, record) => {
+          const status = readStatus(record);
+          return (
+            <Space size={0}>
+              {status === 'active' && (
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => updateMutation.mutate({ id: record.id, data: { status: 'disabled' } })}
+                >
+                  禁用
+                </Button>
+              )}
+              {status === 'disabled' && (
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={() => updateMutation.mutate({ id: record.id, data: { status: 'active' } })}
+                >
+                  启用
+                </Button>
+              )}
+              <Button
+                type="link"
+                size="small"
+                onClick={() => setEditingMember(record)}
+              >
+                修改角色
+              </Button>
+              <Popconfirm
+                title="确认删除该成员？"
+                onConfirm={() => deleteMutation.mutate(record.id)}
+              >
+                <Button type="link" size="small" danger>
+                  删除
+                </Button>
+              </Popconfirm>
+            </Space>
+          );
+        },
+      },
+    ],
+    [deleteMutation, updateMutation],
+  );
+
+  const team = teamQuery.data ?? [];
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
         <div>
           <Title level={5} style={{ marginBottom: 4 }}>团队管理</Title>
-          <Text type="secondary">管理团队成员、角色分配和访问权限</Text>
+          <Text type="secondary">团队成员来自真实 API，角色严格使用 `admin / operator / viewer`。</Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setInviteOpen(true)}>
-          邀请成员
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
+          新增成员
         </Button>
       </div>
 
+      <Alert
+        type="info"
+        showIcon
+        message="成员列表来自 `/api/v1/team/users`，页面不再把角色伪装成单独的 `role` 字段。"
+      />
+
       <Card size="small">
-        <Table
+        <Table<TeamUser>
           rowKey="id"
           columns={columns}
-          dataSource={members}
+          dataSource={team}
+          loading={teamQuery.isLoading}
           size="middle"
           pagination={false}
+          locale={{ emptyText: '暂无团队成员' }}
         />
       </Card>
 
-      {/* 角色权限说明 */}
-      <Card title="角色权限说明" size="small">
-        <div style={{ display: 'flex', gap: 16 }}>
-          {ROLE_DESCRIPTIONS.map((r) => (
-            <div
-              key={r.role}
-              style={{
-                flex: 1,
-                padding: '12px 16px',
-                border: '1px solid #f0f0f0',
-                borderRadius: 6,
-                background: '#fafafa',
-              }}
-            >
-              <Tag color={ROLE_COLORS[r.role]} style={{ marginBottom: 8 }}>{r.label}</Tag>
-              <Space direction="vertical" size={4}>
-                {r.perms.map((p) => (
-                  <Text key={p} style={{ fontSize: 12 }}>• {p}</Text>
-                ))}
-              </Space>
-            </div>
-          ))}
-        </div>
+      <Card title="角色说明" size="small">
+        <Space direction="vertical" style={{ width: '100%' }} size="small">
+          <div>
+            <Tag color="blue">管理员</Tag>
+            <Text type="secondary">可管理规则、模板、发送计划与团队成员。</Text>
+          </div>
+          <div>
+            <Tag color="purple">运营</Tag>
+            <Text type="secondary">可处理日常运营动作，但不负责团队配置。</Text>
+          </div>
+          <div>
+            <Tag>只读</Tag>
+            <Text type="secondary">只能查看数据，适合观察者角色。</Text>
+          </div>
+        </Space>
       </Card>
 
       <Modal
-        title="邀请团队成员"
-        open={inviteOpen}
-        onOk={handleInvite}
-        onCancel={() => { setInviteOpen(false); form.resetFields(); }}
-        okText="发送邀请"
+        title="新增团队成员"
+        open={open}
+        onCancel={() => setOpen(false)}
+        onOk={async () => {
+          const values = await inviteForm.validateFields();
+          createMutation.mutate(values);
+        }}
+        okText="创建成员"
+        confirmLoading={createMutation.isPending}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="email" label="邮箱地址" rules={[{ required: true, type: 'email', message: '请输入有效的邮箱地址' }]}>
-            <Input placeholder="colleague@company.com" />
+        <Form form={inviteForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="name"
+            label="姓名"
+            rules={[{ required: true, whitespace: true, message: '请输入姓名' }]}
+          >
+            <Input placeholder="张三" />
           </Form.Item>
-          <Form.Item name="role" label="角色" initialValue="member" rules={[{ required: true }]}>
-            <Select>
-              <Option value="admin">管理员</Option>
-              <Option value="member">成员</Option>
-            </Select>
+          <Form.Item
+            name="email"
+            label="邮箱"
+            rules={[{ required: true, type: 'email', message: '请输入有效邮箱' }]}
+          >
+            <Input placeholder="user@company.com" />
+          </Form.Item>
+          <Form.Item name="role" label="角色" initialValue="viewer">
+            <Select
+              options={[
+                { value: 'admin', label: '管理员' },
+                { value: 'operator', label: '运营' },
+                { value: 'viewer', label: '只读' },
+              ]}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="修改成员"
+        open={Boolean(editingMember)}
+        onCancel={() => setEditingMember(null)}
+        onOk={async () => {
+          if (!editingMember) return;
+          const values = await editForm.validateFields();
+          updateMutation.mutate({
+            id: editingMember.id,
+            data: {
+              name: values.name,
+              roles: [values.role],
+            },
+          });
+        }}
+        okText="保存"
+        confirmLoading={updateMutation.isPending}
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            name="name"
+            label="姓名"
+            rules={[{ required: true, whitespace: true, message: '请输入姓名' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item name="role" label="角色">
+            <Select
+              options={[
+                { value: 'admin', label: '管理员' },
+                { value: 'operator', label: '运营' },
+                { value: 'viewer', label: '只读' },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>

@@ -22,15 +22,10 @@ export function intelligenceSourcesApi(client: AxiosInstance) {
     create: (data: Partial<IntelligenceSource>) =>
       client.post<ApiResponse<IntelligenceSource>>('/api/v1/intelligence-sources', data),
     update: (id: string, data: Partial<IntelligenceSource>) =>
-      client.put<ApiResponse<IntelligenceSource>>(`/api/v1/intelligence-sources/${id}`, data),
+      client.patch<ApiResponse<IntelligenceSource>>(`/api/v1/intelligence-sources/${id}`, data),
     delete: (id: string) =>
       client.delete(`/api/v1/intelligence-sources/${id}`),
-    batchImport: (file: File) => {
-      const form = new FormData();
-      form.append('file', file);
-      return client.post<ApiResponse<ImportResult>>('/api/v1/intelligence-sources/batch-import', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-    },
+    batchImport: (items: Array<Partial<IntelligenceSource>>) =>
+      client.post<ApiResponse<ImportResult>>('/api/v1/intelligence-sources/batch-import', { items }),
   };
 }

@@ -1,182 +1,206 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Card,
-  Input,
-  Button,
-  Tag,
-  Space,
-  Typography,
   Alert,
-  Tooltip,
+  Button,
+  Card,
+  Form,
+  Input,
+  Modal,
   Popconfirm,
+  Space,
+  Table,
+  Tag,
+  Typography,
   message,
 } from 'antd';
-import {
-  PlusOutlined,
-  CloseOutlined,
-  InfoCircleOutlined,
-} from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import { EditOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createApiClient, createTenantApi, queryKeys } from '@shared/api';
 
 const { Text, Title } = Typography;
 
-interface KeywordGroup {
-  key: string;
-  label: string;
-  description: string;
-  keywords: string[];
+interface KeywordRecord {
+  id: string;
+  keyword: string;
+  created_at: string;
 }
 
-const INITIAL_GROUPS: KeywordGroup[] = [
-  {
-    key: 'product',
-    label: '产品关键词',
-    description: '描述您生产的产品，用于匹配采购此类产品的目标客户',
-    keywords: ['PCB', 'printed circuit board', 'FPC', 'HDI board', 'rigid-flex PCB', 'PCBA', 'multilayer PCB'],
-  },
-  {
-    key: 'industry',
-    label: '行业关键词',
-    description: '描述目标客户所在行业，用于数据源采集和情报推送',
-    keywords: ['电子制造', '消费电子', '汽车电子', '工业自动化', '通信设备', '医疗设备'],
-  },
-  {
-    key: 'exclude',
-    label: '排除关键词',
-    description: '含有这些词的公司将被过滤，避免触达非目标客户',
-    keywords: ['招聘', 'jobs', 'hiring', 'careers', '培训'],
-  },
-];
+const api = createTenantApi(createApiClient('tenant'));
 
-function KeywordGroupCard({ group, onChange }: {
-  group: KeywordGroup;
-  onChange: (keywords: string[]) => void;
-}) {
-  const [inputVal, setInputVal] = useState('');
-  const [inputVisible, setInputVisible] = useState(false);
-
-  const handleAdd = () => {
-    const trimmed = inputVal.trim();
-    if (!trimmed) return;
-    if (group.keywords.includes(trimmed)) {
-      message.warning('关键词已存在');
-      return;
-    }
-    onChange([...group.keywords, trimmed]);
-    setInputVal('');
-    setInputVisible(false);
-  };
-
-  const handleRemove = (kw: string) => {
-    onChange(group.keywords.filter((k) => k !== kw));
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') handleAdd();
-    if (e.key === 'Escape') { setInputVisible(false); setInputVal(''); }
-  };
-
-  return (
-    <Card
-      size="small"
-      title={
-        <Space>
-          <Text strong>{group.label}</Text>
-          <Tooltip title={group.description}>
-            <InfoCircleOutlined style={{ color: '#999', fontSize: 13 }} />
-          </Tooltip>
-          <Tag>{group.keywords.length}</Tag>
-        </Space>
-      }
-      style={{ marginBottom: 16 }}
-    >
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {group.keywords.map((kw) => (
-          <Tag
-            key={kw}
-            closable
-            onClose={() => handleRemove(kw)}
-            closeIcon={<CloseOutlined />}
-            style={{ fontSize: 13, padding: '2px 8px' }}
-            color={group.key === 'exclude' ? 'default' : 'blue'}
-          >
-            {kw}
-          </Tag>
-        ))}
-        {inputVisible ? (
-          <Input
-            autoFocus
-            size="small"
-            value={inputVal}
-            onChange={(e) => setInputVal(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={handleAdd}
-            style={{ width: 140 }}
-            placeholder="输入后按回车"
-          />
-        ) : (
-          <Tag
-            style={{ cursor: 'pointer', borderStyle: 'dashed' }}
-            onClick={() => setInputVisible(true)}
-            icon={<PlusOutlined />}
-          >
-            添加关键词
-          </Tag>
-        )}
-      </div>
-    </Card>
-  );
+function formatDate(value: string) {
+  return new Date(value).toLocaleString('zh-CN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
 }
 
 export function Component() {
-  const [groups, setGroups] = useState<KeywordGroup[]>(INITIAL_GROUPS);
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
+  const [keywordInput, setKeywordInput] = useState('');
+  const [editing, setEditing] = useState<KeywordRecord | null>(null);
 
-  const handleGroupChange = (key: string, keywords: string[]) => {
-    setGroups((prev) => prev.map((g) => g.key === key ? { ...g, keywords } : g));
-  };
+  const keywordsQuery = useQuery({
+    queryKey: queryKeys.keywords.list(),
+    queryFn: async () => (await api.keywords.list()).data.data,
+  });
 
-  const handleSave = () => {
-    message.success('关键词已保存，将在下次采集周期（约24小时）生效');
-    // saved state handled via message feedback
-  };
+  const createMutation = useMutation({
+    mutationFn: (keyword: string) => api.keywords.create({ keyword }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.keywords.list() });
+      message.success('关键词已添加');
+      form.resetFields();
+      setKeywordInput('');
+    },
+    onError: () => message.error('添加失败，请稍后重试'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, keyword }: { id: string; keyword: string }) =>
+      api.keywords.update(id, { keyword }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.keywords.list() });
+      message.success('关键词已更新');
+      setEditing(null);
+    },
+    onError: () => message.error('更新失败，请稍后重试'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.keywords.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.keywords.list() });
+      message.success('关键词已删除');
+    },
+    onError: () => message.error('删除失败，请稍后重试'),
+  });
+
+  useEffect(() => {
+    if (editing) {
+      editForm.setFieldsValue({ keyword: editing.keyword });
+    }
+  }, [editing, editForm]);
+
+  const keywords = keywordsQuery.data ?? [];
+
+  const columns: ColumnsType<KeywordRecord> = [
+    {
+      title: '关键词',
+      dataIndex: 'keyword',
+      render: (value: string) => <Tag color="blue">{value}</Tag>,
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      width: 180,
+      render: (value: string) => <Text type="secondary">{formatDate(value)}</Text>,
+    },
+    {
+      title: '操作',
+      width: 160,
+      render: (_, record) => (
+        <Space size={0}>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => setEditing(record)}
+          >
+            编辑
+          </Button>
+          <Popconfirm
+            title="删除关键词"
+            description="确认删除这个关键词？"
+            onConfirm={() => deleteMutation.mutate(record.id)}
+          >
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
         <div>
           <Title level={5} style={{ marginBottom: 4 }}>关键词管理</Title>
-          <Text type="secondary">关键词用于数据源采集和客户匹配，修改后将在下一采集周期生效</Text>
+          <Text type="secondary">使用真实接口管理租户关键词，新增、编辑和删除会立即同步到后端。</Text>
         </div>
-        <Popconfirm
-          title="保存关键词"
-          description="修改将在下次采集周期（约24小时）后生效，确认保存？"
-          onConfirm={handleSave}
-        >
-          <Button type="primary">保存配置</Button>
-        </Popconfirm>
       </div>
 
       <Alert
         type="info"
         showIcon
-        message="关键词变更在下次数据采集周期（每天凌晨2点）后生效，不影响当前已采集数据。建议修改后等待1-2天查看效果。"
+        message="关键词列表来自 `/api/v1/keywords`，修改后会立即保存，无需再点全局保存。"
       />
 
-      {groups.map((group) => (
-        <KeywordGroupCard
-          key={group.key}
-          group={group}
-          onChange={(kw) => handleGroupChange(group.key, kw)}
-        />
-      ))}
-
-      <Card size="small" style={{ background: '#fafafa' }}>
-        <Space direction="vertical" size={4}>
-          <Text strong style={{ fontSize: 12 }}>填写建议</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>• 产品关键词尽量包含中英文，提升跨语言匹配率</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>• 避免填写过于宽泛的词（如"电子""工厂"），会导致大量不相关客户</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>• 排除关键词可过滤招聘、培训类公司，减少无效数据</Text>
-        </Space>
+      <Card size="small">
+        <Form form={form} layout="inline" onFinish={() => {
+          const keyword = keywordInput.trim();
+          if (!keyword) return;
+          createMutation.mutate(keyword);
+        }}>
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Input
+              value={keywordInput}
+              onChange={(e) => setKeywordInput(e.target.value)}
+              placeholder="输入关键词后回车或点击添加"
+              style={{ width: 320 }}
+              onPressEnter={() => form.submit()}
+            />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              htmlType="submit"
+              loading={createMutation.isPending}
+            >
+              添加关键词
+            </Button>
+          </Form.Item>
+        </Form>
       </Card>
+
+      <Card size="small" title={`当前关键词 ${keywords.length}`}>
+        <Table<KeywordRecord>
+          rowKey="id"
+          columns={columns}
+          dataSource={keywords}
+          loading={keywordsQuery.isLoading}
+          size="middle"
+          pagination={false}
+          locale={{ emptyText: '暂无关键词，请先添加一条' }}
+        />
+      </Card>
+
+      <Modal
+        title="编辑关键词"
+        open={Boolean(editing)}
+        onCancel={() => setEditing(null)}
+        onOk={async () => {
+          const values = await editForm.validateFields();
+          if (!editing) return;
+          updateMutation.mutate({ id: editing.id, keyword: values.keyword.trim() });
+        }}
+        confirmLoading={updateMutation.isPending}
+        okText="保存"
+      >
+        <Form form={editForm} layout="vertical" style={{ marginTop: 16 }}>
+          <Form.Item
+            name="keyword"
+            label="关键词"
+            rules={[{ required: true, whitespace: true, message: '请输入关键词' }]}
+          >
+            <Input placeholder="例如：PCB" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Space>
   );
 }

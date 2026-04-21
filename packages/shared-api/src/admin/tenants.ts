@@ -10,10 +10,13 @@ export interface Tenant {
   id: string;
   name: string;
   slug: string;
+  industry?: string;
   status: 'active' | 'suspended' | 'archived';
-  plan: string;
-  company_limit: number;
-  user_limit: number;
+  balance?: number;
+  needs_onboarding?: boolean;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
   created_at: string;
   updated_at: string;
 }
@@ -30,8 +33,17 @@ export interface TenantTeamUser {
   id: string;
   email: string;
   name: string;
-  role: string;
+  roles: string[];
+  must_change_pwd?: boolean;
   status: string;
+  created_at: string;
+}
+
+export interface BalanceTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  description?: string;
   created_at: string;
 }
 
@@ -44,32 +56,38 @@ export function tenantsApi(client: AxiosInstance) {
     detail: (id: string) =>
       client.get<ApiResponse<Tenant>>(`/api/v1/tenants/${id}`),
     update: (id: string, data: Partial<Tenant>) =>
-      client.put<ApiResponse<Tenant>>(`/api/v1/tenants/${id}`, data),
+      client.patch<ApiResponse<Tenant>>(`/api/v1/tenants/${id}`, data),
+    suspend: (id: string) =>
+      client.post<ApiResponse<Tenant>>(`/api/v1/tenants/${id}/suspend`),
+    activate: (id: string) =>
+      client.post<ApiResponse<Tenant>>(`/api/v1/tenants/${id}/activate`),
 
     // Domains
     listDomains: (tenantId: string) =>
-      client.get<ApiResponse<TenantDomain[]>>(`/api/v1/tenants/${tenantId}/domains`),
+      client.get<PaginatedResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains`),
     createDomain: (tenantId: string, data: { domain: string }) =>
       client.post<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains`, data),
-    deleteDomain: (tenantId: string, domainId: string) =>
-      client.delete(`/api/v1/tenants/${tenantId}/domains/${domainId}`),
     verifyDomain: (tenantId: string, domainId: string) =>
       client.post<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains/${domainId}/verify`),
+    getDomain: (tenantId: string, domainId: string) =>
+      client.get<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains/${domainId}`),
 
     // Team
     listTeam: (tenantId: string) =>
-      client.get<ApiResponse<TenantTeamUser[]>>(`/api/v1/tenants/${tenantId}/team`),
+      client.get<PaginatedResponse<TenantTeamUser>>(`/api/v1/tenants/${tenantId}/users`),
     createTeamUser: (tenantId: string, data: Partial<TenantTeamUser>) =>
-      client.post<ApiResponse<TenantTeamUser>>(`/api/v1/tenants/${tenantId}/team`, data),
+      client.post<ApiResponse<TenantTeamUser>>(`/api/v1/tenants/${tenantId}/users`, data),
     updateTeamUser: (tenantId: string, userId: string, data: Partial<TenantTeamUser>) =>
-      client.put<ApiResponse<TenantTeamUser>>(`/api/v1/tenants/${tenantId}/team/${userId}`, data),
+      client.patch<ApiResponse<TenantTeamUser>>(`/api/v1/tenants/${tenantId}/users/${userId}`, data),
     deleteTeamUser: (tenantId: string, userId: string) =>
-      client.delete(`/api/v1/tenants/${tenantId}/team/${userId}`),
+      client.delete(`/api/v1/tenants/${tenantId}/users/${userId}`),
 
     // Balance
     getBalance: (tenantId: string) =>
       client.get<ApiResponse<BillingBalance>>(`/api/v1/tenants/${tenantId}/balance`),
-    adjustBalance: (tenantId: string, data: { amount: number; reason: string }) =>
-      client.post<ApiResponse<BillingBalance>>(`/api/v1/tenants/${tenantId}/balance/adjust`, data),
+    rechargeBalance: (tenantId: string, data: { amount: number; description?: string }) =>
+      client.post<ApiResponse<BillingBalance>>(`/api/v1/tenants/${tenantId}/balance/recharge`, data),
+    listBalanceTransactions: (tenantId: string) =>
+      client.get<PaginatedResponse<BalanceTransaction>>(`/api/v1/tenants/${tenantId}/balance/transactions`),
   };
 }

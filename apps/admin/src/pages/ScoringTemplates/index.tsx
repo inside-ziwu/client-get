@@ -1,316 +1,275 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Table,
   Button,
-  Tag,
-  Space,
   Drawer,
+  Form,
   Input,
-  InputNumber,
-  Select,
-  Typography,
-  Popconfirm,
-  message,
-  Alert,
+  Modal,
+  Space,
   Switch,
+  Table,
+  Tag,
+  Typography,
+  message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, CopyOutlined, RobotOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { adminApi } from '../../lib/api';
+import type { ScoringTemplate as ApiScoringTemplate } from '@shared/api';
 
 const { Text, Title } = Typography;
-const { Option } = Select;
 
-interface Dimension {
-  id: string;
+type TemplateFormValues = {
   name: string;
-  description: string;
-  max_score: number;
-  type: 'rule' | 'llm';
-}
-
-interface ScoringTemplate {
-  id: string;
-  industry: string;
-  dimension_count: number;
+  industry?: string;
+  description?: string;
+  dimensions_json: string;
+  grade_thresholds_json: string;
   is_active: boolean;
-  created_at: string;
-  dimensions: Dimension[];
-}
-
-const MOCK_TEMPLATES: ScoringTemplate[] = [
-  {
-    id: 't1', industry: 'PCB', dimension_count: 5, is_active: true, created_at: '2026-01-10',
-    dimensions: [
-      { id: 'd1', name: '国家匹配度', description: '目标采购国匹配程度', max_score: 20, type: 'rule' },
-      { id: 'd2', name: '产品匹配度', description: '关键词语义相似度', max_score: 30, type: 'llm' },
-      { id: 'd3', name: '公司规模', description: '员工数量区间判断', max_score: 15, type: 'rule' },
-      { id: 'd4', name: '进出口记录', description: '近1年进出口频次', max_score: 15, type: 'rule' },
-      { id: 'd5', name: '联系人丰富度', description: '有效邮箱联系人数量', max_score: 20, type: 'rule' },
-    ],
-  },
-  {
-    id: 't2', industry: '电子元器件', dimension_count: 4, is_active: true, created_at: '2026-02-05',
-    dimensions: [
-      { id: 'd6', name: '国家匹配度', description: '目标采购国匹配程度', max_score: 25, type: 'rule' },
-      { id: 'd7', name: '产品匹配度', description: '关键词语义相似度', max_score: 35, type: 'llm' },
-      { id: 'd8', name: '公司规模', description: '员工数量区间判断', max_score: 20, type: 'rule' },
-      { id: 'd9', name: '联系人丰富度', description: '有效邮箱联系人数量', max_score: 20, type: 'rule' },
-    ],
-  },
-];
-
-interface GradeThreshold {
-  grade: 'S' | 'A' | 'B' | 'C' | 'D';
-  is_special: boolean;   // S 级用精准来源判断，不用分值
-  min_score: number;
-  max_score: number;
-  desc: string;
-}
-
-const DEFAULT_THRESHOLDS: GradeThreshold[] = [
-  { grade: 'S', is_special: false, min_score: 90,  max_score: 100, desc: '精准客户' },
-  { grade: 'A', is_special: false, min_score: 80,  max_score: 89,  desc: '优质' },
-  { grade: 'B', is_special: false, min_score: 60,  max_score: 79,  desc: '良好' },
-  { grade: 'C', is_special: false, min_score: 40,  max_score: 59,  desc: '一般' },
-  { grade: 'D', is_special: false, min_score: 0,   max_score: 39,  desc: '低优先' },
-];
-
-const GRADE_COLORS: Record<string, string> = {
-  S: 'gold', A: 'green', B: 'blue', C: 'orange', D: 'default',
 };
 
-function TemplateEditor({ template, onClose }: { template: ScoringTemplate; onClose: () => void }) {
-  const [dimensions, setDimensions] = useState<Dimension[]>(template.dimensions);
-  const [thresholds, setThresholds] = useState<GradeThreshold[]>(DEFAULT_THRESHOLDS);
+const EMPTY_TEMPLATE: TemplateFormValues = {
+  name: '',
+  industry: '',
+  description: '',
+  dimensions_json: '[]',
+  grade_thresholds_json: '{}',
+  is_active: true,
+};
 
-  const updateThreshold = (grade: string, field: 'min_score' | 'max_score', val: number | null) => {
-    setThresholds(prev => prev.map(t => t.grade === grade ? { ...t, [field]: val ?? 0 } : t));
-  };
+function formatJson(value: unknown) {
+  return JSON.stringify(value ?? (Array.isArray(value) ? [] : {}), null, 2);
+}
 
-  const addDimension = () => {
-    setDimensions(prev => [...prev, {
-      id: `new_${Date.now()}`,
-      name: '',
-      description: '',
-      max_score: 10,
-      type: 'rule',
-    }]);
-  };
+function parseJson(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {};
+  }
 
-  const removeDimension = (id: string) => {
-    setDimensions(prev => prev.filter(d => d.id !== id));
-  };
-
-  const totalScore = dimensions.reduce((sum, d) => sum + d.max_score, 0);
-
-  return (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <div>
-        <Title level={5}>维度配置</Title>
-        <Table
-          rowKey="id"
-          dataSource={dimensions}
-          size="small"
-          pagination={false}
-          columns={[
-            {
-              title: '维度名称', dataIndex: 'name', width: 140,
-              render: (v: string, r) => (
-                <Input
-                  value={v}
-                  size="small"
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDimensions(prev => prev.map(d => d.id === r.id ? { ...d, name: e.target.value } : d))}
-                />
-              ),
-            },
-            {
-              title: '规则描述', dataIndex: 'description',
-              render: (v: string, r) => (
-                <Input
-                  value={v}
-                  size="small"
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDimensions(prev => prev.map(d => d.id === r.id ? { ...d, description: e.target.value } : d))}
-                />
-              ),
-            },
-            {
-              title: '满分', dataIndex: 'max_score', width: 80,
-              render: (v, r) => (
-                <InputNumber
-                  value={v}
-                  min={1}
-                  max={100}
-                  size="small"
-                  style={{ width: 70 }}
-                  onChange={(val) => setDimensions(prev => prev.map(d => d.id === r.id ? { ...d, max_score: val ?? 10 } : d))}
-                />
-              ),
-            },
-            {
-              title: '评分方式', dataIndex: 'type', width: 120,
-              render: (v, r) => (
-                <Select
-                  value={v}
-                  size="small"
-                  style={{ width: 110 }}
-                  onChange={(val) => setDimensions(prev => prev.map(d => d.id === r.id ? { ...d, type: val } : d))}
-                >
-                  <Option value="rule">纯规则</Option>
-                  <Option value="llm"><RobotOutlined /> LLM辅助</Option>
-                </Select>
-              ),
-            },
-            {
-              title: '', width: 60,
-              render: (_, r) => (
-                <Popconfirm title="确认删除此维度？" onConfirm={() => removeDimension(r.id)}>
-                  <Button type="link" size="small" danger>删除</Button>
-                </Popconfirm>
-              ),
-            },
-          ]}
-          footer={() => (
-            <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-              <Button size="small" icon={<PlusOutlined />} onClick={addDimension}>添加维度</Button>
-              <Text type="secondary">总分上限: {totalScore}</Text>
-            </Space>
-          )}
-        />
-      </div>
-
-      <div>
-        <Title level={5}>评级区间配置</Title>
-        <Table
-          rowKey="grade"
-          dataSource={thresholds}
-          size="small"
-          pagination={false}
-          columns={[
-            {
-              title: '评级', dataIndex: 'grade', width: 70,
-              render: (g) => <Tag color={GRADE_COLORS[g]}>{g}</Tag>,
-            },
-            {
-              title: '最低分', dataIndex: 'min_score', width: 110,
-              render: (v, r) => (
-                <InputNumber
-                  value={v}
-                  min={0}
-                  max={100}
-                  size="small"
-                  style={{ width: 80 }}
-                  onChange={(val) => updateThreshold(r.grade, 'min_score', val)}
-                />
-              ),
-            },
-            {
-              title: '最高分', dataIndex: 'max_score', width: 110,
-              render: (v, r) => r.grade === 'S'
-                ? <Text type="secondary">100（上限）</Text>
-                : (
-                  <InputNumber
-                    value={v}
-                    min={0}
-                    max={100}
-                    size="small"
-                    style={{ width: 80 }}
-                    onChange={(val) => updateThreshold(r.grade, 'max_score', val)}
-                  />
-                ),
-            },
-            {
-              title: '说明',
-              render: (_, r) => (
-                <Space size={4}>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{r.desc}</Text>
-                  {r.grade === 'S' && (
-                    <Tag color="gold" style={{ fontSize: 11 }}>励销云来源自动打标</Tag>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-        />
-        <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
-          确保各级分值段连续覆盖 0–100，D 级最低分固定为 0。
-        </Text>
-      </div>
-
-      <Alert
-        type="warning"
-        showIcon
-        message="修改仅影响新创建的租户，已有租户保持快照版本"
-      />
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <Button onClick={onClose}>取消</Button>
-        <Button type="primary" onClick={() => { message.success('模板已保存'); onClose(); }}>保存</Button>
-      </div>
-    </Space>
-  );
+  return JSON.parse(trimmed);
 }
 
 export function Component() {
-  const [editingTemplate, setEditingTemplate] = useState<ScoringTemplate | null>(null);
+  const [items, setItems] = useState<ApiScoringTemplate[]>([]);
+  const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [industryFilter, setIndustryFilter] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<ApiScoringTemplate | null>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+  const [versions, setVersions] = useState<ApiScoringTemplate[]>([]);
+  const [form] = Form.useForm<TemplateFormValues>();
 
-  const filtered = industryFilter
-    ? MOCK_TEMPLATES.filter((t) => t.industry === industryFilter)
-    : MOCK_TEMPLATES;
+  const load = async () => {
+    setLoading(true);
+    try {
+      const response = await adminApi.scoringTemplates.list();
+      setItems(response.data.data);
+    } catch {
+      message.error('加载评分模板失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const columns: ColumnsType<ScoringTemplate> = [
-    { title: '行业', dataIndex: 'industry', render: (v) => <Tag color="blue">{v}</Tag> },
-    { title: '维度数量', dataIndex: 'dimension_count', render: (n) => `${n} 个维度` },
-    { title: '状态', dataIndex: 'is_active', render: (v) => <Switch checked={v} size="small" onChange={() => message.info('状态已更新')} /> },
-    { title: '创建时间', dataIndex: 'created_at' },
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const openCreate = () => {
+    setEditing(null);
+    form.setFieldsValue(EMPTY_TEMPLATE);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = async (record: ApiScoringTemplate) => {
+    setEditing(record);
+    try {
+      const response = await adminApi.scoringTemplates.detail(record.id);
+      const template = response.data.data;
+      form.setFieldsValue({
+        name: template.name,
+        industry: template.industry ?? '',
+        description: template.description ?? '',
+        dimensions_json: formatJson(template.dimensions ?? []),
+        grade_thresholds_json: formatJson(template.grade_thresholds ?? {}),
+        is_active: template.is_active ?? true,
+      });
+      setDrawerOpen(true);
+    } catch {
+      message.error('模板详情加载失败，请稍后重试');
+      setEditing(null);
+      return;
+    }
+  };
+
+  const save = async () => {
+    try {
+      const values = await form.validateFields();
+      setSaving(true);
+      const payload = {
+        name: values.name.trim(),
+        industry: values.industry?.trim() || undefined,
+        description: values.description?.trim() || undefined,
+        dimensions: parseJson(values.dimensions_json),
+        grade_thresholds: parseJson(values.grade_thresholds_json),
+        is_active: values.is_active,
+      };
+
+      if (editing) {
+        await adminApi.scoringTemplates.update(editing.id, payload);
+        message.success('评分模板已更新');
+      } else {
+        await adminApi.scoringTemplates.create(payload);
+        message.success('评分模板已创建');
+      }
+
+      setDrawerOpen(false);
+      setEditing(null);
+      form.resetFields();
+      await load();
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        message.error('JSON 格式不正确');
+        return;
+      }
+
+      message.error('保存失败');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openVersions = async (record: ApiScoringTemplate) => {
+    setEditing(record);
+    setVersionsOpen(true);
+    setVersionsLoading(true);
+    try {
+      const response = await adminApi.scoringTemplates.versions(record.id);
+      setVersions(response.data.data);
+    } catch {
+      message.error('加载版本历史失败');
+    } finally {
+      setVersionsLoading(false);
+    }
+  };
+
+  const columns: ColumnsType<ApiScoringTemplate> = [
+    { title: '名称', dataIndex: 'name', render: (value) => <Text strong>{value}</Text> },
+    { title: '行业', dataIndex: 'industry', width: 140, render: (value) => value ? <Tag color="blue">{value}</Tag> : '—' },
+    { title: '维度数', width: 100, render: (_, record) => `${record.dimensions?.length ?? 0} 个` },
+    { title: '版本', dataIndex: 'version', width: 90, render: (value) => value ?? '—' },
     {
-      title: '操作', width: 130,
+      title: '启用',
+      dataIndex: 'is_active',
+      width: 90,
+      render: (value, record) => (
+        <Switch
+          checked={Boolean(value)}
+          size="small"
+          onChange={async (checked) => {
+            try {
+              await adminApi.scoringTemplates.update(record.id, { is_active: checked });
+              message.success('状态已更新');
+              await load();
+            } catch {
+              message.error('状态更新失败');
+            }
+          }}
+        />
+      ),
+    },
+    { title: '更新时间', dataIndex: 'updated_at', width: 180 },
+    {
+      title: '操作',
+      width: 180,
       render: (_, record) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => { setEditingTemplate(record); setDrawerOpen(true); }}>
+          <Button type="link" icon={<EditOutlined />} onClick={() => void openEdit(record)}>
             编辑
           </Button>
-          <Button type="link" size="small" icon={<CopyOutlined />} onClick={() => message.success('模板已复制')}>
-            复制
+          <Button type="link" onClick={() => void openVersions(record)}>
+            版本
           </Button>
         </Space>
       ),
     },
   ];
 
+  const versionColumns: ColumnsType<ApiScoringTemplate> = [
+    { title: '版本', dataIndex: 'version', width: 90 },
+    { title: '名称', dataIndex: 'name' },
+    { title: '更新时间', dataIndex: 'updated_at', width: 180 },
+    {
+      title: '状态',
+      dataIndex: 'is_active',
+      width: 100,
+      render: (value) => (value ? <Tag color="green">启用</Tag> : <Tag>停用</Tag>),
+    },
+  ];
+
   return (
     <>
-      <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <Text>行业筛选：</Text>
-        <Select
-          placeholder="全部行业"
-          style={{ width: 160 }}
-          allowClear
-          value={industryFilter}
-          onChange={setIndustryFilter}
-        >
-          <Option value="PCB">PCB</Option>
-          <Option value="电子元器件">电子元器件</Option>
-        </Select>
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: 'auto' }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <Title level={5} style={{ margin: 0 }}>
+            评分模板
+          </Title>
+          <Text type="secondary">模板列表、启停和版本历史都来自真实接口。</Text>
+        </div>
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
           新建模板
         </Button>
       </div>
 
-      <Table rowKey="id" columns={columns} dataSource={filtered} size="middle" pagination={false} />
+      <Table rowKey="id" columns={columns} dataSource={items} loading={loading} pagination={false} />
 
       <Drawer
-        title={`编辑评分模板 — ${editingTemplate?.industry}`}
+        title={editing ? `编辑评分模板 - ${editing.name}` : '新建评分模板'}
         width={720}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        footer={null}
+        extra={<Button type="primary" loading={saving} onClick={() => void save()}>保存</Button>}
       >
-        {editingTemplate && (
-          <TemplateEditor template={editingTemplate} onClose={() => setDrawerOpen(false)} />
-        )}
+        <Form form={form} layout="vertical" initialValues={EMPTY_TEMPLATE}>
+          <Form.Item name="name" label="模板名称" rules={[{ required: true, message: '请输入模板名称' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="industry" label="行业">
+            <Input placeholder="PCB" />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="dimensions_json" label="维度 JSON" rules={[{ required: true, message: '请输入维度 JSON' }]}>
+            <Input.TextArea rows={8} placeholder='[{"id":"country","name":"国家匹配度","weight":20,"type":"rule"}]' />
+          </Form.Item>
+          <Form.Item name="grade_thresholds_json" label="等级阈值 JSON" rules={[{ required: true, message: '请输入等级阈值 JSON' }]}>
+            <Input.TextArea rows={5} placeholder='{"S":90,"A":80,"B":60,"C":40,"D":0}' />
+          </Form.Item>
+          <Form.Item name="is_active" label="启用" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Form>
       </Drawer>
+
+      <Modal
+        title={editing ? `版本历史 - ${editing.name}` : '版本历史'}
+        open={versionsOpen}
+        onCancel={() => setVersionsOpen(false)}
+        footer={null}
+        width={720}
+      >
+        <Table
+          rowKey={(record) => `${record.id}-${record.version ?? record.updated_at}`}
+          columns={versionColumns}
+          dataSource={versions}
+          loading={versionsLoading}
+          pagination={false}
+          size="small"
+        />
+      </Modal>
     </>
   );
 }

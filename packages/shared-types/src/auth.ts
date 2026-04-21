@@ -30,6 +30,7 @@ export interface ChangePasswordRequest {
 export interface CurrentUser {
   id: string;
   tenant_id: string;
+  slug?: string;
   email: string;
   name: string;
   roles: string[];
