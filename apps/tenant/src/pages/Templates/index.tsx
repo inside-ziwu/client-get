@@ -20,8 +20,8 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { CopyOutlined, DeleteOutlined, EditOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BillingBalance } from '@shared/types';
-import { AIBalanceGuard } from '@shared/ui';
+import type { AiCapabilityState } from '@shared/types';
+import { AIAccessGuard } from '@shared/ui';
 import type { EmailTemplate } from '@shared/api';
 import { queryKeys } from '@shared/api';
 import { tenantApi } from '../../lib/api';
@@ -66,12 +66,11 @@ export function Component() {
     queryFn: async () => (await tenantApi.emailTemplates.list()).data.data,
   });
 
-  const balanceQuery = useQuery({
-    queryKey: queryKeys.billing.balance(),
-    queryFn: async () => (await tenantApi.billing.balance()).data.data as BillingBalance,
+  const aiCapabilitiesQuery = useQuery({
+    queryKey: queryKeys.dashboard.aiCapabilities(),
+    queryFn: async () => (await tenantApi.dashboard.aiCapabilities()).data.data as AiCapabilityState,
   });
-
-  const balance = balanceQuery.data?.balance ?? balanceQuery.data?.amount ?? 0;
+  const emailGenerateFeature = aiCapabilitiesQuery.data?.features.find((item) => item.feature === 'email_generate') ?? null;
 
   const createOrUpdateMutation = useMutation({
     mutationFn: async (values: EditorValues) => {
@@ -257,16 +256,23 @@ export function Component() {
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             新建模板
           </Button>
-          <AIBalanceGuard balance={balance}>
+          <AIAccessGuard feature={emailGenerateFeature}>
             <Button icon={<RobotOutlined />} onClick={() => setAiOpen(true)}>
               AI 生成
             </Button>
-          </AIBalanceGuard>
+          </AIAccessGuard>
         </Space>
       </Space>
 
       {templatesQuery.isError && (
         <Alert type="error" showIcon message="模板加载失败" />
+      )}
+      {emailGenerateFeature && !emailGenerateFeature.available && (
+        <Alert
+          type="warning"
+          showIcon
+          message={aiCapabilitiesQuery.data?.provider.message ?? '当前租户的 OpenRouter 状态异常，AI 模板生成功能已禁用。'}
+        />
       )}
 
       <Tabs

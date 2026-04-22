@@ -16,7 +16,7 @@ import {
 } from 'antd';
 import { LinkOutlined, StarOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { BillingBalance } from '@shared/types';
+import type { AiCapabilityState } from '@shared/types';
 import { queryKeys, type IntelligenceArticle, type IntelligenceSubscription } from '@shared/api';
 import { tenantApi } from '../../lib/api';
 
@@ -55,9 +55,9 @@ export function Component() {
     queryFn: async () => (await tenantApi.intelligence.getSubscriptions()).data.data,
   });
 
-  const balanceQuery = useQuery({
-    queryKey: ['tenant', 'billing', 'balance', 'intelligence'],
-    queryFn: async () => (await tenantApi.billing.balance()).data.data as BillingBalance,
+  const aiCapabilitiesQuery = useQuery({
+    queryKey: queryKeys.dashboard.aiCapabilities(),
+    queryFn: async () => (await tenantApi.dashboard.aiCapabilities()).data.data as AiCapabilityState,
   });
 
   const markMutation = useMutation({
@@ -103,7 +103,7 @@ export function Component() {
   }, [articles, activeCategory, keyword]);
 
   const subscription = subscriptionsQuery.data?.[0] ?? null;
-  const balance = balanceQuery.data?.balance ?? balanceQuery.data?.amount ?? 0;
+  const provider = aiCapabilitiesQuery.data?.provider;
 
   useEffect(() => {
     form.setFieldsValue({
@@ -122,7 +122,9 @@ export function Component() {
             文章、阅读状态和订阅规则全部来自真实后端。
           </Paragraph>
         </div>
-        <Text type="secondary">AI 余额：{balance}</Text>
+        <Tag color={provider?.balance_status === 'available' ? 'green' : 'gold'}>
+          OpenRouter {provider?.message ?? '未配置'}
+        </Tag>
       </Space>
 
       {articlesQuery.isError && <Alert type="error" showIcon message="情报数据加载失败" />}

@@ -19,7 +19,6 @@ import type {
   ArticlePublicationStatus,
   DomainVerificationStatus,
   AiModelType,
-  BalanceTransactionType,
   NotificationCategory,
 } from './enums';
 
@@ -31,7 +30,6 @@ export interface Tenant {
   slug: string;
   industry?: string;
   status: TenantStatus;
-  balance: number;
   settings?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -473,22 +471,6 @@ export interface Notification {
   entity_id?: string;
   is_read: boolean;
   read_at?: string;
-  created_at: string;
-}
-
-// === 余额交易 ===
-
-export interface BalanceTransaction {
-  id: string;
-  tenant_id: string;
-  type: BalanceTransactionType;
-  amount: number;
-  balance_before: number;
-  balance_after: number;
-  reference_type?: string;
-  reference_id?: string;
-  description?: string;
-  operated_by?: string;
   created_at: string;
 }
 

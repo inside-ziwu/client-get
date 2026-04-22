@@ -12,7 +12,7 @@ import { keywordsApi } from './keywords';
 import { onboardingApi } from './onboarding';
 import { scoringApi } from './scoring';
 import { contactRulesApi } from './contact-rules';
-import { billingApi } from './billing';
+import { aiProviderApi } from './ai-provider';
 import { teamApi } from './team';
 import { notificationsApi } from './notifications';
 import { dashboardApi } from './dashboard';
@@ -32,7 +32,7 @@ export function createTenantApi(client: AxiosInstance) {
     onboarding: onboardingApi(client),
     scoring: scoringApi(client),
     contactRules: contactRulesApi(client),
-    billing: billingApi(client),
+    aiProvider: aiProviderApi(client),
     team: teamApi(client),
     notifications: notificationsApi(client),
     dashboard: dashboardApi(client),

@@ -9,7 +9,7 @@ export type { PlatformEmailTemplate } from './admin/email-templates';
 export type { WarmupRules, WarmupRuleLevel } from './admin/warmup-rules';
 export type { AdminCurrentUser } from './admin/auth';
 export type { AiModel, AiSceneDefault, AiPricingResponse } from './admin/ai-config';
-export type { Tenant, TenantDomain, TenantTeamUser, BalanceTransaction } from './admin/tenants';
+export type { Tenant, TenantDomain, TenantTeamUser } from './admin/tenants';
 export type { Company } from './tenant/companies';
 export type { Prospect } from './tenant/prospects';
 export type { Group } from './tenant/groups';

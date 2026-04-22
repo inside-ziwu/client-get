@@ -3,7 +3,7 @@ import type {
   ApiResponse,
   PaginatedResponse,
   TenantFilters,
-  BillingBalance,
+  AiProviderConfig,
 } from '@shared/types';
 
 export interface Tenant {
@@ -12,7 +12,6 @@ export interface Tenant {
   slug: string;
   industry?: string;
   status: 'active' | 'suspended' | 'archived';
-  balance?: number;
   needs_onboarding?: boolean;
   contact_name?: string;
   contact_phone?: string;
@@ -36,14 +35,6 @@ export interface TenantTeamUser {
   roles: string[];
   must_change_pwd?: boolean;
   status: string;
-  created_at: string;
-}
-
-export interface BalanceTransaction {
-  id: string;
-  type: string;
-  amount: number;
-  description?: string;
   created_at: string;
 }
 
@@ -82,12 +73,14 @@ export function tenantsApi(client: AxiosInstance) {
     deleteTeamUser: (tenantId: string, userId: string) =>
       client.delete(`/api/v1/tenants/${tenantId}/users/${userId}`),
 
-    // Balance
-    getBalance: (tenantId: string) =>
-      client.get<ApiResponse<BillingBalance>>(`/api/v1/tenants/${tenantId}/balance`),
-    rechargeBalance: (tenantId: string, data: { amount: number; description?: string }) =>
-      client.post<ApiResponse<BillingBalance>>(`/api/v1/tenants/${tenantId}/balance/recharge`, data),
-    listBalanceTransactions: (tenantId: string) =>
-      client.get<PaginatedResponse<BalanceTransaction>>(`/api/v1/tenants/${tenantId}/balance/transactions`),
+    // AI provider
+    getOpenRouter: (tenantId: string) =>
+      client.get<ApiResponse<AiProviderConfig>>(`/api/v1/tenants/${tenantId}/ai-provider/openrouter`),
+    updateOpenRouter: (tenantId: string, data: { api_key: string }) =>
+      client.put<ApiResponse<AiProviderConfig>>(`/api/v1/tenants/${tenantId}/ai-provider/openrouter`, data),
+    deleteOpenRouter: (tenantId: string) =>
+      client.delete<ApiResponse<{ deleted: boolean }>>(`/api/v1/tenants/${tenantId}/ai-provider/openrouter`),
+    refreshOpenRouterBalance: (tenantId: string) =>
+      client.post<ApiResponse<AiProviderConfig>>(`/api/v1/tenants/${tenantId}/ai-provider/openrouter/balance/refresh`),
   };
 }

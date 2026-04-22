@@ -31,7 +31,7 @@ export const router = createBrowserRouter([
       { path: 'settings/keywords', hydrateFallbackElement, lazy: () => import('./pages/Settings/Keywords') },
       { path: 'settings/scoring', hydrateFallbackElement, lazy: () => import('./pages/Settings/Scoring') },
       { path: 'settings/contact-rules', hydrateFallbackElement, lazy: () => import('./pages/Settings/ContactRules') },
-      { path: 'settings/ai-balance', hydrateFallbackElement, lazy: () => import('./pages/Settings/AIBalance') },
+      { path: 'settings/ai-provider', hydrateFallbackElement, lazy: () => import('./pages/Settings/AIProvider') },
       { path: 'settings/team', hydrateFallbackElement, lazy: () => import('./pages/Settings/Team') },
     ],
   },

@@ -1,5 +1,5 @@
 import type { AxiosInstance } from 'axios';
-import type { ApiResponse, DashboardOverview, DashboardFunnel } from '@shared/types';
+import type { AiCapabilityState, ApiResponse, DashboardOverview, DashboardFunnel } from '@shared/types';
 
 export function dashboardApi(client: AxiosInstance) {
   return {
@@ -8,6 +8,6 @@ export function dashboardApi(client: AxiosInstance) {
     funnel: () =>
       client.get<ApiResponse<DashboardFunnel>>('/api/v1/dashboard/funnel'),
     aiCapabilities: () =>
-      client.get<ApiResponse<Record<string, unknown>>>('/api/v1/ai-capabilities'),
+      client.get<ApiResponse<AiCapabilityState>>('/api/v1/ai-capabilities'),
   };
 }

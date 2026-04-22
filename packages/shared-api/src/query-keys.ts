@@ -46,13 +46,13 @@ export const queryKeys = {
     all: () => ['tenant', tenantScope(), 'dashboard'] as const,
     overview: () => [...queryKeys.dashboard.all(), 'overview'] as const,
     funnel: () => [...queryKeys.dashboard.all(), 'funnel'] as const,
+    aiCapabilities: () => [...queryKeys.dashboard.all(), 'aiCapabilities'] as const,
   },
-  billing: {
-    all: () => ['tenant', tenantScope(), 'billing'] as const,
-    balance: () => [...queryKeys.billing.all(), 'balance'] as const,
-    transactions: (filters?: Record<string, unknown>) => [...queryKeys.billing.all(), 'transactions', filters] as const,
-    usageSummary: (period?: string) => [...queryKeys.billing.all(), 'usageSummary', period] as const,
-    usageTrend: (filters?: Record<string, unknown>) => [...queryKeys.billing.all(), 'usageTrend', filters] as const,
+  aiProvider: {
+    all: () => ['tenant', tenantScope(), 'aiProvider'] as const,
+    openrouter: () => [...queryKeys.aiProvider.all(), 'openrouter'] as const,
+    usageSummary: (period?: string) => [...queryKeys.aiProvider.all(), 'usageSummary', period] as const,
+    usageTrend: (filters?: Record<string, unknown>) => [...queryKeys.aiProvider.all(), 'usageTrend', filters] as const,
   },
   notifications: {
     all: () => ['tenant', tenantScope(), 'notifications'] as const,
@@ -110,7 +110,7 @@ export const queryKeys = {
       detail: (id: string) => [...queryKeys.admin.tenants.all(), 'detail', id] as const,
       domains: (id: string) => [...queryKeys.admin.tenants.all(), id, 'domains'] as const,
       team: (id: string) => [...queryKeys.admin.tenants.all(), id, 'team'] as const,
-      balance: (id: string) => [...queryKeys.admin.tenants.all(), id, 'balance'] as const,
+      aiProvider: (id: string) => [...queryKeys.admin.tenants.all(), id, 'aiProvider'] as const,
     },
   },
 } as const;

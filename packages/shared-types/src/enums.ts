@@ -39,11 +39,8 @@ export type DomainVerificationStatus = 'pending' | 'verifying' | 'verified' | 'f
 export type AiModelType = 'scoring' | 'email_generation' | 'intelligence' | 'general';
 export type AiUsageType = 'scoring' | 'email_generation' | 'intelligence_summary' | 'other';
 
-// === 财务 ===
-export type BalanceTransactionType = 'recharge' | 'consumption' | 'refund' | 'adjustment';
-
 // === 通知 ===
-export type NotificationCategory = 'scoring_complete' | 'plan_complete' | 'reply_received' | 'balance_low' | 'intelligence' | 'system';
+export type NotificationCategory = 'scoring_complete' | 'plan_complete' | 'reply_received' | 'intelligence' | 'system';
 
 // === 采集任务 ===
 export type CollectionTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';

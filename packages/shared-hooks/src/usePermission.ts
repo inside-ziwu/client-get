@@ -8,7 +8,7 @@ const PERMISSIONS: Record<string, Role[]> = {
   'settings.scoring': ['admin'],
   'settings.contact-rules': ['admin'],
   'settings.team': ['admin'],
-  'settings.ai-balance': ['admin'],
+  'settings.ai-provider': ['admin'],
 
   // Operation-level
   'company.create': ['admin', 'operator'],
@@ -20,7 +20,6 @@ const PERMISSIONS: Record<string, Role[]> = {
   'plan.create': ['admin', 'operator'],
   'plan.execute': ['admin', 'operator'],
   'monitor.ai-analysis': ['admin', 'operator'],
-  'balance.recharge': ['admin'],
 };
 
 export function usePermission() {

@@ -76,21 +76,20 @@ export interface DashboardOverview {
   total_plans?: number;
   running_plans?: number;
   unread_notifications?: number;
-  balance?: number | null;
   new_companies_this_week?: number;
   total_prospects?: number;
   active_plans?: number;
   emails_sent_this_month?: number;
   reply_rate?: number;
-  ai_balance?: number;
+  is_admin?: boolean;
 }
 
 export interface DashboardFunnel {
   stages: Array<{
-    name: string;
+    status: string;
     count: number;
-    percentage: number;
   }>;
+  total: number;
 }
 
 // Email stats
@@ -157,15 +156,75 @@ export interface AiGenerateTemplateResult {
   variables: Array<{ name: string; label: string }>;
 }
 
-// Billing
-export interface BillingBalance {
-  tenant_id?: string;
-  amount?: number;
-  balance?: number;
-  currency?: string;
+export type AiProviderBalanceStatus =
+  | 'available'
+  | 'insufficient_balance'
+  | 'unknown'
+  | 'invalid_api_key'
+  | 'provider_error'
+  | 'not_configured';
+
+export type AiCapabilityReason =
+  | 'insufficient_permission'
+  | 'not_configured'
+  | 'insufficient_balance'
+  | 'balance_unknown'
+  | 'invalid_api_key'
+  | 'provider_error'
+  | 'unavailable';
+
+export interface AiProviderConfiguredBy {
+  kind: 'platform_user' | 'tenant_user';
+  id: string;
+  name?: string | null;
+  email?: string | null;
 }
 
-export interface UsageSummary {
+export interface AiProviderBalanceState {
+  status: AiProviderBalanceStatus;
+  source?: 'credits' | 'key' | null;
+  amount?: number | null;
+  currency: string;
+  checked_at?: string | null;
+  message?: string | null;
+  total_credits?: number | null;
+  total_usage?: number | null;
+  key_limit?: number | null;
+  key_limit_remaining?: number | null;
+}
+
+export interface AiProviderConfig {
+  id?: string | null;
+  tenant_id: string;
+  provider: 'openrouter';
+  is_configured: boolean;
+  secret_masked?: string | null;
+  configured_by?: AiProviderConfiguredBy | null;
+  last_rotated_at?: string | null;
+  updated_at?: string | null;
+  balance: AiProviderBalanceState;
+}
+
+export interface AiCapabilityFeatureState {
+  feature: string;
+  available: boolean;
+  reason?: AiCapabilityReason | null;
+}
+
+export interface AiCapabilityState {
+  provider: {
+    provider: 'openrouter';
+    is_configured: boolean;
+    balance_status: AiProviderBalanceStatus;
+    balance_source?: 'credits' | 'key' | null;
+    balance_amount?: number | null;
+    checked_at?: string | null;
+    message?: string | null;
+  };
+  features: AiCapabilityFeatureState[];
+}
+
+export interface AiUsageSummary {
   period?: string;
   total_cost?: number;
   breakdown?: Array<{
@@ -181,7 +240,7 @@ export interface UsageSummary {
   }>;
 }
 
-export interface UsageTrend {
+export interface AiUsageTrend {
   date?: string;
   cost?: number;
   usage_type?: string;

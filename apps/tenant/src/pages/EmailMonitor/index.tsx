@@ -22,8 +22,8 @@ import { RobotOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@shared/api';
-import { AIBalanceGuard } from '@shared/ui';
-import type { AiAnalysisResult, BillingBalance, EmailStats, EmailTrend, MonitorFilters, SendingPlan } from '@shared/types';
+import { AIAccessGuard } from '@shared/ui';
+import type { AiAnalysisResult, AiCapabilityState, EmailStats, EmailTrend, MonitorFilters, SendingPlan } from '@shared/types';
 import { tenantApi } from '../../lib/api';
 
 const { Text, Title } = Typography;
@@ -123,7 +123,7 @@ export function Component() {
   const [aiResult, setAiResult] = useState<AiAnalysisResult | null>(null);
 
   const [
-    balanceQuery,
+    aiCapabilitiesQuery,
     plansQuery,
     statsQuery,
     trendQuery,
@@ -134,8 +134,8 @@ export function Component() {
   ] = useQueries({
     queries: [
       {
-        queryKey: queryKeys.billing.balance(),
-        queryFn: async () => (await tenantApi.billing.balance()).data.data as BillingBalance,
+        queryKey: queryKeys.dashboard.aiCapabilities(),
+        queryFn: async () => (await tenantApi.dashboard.aiCapabilities()).data.data as AiCapabilityState,
       },
       {
         queryKey: queryKeys.sendingPlans.list(),
@@ -179,7 +179,7 @@ export function Component() {
     },
   });
 
-  const balance = balanceQuery.data;
+  const aiCapabilities = aiCapabilitiesQuery.data;
   const plans = plansQuery.data ?? [];
   const stats = statsQuery.data;
   const trend = [...(trendQuery.data ?? [])].reverse();
@@ -188,9 +188,9 @@ export function Component() {
   const byGrade = byGradeQuery.data ?? [];
   const byStep = byStepQuery.data ?? [];
   const totalSent = stats?.sent ?? stats?.total ?? 0;
-  const balanceAmount = balance?.balance ?? balance?.amount ?? 0;
   const trendMax = Math.max(...trend.map((item) => toNumber(item.total)), 0);
   const [aiError, setAiError] = useState<string | null>(null);
+  const emailAnalysisFeature = aiCapabilities?.features.find((item) => item.feature === 'email_analysis') ?? null;
 
   const applyFilters = () => {
     const values = form.getFieldsValue();
@@ -370,19 +370,26 @@ export function Component() {
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       <Title level={5} style={{ marginBottom: 0 }}>邮件监控</Title>
 
-      {(balanceQuery.isError || statsQuery.isError || trendQuery.isError) && (
+      {(aiCapabilitiesQuery.isError || statsQuery.isError || trendQuery.isError) && (
         <Alert
           type="error"
           showIcon
           message="监控数据加载失败"
-          description={getErrorMessage(balanceQuery.error ?? statsQuery.error ?? trendQuery.error)}
+          description={getErrorMessage(aiCapabilitiesQuery.error ?? statsQuery.error ?? trendQuery.error)}
         />
       )}
 
       <Row gutter={[12, 12]}>
         <Col span={6}>
-          <Card size="small" loading={balanceQuery.isLoading}>
-            <Statistic title="AI 余额" value={balanceAmount} suffix={balance?.currency ?? 'token'} prefix={<RobotOutlined />} />
+          <Card size="small" loading={aiCapabilitiesQuery.isLoading}>
+            <Statistic
+              title="OpenRouter"
+              value={aiCapabilities?.provider.balance_status === 'available' ? '可用' : '受限'}
+              prefix={<RobotOutlined />}
+            />
+            <div style={{ marginTop: 8 }}>
+              <Text type="secondary">{aiCapabilities?.provider.message ?? '当前租户尚未配置 OpenRouter API key'}</Text>
+            </div>
           </Card>
         </Col>
         <Col span={6}>
@@ -485,7 +492,7 @@ export function Component() {
                 <Text type="secondary">
                   基于当前筛选条件调用后端分析，返回真实摘要和建议。
                 </Text>
-                <AIBalanceGuard balance={balanceAmount}>
+                <AIAccessGuard feature={emailAnalysisFeature}>
                   <Button
                     type="primary"
                     icon={<RobotOutlined />}
@@ -494,8 +501,16 @@ export function Component() {
                   >
                     AI 分析
                   </Button>
-                </AIBalanceGuard>
+                </AIAccessGuard>
               </Space>
+
+              {emailAnalysisFeature && !emailAnalysisFeature.available && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={aiCapabilities?.provider.message ?? '当前租户的 OpenRouter 状态异常，AI 分析功能已禁用。'}
+                />
+              )}
 
               {aiError && <Alert type="error" showIcon message="AI 分析失败" description={aiError} />}
 

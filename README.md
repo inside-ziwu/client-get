@@ -50,6 +50,14 @@ VITE_API_BASE_URL=https://api.example.com
 
 Tenant 前端路由本身不带 slug；slug 只来自登录输入和 JWT payload。
 
+## OpenRouter 配置
+
+- 不再存在“租户余额充值”入口
+- OpenRouter API key 为租户级配置
+- 平台管理员可在 Admin `租户详情 -> OpenRouter` 配置
+- 租户管理员可在 Tenant `设置 -> OpenRouter` 配置
+- 页面仅展示掩码、状态、余额与用量，不回显明文 key
+
 ## 构建校验
 
 ```bash

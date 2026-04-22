@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Button,
   Card,
@@ -7,7 +7,6 @@ import {
   Empty,
   Form,
   Input,
-  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -18,15 +17,11 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PlusOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys, type Tenant, type TenantDomain, type TenantTeamUser } from '@shared/api';
+import type { AiProviderConfig } from '@shared/types';
 import { adminApi } from '../../lib/api';
-import type {
-  BalanceTransaction,
-  Tenant,
-  TenantDomain,
-  TenantTeamUser,
-} from '@shared/api';
 
 const { Text, Paragraph } = Typography;
 
@@ -39,11 +34,6 @@ type CreateTenantValues = {
   admin_email: string;
   admin_name: string;
   admin_password: string;
-};
-
-type RechargeValues = {
-  amount: number;
-  description?: string;
 };
 
 type DomainValues = {
@@ -59,16 +49,27 @@ type TenantUserValues = {
   status: string;
 };
 
+type OpenRouterValues = {
+  api_key: string;
+};
+
 const ROLE_OPTIONS = [
   { label: '管理员', value: 'admin' },
   { label: '操作员', value: 'operator' },
   { label: '查看者', value: 'viewer' },
 ];
 
+const PROVIDER_STATUS: Record<string, { color: string; label: string }> = {
+  available: { color: 'green', label: '可用' },
+  insufficient_balance: { color: 'orange', label: '余额不足' },
+  unknown: { color: 'gold', label: '余额未知' },
+  invalid_api_key: { color: 'red', label: 'Key 无效' },
+  provider_error: { color: 'red', label: '服务异常' },
+  not_configured: { color: 'default', label: '未配置' },
+};
+
 function formatDate(value?: string | null) {
-  if (!value) {
-    return '—';
-  }
+  if (!value) return '—';
   return new Date(value).toLocaleString('zh-CN', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -85,23 +86,23 @@ export function Component() {
   const queryClient = useQueryClient();
   const [selectedTenantId, setSelectedTenantId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [rechargeOpen, setRechargeOpen] = useState(false);
   const [domainOpen, setDomainOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [openRouterOpen, setOpenRouterOpen] = useState(false);
   const [createForm] = Form.useForm<CreateTenantValues>();
-  const [rechargeForm] = Form.useForm<RechargeValues>();
   const [domainForm] = Form.useForm<DomainValues>();
   const [userForm] = Form.useForm<TenantUserValues>();
+  const [openRouterForm] = Form.useForm<OpenRouterValues>();
 
   const tenantsQuery = useQuery({
-    queryKey: ['admin', 'tenants', 'list'],
+    queryKey: queryKeys.admin.tenants.list(),
     queryFn: async () => (await adminApi.tenants.list()).data.data,
   });
 
-  const [detailQuery, domainsQuery, usersQuery, transactionsQuery] = useQueries({
+  const [detailQuery, domainsQuery, usersQuery, openRouterQuery] = useQueries({
     queries: [
       {
-        queryKey: ['admin', 'tenants', 'detail', selectedTenantId],
+        queryKey: selectedTenantId ? queryKeys.admin.tenants.detail(selectedTenantId) : ['admin', 'tenants', 'detail', 'empty'],
         queryFn: async () => {
           if (!selectedTenantId) return null;
           return (await adminApi.tenants.detail(selectedTenantId)).data.data;
@@ -109,7 +110,7 @@ export function Component() {
         enabled: Boolean(selectedTenantId),
       },
       {
-        queryKey: ['admin', 'tenants', 'domains', selectedTenantId],
+        queryKey: selectedTenantId ? queryKeys.admin.tenants.domains(selectedTenantId) : ['admin', 'tenants', 'domains', 'empty'],
         queryFn: async () => {
           if (!selectedTenantId) return [] as TenantDomain[];
           return (await adminApi.tenants.listDomains(selectedTenantId)).data.data;
@@ -117,7 +118,7 @@ export function Component() {
         enabled: Boolean(selectedTenantId),
       },
       {
-        queryKey: ['admin', 'tenants', 'users', selectedTenantId],
+        queryKey: selectedTenantId ? queryKeys.admin.tenants.team(selectedTenantId) : ['admin', 'tenants', 'team', 'empty'],
         queryFn: async () => {
           if (!selectedTenantId) return [] as TenantTeamUser[];
           return (await adminApi.tenants.listTeam(selectedTenantId)).data.data;
@@ -125,10 +126,10 @@ export function Component() {
         enabled: Boolean(selectedTenantId),
       },
       {
-        queryKey: ['admin', 'tenants', 'transactions', selectedTenantId],
+        queryKey: selectedTenantId ? queryKeys.admin.tenants.aiProvider(selectedTenantId) : ['admin', 'tenants', 'aiProvider', 'empty'],
         queryFn: async () => {
-          if (!selectedTenantId) return [] as BalanceTransaction[];
-          return (await adminApi.tenants.listBalanceTransactions(selectedTenantId)).data.data;
+          if (!selectedTenantId) return null;
+          return (await adminApi.tenants.getOpenRouter(selectedTenantId)).data.data as AiProviderConfig;
         },
         enabled: Boolean(selectedTenantId),
       },
@@ -136,15 +137,13 @@ export function Component() {
   });
 
   const refreshSelectedTenant = async () => {
-    if (!selectedTenantId) {
-      return;
-    }
+    if (!selectedTenantId) return;
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'detail', selectedTenantId] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'domains', selectedTenantId] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'users', selectedTenantId] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'transactions', selectedTenantId] }),
-      queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'list'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.detail(selectedTenantId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.domains(selectedTenantId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.team(selectedTenantId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.aiProvider(selectedTenantId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.list() }),
     ]);
   };
 
@@ -155,7 +154,7 @@ export function Component() {
       setCreateOpen(false);
       createForm.resetFields();
       setSelectedTenantId(response.data.data.id);
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'list'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.list() });
     },
     onError: () => message.error('创建租户失败'),
   });
@@ -170,27 +169,9 @@ export function Component() {
     onError: () => message.error('租户状态更新失败'),
   });
 
-  const rechargeMutation = useMutation({
-    mutationFn: (values: RechargeValues) => {
-      if (!selectedTenantId) {
-        throw new Error('missing tenant');
-      }
-      return adminApi.tenants.rechargeBalance(selectedTenantId, values);
-    },
-    onSuccess: async () => {
-      message.success('余额已充值');
-      setRechargeOpen(false);
-      rechargeForm.resetFields();
-      await refreshSelectedTenant();
-    },
-    onError: () => message.error('充值失败'),
-  });
-
   const domainMutation = useMutation({
     mutationFn: (values: DomainValues) => {
-      if (!selectedTenantId) {
-        throw new Error('missing tenant');
-      }
+      if (!selectedTenantId) throw new Error('missing tenant');
       return adminApi.tenants.createDomain(selectedTenantId, values);
     },
     onSuccess: async () => {
@@ -206,7 +187,7 @@ export function Component() {
     mutationFn: ({ tenantId, domainId }: { tenantId: string; domainId: string }) =>
       adminApi.tenants.verifyDomain(tenantId, domainId),
     onSuccess: async () => {
-      message.success('域名已验证');
+      message.success('域名已触发验证');
       await refreshSelectedTenant();
     },
     onError: () => message.error('域名验证失败'),
@@ -214,9 +195,7 @@ export function Component() {
 
   const userMutation = useMutation({
     mutationFn: (values: TenantUserValues) => {
-      if (!selectedTenantId) {
-        throw new Error('missing tenant');
-      }
+      if (!selectedTenantId) throw new Error('missing tenant');
       return adminApi.tenants.createTeamUser(selectedTenantId, values);
     },
     onSuccess: async () => {
@@ -230,9 +209,7 @@ export function Component() {
 
   const deleteUserMutation = useMutation({
     mutationFn: (userId: string) => {
-      if (!selectedTenantId) {
-        throw new Error('missing tenant');
-      }
+      if (!selectedTenantId) throw new Error('missing tenant');
       return adminApi.tenants.deleteTeamUser(selectedTenantId, userId);
     },
     onSuccess: async () => {
@@ -242,6 +219,44 @@ export function Component() {
     onError: () => message.error('删除成员失败'),
   });
 
+  const upsertOpenRouterMutation = useMutation({
+    mutationFn: (values: OpenRouterValues) => {
+      if (!selectedTenantId) throw new Error('missing tenant');
+      return adminApi.tenants.updateOpenRouter(selectedTenantId, values);
+    },
+    onSuccess: async () => {
+      message.success('OpenRouter 配置已更新');
+      setOpenRouterOpen(false);
+      openRouterForm.resetFields();
+      await refreshSelectedTenant();
+    },
+    onError: () => message.error('OpenRouter 配置保存失败'),
+  });
+
+  const refreshOpenRouterMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedTenantId) throw new Error('missing tenant');
+      return adminApi.tenants.refreshOpenRouterBalance(selectedTenantId);
+    },
+    onSuccess: async () => {
+      message.success('OpenRouter 余额已刷新');
+      await refreshSelectedTenant();
+    },
+    onError: () => message.error('OpenRouter 余额刷新失败'),
+  });
+
+  const deleteOpenRouterMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedTenantId) throw new Error('missing tenant');
+      return adminApi.tenants.deleteOpenRouter(selectedTenantId);
+    },
+    onSuccess: async () => {
+      message.success('OpenRouter 配置已清空');
+      await refreshSelectedTenant();
+    },
+    onError: () => message.error('OpenRouter 配置清空失败'),
+  });
+
   const tenantColumns: ColumnsType<Tenant> = [
     {
       title: '租户',
@@ -249,9 +264,7 @@ export function Component() {
       render: (value, record) => (
         <Space direction="vertical" size={0}>
           <a onClick={() => setSelectedTenantId(record.id)}>{value}</a>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {record.slug}
-          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>{record.slug}</Text>
         </Space>
       ),
     },
@@ -263,30 +276,21 @@ export function Component() {
       render: (value) => statusTag(value),
     },
     {
-      title: '余额',
-      dataIndex: 'balance',
-      width: 120,
-      render: (value) => <Text strong>¥{value ?? 0}</Text>,
-    },
-    {
       title: 'Onboarding',
       dataIndex: 'needs_onboarding',
       width: 120,
-      render: (value) => value ? <Tag color="orange">待完成</Tag> : <Tag color="green">已完成</Tag>,
+      render: (value) => (value ? <Tag color="orange">待完成</Tag> : <Tag color="green">已完成</Tag>),
     },
     {
       title: '操作',
-      width: 210,
+      width: 180,
       render: (_, record) => (
         <Space size={0}>
           <Button type="link" size="small" onClick={() => setSelectedTenantId(record.id)}>
             详情
           </Button>
           {record.status === 'active' ? (
-            <Popconfirm
-              title="确认暂停此租户？"
-              onConfirm={() => statusMutation.mutate({ id: record.id, action: 'suspend' })}
-            >
+            <Popconfirm title="确认暂停此租户？" onConfirm={() => statusMutation.mutate({ id: record.id, action: 'suspend' })}>
               <Button type="link" size="small" danger>
                 暂停
               </Button>
@@ -296,16 +300,6 @@ export function Component() {
               启用
             </Button>
           )}
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              setSelectedTenantId(record.id);
-              setRechargeOpen(true);
-            }}
-          >
-            充值
-          </Button>
         </Space>
       ),
     },
@@ -317,8 +311,7 @@ export function Component() {
       title: '验证状态',
       dataIndex: 'verification_status',
       width: 120,
-      render: (value) =>
-        value === 'verified' ? <Tag color="green">已验证</Tag> : <Tag color="orange">{value}</Tag>,
+      render: (value) => (value === 'verified' ? <Tag color="green">已验证</Tag> : <Tag color="orange">{value}</Tag>),
     },
     {
       title: '操作',
@@ -328,10 +321,7 @@ export function Component() {
           type="link"
           size="small"
           disabled={!selectedTenantId || record.verification_status === 'verified'}
-          onClick={() => {
-            if (!selectedTenantId) return;
-            verifyDomainMutation.mutate({ tenantId: selectedTenantId, domainId: record.id });
-          }}
+          onClick={() => selectedTenantId && verifyDomainMutation.mutate({ tenantId: selectedTenantId, domainId: record.id })}
         >
           验证
         </Button>
@@ -346,9 +336,7 @@ export function Component() {
       render: (value, record) => (
         <Space direction="vertical" size={0}>
           <Text strong>{value}</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {record.email}
-          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>{record.email}</Text>
         </Space>
       ),
     },
@@ -373,8 +361,8 @@ export function Component() {
     {
       title: '强制改密',
       dataIndex: 'must_change_pwd',
-      width: 110,
-      render: (value) => value ? '是' : '否',
+      width: 120,
+      render: (value) => (value ? '是' : '否'),
     },
     {
       title: '操作',
@@ -389,37 +377,24 @@ export function Component() {
     },
   ];
 
-  const transactionColumns: ColumnsType<BalanceTransaction> = [
-    { title: '类型', dataIndex: 'type', width: 120 },
-    {
-      title: '金额',
-      dataIndex: 'amount',
-      width: 120,
-      render: (value) => <Text strong>¥{value}</Text>,
-    },
-    { title: '说明', dataIndex: 'description', render: (value) => value ?? '—' },
-    {
-      title: '时间',
-      dataIndex: 'created_at',
-      width: 180,
-      render: (value) => <Text type="secondary">{formatDate(value)}</Text>,
-    },
-  ];
+  const providerStatus =
+    PROVIDER_STATUS[openRouterQuery.data?.balance.status ?? 'not_configured'] ??
+    { color: 'default', label: '未配置' };
+  const providerActionsDisabled = !selectedTenantId;
+  const providerDetail = useMemo(() => openRouterQuery.data, [openRouterQuery.data]);
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       <Card size="small">
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
           <div>
-            <Text strong style={{ fontSize: 16 }}>
-              租户管理
-            </Text>
+            <Text strong style={{ fontSize: 16 }}>租户管理</Text>
             <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              统一从真实后台接口完成租户创建、域名管理、团队账号和余额流水。
+              租户创建、域名管理、团队账号与租户级 OpenRouter 配置全部走真实后端。
             </Paragraph>
           </div>
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={() => queryClient.invalidateQueries({ queryKey: ['admin', 'tenants', 'list'] })}>
+            <Button icon={<ReloadOutlined />} onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.list() })}>
               刷新
             </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
@@ -449,11 +424,9 @@ export function Component() {
             <Card size="small">
               <Descriptions column={2} bordered size="small">
                 <Descriptions.Item label="状态">{statusTag(detailQuery.data.status)}</Descriptions.Item>
-                <Descriptions.Item label="余额">¥{detailQuery.data.balance ?? 0}</Descriptions.Item>
+                <Descriptions.Item label="Onboarding">{detailQuery.data.needs_onboarding ? '待完成' : '已完成'}</Descriptions.Item>
                 <Descriptions.Item label="行业">{detailQuery.data.industry ?? '—'}</Descriptions.Item>
-                <Descriptions.Item label="Onboarding">
-                  {detailQuery.data.needs_onboarding ? '待完成' : '已完成'}
-                </Descriptions.Item>
+                <Descriptions.Item label="Slug">{detailQuery.data.slug}</Descriptions.Item>
                 <Descriptions.Item label="联系人">{detailQuery.data.contact_name ?? '—'}</Descriptions.Item>
                 <Descriptions.Item label="联系电话">{detailQuery.data.contact_phone ?? '—'}</Descriptions.Item>
                 <Descriptions.Item label="联系邮箱" span={2}>
@@ -464,16 +437,54 @@ export function Component() {
 
             <Card
               size="small"
-              title="域名管理"
+              title="OpenRouter"
               extra={
                 <Space>
-                  <Button size="small" onClick={() => setDomainOpen(true)}>
-                    添加域名
+                  <Button size="small" icon={<ReloadOutlined />} disabled={providerActionsDisabled} loading={refreshOpenRouterMutation.isPending} onClick={() => refreshOpenRouterMutation.mutate()}>
+                    刷新余额
                   </Button>
-                  <Button size="small" onClick={() => setRechargeOpen(true)}>
-                    余额充值
+                  <Button size="small" type="primary" icon={<SafetyCertificateOutlined />} disabled={providerActionsDisabled} onClick={() => setOpenRouterOpen(true)}>
+                    {providerDetail?.is_configured ? '覆盖更新 Key' : '配置 Key'}
+                  </Button>
+                  <Button
+                    size="small"
+                    danger
+                    disabled={!providerDetail?.is_configured}
+                    loading={deleteOpenRouterMutation.isPending}
+                    onClick={() => deleteOpenRouterMutation.mutate()}
+                  >
+                    清空
                   </Button>
                 </Space>
+              }
+            >
+              <Descriptions column={2} bordered size="small">
+                <Descriptions.Item label="状态">
+                  <Tag color={providerStatus.color}>{providerStatus.label}</Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="Key 掩码">{providerDetail?.secret_masked ?? '—'}</Descriptions.Item>
+                <Descriptions.Item label="可判定余额">{providerDetail?.balance.amount ?? '—'}</Descriptions.Item>
+                <Descriptions.Item label="余额来源">{providerDetail?.balance.source ?? '—'}</Descriptions.Item>
+                <Descriptions.Item label="最近刷新">{formatDate(providerDetail?.balance.checked_at)}</Descriptions.Item>
+                <Descriptions.Item label="最近轮换">{formatDate(providerDetail?.last_rotated_at)}</Descriptions.Item>
+                <Descriptions.Item label="最后修改人" span={2}>
+                  {providerDetail?.configured_by
+                    ? `${providerDetail.configured_by.name ?? '未知'} (${providerDetail.configured_by.email ?? '—'})`
+                    : '—'}
+                </Descriptions.Item>
+                <Descriptions.Item label="状态消息" span={2}>
+                  {providerDetail?.balance.message ?? '当前租户尚未配置 OpenRouter API key'}
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+
+            <Card
+              size="small"
+              title="域名管理"
+              extra={
+                <Button size="small" onClick={() => setDomainOpen(true)}>
+                  添加域名
+                </Button>
               }
             >
               <Table
@@ -502,17 +513,6 @@ export function Component() {
                 loading={usersQuery.isLoading}
                 pagination={false}
                 locale={{ emptyText: <Empty description="暂无团队成员" /> }}
-              />
-            </Card>
-
-            <Card size="small" title="余额流水">
-              <Table
-                rowKey="id"
-                columns={transactionColumns}
-                dataSource={transactionsQuery.data ?? []}
-                loading={transactionsQuery.isLoading}
-                pagination={false}
-                locale={{ emptyText: <Empty description="暂无流水" /> }}
               />
             </Card>
           </Space>
@@ -556,23 +556,6 @@ export function Component() {
       </Modal>
 
       <Modal
-        title="租户充值"
-        open={rechargeOpen}
-        onCancel={() => setRechargeOpen(false)}
-        onOk={async () => rechargeMutation.mutate(await rechargeForm.validateFields())}
-        confirmLoading={rechargeMutation.isPending}
-      >
-        <Form form={rechargeForm} layout="vertical">
-          <Form.Item name="amount" label="金额" rules={[{ required: true, message: '请输入充值金额' }]}>
-            <InputNumber min={0.01} step={100} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="description" label="说明">
-            <Input placeholder="manual recharge" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
         title="添加域名"
         open={domainOpen}
         onCancel={() => setDomainOpen(false)}
@@ -581,7 +564,7 @@ export function Component() {
       >
         <Form form={domainForm} layout="vertical">
           <Form.Item name="domain" label="域名" rules={[{ required: true, message: '请输入域名' }]}>
-            <Input placeholder="mail.globex.demo.test" />
+            <Input placeholder="mail.globex.example.com" />
           </Form.Item>
         </Form>
       </Modal>
@@ -615,6 +598,24 @@ export function Component() {
           </Form.Item>
           <Form.Item name="must_change_pwd" label="首次登录强制改密">
             <Select options={[{ label: '是', value: true }, { label: '否', value: false }]} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={providerDetail?.is_configured ? '覆盖更新 OpenRouter API key' : '配置 OpenRouter API key'}
+        open={openRouterOpen}
+        onCancel={() => setOpenRouterOpen(false)}
+        onOk={async () => upsertOpenRouterMutation.mutate(await openRouterForm.validateFields())}
+        confirmLoading={upsertOpenRouterMutation.isPending}
+      >
+        <Form form={openRouterForm} layout="vertical">
+          <Form.Item
+            name="api_key"
+            label="OpenRouter API key"
+            rules={[{ required: true, message: '请输入 OpenRouter API key' }]}
+          >
+            <Input.Password placeholder="sk-or-v1-..." autoComplete="off" />
           </Form.Item>
         </Form>
       </Modal>

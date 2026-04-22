@@ -22,11 +22,33 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
+import type { DashboardFunnel } from '@shared/types';
 import { StatusTag } from '@shared/ui';
 import { queryKeys } from '@shared/api';
 import { tenantApi } from '../../lib/api';
 
 const { Text } = Typography;
+
+const FUNNEL_LABELS: Record<string, string> = {
+  pending_score: '待评分',
+  scoring: '评分中',
+  scored: '已评分',
+  selected: '已选中',
+  in_plan: '计划中',
+  contacted: '已触达',
+  replied: '已回复',
+  converted: '已转化',
+  excluded: '已排除',
+};
+
+const PROVIDER_STATUS: Record<string, { color: string; label: string }> = {
+  available: { color: 'green', label: '可用' },
+  insufficient_balance: { color: 'orange', label: '余额不足' },
+  unknown: { color: 'gold', label: '余额未知' },
+  invalid_api_key: { color: 'red', label: 'Key 无效' },
+  provider_error: { color: 'red', label: '服务异常' },
+  not_configured: { color: 'default', label: '未配置' },
+};
 
 export function Component() {
   const navigate = useNavigate();
@@ -35,6 +57,7 @@ export function Component() {
   const [
     overviewQuery,
     funnelQuery,
+    aiCapabilitiesQuery,
     plansQuery,
     intelQuery,
     notificationsQuery,
@@ -46,7 +69,11 @@ export function Component() {
       },
       {
         queryKey: queryKeys.dashboard.funnel(),
-        queryFn: async () => (await tenantApi.dashboard.funnel()).data.data,
+        queryFn: async () => (await tenantApi.dashboard.funnel()).data.data as DashboardFunnel,
+      },
+      {
+        queryKey: queryKeys.dashboard.aiCapabilities(),
+        queryFn: async () => (await tenantApi.dashboard.aiCapabilities()).data.data,
       },
       {
         queryKey: queryKeys.sendingPlans.list({ status: 'running', limit: 3 }),
@@ -71,11 +98,15 @@ export function Component() {
   });
 
   const overview = overviewQuery.data;
-  const funnel = funnelQuery.data?.stages ?? [];
+  const funnel = funnelQuery.data;
   const activePlans = plansQuery.data?.data ?? [];
   const articles = intelQuery.data?.data ?? [];
   const notifications = notificationsQuery.data?.data ?? [];
   const unreadCount = notifications.filter((item) => !item.is_read).length;
+  const provider = aiCapabilitiesQuery.data?.provider;
+  const providerStatus =
+    PROVIDER_STATUS[provider?.balance_status ?? 'not_configured'] ??
+    { color: 'default', label: '未配置' };
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
@@ -86,7 +117,8 @@ export function Component() {
           <Space wrap>
             <ThunderboltOutlined />
             <Text>
-              当前运行中计划 <Text strong>{overview?.running_plans ?? overview?.active_plans ?? 0}</Text> 个，未读通知 <Text strong>{overview?.unread_notifications ?? unreadCount}</Text> 条。
+              当前运行中计划 <Text strong>{overview?.running_plans ?? overview?.active_plans ?? 0}</Text> 个，未读通知{' '}
+              <Text strong>{overview?.unread_notifications ?? unreadCount}</Text> 条。
             </Text>
             <Button type="link" size="small" onClick={() => navigate('/companies')}>
               查看公司 <RightOutlined />
@@ -116,8 +148,19 @@ export function Component() {
           </Card>
         </Col>
         <Col span={6}>
-          <Card hoverable onClick={() => navigate('/settings/ai-balance')} style={{ cursor: 'pointer' }}>
-            <Statistic title="当前余额" value={overview?.balance ?? overview?.ai_balance ?? 0} prefix="¥" />
+          <Card hoverable onClick={() => navigate('/settings/ai-provider')} style={{ cursor: 'pointer' }}>
+            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+              <Text type="secondary">OpenRouter</Text>
+              <Text strong style={{ fontSize: 20 }}>
+                {providerStatus.label}
+              </Text>
+              <Space wrap>
+                <Tag color={providerStatus.color}>{providerStatus.label}</Tag>
+                <Text type="secondary">
+                  {provider?.balance_amount == null ? '—' : `${provider.balance_amount} ${provider?.balance_source ?? ''}`.trim()}
+                </Text>
+              </Space>
+            </Space>
           </Card>
         </Col>
       </Row>
@@ -236,18 +279,21 @@ export function Component() {
         <Col span={12}>
           <Card title="转化漏斗" loading={funnelQuery.isLoading}>
             <Space direction="vertical" style={{ width: '100%' }} size="small">
-              {funnel.length === 0 ? (
-                <Text type="secondary">暂无漏斗数据</Text>
-              ) : (
-                funnel.map((stage) => (
-                  <div key={stage.name}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <Text>{stage.name}</Text>
-                      <Text type="secondary">{stage.count} / {stage.percentage}%</Text>
+              {funnel?.stages.length ? (
+                funnel.stages.map((stage) => {
+                  const percent = funnel.total > 0 ? Math.round((stage.count / funnel.total) * 100) : 0;
+                  return (
+                    <div key={stage.status}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <Text>{FUNNEL_LABELS[stage.status] ?? stage.status}</Text>
+                        <Text type="secondary">{stage.count} / {percent}%</Text>
+                      </div>
+                      <Progress percent={percent} size="small" />
                     </div>
-                    <Progress percent={stage.percentage} size="small" />
-                  </div>
-                ))
+                  );
+                })
+              ) : (
+                <Text type="secondary">暂无漏斗数据</Text>
               )}
             </Space>
           </Card>
@@ -270,6 +316,10 @@ export function Component() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text>未读通知</Text>
                 <Text strong>{overview?.unread_notifications ?? unreadCount}</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>AI 状态</Text>
+                <Tag color={providerStatus.color}>{providerStatus.label}</Tag>
               </div>
             </Space>
           </Card>

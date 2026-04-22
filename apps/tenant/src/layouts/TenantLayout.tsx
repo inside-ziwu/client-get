@@ -33,7 +33,7 @@ const sidebarItems: SidebarItem[] = [
       { key: 'settings-keywords', icon: <SettingOutlined />, label: '关键词管理', path: '/settings/keywords' },
       { key: 'settings-scoring', icon: <SettingOutlined />, label: '评分配置', path: '/settings/scoring' },
       { key: 'settings-contact-rules', icon: <SettingOutlined />, label: '触达规则', path: '/settings/contact-rules' },
-      { key: 'settings-ai-balance', icon: <SettingOutlined />, label: 'AI 额度', path: '/settings/ai-balance' },
+      { key: 'settings-ai-provider', icon: <SettingOutlined />, label: 'OpenRouter', path: '/settings/ai-provider' },
       { key: 'settings-team', icon: <SettingOutlined />, label: '团队管理', path: '/settings/team' },
     ],
   },
