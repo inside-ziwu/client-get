@@ -14,12 +14,25 @@ export interface DataSource {
 export interface DataSourceCredential {
   id: string;
   source_type: string;
-  account_label?: string;
-  encrypted_payload_masked?: Record<string, unknown>;
-  quotas?: Record<string, unknown>;
+  account_no: string;
+  username: string;
+  secret_masked?: string;
+  raw_config?: Record<string, unknown>;
+  rotation_order: number;
+  daily_quota?: number;
+  current_day_used: number;
   is_active: boolean;
   created_at: string;
-  updated_at: string;
+}
+
+export interface DataSourceCredentialPayload {
+  account_no: string;
+  username: string;
+  secret?: string;
+  raw_config?: Record<string, unknown>;
+  rotation_order?: number;
+  daily_quota?: number;
+  is_active?: boolean;
 }
 
 export function dataSourcesApi(client: AxiosInstance) {
@@ -34,9 +47,9 @@ export function dataSourcesApi(client: AxiosInstance) {
       client.patch<ApiResponse<DataSource>>(`/api/v1/data-sources/${type}/config`, data),
     getCredentials: (type: string) =>
       client.get<PaginatedResponse<DataSourceCredential>>(`/api/v1/data-sources/${type}/credentials`),
-    createCredential: (type: string, data: Partial<DataSourceCredential>) =>
+    createCredential: (type: string, data: DataSourceCredentialPayload) =>
       client.post<ApiResponse<DataSourceCredential>>(`/api/v1/data-sources/${type}/credentials`, data),
-    updateCredential: (type: string, id: string, data: Partial<DataSourceCredential>) =>
+    updateCredential: (type: string, id: string, data: Partial<DataSourceCredentialPayload>) =>
       client.patch<ApiResponse<DataSourceCredential>>(`/api/v1/data-sources/${type}/credentials/${id}`, data),
     deleteCredential: (type: string, id: string) =>
       client.delete(`/api/v1/data-sources/${type}/credentials/${id}`),

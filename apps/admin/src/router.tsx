@@ -21,6 +21,10 @@ export const router = createBrowserRouter([
       { path: 'warmup-rules', hydrateFallbackElement, lazy: () => import('./pages/WarmupRules') },
       { path: 'ai-config', hydrateFallbackElement, lazy: () => import('./pages/AIConfig') },
       { path: 'tenants', hydrateFallbackElement, lazy: () => import('./pages/Tenants') },
+      { path: 'collection-tasks', hydrateFallbackElement, lazy: () => import('./pages/CollectionTasks') },
+      { path: 'collection/dashboard', hydrateFallbackElement, lazy: () => import('./pages/CollectionDashboard') },
+      { path: 'collection/archive', hydrateFallbackElement, lazy: () => import('./pages/CollectionArchive') },
+      { path: 'collection/cleanup-health', hydrateFallbackElement, lazy: () => import('./pages/CleanupHealth') },
     ],
   },
 ]);

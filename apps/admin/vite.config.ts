@@ -52,6 +52,7 @@ export default defineConfig({
     allowedHosts: ['.sealosbja.site', '.xinanpcb.com'],
   },
   build: {
+    chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
         manualChunks,

@@ -19,6 +19,7 @@ import { adminApi } from '../../lib/api';
 import type {
   DataSource as ApiDataSource,
   DataSourceCredential as ApiDataSourceCredential,
+  DataSourceCredentialPayload,
 } from '@shared/api';
 
 const { Text } = Typography;
@@ -32,7 +33,14 @@ type SourceFormValues = {
 };
 
 type CredentialFormValues = {
-  account_label?: string;
+  username: string;
+  secret?: string;
+  cookie?: string;
+  secret_key?: string;
+  device_id?: string;
+  token?: string;
+  userId?: string;
+  jsessionid?: string;
   is_active: boolean;
 };
 
@@ -45,7 +53,14 @@ const EMPTY_SOURCE: SourceFormValues = {
 };
 
 const EMPTY_CREDENTIAL: CredentialFormValues = {
-  account_label: '',
+  username: '',
+  secret: '',
+  cookie: '',
+  secret_key: '',
+  device_id: '',
+  token: '',
+  userId: '',
+  jsessionid: '',
   is_active: true,
 };
 
@@ -60,6 +75,10 @@ function parseJson(text: string) {
 
 function formatJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
+}
+
+function stringConfig(value: unknown) {
+  return typeof value === 'string' ? value : '';
 }
 
 export function Component() {
@@ -138,8 +157,16 @@ export function Component() {
 
   const openEditCredential = (record: ApiDataSourceCredential) => {
     setEditingCredential(record);
+    const rawConfig = record.raw_config ?? {};
     credentialForm.setFieldsValue({
-      account_label: record.account_label ?? '',
+      username: record.username,
+      secret: '',
+      cookie: stringConfig(rawConfig.cookie),
+      secret_key: stringConfig(rawConfig.secret_key),
+      device_id: stringConfig(rawConfig.device_id),
+      token: stringConfig(rawConfig.token),
+      userId: stringConfig(rawConfig.userId),
+      jsessionid: stringConfig(rawConfig.jsessionid),
       is_active: record.is_active,
     });
     setCredentialDrawerOpen(true);
@@ -174,8 +201,9 @@ export function Component() {
         message.error('配置 JSON 格式不正确');
         return;
       }
-
-      message.error('保存失败');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (error as any)?.response?.data?.detail ?? (error as any)?.message ?? '未知错误';
+      message.error(`保存失败：${detail}`);
     } finally {
       setSaving(false);
     }
@@ -188,15 +216,47 @@ export function Component() {
 
     try {
       const values = await credentialForm.validateFields();
-      const payload = {
-        account_label: values.account_label?.trim() || undefined,
-        is_active: values.is_active,
-      };
+      const sourceType = editing.source_type;
+      const isWaimaoTong = sourceType === 'waimao_tong';
+      const isTendata = sourceType === 'tendata';
+      const rawConfig = isWaimaoTong
+        ? {
+            cookie: values.cookie?.trim() ?? '',
+            secret_key: values.secret_key?.trim() ?? '',
+            device_id: values.device_id?.trim() ?? '',
+          }
+        : isTendata
+          ? {
+              token: values.token?.trim() ?? '',
+              userId: values.userId?.trim() ?? '',
+              jsessionid: values.jsessionid?.trim() ?? '',
+            }
+          : undefined;
 
       if (editingCredential) {
-        await adminApi.dataSources.updateCredential(editing.source_type, editingCredential.id, payload);
+        const patch: Partial<DataSourceCredentialPayload> = rawConfig
+          ? {
+              raw_config: rawConfig,
+              is_active: values.is_active,
+            }
+          : {
+              username: values.username.trim(),
+              is_active: values.is_active,
+            };
+        if (!rawConfig && values.secret?.trim()) {
+          patch.secret = values.secret.trim();
+        }
+        await adminApi.dataSources.updateCredential(editing.source_type, editingCredential.id, patch);
         message.success('凭证已更新');
       } else {
+        const payload: DataSourceCredentialPayload = {
+          account_no: `acct_${Date.now()}`,
+          username: rawConfig ? 'admin' : values.username.trim(),
+          secret: rawConfig ? '' : values.secret!.trim(),
+          raw_config: rawConfig,
+          rotation_order: 0,
+          is_active: values.is_active,
+        };
         await adminApi.dataSources.createCredential(editing.source_type, payload);
         message.success('凭证已创建');
       }
@@ -246,11 +306,12 @@ export function Component() {
   ];
 
   const credentialColumns: ColumnsType<ApiDataSourceCredential> = [
-    { title: '账号标签', dataIndex: 'account_label', render: (value, record) => value ?? record.id },
+    { title: '账号编号', dataIndex: 'account_no' },
+    { title: '用户名', dataIndex: 'username' },
     {
       title: '状态',
       dataIndex: 'is_active',
-      width: 100,
+      width: 80,
       render: (value, record) => (
         <Switch
           checked={value}
@@ -261,10 +322,7 @@ export function Component() {
             }
 
             try {
-              await adminApi.dataSources.updateCredential(editing.source_type, record.id, {
-                account_label: record.account_label,
-                is_active: checked,
-              });
+              await adminApi.dataSources.updateCredential(editing.source_type, record.id, { is_active: checked });
               message.success('状态已更新');
               await loadCredentials(editing.source_type);
             } catch {
@@ -370,9 +428,63 @@ export function Component() {
         extra={<Button type="primary" onClick={() => void saveCredential()}>保存</Button>}
       >
         <Form form={credentialForm} layout="vertical" initialValues={EMPTY_CREDENTIAL}>
-          <Form.Item name="account_label" label="账号标签">
-            <Input />
-          </Form.Item>
+          {editing?.source_type === 'waimao_tong' && (
+            <>
+              <Form.Item name="cookie" label="Cookie 完整字符串" rules={[{ required: true, message: '请输入 Cookie 完整字符串' }]}>
+                <Input.TextArea rows={3} />
+              </Form.Item>
+              <Form.Item name="secret_key" label="签名密钥 secret_key" rules={[{ required: true, message: '请输入签名密钥 secret_key' }]}>
+                <Input.Password />
+              </Form.Item>
+              <Form.Item name="device_id" label="设备 ID _deviceId" rules={[{ required: true, message: '请输入设备 ID _deviceId' }]}>
+                <Input />
+              </Form.Item>
+            </>
+          )}
+
+          {editing?.source_type === 'tendata' && (
+            <>
+              <Form.Item name="token" label="Token UUID" rules={[{ required: true, message: '请输入 Token UUID' }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="userId" label="用户 ID" rules={[{ required: true, message: '请输入用户 ID' }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="jsessionid" label="JSESSIONID" rules={[{ required: true, message: '请输入 JSESSIONID' }]}>
+                <Input />
+              </Form.Item>
+            </>
+          )}
+
+          {editing?.source_type === 'lixiaoyun' && (
+            <>
+              <Form.Item name="username" label="登录用户名" rules={[{ required: true, message: '请输入登录用户名' }]}>
+                <Input placeholder="your_username" />
+              </Form.Item>
+              <Form.Item
+                name="secret"
+                label={editingCredential ? 'Token（留空则不修改）' : 'Token'}
+                rules={editingCredential ? [] : [{ required: true, message: '请输入 Token' }]}
+              >
+                <Input.Password placeholder="••••••••" />
+              </Form.Item>
+            </>
+          )}
+
+          {editing && !['waimao_tong', 'tendata', 'lixiaoyun'].includes(editing.source_type) && (
+            <>
+              <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
+                <Input placeholder="your_username" />
+              </Form.Item>
+              <Form.Item
+                name="secret"
+                label={editingCredential ? '新密码（留空则不修改）' : '密码'}
+                rules={editingCredential ? [] : [{ required: true, message: '请输入密码' }]}
+              >
+                <Input.Password placeholder="••••••••" />
+              </Form.Item>
+            </>
+          )}
           <Form.Item name="is_active" label="启用" valuePropName="checked">
             <Switch />
           </Form.Item>

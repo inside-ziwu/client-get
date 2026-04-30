@@ -2,12 +2,16 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   DatabaseOutlined,
+  DashboardOutlined,
   StarOutlined,
   GlobalOutlined,
+  InboxOutlined,
   MailOutlined,
   FireOutlined,
   RobotOutlined,
+  SafetyCertificateOutlined,
   TeamOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { AppLayout, RequireAuth } from '@shared/ui';
 import type { SidebarItem } from '@shared/ui';
@@ -22,6 +26,10 @@ const sidebarItems: SidebarItem[] = [
   { key: 'warmup-rules', path: '/warmup-rules', icon: <FireOutlined />, label: '预热规则' },
   { key: 'ai-config', path: '/ai-config', icon: <RobotOutlined />, label: 'AI 配置' },
   { key: 'tenants', path: '/tenants', icon: <TeamOutlined />, label: '租户管理' },
+  { key: 'collection-tasks', path: '/collection-tasks', icon: <ThunderboltOutlined />, label: '采集任务' },
+  { key: 'collection/dashboard', path: '/collection/dashboard', icon: <DashboardOutlined />, label: '采集看板' },
+  { key: 'collection/archive', path: '/collection/archive', icon: <InboxOutlined />, label: '数据归档' },
+  { key: 'collection/cleanup-health', path: '/collection/cleanup-health', icon: <SafetyCertificateOutlined />, label: '清洗健康' },
 ];
 
 function AdminLayout() {
