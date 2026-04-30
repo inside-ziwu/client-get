@@ -14,7 +14,7 @@ import {
 import type { ProgressProps } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { CollectionKeyword, CollectionTaskInfo } from '@shared/api';
+import type { CollectionKeyword } from '@shared/api';
 import { adminApi } from '../../lib/api';
 
 const { Text } = Typography;
@@ -59,13 +59,11 @@ function isNotFound(error: unknown) {
   return (error as { response?: { status?: number } }).response?.status === 404;
 }
 
-function progressPercent(todayPages: number, totalPages: number | null) {
-  return Math.round((todayPages / Math.max(totalPages ?? 1, 1)) * 100);
+function progressPercent(todayCount: number, totalCount: number | null) {
+  return Math.round((todayCount / Math.max(totalCount ?? 1, 1)) * 100);
 }
 
-type StageStatus = CollectionTaskInfo['status'] | 'not_started' | 'paused' | 'error' | null;
-
-function progressStatus(status: StageStatus): ProgressProps['status'] {
+function progressStatus(status: string | null): ProgressProps['status'] {
   if (status === 'running' || status === 'pending') return 'active';
   if (status === 'paused' || status === 'not_started' || status === 'cancelled' || status === null) return 'normal';
   if (status === 'error' || status === 'failed') return 'exception';
@@ -140,16 +138,22 @@ export function Component() {
                   <div>
                     <Text type="secondary">直采进度</Text>
                     <Progress
-                      percent={progressPercent(keyword.stage1_today_pages, keyword.stage1_total_pages)}
-                      status={progressStatus(keyword.stage1_status)}
+                      percent={progressPercent(keyword.direct.today_pages, keyword.direct.total_pages)}
+                      status={progressStatus(keyword.direct.status)}
                     />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {keyword.direct.today_pages}/{keyword.direct.total_pages ?? '?'} 页
+                    </Text>
                   </div>
                   <div>
                     <Text type="secondary">反推进度</Text>
                     <Progress
-                      percent={progressPercent(keyword.stage2_today_pages, keyword.stage2_total_pages)}
-                      status={progressStatus(keyword.stage2_status)}
+                      percent={progressPercent(keyword.reverse_stage2.today_count, keyword.reverse_stage2.total_count)}
+                      status={progressStatus(keyword.reverse_stage2.status)}
                     />
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {keyword.reverse_stage2.today_count}/{keyword.reverse_stage2.total_count ?? '?'} 家
+                    </Text>
                   </div>
                 </Space>
               </div>

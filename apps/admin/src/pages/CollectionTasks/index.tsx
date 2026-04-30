@@ -12,22 +12,34 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { ClockCircleOutlined, PlayCircleOutlined, ReloadOutlined, StopOutlined, SyncOutlined, UndoOutlined } from '@ant-design/icons';
+import {
+  ClockCircleOutlined,
+  PlayCircleOutlined,
+  ReloadOutlined,
+  StopOutlined,
+  SyncOutlined,
+  UndoOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CollectionHistoryItem, CollectionKeyword, CollectionTaskInfo } from '@shared/api';
+import type { CollectionHistoryItem, CollectionKeyword } from '@shared/api';
 import { adminApi } from '../../lib/api';
 
 const { Text } = Typography;
 
-type ChannelKey = 'waimao_tong' | 'lixiaoyun';
-type TaskStatusValue = CollectionTaskInfo['status'] | 'not_started' | 'paused' | 'error';
+type ApiChannelKey = 'waimao_tong' | 'lixiaoyun';
+type RowChannel = 'direct' | 'reverse';
 
 const CHANNEL_LABEL = {
-  waimao_tong: '直采（外贸通）',
-  lixiaoyun: '反推（励销云→腾道）',
+  direct: '直采（外贸通）',
+  reverse: '反推（励销云→腾道）',
 } as const;
 
-const STATUS_COLOR: Record<TaskStatusValue, string> = {
+const API_CHANNEL_BY_ROW: Record<RowChannel, ApiChannelKey> = {
+  direct: 'waimao_tong',
+  reverse: 'lixiaoyun',
+};
+
+const STATUS_COLOR: Record<string, string> = {
   not_started: 'default',
   pending: 'gold',
   running: 'blue',
@@ -38,7 +50,7 @@ const STATUS_COLOR: Record<TaskStatusValue, string> = {
   error: 'red',
 };
 
-const STATUS_LABEL: Record<TaskStatusValue, string> = {
+const STATUS_LABEL: Record<string, string> = {
   not_started: '未执行',
   pending: '排队中',
   running: '进行中',
@@ -52,86 +64,52 @@ const STATUS_LABEL: Record<TaskStatusValue, string> = {
 interface RowData {
   key: string;
   keyword: CollectionKeyword;
-  channel: ChannelKey;
+  channel: RowChannel;
   isFirst: boolean;
 }
 
-interface StageInfo {
-  currentPage: number;
-  totalPages: number | null;
-  todayPages: number;
-  status: CollectionTaskInfo['status'] | null;
-  startedAt: string | null;
-  completedAt: string | null;
+interface ReverseStageRow {
+  key: 'stage1' | 'stage2';
+  stage: string;
+  status: string | null;
+  totalCount: number;
+  todayCount: number;
+  dailyLimit: number | null;
+  lastRunDate: string | null;
 }
 
 function formatDateTime(value: string | null) {
   return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—';
 }
 
-function getStageInfo(keyword: CollectionKeyword, channel: ChannelKey): StageInfo {
-  if (channel === 'waimao_tong') {
-    return {
-      currentPage: keyword.stage1_current_page,
-      totalPages: keyword.stage1_total_pages,
-      todayPages: keyword.stage1_today_pages,
-      status: keyword.stage1_status,
-      startedAt: keyword.stage1_started_at,
-      completedAt: keyword.stage1_completed_at,
-    };
-  }
-
-  return {
-    currentPage: keyword.stage2_current_page,
-    totalPages: keyword.stage2_total_pages,
-    todayPages: keyword.stage2_today_pages,
-    status: keyword.stage2_status,
-    startedAt: keyword.stage2_started_at,
-    completedAt: keyword.stage2_completed_at,
-  };
-}
-
-function normalizeStatus(status: CollectionTaskInfo['status'] | null): TaskStatusValue {
+function normalizeStatus(status: string | null) {
   return status ?? 'not_started';
 }
 
-function keywordActionStatus(keyword: CollectionKeyword): TaskStatusValue {
-  const stageStatuses = [
-    normalizeStatus(keyword.stage1_status),
-    normalizeStatus(keyword.stage2_status),
-  ];
-
-  if (stageStatuses.some((status) => status === 'running')) return 'running';
-  if (stageStatuses.some((status) => status === 'pending')) return 'pending';
-  if (stageStatuses.some((status) => status === 'failed' || status === 'error')) return 'failed';
-  if (keyword.subscription_status === 'error') return 'error';
-  if (stageStatuses.some((status) => status === 'paused') || keyword.subscription_status === 'paused') return 'paused';
-  return normalizeStatus(keyword.stage1_status);
-}
-
-function TaskStatus({ status }: { status: CollectionTaskInfo['status'] | null }) {
+function TaskStatus({ status }: { status: string | null }) {
   const normalized = normalizeStatus(status);
   return (
     <Space size={4}>
-      <Badge color={STATUS_COLOR[normalized]} />
-      <Text>{STATUS_LABEL[normalized]}</Text>
+      <Badge color={STATUS_COLOR[normalized] ?? 'default'} />
+      <Text>{STATUS_LABEL[normalized] ?? normalized}</Text>
     </Space>
   );
 }
 
-function TimeRange({ stage }: { stage: StageInfo }) {
-  if (!stage.startedAt) {
-    return <Text type="secondary">—</Text>;
+function channelStatus(row: RowData) {
+  if (row.channel === 'direct') {
+    return row.keyword.direct.status;
   }
 
-  return (
-    <Space direction="vertical" size={0}>
-      <Text style={{ fontSize: 12 }}>{formatDateTime(stage.startedAt)}</Text>
-      <Text style={{ fontSize: 12 }} type="secondary">
-        {stage.completedAt ? formatDateTime(stage.completedAt) : '进行中'}
-      </Text>
-    </Space>
-  );
+  return row.keyword.reverse_stage2.status;
+}
+
+function channelLastRunDate(row: RowData) {
+  if (row.channel === 'direct') {
+    return row.keyword.direct.last_run_date;
+  }
+
+  return row.keyword.reverse_stage2.last_run_date;
 }
 
 function resultSummary(value: Record<string, unknown>) {
@@ -151,10 +129,78 @@ function resultSummary(value: Record<string, unknown>) {
   );
 }
 
+function ReverseDetailTable({ kw }: { kw: CollectionKeyword }) {
+  const rows: ReverseStageRow[] = [
+    {
+      key: 'stage1',
+      stage: 'stage1 励销云',
+      status: kw.reverse_stage1.status,
+      totalCount: kw.reverse_stage1.total_count,
+      todayCount: kw.reverse_stage1.today_count,
+      dailyLimit: kw.reverse_stage1.daily_limit,
+      lastRunDate: kw.reverse_stage1.last_run_date,
+    },
+    {
+      key: 'stage2',
+      stage: 'stage2 腾道',
+      status: kw.reverse_stage2.status,
+      totalCount: kw.reverse_stage2.total_count,
+      todayCount: kw.reverse_stage2.today_count,
+      dailyLimit: kw.reverse_stage2.daily_limit,
+      lastRunDate: kw.reverse_stage2.last_run_date,
+    },
+  ];
+
+  const columns: ColumnsType<ReverseStageRow> = [
+    {
+      title: '阶段',
+      dataIndex: 'stage',
+      width: 160,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 120,
+      render: (value: string | null) => <TaskStatus status={value} />,
+    },
+    {
+      title: '累计',
+      dataIndex: 'totalCount',
+      width: 120,
+      render: (value: number) => <Text>{value} 家</Text>,
+    },
+    {
+      title: '今日',
+      key: 'today',
+      width: 120,
+      render: (_, row) => (
+        <Text>
+          {row.todayCount}/{row.dailyLimit ?? '?'}
+        </Text>
+      ),
+    },
+    {
+      title: '上次运行',
+      dataIndex: 'lastRunDate',
+      render: (value: string | null) => formatDateTime(value),
+    },
+  ];
+
+  return (
+    <Table<ReverseStageRow>
+      columns={columns}
+      dataSource={rows}
+      rowKey="key"
+      pagination={false}
+      size="small"
+    />
+  );
+}
+
 export function Component() {
   const queryClient = useQueryClient();
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [historyTarget, setHistoryTarget] = useState<{ keyword: CollectionKeyword; channel: ChannelKey } | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<{ keyword: CollectionKeyword; channel: RowChannel } | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin', 'collection-keywords'],
@@ -169,7 +215,7 @@ export function Component() {
       return (
         await adminApi.collection.listHistory(
           historyTarget.keyword.keyword_normalized,
-          historyTarget.channel,
+          API_CHANNEL_BY_ROW[historyTarget.channel],
         )
       ).data.data;
     },
@@ -182,10 +228,10 @@ export function Component() {
   };
 
   const triggerMutation = useMutation({
-    mutationFn: (params: { keyword: CollectionKeyword; channel: ChannelKey }) =>
+    mutationFn: (params: { keyword: CollectionKeyword; channel: RowChannel }) =>
       adminApi.collection.trigger({
         keyword_normalized: params.keyword.keyword_normalized,
-        channel: params.channel,
+        channel: API_CHANNEL_BY_ROW[params.channel],
       }),
     onSuccess: (_, vars) => {
       message.success(`已触发「${vars.keyword.keyword}」${CHANNEL_LABEL[vars.channel]}`);
@@ -226,7 +272,7 @@ export function Component() {
 
   const keywords = data ?? [];
   const rows: RowData[] = keywords.flatMap((keyword) =>
-    (['waimao_tong', 'lixiaoyun'] as ChannelKey[]).map((channel, index) => ({
+    (['direct', 'reverse'] as RowChannel[]).map((channel, index) => ({
       key: `${keyword.keyword_normalized}__${channel}`,
       keyword,
       channel,
@@ -234,7 +280,7 @@ export function Component() {
     })),
   );
 
-  const renderTriggerButton = (row: RowData, disabled: boolean) => (
+  const renderTriggerButton = (row: RowData, disabled = false) => (
     <Popconfirm
       title={`触发「${row.keyword.keyword}」${CHANNEL_LABEL[row.channel]}？`}
       onConfirm={() => triggerMutation.mutate({ keyword: row.keyword, channel: row.channel })}
@@ -259,12 +305,9 @@ export function Component() {
     </Popconfirm>
   );
 
-  const renderKeywordAction = (row: RowData, status: TaskStatusValue) => {
-    if (!row.isFirst) {
-      return null;
-    }
-
+  const renderDirectActions = (row: RowData) => {
     const keywordNormalized = row.keyword.keyword_normalized;
+    const status = row.keyword.subscription_status;
     const isStopLoading = stopMutation.isPending && stopMutation.variables === keywordNormalized;
     const isResetLoading = resetMutation.isPending && resetMutation.variables === keywordNormalized;
     const isRetryLoading = retryMutation.isPending && retryMutation.variables === keywordNormalized;
@@ -283,7 +326,7 @@ export function Component() {
       );
     }
 
-    if (status === 'failed' || status === 'error') {
+    if (status === 'error') {
       return (
         <>
           <Button
@@ -311,7 +354,7 @@ export function Component() {
     if (status === 'paused') {
       return (
         <>
-          {renderTriggerButton(row, false)}
+          {renderTriggerButton(row)}
           <Popconfirm
             title={`重置「${row.keyword.keyword}」全部采集状态？`}
             onConfirm={() => resetMutation.mutate(keywordNormalized)}
@@ -326,7 +369,7 @@ export function Component() {
       );
     }
 
-    return renderTriggerButton(row, false);
+    return renderTriggerButton(row);
   };
 
   const columns: ColumnsType<RowData> = [
@@ -353,25 +396,26 @@ export function Component() {
       title: '渠道',
       key: 'channel',
       width: 180,
-      render: (_, row) => <Tag color={row.channel === 'waimao_tong' ? 'blue' : 'purple'}>{CHANNEL_LABEL[row.channel]}</Tag>,
+      render: (_, row) => <Tag color={row.channel === 'direct' ? 'blue' : 'purple'}>{CHANNEL_LABEL[row.channel]}</Tag>,
     },
     {
       title: '状态',
       key: 'status',
       width: 120,
-      render: (_, row) => <TaskStatus status={getStageInfo(row.keyword, row.channel).status} />,
+      render: (_, row) => <TaskStatus status={channelStatus(row)} />,
     },
     {
       title: '今日进度',
       key: 'progress',
-      width: 140,
+      width: 160,
       render: (_, row) => {
-        const stage = getStageInfo(row.keyword, row.channel);
-        return (
-          <Text>
-            {stage.todayPages}/{stage.totalPages ?? '?'} 页
-          </Text>
-        );
+        if (row.channel === 'direct') {
+          const { today_pages, total_pages } = row.keyword.direct;
+          return <Text>{today_pages}/{total_pages ?? '?'} 页</Text>;
+        }
+
+        const { today_count, total_count } = row.keyword.reverse_stage2;
+        return <Text>{today_count}/{total_count ?? '?'} 家</Text>;
       },
     },
     {
@@ -390,34 +434,31 @@ export function Component() {
     },
     {
       title: '最近执行',
-      key: 'time',
+      key: 'lastRunDate',
       width: 180,
-      render: (_, row) => <TimeRange stage={getStageInfo(row.keyword, row.channel)} />,
+      render: (_, row) => formatDateTime(channelLastRunDate(row)),
     },
     {
       title: '操作',
       key: 'actions',
       width: 260,
-      render: (_, row) => {
-        const status = normalizeStatus(getStageInfo(row.keyword, row.channel).status);
-        const actionStatus = row.isFirst ? keywordActionStatus(row.keyword) : status;
-        const isRunning = status === 'running' || status === 'pending';
-        return (
-          <Space wrap>
-            {row.isFirst ? renderKeywordAction(row, actionStatus) : renderTriggerButton(row, isRunning)}
-            <Button
-              size="small"
-              icon={<ClockCircleOutlined />}
-              onClick={() => {
-                setHistoryTarget({ keyword: row.keyword, channel: row.channel });
-                setHistoryOpen(true);
-              }}
-            >
-              历史
-            </Button>
-          </Space>
-        );
-      },
+      render: (_, row) => (
+        <Space wrap>
+          {row.isFirst
+            ? renderDirectActions(row)
+            : renderTriggerButton(row)}
+          <Button
+            size="small"
+            icon={<ClockCircleOutlined />}
+            onClick={() => {
+              setHistoryTarget({ keyword: row.keyword, channel: row.channel });
+              setHistoryOpen(true);
+            }}
+          >
+            历史
+          </Button>
+        </Space>
+      ),
     },
   ];
 
@@ -430,10 +471,7 @@ export function Component() {
     {
       title: '状态',
       dataIndex: 'status',
-      render: (value: string) => {
-        const status = value as TaskStatusValue;
-        return <Tag color={STATUS_COLOR[status] ?? 'default'}>{STATUS_LABEL[status] ?? value}</Tag>;
-      },
+      render: (value: string) => <Tag color={STATUS_COLOR[value] ?? 'default'}>{STATUS_LABEL[value] ?? value}</Tag>,
     },
     {
       title: '开始',
@@ -474,6 +512,10 @@ export function Component() {
         className="collection-tasks-table"
         columns={columns}
         dataSource={rows}
+        expandable={{
+          rowExpandable: (row) => row.channel === 'reverse',
+          expandedRowRender: (row) => <ReverseDetailTable kw={row.keyword} />,
+        }}
         loading={isLoading}
         pagination={false}
         rowClassName={(row) => (row.keyword.error_msg ? 'row-error' : '')}

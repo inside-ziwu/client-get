@@ -16,26 +16,38 @@ export interface CollectionKeyword {
   subscription_status:
     | 'not_started' | 'pending' | 'running'
     | 'paused' | 'error' | 'completed';
-  // 直采（外贸通）
-  stage1_current_page: number;
-  stage1_total_pages: number | null;
-  stage1_today_pages: number;
-  stage1_status: CollectionTaskInfo['status'] | null;
-  stage1_started_at: string | null;
-  stage1_completed_at: string | null;
-  // 反推（励销云 → 腾道）
-  stage2_current_page: number;
-  stage2_total_pages: number | null;
-  stage2_today_pages: number;
-  stage2_status: CollectionTaskInfo['status'] | null;
-  stage2_started_at: string | null;
-  stage2_completed_at: string | null;
-  // 累计
   total_companies: number;
   total_contacts: number;
   last_run_date: string | null;
-  daily_page_limit: number | null;
   error_msg: string | null;
+
+  // 直采（外贸通）按页计
+  direct: {
+    current_page: number;
+    total_pages: number;
+    today_pages: number;
+    daily_limit: number | null;
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | null;
+    last_run_date: string | null;
+  };
+
+  // 反推 stage1：励销云
+  reverse_stage1: {
+    today_count: number;
+    total_count: number;
+    daily_limit: number | null;
+    status: string | null;
+    last_run_date: string | null;
+  };
+
+  // 反推 stage2：腾道
+  reverse_stage2: {
+    today_count: number;
+    total_count: number;
+    daily_limit: number | null;
+    status: string | null;
+    last_run_date: string | null;
+  };
 }
 
 export interface CollectionHistoryItem {
