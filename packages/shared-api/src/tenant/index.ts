@@ -11,7 +11,6 @@ import { intelligenceApi } from './intelligence';
 import { keywordsApi } from './keywords';
 import { onboardingApi } from './onboarding';
 import { scoringApi } from './scoring';
-import { contactRulesApi } from './contact-rules';
 import { aiProviderApi } from './ai-provider';
 import { teamApi } from './team';
 import { notificationsApi } from './notifications';
@@ -31,7 +30,6 @@ export function createTenantApi(client: AxiosInstance) {
     keywords: keywordsApi(client),
     onboarding: onboardingApi(client),
     scoring: scoringApi(client),
-    contactRules: contactRulesApi(client),
     aiProvider: aiProviderApi(client),
     team: teamApi(client),
     notifications: notificationsApi(client),

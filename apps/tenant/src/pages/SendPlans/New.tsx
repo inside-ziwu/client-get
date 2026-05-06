@@ -264,7 +264,7 @@ export function Component() {
         type="info"
         showIcon
         style={{ marginTop: 16 }}
-        message={selectedGroup ? `当前群组成员数：${selectedGroup.member_count}` : '请选择群组后继续'}
+        title={selectedGroup ? `当前群组成员数：${selectedGroup.member_count}` : '请选择群组后继续'}
       />
     </Card>,
 
@@ -316,7 +316,7 @@ export function Component() {
           style={{ marginTop: 16 }}
           type="info"
           showIcon
-          message={`当前域名 ${selectedDomain.domain}，预热阶段 ${selectedDomain.warmup_level ?? 0}，日上限 ${selectedDomain.daily_limit ?? 0}`}
+          title={`当前域名 ${selectedDomain.domain}，预热阶段 ${selectedDomain.warmup_level ?? 0}，日上限 ${selectedDomain.daily_limit ?? 0}`}
         />
       )}
     </Card>,
@@ -354,7 +354,7 @@ export function Component() {
         style={{ marginTop: 16 }}
         type="warning"
         showIcon
-        message="保存草稿只会创建计划和步骤。创建并锁定会额外调用 previewRecipients + lockRecipients，之后可直接在详情页启动。"
+        title="保存草稿只会创建计划和步骤。创建并锁定会额外调用 previewRecipients + lockRecipients，之后可直接在详情页启动。"
       />
     </Card>,
   ];
@@ -389,7 +389,7 @@ export function Component() {
         stepViews[current]
       )}
 
-      <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Button disabled={current === 0} onClick={() => setCurrent((prev) => prev - 1)}>
           上一步
         </Button>
@@ -424,7 +424,7 @@ export function Component() {
             </>
           )}
         </Space>
-      </Space>
+      </div>
     </Space>
   );
 }

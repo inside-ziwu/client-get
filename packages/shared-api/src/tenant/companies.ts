@@ -2,7 +2,6 @@ import type { AxiosInstance } from 'axios';
 import type {
   ApiResponse,
   PaginatedResponse,
-  CompanyFilters,
 } from '@shared/types';
 
 export interface Company {
@@ -12,10 +11,18 @@ export interface Company {
   domain?: string;
   industry?: string;
   country?: string;
+  employee_scale?: string;
+  contacts_count?: number;
+  product_tags?: string[];
   business_status?: string;
   data_status?: string;
   grade?: string;
   total_score?: number;
+  /** C4：人工调分，范围 -20 ~ +20 */
+  score_adjustment?: number;
+  score_adjusted_at?: string;
+  score_adjusted_by?: string;
+  score_adjust_reason?: string;
   is_precise_customer?: boolean;
   website?: string;
   notes?: string;
@@ -24,9 +31,27 @@ export interface Company {
   updated_at: string;
 }
 
+/** C5：10 项筛选参数 */
+export interface CompanyListFilters {
+  keyword?: string;
+  grade?: string;
+  'countries[]'?: string[];
+  'sub_industries[]'?: string[];
+  'product_tags[]'?: string[];
+  'sources[]'?: string[];
+  contact_count_range?: string;
+  founded_year_from?: number;
+  founded_year_to?: number;
+  'employee_scale[]'?: string[];
+  min_score?: number;
+  max_score?: number;
+  limit?: number;
+  cursor?: string;
+}
+
 export function companiesApi(client: AxiosInstance) {
   return {
-    list: (filters?: CompanyFilters) =>
+    list: (filters?: CompanyListFilters) =>
       client.get<PaginatedResponse<Company>>('/api/v1/companies', { params: filters }),
     filters: () =>
       client.get<ApiResponse<Record<string, string[]>>>('/api/v1/companies/filters'),

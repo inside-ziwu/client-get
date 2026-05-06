@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -32,8 +32,7 @@ const sidebarItems: SidebarItem[] = [
     children: [
       { key: 'settings-keywords', icon: <SettingOutlined />, label: '关键词管理', path: '/settings/keywords' },
       { key: 'settings-scoring', icon: <SettingOutlined />, label: '评分配置', path: '/settings/scoring' },
-      { key: 'settings-contact-rules', icon: <SettingOutlined />, label: '触达规则', path: '/settings/contact-rules' },
-      { key: 'settings-ai-provider', icon: <SettingOutlined />, label: 'OpenRouter', path: '/settings/ai-provider' },
+{ key: 'settings-ai-provider', icon: <SettingOutlined />, label: 'OpenRouter', path: '/settings/ai-provider' },
       { key: 'settings-team', icon: <SettingOutlined />, label: '团队管理', path: '/settings/team' },
     ],
   },
@@ -43,6 +42,10 @@ function TenantLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const logout = useAuthStore((s) => s.logout);
+  const slug = useAuthStore((s) => s.payload?.slug);
+  // Keep last known slug in a ref so it survives logout() clearing the store
+  const slugRef = useRef(slug);
+  useEffect(() => { if (slug) slugRef.current = slug; }, [slug]);
   const meQuery = useQuery({
     queryKey: ['tenant', 'auth', 'me'],
     queryFn: async () => (await tenantApi.auth.me()).data.data,
@@ -59,15 +62,16 @@ function TenantLayout() {
   }, [location.pathname, meQuery.data?.needs_onboarding, navigate]);
 
   return (
-    <RequireAuth>
+    <RequireAuth loginPath={slugRef.current ? `/login?slug=${slugRef.current}` : '/login'}>
       <AppLayout
         sidebarItems={sidebarItems}
         currentUser={meQuery.data ? { name: meQuery.data.name, email: meQuery.data.email } : undefined}
         notificationCount={(notificationsQuery.data ?? []).filter((item) => !item.is_read).length}
         onNotificationClick={() => navigate('/dashboard')}
         onLogout={() => {
+          const currentSlug = slugRef.current;
           logout();
-          navigate('/login', { replace: true });
+          navigate(currentSlug ? `/login?slug=${currentSlug}` : '/login', { replace: true });
         }}
       >
         <Outlet />

@@ -3,7 +3,6 @@ import {
   Button,
   Form,
   Input,
-  InputNumber,
   Modal,
   Popconfirm,
   Select,
@@ -14,7 +13,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { EditOutlined, EyeInvisibleOutlined, EyeOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { adminApi } from '../../lib/api';
 import type {
@@ -29,36 +28,23 @@ type ModelFormValues = {
   display_name: string;
   provider: string;
   model_id: string;
-  model_type: string;
-  input_price: number;
-  output_price: number;
   is_active: boolean;
-  config_json: string;
 };
 
 const EMPTY_MODEL: ModelFormValues = {
   display_name: '',
   provider: '',
   model_id: '',
-  model_type: '',
-  input_price: 0,
-  output_price: 0,
   is_active: true,
-  config_json: '{}',
 };
 
-function formatJson(value: unknown) {
-  return JSON.stringify(value ?? {}, null, 2);
-}
-
-function parseJson(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return {};
-  }
-
-  return JSON.parse(trimmed);
-}
+const SCENE_LABELS: Record<string, string> = {
+  scoring: '客户评分',
+  email_generation: '邮件生成',
+  intelligence_summary: '情报摘要',
+  data_analysis: '数据分析',
+  general: '通用',
+};
 
 export function Component() {
   const [models, setModels] = useState<ApiAiModel[]>([]);
@@ -67,7 +53,6 @@ export function Component() {
   const [modelDrawerOpen, setModelDrawerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingModel, setEditingModel] = useState<ApiAiModel | null>(null);
-  const [showConfig, setShowConfig] = useState<Record<string, boolean>>({});
   const [form] = Form.useForm<ModelFormValues>();
 
   const load = async () => {
@@ -100,11 +85,7 @@ export function Component() {
       display_name: record.display_name,
       provider: record.provider,
       model_id: record.model_id,
-      model_type: record.model_type,
-      input_price: record.input_price,
-      output_price: record.output_price,
       is_active: record.is_active,
-      config_json: formatJson(record.config ?? {}),
     });
     setModelDrawerOpen(true);
   };
@@ -117,11 +98,7 @@ export function Component() {
         display_name: values.display_name.trim(),
         provider: values.provider.trim(),
         model_id: values.model_id.trim(),
-        model_type: values.model_type.trim(),
-        input_price: values.input_price,
-        output_price: values.output_price,
         is_active: values.is_active,
-        config: parseJson(values.config_json),
       };
 
       if (editingModel) {
@@ -136,13 +113,11 @@ export function Component() {
       setEditingModel(null);
       form.resetFields();
       await load();
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        message.error('配置 JSON 格式不正确');
-        return;
-      }
-
-      message.error('保存失败');
+    } catch (error: unknown) {
+      console.error('[AIConfig] saveModel error', error);
+      const axiosDetail = (error as { response?: { data?: { detail?: unknown; message?: string } } })?.response?.data;
+      const detail = axiosDetail?.message ?? (typeof axiosDetail?.detail === 'string' ? axiosDetail.detail : undefined) ?? (error as Error)?.message ?? '未知错误';
+      message.error(`保存失败：${detail}`);
     } finally {
       setSaving(false);
     }
@@ -168,8 +143,10 @@ export function Component() {
     try {
       await adminApi.aiConfig.updateSceneDefaults(next);
       message.success('场景默认模型已更新');
-    } catch {
-      message.error('场景默认模型更新失败');
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (error as any)?.response?.data?.error?.message ?? (error as any)?.message ?? '未知错误';
+      message.error(`场景默认模型更新失败：${detail}`);
       await load();
     }
   };
@@ -178,16 +155,6 @@ export function Component() {
     { title: '名称', dataIndex: 'display_name', render: (value) => <Text strong>{value}</Text> },
     { title: 'Provider', dataIndex: 'provider', width: 140, render: (value) => <Tag color="purple">{value}</Tag> },
     { title: 'Model ID', dataIndex: 'model_id', render: (value) => <Text code>{value}</Text> },
-    { title: '类型', dataIndex: 'model_type', width: 120 },
-    {
-      title: '价格',
-      width: 180,
-      render: (_, record) => (
-        <Text style={{ fontSize: 12 }}>
-          输入 ¥{record.input_price} / 输出 ¥{record.output_price}
-        </Text>
-      ),
-    },
     {
       title: '启用',
       dataIndex: 'is_active',
@@ -205,17 +172,6 @@ export function Component() {
               message.error('状态更新失败');
             }
           }}
-        />
-      ),
-    },
-    {
-      title: '配置',
-      width: 110,
-      render: (_, record) => (
-        <Button
-          type="text"
-          icon={showConfig[record.id] ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-          onClick={() => setShowConfig((prev) => ({ ...prev, [record.id]: !prev[record.id] }))}
         />
       ),
     },
@@ -238,7 +194,12 @@ export function Component() {
   ];
 
   const sceneColumns: ColumnsType<ApiAiSceneDefault> = [
-    { title: '场景', dataIndex: 'scene', width: 180 },
+    {
+      title: '场景',
+      dataIndex: 'scene',
+      width: 180,
+      render: (value) => SCENE_LABELS[value as string] ?? value,
+    },
     {
       title: '默认模型',
       render: (_, record) => (
@@ -255,7 +216,6 @@ export function Component() {
         </Select>
       ),
     },
-    { title: '备用模型', dataIndex: 'fallback_model_ids', render: (value) => (value?.length ? value.join(', ') : '—') },
   ];
 
   return (
@@ -303,18 +263,6 @@ export function Component() {
           </Form.Item>
           <Form.Item name="model_id" label="Model ID" rules={[{ required: true, message: '请输入 Model ID' }]}>
             <Input placeholder="openrouter/google/gemini-2.5" />
-          </Form.Item>
-          <Form.Item name="model_type" label="模型类型" rules={[{ required: true, message: '请输入模型类型' }]}>
-            <Input placeholder="chat" />
-          </Form.Item>
-          <Form.Item name="input_price" label="输入单价" rules={[{ required: true, message: '请输入输入单价' }]}>
-            <InputNumber min={0} step={0.001} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="output_price" label="输出单价" rules={[{ required: true, message: '请输入输出单价' }]}>
-            <InputNumber min={0} step={0.001} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="config_json" label="配置 JSON">
-            <Input.TextArea rows={8} placeholder='{"temperature":0.2}' />
           </Form.Item>
           <Form.Item name="is_active" label="启用" valuePropName="checked">
             <Switch />

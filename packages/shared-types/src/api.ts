@@ -108,6 +108,15 @@ export interface EmailStats {
   click_rate?: number;
   reply_rate?: number;
   bounce_rate?: number;
+  // D-041 投递监控新增字段
+  opened_unique?: number;       // 独立打开数（去重 email_id）
+  soft_bounce_count?: number;   // 软退信数量
+  invalid_email_count?: number; // 无效邮箱数量
+  report_spam_count?: number;   // 举报垃圾邮件数量
+  unsubscribed_count?: number;  // 退订数量
+  soft_bounce_rate?: number;    // 软退信率
+  report_spam_rate?: number;    // 举报垃圾率
+  unsubscribed_rate?: number;   // 退订率
 }
 
 export interface EmailTrend {

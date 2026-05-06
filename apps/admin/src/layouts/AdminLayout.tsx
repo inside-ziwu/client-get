@@ -12,6 +12,7 @@ import {
   SafetyCertificateOutlined,
   TeamOutlined,
   ThunderboltOutlined,
+  UserSwitchOutlined,
 } from '@ant-design/icons';
 import { AppLayout, RequireAuth } from '@shared/ui';
 import type { SidebarItem } from '@shared/ui';
@@ -30,6 +31,7 @@ const sidebarItems: SidebarItem[] = [
   { key: 'collection/dashboard', path: '/collection/dashboard', icon: <DashboardOutlined />, label: '采集看板' },
   { key: 'collection/archive', path: '/collection/archive', icon: <InboxOutlined />, label: '数据归档' },
   { key: 'collection/cleanup-health', path: '/collection/cleanup-health', icon: <SafetyCertificateOutlined />, label: '清洗健康' },
+  { key: 'contact-classification', path: '/contact-classification', icon: <UserSwitchOutlined />, label: '职位分类' },
 ];
 
 function AdminLayout() {

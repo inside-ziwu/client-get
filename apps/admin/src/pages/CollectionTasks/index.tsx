@@ -16,9 +16,6 @@ import {
   ClockCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
-  StopOutlined,
-  SyncOutlined,
-  UndoOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CollectionHistoryItem, CollectionKeyword } from '@shared/api';
@@ -243,33 +240,7 @@ export function Component() {
     },
   });
 
-  const stopMutation = useMutation({
-    mutationFn: (keywordNormalized: string) => adminApi.collection.stop(keywordNormalized),
-    onSuccess: () => {
-      message.success('已提交停止任务');
-      invalidateKeywords();
-    },
-    onError: () => message.error('停止失败，请重试'),
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: (keywordNormalized: string) => adminApi.collection.reset(keywordNormalized),
-    onSuccess: () => {
-      message.success('已重置关键词任务');
-      invalidateKeywords();
-    },
-    onError: () => message.error('重置失败，请重试'),
-  });
-
-  const retryMutation = useMutation({
-    mutationFn: (keywordNormalized: string) => adminApi.collection.retry(keywordNormalized),
-    onSuccess: () => {
-      message.success('已提交重试任务');
-      invalidateKeywords();
-    },
-    onError: () => message.error('重试失败，请重试'),
-  });
-
+  // D-035：外贸通直采推迟至 V3.1+，stop/reset/retry mutations 暂不使用
   const keywords = data ?? [];
   const rows: RowData[] = keywords.flatMap((keyword) =>
     (['direct', 'reverse'] as RowChannel[]).map((channel, index) => ({
@@ -305,72 +276,7 @@ export function Component() {
     </Popconfirm>
   );
 
-  const renderDirectActions = (row: RowData) => {
-    const keywordNormalized = row.keyword.keyword_normalized;
-    const status = row.keyword.subscription_status;
-    const isStopLoading = stopMutation.isPending && stopMutation.variables === keywordNormalized;
-    const isResetLoading = resetMutation.isPending && resetMutation.variables === keywordNormalized;
-    const isRetryLoading = retryMutation.isPending && retryMutation.variables === keywordNormalized;
-
-    if (status === 'running' || status === 'pending') {
-      return (
-        <Button
-          size="small"
-          danger
-          icon={<StopOutlined />}
-          loading={isStopLoading}
-          onClick={() => stopMutation.mutate(keywordNormalized)}
-        >
-          停止
-        </Button>
-      );
-    }
-
-    if (status === 'error') {
-      return (
-        <>
-          <Button
-            size="small"
-            icon={<SyncOutlined />}
-            loading={isRetryLoading}
-            onClick={() => retryMutation.mutate(keywordNormalized)}
-          >
-            重试
-          </Button>
-          <Popconfirm
-            title={`重置「${row.keyword.keyword}」全部采集状态？`}
-            onConfirm={() => resetMutation.mutate(keywordNormalized)}
-            okText="确认"
-            cancelText="取消"
-          >
-            <Button size="small" icon={<UndoOutlined />} loading={isResetLoading}>
-              重置
-            </Button>
-          </Popconfirm>
-        </>
-      );
-    }
-
-    if (status === 'paused') {
-      return (
-        <>
-          {renderTriggerButton(row)}
-          <Popconfirm
-            title={`重置「${row.keyword.keyword}」全部采集状态？`}
-            onConfirm={() => resetMutation.mutate(keywordNormalized)}
-            okText="确认"
-            cancelText="取消"
-          >
-            <Button size="small" icon={<UndoOutlined />} loading={isResetLoading}>
-              重置
-            </Button>
-          </Popconfirm>
-        </>
-      );
-    }
-
-    return renderTriggerButton(row);
-  };
+  // D-035：外贸通直采推迟至 V3.1+，renderDirectActions 已停用，直采行统一显示禁用按钮
 
   const columns: ColumnsType<RowData> = [
     {
@@ -445,7 +351,14 @@ export function Component() {
       render: (_, row) => (
         <Space wrap>
           {row.isFirst
-            ? renderDirectActions(row)
+            ? (
+              // D-035：外贸通直采推迟至 V3.1+，禁用操作入口
+              <Tooltip title="外贸通采集 V3.1+ 可用">
+                <span>
+                  <Button size="small" icon={<PlayCircleOutlined />} disabled>触发</Button>
+                </span>
+              </Tooltip>
+            )
             : renderTriggerButton(row)}
           <Button
             size="small"

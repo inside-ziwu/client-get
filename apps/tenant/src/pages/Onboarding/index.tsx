@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Button,
   Card,
-  Descriptions,
   Form,
   Input,
   Result,
@@ -20,7 +19,6 @@ import {
   LockOutlined,
   StarOutlined,
   TagsOutlined,
-  TeamOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,11 +26,10 @@ import {
   createApiClient,
   createTenantApi,
   queryKeys,
-  type ContactRules,
-  type ContactRuleSet,
   type Keyword,
   type TenantScoringTemplate,
 } from '@shared/api';
+import { formatDateTime } from '../../lib/format';
 
 const { Text, Paragraph } = Typography;
 
@@ -42,15 +39,10 @@ function pickActiveTemplate(items: TenantScoringTemplate[]): TenantScoringTempla
   return items.find((item) => item.is_active) ?? items[0] ?? null;
 }
 
-function pickActiveRule(items: ContactRules[]): ContactRules | null {
-  return items.find((item) => item.is_active) ?? items[0] ?? null;
-}
-
 const STEP_DEFS = [
   { title: '修改密码', icon: <LockOutlined />, required: true },
   { title: '采集关键词', icon: <TagsOutlined />, required: true },
   { title: '评分规则', icon: <StarOutlined />, required: false },
-  { title: '联系人规则', icon: <TeamOutlined />, required: false },
   { title: '完成', icon: <CheckCircleOutlined />, required: false },
 ];
 
@@ -81,7 +73,7 @@ function StepPassword({
       <Alert
         type="warning"
         showIcon
-        message="首次登录必须修改初始密码"
+        title="首次登录必须修改初始密码"
         style={{ marginBottom: 24 }}
       />
       <Form
@@ -122,13 +114,6 @@ function StepPassword({
         >
           <Input.Password placeholder="再次输入新密码" />
         </Form.Item>
-        <Button
-          type="primary"
-          htmlType="submit"
-          loading={changePasswordMutation.isPending}
-        >
-          确认修改
-        </Button>
       </Form>
     </div>
   );
@@ -184,7 +169,7 @@ function StepKeywords({
           <Tag style={{ marginLeft: 8 }}>{keywords.length}</Tag>
         </Text>
         {keywords.length === 0 ? (
-          <Alert type="warning" showIcon message="至少添加 1 个关键词后才能继续" />
+          <Alert type="warning" showIcon title="至少添加 1 个关键词后才能继续" />
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {keywords.map((item) => (
@@ -212,13 +197,10 @@ function StepScoring({ template }: { template?: TenantScoringTemplate | null }) 
         评分模板已从后端加载。当前页面只做预览，设置页可以进一步调整。
       </Paragraph>
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={10}>
           {(template?.dimensions ?? []).map((dim) => (
             <div key={dim.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-              <div>
-                <Text style={{ fontSize: 13 }}>{dim.name}</Text>
-                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>{dim.criteria ?? '—'}</Text>
-              </div>
+              <Text style={{ fontSize: 13 }}>{dim.name}</Text>
               <Tag>{dim.weight}%</Tag>
             </div>
           ))}
@@ -228,35 +210,8 @@ function StepScoring({ template }: { template?: TenantScoringTemplate | null }) 
         </Space>
       </Card>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        最后同步：{template?.updated_at ? new Date(template.updated_at).toLocaleString('zh-CN') : '—'}
+        最后同步：{template?.updated_at ? formatDateTime(template.updated_at) : '—'}
       </Text>
-    </div>
-  );
-}
-
-function StepContactRules({ rules }: { rules?: ContactRules | null }) {
-  const config: ContactRuleSet | undefined = rules?.rules;
-  return (
-    <div style={{ maxWidth: 680 }}>
-      <Paragraph type="secondary">
-        联系人触达规则已从后端加载。系统会据此控制发送频次和退订处理。
-      </Paragraph>
-      <Card size="small">
-        <Descriptions column={2} size="small">
-          <Descriptions.Item label="每日最大发送数">{config?.max_emails_per_prospect_per_day ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="每周最大发送数">{config?.max_emails_per_prospect_per_week ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="最小间隔（小时）">{config?.min_interval_hours ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="退信阈值">{config?.bounce_threshold ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="遵守退订">{config?.respect_unsubscribe ? '是' : '否'}</Descriptions.Item>
-          <Descriptions.Item label="最后同步">{rules ? new Date(rules.updated_at).toLocaleString('zh-CN') : '—'}</Descriptions.Item>
-        </Descriptions>
-      </Card>
-      <Alert
-        type="info"
-        showIcon
-        message="这些规则会直接影响后续发送行为。"
-        style={{ marginTop: 16 }}
-      />
     </div>
   );
 }
@@ -276,7 +231,18 @@ export function Component() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [current, setCurrent] = useState(0);
-  const [passwordSubmit, setPasswordSubmit] = useState<(() => void) | null>(null);
+  const passwordSubmitRef = useRef<(() => void) | null>(null);
+
+  const meQuery = useQuery({
+    queryKey: ['tenant', 'auth', 'me'],
+    queryFn: async () => (await api.auth.me()).data.data,
+  });
+
+  useEffect(() => {
+    if (meQuery.data && !meQuery.data.needs_onboarding && !meQuery.data.must_change_pwd) {
+      navigate('/', { replace: true });
+    }
+  }, [meQuery.data, navigate]);
 
   const keywordsQuery = useQuery<Keyword[]>({
     queryKey: queryKeys.keywords.list(),
@@ -285,10 +251,6 @@ export function Component() {
   const scoringQuery = useQuery<TenantScoringTemplate | null>({
     queryKey: queryKeys.scoring.all(),
     queryFn: async () => pickActiveTemplate((await api.scoring.get()).data.data),
-  });
-  const rulesQuery = useQuery<ContactRules | null>({
-    queryKey: queryKeys.contactRules.all(),
-    queryFn: async () => pickActiveRule((await api.contactRules.get()).data.data),
   });
 
   const addKeywordMutation = useMutation({
@@ -351,7 +313,7 @@ export function Component() {
     <StepPassword
       key="password"
       onSuccess={handleStepOneSuccess}
-      onSubmitReady={setPasswordSubmit}
+      onSubmitReady={(fn) => { passwordSubmitRef.current = fn; }}
     />,
     <StepKeywords
       key="keywords"
@@ -360,7 +322,6 @@ export function Component() {
       onRemove={(id) => removeKeywordMutation.mutate(id)}
     />,
     <StepScoring key="scoring" template={scoringQuery.data} />,
-    <StepContactRules key="contact" rules={rulesQuery.data} />,
     <StepDone key="done" />,
   ];
 
@@ -391,13 +352,15 @@ export function Component() {
         <div style={{ flex: 1 }} />
 
         <div style={{ display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            disabled={current === 0}
-            onClick={() => setCurrent((value) => Math.max(value - 1, 0))}
-          >
-            上一步
-          </Button>
+          {current > 0 && (
+            <Button
+              icon={<ArrowLeftOutlined />}
+              onClick={() => setCurrent((value) => Math.max(value - 1, 0))}
+            >
+              上一步
+            </Button>
+          )}
+          {current === 0 && <span />}
           <Space>
             {isSkippable && <Button onClick={handleSkip}>跳过此步</Button>}
             {isLast ? (
@@ -409,7 +372,7 @@ export function Component() {
                 type="primary"
                 icon={<ArrowRightOutlined />}
                 disabled={!canNext()}
-                onClick={current === 0 ? passwordSubmit ?? undefined : handleNext}
+                onClick={current === 0 ? () => passwordSubmitRef.current?.() : handleNext}
               >
                 {current === 0 ? '确认修改' : '下一步'}
               </Button>

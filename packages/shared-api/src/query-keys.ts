@@ -65,9 +65,6 @@ export const queryKeys = {
   scoring: {
     all: () => ['tenant', tenantScope(), 'scoring'] as const,
   },
-  contactRules: {
-    all: () => ['tenant', tenantScope(), 'contactRules'] as const,
-  },
   team: {
     all: () => ['tenant', tenantScope(), 'team'] as const,
     list: () => [...queryKeys.team.all(), 'list'] as const,
@@ -103,6 +100,10 @@ export const queryKeys = {
       models: () => [...queryKeys.admin.aiConfig.all(), 'models'] as const,
       pricing: () => [...queryKeys.admin.aiConfig.all(), 'pricing'] as const,
       sceneDefaults: () => [...queryKeys.admin.aiConfig.all(), 'sceneDefaults'] as const,
+    },
+    contactClassification: {
+      all: () => ['admin', 'contactClassification'] as const,
+      levels: () => [...queryKeys.admin.contactClassification.all(), 'levels'] as const,
     },
     tenants: {
       all: () => ['admin', 'tenants'] as const,

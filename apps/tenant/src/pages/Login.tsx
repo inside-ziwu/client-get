@@ -1,27 +1,29 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Card, Form, Input, Typography, message } from 'antd';
 import { createApiClient, createTenantApi } from '@shared/api';
 import { useAuthStore } from '@shared/hooks';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const tenantApi = createTenantApi(createApiClient('tenant'));
 
 export function Component() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const slug = searchParams.get('slug') ?? '';
   const setToken = useAuthStore((s) => s.setToken);
   const [loading, setLoading] = React.useState(false);
 
-  const onFinish = async (values: { slug: string; email: string; password: string }) => {
+  const onFinish = async (values: { email: string; password: string }) => {
     setLoading(true);
     try {
-      const response = await tenantApi.auth.login(values);
+      const response = await tenantApi.auth.login({ slug, ...values });
       setToken(response.data.data.access_token);
       const me = (await tenantApi.auth.me()).data.data;
       message.success('登录成功');
       navigate(me.must_change_pwd || me.needs_onboarding ? '/onboarding' : '/', { replace: true });
     } catch {
-      message.error('登录失败，请检查 slug、账号密码或接口状态');
+      message.error('账号或密码错误，请重试');
     } finally {
       setLoading(false);
     }
@@ -38,30 +40,30 @@ export function Component() {
         background: 'linear-gradient(135deg, #f7f9fc 0%, #eef4ff 100%)',
       }}
     >
-      <Card style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 28 } }}>
-        <Title level={3} style={{ marginTop: 0, marginBottom: 8, textAlign: 'center' }}>
-          ClientGet Tenant
+      <Card style={{ width: '100%', maxWidth: 400 }} styles={{ body: { padding: 32 } }}>
+        <Title level={3} style={{ marginTop: 0, marginBottom: 4, textAlign: 'center' }}>
+          登录
         </Title>
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginBottom: 20 }}
-          message="请输入租户 slug 后再登录，系统会直接调用真实 tenant 登录接口。"
-        />
-        <Form layout="vertical" onFinish={onFinish} requiredMark={false}>
-          <Form.Item
-            name="slug"
-            label="租户 Slug"
-            rules={[{ required: true, message: '请输入租户 slug' }]}
-          >
-            <Input placeholder="tenant-slug" autoComplete="off" />
-          </Form.Item>
+        {slug && (
+          <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginBottom: 24 }}>
+            {slug}
+          </Text>
+        )}
+        {!slug && (
+          <Alert
+            type="error"
+            showIcon
+            title="无效的登录链接，请联系管理员获取正确的登录地址。"
+            style={{ marginBottom: 20 }}
+          />
+        )}
+        <Form layout="vertical" onFinish={onFinish} requiredMark={false} disabled={!slug}>
           <Form.Item
             name="email"
             label="邮箱"
             rules={[{ required: true, message: '请输入邮箱' }]}
           >
-            <Input placeholder="user@example.com" autoComplete="email" />
+            <Input placeholder="user@example.com" autoComplete="email" autoFocus />
           </Form.Item>
           <Form.Item
             name="password"

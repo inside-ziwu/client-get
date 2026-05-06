@@ -25,6 +25,7 @@ export const router = createBrowserRouter([
       { path: 'collection/dashboard', hydrateFallbackElement, lazy: () => import('./pages/CollectionDashboard') },
       { path: 'collection/archive', hydrateFallbackElement, lazy: () => import('./pages/CollectionArchive') },
       { path: 'collection/cleanup-health', hydrateFallbackElement, lazy: () => import('./pages/CleanupHealth') },
+      { path: 'contact-classification', hydrateFallbackElement, lazy: () => import('./pages/ContactClassification') },
     ],
   },
 ]);

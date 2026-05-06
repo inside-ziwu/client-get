@@ -6,7 +6,6 @@ import {
   Col,
   Divider,
   List,
-  Progress,
   Row,
   Space,
   Statistic,
@@ -49,6 +48,48 @@ const PROVIDER_STATUS: Record<string, { color: string; label: string }> = {
   provider_error: { color: 'red', label: '服务异常' },
   not_configured: { color: 'default', label: '未配置' },
 };
+
+const SCORE_STAGES = ['pending_score', 'scoring', 'scored', 'selected'];
+const SEND_STAGES = ['in_plan', 'contacted', 'replied', 'converted'];
+const SCORE_COLORS = ['#b0c4de', '#69b1ff', '#1677ff', '#0050c8'];
+const SEND_COLORS = ['#b0c4de', '#95de64', '#52c41a', '#237804'];
+
+function FunnelChart({
+  stages,
+  colors,
+}: {
+  stages: { label: string; count: number }[];
+  colors: string[];
+}) {
+  const max = Math.max(...stages.map((s) => s.count), 1);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {stages.map((stage, i) => {
+        const pct = max > 0 ? Math.round((stage.count / max) * 100) : 0;
+        const color = colors[i] ?? '#1677ff';
+        return (
+          <div key={stage.label}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <Text style={{ fontSize: 12 }}>{stage.label}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>{stage.count}</Text>
+            </div>
+            <div style={{ background: '#f0f2f5', borderRadius: 3, height: 10, overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: `${pct}%`,
+                  height: '100%',
+                  background: color,
+                  borderRadius: 3,
+                  transition: 'width 0.4s ease',
+                }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export function Component() {
   const navigate = useNavigate();
@@ -108,12 +149,28 @@ export function Component() {
     PROVIDER_STATUS[provider?.balance_status ?? 'not_configured'] ??
     { color: 'default', label: '未配置' };
 
+  const stageMap = Object.fromEntries(
+    (funnel?.stages ?? []).map((s) => [s.status, s.count]),
+  );
+
+  const scoreStages = SCORE_STAGES.map((key, i) => ({
+    label: FUNNEL_LABELS[key] ?? key,
+    count: stageMap[key] ?? 0,
+    color: SCORE_COLORS[i] ?? '#1677ff',
+  }));
+
+  const sendStages = SEND_STAGES.map((key, i) => ({
+    label: FUNNEL_LABELS[key] ?? key,
+    count: stageMap[key] ?? 0,
+    color: SEND_COLORS[i] ?? '#52c41a',
+  }));
+
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
       <Alert
         type="info"
         showIcon
-        message={
+        title={
           <Space wrap>
             <ThunderboltOutlined />
             <Text>
@@ -143,68 +200,147 @@ export function Component() {
             <Statistic
               title="总计划数"
               value={overview?.total_plans ?? 0}
-              valueStyle={{ color: '#1677ff' }}
+              styles={{ content: { color: '#1677ff' } }}
             />
           </Card>
         </Col>
         <Col span={6}>
           <Card hoverable onClick={() => navigate('/settings/ai-provider')} style={{ cursor: 'pointer' }}>
-            <Space direction="vertical" size={6} style={{ width: '100%' }}>
-              <Text type="secondary">OpenRouter</Text>
-              <Text strong style={{ fontSize: 20 }}>
-                {providerStatus.label}
-              </Text>
-              <Space wrap>
-                <Tag color={providerStatus.color}>{providerStatus.label}</Tag>
-                <Text type="secondary">
-                  {provider?.balance_amount == null ? '—' : `${provider.balance_amount} ${provider?.balance_source ?? ''}`.trim()}
-                </Text>
-              </Space>
-            </Space>
+            <Statistic
+              title="OpenRouter"
+              value={provider?.balance_amount == null ? '—' : `${provider.balance_amount} ${provider?.balance_source ?? ''}`.trim()}
+              suffix={<Tag color={providerStatus.color} style={{ marginLeft: 4 }}>{providerStatus.label}</Tag>}
+            />
           </Card>
         </Col>
       </Row>
 
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} align="top">
+        {/* Left column: sending plans + funnels */}
         <Col span={14}>
-          <Card
-            title={
-              <Space>
-                <SendOutlined />
-                <Text strong>进行中的发送计划</Text>
-              </Space>
-            }
-            extra={<Button type="link" size="small" onClick={() => navigate('/send-plans')}>全部计划 <RightOutlined /></Button>}
-          >
-            {activePlans.length === 0 ? (
-              <Text type="secondary">暂无进行中的发送计划</Text>
-            ) : (
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                {activePlans.map((plan) => {
-                  const total = plan.total_recipients ?? 0;
-                  const sent = plan.sent_count ?? 0;
-                  const progress = total > 0 ? Math.round((sent / total) * 100) : 0;
-
-                  return (
-                    <div key={plan.id} style={{ padding: '8px 0', cursor: 'pointer' }} onClick={() => navigate(`/send-plans/${plan.id}`)}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <Space>
-                          <Text strong>{plan.name}</Text>
-                          <StatusTag status={plan.status as never} />
-                        </Space>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{sent}/{total} 人</Text>
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Card
+              title={
+                <Space>
+                  <SendOutlined />
+                  <Text strong>进行中的发送计划</Text>
+                </Space>
+              }
+              extra={<Button type="link" size="small" onClick={() => navigate('/send-plans')}>全部计划 <RightOutlined /></Button>}
+            >
+              {activePlans.length === 0 ? (
+                <Text type="secondary">暂无进行中的发送计划</Text>
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  {activePlans.map((plan) => {
+                    const total = plan.total_recipients ?? 0;
+                    const sent = plan.sent_count ?? 0;
+                    const pct = total > 0 ? Math.round((sent / total) * 100) : 0;
+                    return (
+                      <div
+                        key={plan.id}
+                        style={{ padding: '4px 0', cursor: 'pointer' }}
+                        onClick={() => navigate(`/send-plans/${plan.id}`)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <Space>
+                            <Text strong>{plan.name}</Text>
+                            <StatusTag status={plan.status as never} />
+                          </Space>
+                          <Text type="secondary" style={{ fontSize: 12 }}>{sent}/{total} 人</Text>
+                        </div>
+                        <div style={{ background: '#f0f2f5', borderRadius: 3, height: 8, overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: '#1677ff', borderRadius: 3, transition: 'width 0.4s ease' }} />
+                        </div>
                       </div>
-                      <Progress percent={progress} size="small" strokeColor="#1677ff" />
-                    </div>
-                  );
-                })}
-              </Space>
-            )}
-          </Card>
+                    );
+                  })}
+                </Space>
+              )}
+            </Card>
+
+            <Row gutter={[16, 0]}>
+              <Col span={12}>
+                <Card title="评分漏斗" size="small" loading={funnelQuery.isLoading}>
+                  {scoreStages.every((s) => s.count === 0) ? (
+                    <Text type="secondary">暂无评分数据</Text>
+                  ) : (
+                    <FunnelChart stages={scoreStages} colors={SCORE_COLORS} />
+                  )}
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card title="发送漏斗" size="small" loading={funnelQuery.isLoading}>
+                  {sendStages.every((s) => s.count === 0) ? (
+                    <Text type="secondary">暂无发送数据</Text>
+                  ) : (
+                    <FunnelChart stages={sendStages} colors={SEND_COLORS} />
+                  )}
+                </Card>
+              </Col>
+            </Row>
+          </Space>
         </Col>
 
+        {/* Right column: metrics + notifications + intel */}
         <Col span={10}>
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Card title="核心指标">
+              <Space direction="vertical" style={{ width: '100%' }} size="small">
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text>运行中计划</Text>
+                  <Text strong>{overview?.running_plans ?? overview?.active_plans ?? 0}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text>已评分公司</Text>
+                  <Text strong>{overview?.scored_companies ?? 0}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text>总计划数</Text>
+                  <Text strong>{overview?.total_plans ?? 0}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text>未读通知</Text>
+                  <Text strong>{overview?.unread_notifications ?? unreadCount}</Text>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text>AI 状态</Text>
+                  <Tag color={providerStatus.color}>{providerStatus.label}</Tag>
+                </div>
+              </Space>
+            </Card>
+
+            <Card
+              title={
+                <Space>
+                  <BellOutlined />
+                  <Text strong>最新通知</Text>
+                  {unreadCount > 0 && <Badge count={unreadCount} />}
+                </Space>
+              }
+            >
+              {notifications.length === 0 ? (
+                <Text type="secondary">暂无通知</Text>
+              ) : (
+                <List
+                  size="small"
+                  dataSource={notifications.slice(0, 4)}
+                  renderItem={(item) => (
+                    <List.Item
+                      style={{ opacity: item.is_read ? 0.65 : 1, cursor: item.is_read ? 'default' : 'pointer' }}
+                      onClick={() => !item.is_read && markReadMutation.mutate(item.id)}
+                      extra={<Text type="secondary" style={{ fontSize: 12 }}>{item.created_at}</Text>}
+                    >
+                      <Space>
+                        {!item.is_read && <Badge dot />}
+                        <Text>{item.title}</Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              )}
+            </Card>
+
             <Card
               title={
                 <Space>
@@ -240,89 +376,7 @@ export function Component() {
                 </Space>
               )}
             </Card>
-
-            <Card
-              title={
-                <Space>
-                  <BellOutlined />
-                  <Text strong>最新通知</Text>
-                  {unreadCount > 0 && <Badge count={unreadCount} />}
-                </Space>
-              }
-            >
-              {notifications.length === 0 ? (
-                <Text type="secondary">暂无通知</Text>
-              ) : (
-                <List
-                  size="small"
-                  dataSource={notifications.slice(0, 4)}
-                  renderItem={(item) => (
-                    <List.Item
-                      style={{ opacity: item.is_read ? 0.65 : 1, cursor: item.is_read ? 'default' : 'pointer' }}
-                      onClick={() => !item.is_read && markReadMutation.mutate(item.id)}
-                      extra={<Text type="secondary" style={{ fontSize: 12 }}>{item.created_at}</Text>}
-                    >
-                      <Space>
-                        {!item.is_read && <Badge dot />}
-                        <Text>{item.title}</Text>
-                      </Space>
-                    </List.Item>
-                  )}
-                />
-              )}
-            </Card>
           </Space>
-        </Col>
-      </Row>
-
-      <Row gutter={[16, 16]}>
-        <Col span={12}>
-          <Card title="转化漏斗" loading={funnelQuery.isLoading}>
-            <Space direction="vertical" style={{ width: '100%' }} size="small">
-              {funnel?.stages.length ? (
-                funnel.stages.map((stage) => {
-                  const percent = funnel.total > 0 ? Math.round((stage.count / funnel.total) * 100) : 0;
-                  return (
-                    <div key={stage.status}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text>{FUNNEL_LABELS[stage.status] ?? stage.status}</Text>
-                        <Text type="secondary">{stage.count} / {percent}%</Text>
-                      </div>
-                      <Progress percent={percent} size="small" />
-                    </div>
-                  );
-                })
-              ) : (
-                <Text type="secondary">暂无漏斗数据</Text>
-              )}
-            </Space>
-          </Card>
-        </Col>
-        <Col span={12}>
-          <Card title="核心指标">
-            <Space direction="vertical" style={{ width: '100%' }} size="small">
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>运行中计划</Text>
-                <Text strong>{overview?.running_plans ?? overview?.active_plans ?? 0}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>已评分公司</Text>
-                <Text strong>{overview?.scored_companies ?? 0}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>总计划数</Text>
-                <Text strong>{overview?.total_plans ?? 0}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>未读通知</Text>
-                <Text strong>{overview?.unread_notifications ?? unreadCount}</Text>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>AI 状态</Text>
-                <Tag color={providerStatus.color}>{providerStatus.label}</Tag>
-              </div>
-            </Space>
-          </Card>
         </Col>
       </Row>
     </Space>

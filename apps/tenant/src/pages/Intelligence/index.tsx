@@ -115,19 +115,19 @@ export function Component() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <Title level={5} style={{ margin: 0 }}>情报中心</Title>
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            文章、阅读状态和订阅规则全部来自真实后端。
+            追踪行业动态，订阅关键词相关情报文章。
           </Paragraph>
         </div>
         <Tag color={provider?.balance_status === 'available' ? 'green' : 'gold'}>
           OpenRouter {provider?.message ?? '未配置'}
         </Tag>
-      </Space>
+      </div>
 
-      {articlesQuery.isError && <Alert type="error" showIcon message="情报数据加载失败" />}
+      {articlesQuery.isError && <Alert type="error" showIcon title="情报数据加载失败" />}
 
       <Card size="small">
         <Space wrap>

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Button,
   Card,
   Empty,
@@ -226,12 +225,6 @@ export function Component() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Alert
-        type="info"
-        showIcon
-        message="优选客户直接读取真实 prospects 与 groups 接口。收录阈值继续由设置页里的评分模板控制。"
-      />
-
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, alignItems: 'start' }}>
         <Card
           size="small"

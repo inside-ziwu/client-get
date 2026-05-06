@@ -17,21 +17,12 @@ import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import type { SendingPlan, SendingPlanRecipient, SendingPlanStep } from '@shared/api';
 import { StatusTag } from '@shared/ui';
 import { tenantApi } from '../../lib/api';
+import { formatDateTime } from '../../lib/format';
 
 const { Text, Title } = Typography;
 
 type PreviewRecipient = Record<string, unknown>;
 type SampleEmail = Record<string, unknown>;
-
-function formatDate(value?: string | null) {
-  if (!value) {
-    return '—';
-  }
-  return new Date(value).toLocaleString('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 export function Component() {
   const { id } = useParams<{ id: string }>();
@@ -224,7 +215,7 @@ export function Component() {
 
   return (
     <Space direction="vertical" style={{ width: '100%' }} size="large">
-      <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Space>
           <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/send-plans')}>
             返回列表
@@ -263,7 +254,7 @@ export function Component() {
             )}
           </Space>
         )}
-      </Space>
+      </div>
 
       {plan ? (
         <Card size="small">
@@ -280,8 +271,8 @@ export function Component() {
             <Descriptions.Item label="人数">
               {plan.sent_count ?? 0} / {plan.total_recipients ?? 0}
             </Descriptions.Item>
-            <Descriptions.Item label="创建时间">{formatDate(plan.created_at)}</Descriptions.Item>
-            <Descriptions.Item label="更新时间">{formatDate(plan.updated_at)}</Descriptions.Item>
+            <Descriptions.Item label="创建时间">{formatDateTime(plan.created_at)}</Descriptions.Item>
+            <Descriptions.Item label="更新时间">{formatDateTime(plan.updated_at)}</Descriptions.Item>
             <Descriptions.Item label="描述" span={2}>{plan.description ?? '—'}</Descriptions.Item>
           </Descriptions>
         </Card>
@@ -313,7 +304,7 @@ export function Component() {
 
       <Card size="small" title="样例邮件">
         {samples.length === 0 ? (
-          <Alert type="info" showIcon message="当前还没有样例邮件，可先配置模板或锁定收件人。" />
+          <Alert type="info" showIcon title="当前还没有样例邮件，可先配置模板或锁定收件人。" />
         ) : (
           <Table rowKey={(_, index) => String(index)} columns={sampleColumns} dataSource={samples} pagination={false} />
         )}

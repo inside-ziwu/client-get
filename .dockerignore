@@ -1,0 +1,8 @@
+.git
+.gstack
+node_modules
+apps/*/dist
+packages/*/dist
+.DS_Store
+*.log
+

@@ -20,12 +20,13 @@ import type { ColumnsType } from 'antd/es/table';
 import { adminApi } from '../../lib/api';
 import type { IntelligenceSource as ApiIntelligenceSource } from '@shared/api';
 import type { ImportResult } from '@shared/types';
+import { formatDateTime } from '../../lib/format';
 
 const { Text, Title } = Typography;
 
 type SourceFormValues = {
   name: string;
-  type: ApiIntelligenceSource['type'];
+  type: ApiIntelligenceSource['source_type'];
   url?: string;
   config_json: string;
   is_active: boolean;
@@ -39,7 +40,7 @@ const EMPTY_SOURCE: SourceFormValues = {
   is_active: true,
 };
 
-const SOURCE_TYPES: Array<{ label: string; value: ApiIntelligenceSource['type'] }> = [
+const SOURCE_TYPES: Array<{ label: string; value: ApiIntelligenceSource['source_type'] }> = [
   { label: 'RSS', value: 'rss' },
   { label: '网站', value: 'website' },
   { label: '手工', value: 'manual' },
@@ -95,9 +96,9 @@ export function Component() {
     setEditing(record);
     form.setFieldsValue({
       name: record.name,
-      type: record.type,
+      type: record.source_type,
       url: record.url ?? '',
-      config_json: formatJson(record.config ?? {}),
+      config_json: formatJson(record.fetch_config ?? {}),
       is_active: record.is_active,
     });
     setDrawerOpen(true);
@@ -109,9 +110,9 @@ export function Component() {
       setSaving(true);
       const payload = {
         name: values.name.trim(),
-        type: values.type,
+        source_type: values.type,
         url: values.url?.trim() || undefined,
-        config: parseJson(values.config_json),
+        fetch_config: parseJson(values.config_json),
         is_active: values.is_active,
       };
 
@@ -133,7 +134,9 @@ export function Component() {
         return;
       }
 
-      message.error('保存失败');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const detail = (error as any)?.response?.data?.detail ?? (error as any)?.message ?? '未知错误';
+      message.error(`保存失败：${detail}`);
     } finally {
       setSaving(false);
     }
@@ -178,7 +181,7 @@ export function Component() {
 
   const columns: ColumnsType<ApiIntelligenceSource> = [
     { title: '名称', dataIndex: 'name', render: (value) => <Text strong>{value}</Text> },
-    { title: '类型', dataIndex: 'type', width: 110, render: (value) => <Tag color="blue">{value}</Tag> },
+    { title: '类型', dataIndex: 'source_type', width: 110, render: (value) => <Tag color="blue">{value}</Tag> },
     {
       title: 'URL',
       dataIndex: 'url',
@@ -205,8 +208,8 @@ export function Component() {
         />
       ),
     },
-    { title: '最后采集', dataIndex: 'last_fetched_at', width: 180, render: (value) => value ?? '从未' },
-    { title: '更新时间', dataIndex: 'updated_at', width: 180 },
+    { title: '最后采集', dataIndex: 'last_fetched_at', width: 180, render: (value) => value ? formatDateTime(value) : '从未' },
+    { title: '更新时间', dataIndex: 'updated_at', width: 180, render: (value) => formatDateTime(value) },
     {
       title: '操作',
       width: 180,
@@ -289,7 +292,7 @@ export function Component() {
               importForm.setFieldsValue({
                 items_json: JSON.stringify(
                   [
-                    { name: '行业动态 RSS', type: 'rss', url: 'https://example.com/rss', config: {} },
+                    { name: '行业动态 RSS', source_type: 'rss', url: 'https://example.com/rss', fetch_config: {} },
                   ],
                   null,
                   2,

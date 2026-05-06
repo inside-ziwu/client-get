@@ -17,23 +17,26 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, type Tenant, type TenantDomain, type TenantTeamUser } from '@shared/api';
 import type { AiProviderConfig } from '@shared/types';
 import { adminApi } from '../../lib/api';
+import { formatDateTime } from '../../lib/format';
 
 const { Text, Paragraph } = Typography;
 
 type CreateTenantValues = {
   name: string;
-  slug: string;
   industry: string;
   contact_name?: string;
   contact_phone?: string;
   admin_email: string;
   admin_name: string;
   admin_password: string;
+  // D-031：创建租户时同步配置发件域名和起始预热档位
+  sender_domain?: string;
+  warmup_level?: number;
 };
 
 type DomainValues = {
@@ -45,7 +48,6 @@ type TenantUserValues = {
   name: string;
   password: string;
   roles: string[];
-  must_change_pwd: boolean;
   status: string;
 };
 
@@ -68,13 +70,6 @@ const PROVIDER_STATUS: Record<string, { color: string; label: string }> = {
   not_configured: { color: 'default', label: '未配置' },
 };
 
-function formatDate(value?: string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleString('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 function statusTag(status: string) {
   if (status === 'active') return <Tag color="green">启用</Tag>;
@@ -89,6 +84,8 @@ export function Component() {
   const [domainOpen, setDomainOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [openRouterOpen, setOpenRouterOpen] = useState(false);
+  const [resetPwdUserId, setResetPwdUserId] = useState<string | null>(null);
+  const [resetPwdForm] = Form.useForm<{ password: string }>();
   const [createForm] = Form.useForm<CreateTenantValues>();
   const [domainForm] = Form.useForm<DomainValues>();
   const [userForm] = Form.useForm<TenantUserValues>();
@@ -136,27 +133,47 @@ export function Component() {
     ],
   });
 
-  const refreshSelectedTenant = async () => {
-    if (!selectedTenantId) return;
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.detail(selectedTenantId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.domains(selectedTenantId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.team(selectedTenantId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.aiProvider(selectedTenantId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.list() }),
-    ]);
-  };
+  // Always invalidate the full tenant namespace — covers list + all detail sub-keys
+  const invalidateAll = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.all() });
+
 
   const createMutation = useMutation({
     mutationFn: (values: CreateTenantValues) => adminApi.tenants.create(values),
     onSuccess: async (response) => {
-      message.success('租户已创建');
+      const tenant = response.data.data;
       setCreateOpen(false);
       createForm.resetFields();
-      setSelectedTenantId(response.data.data.id);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.admin.tenants.list() });
+      setSelectedTenantId(tenant.id);
+      message.success(`租户「${tenant.name}」已创建`);
+      await invalidateAll();
     },
     onError: () => message.error('创建租户失败'),
+  });
+
+  const deleteTenantMutation = useMutation({
+    mutationFn: (id: string) => adminApi.tenants.delete(id),
+    onSuccess: async () => {
+      message.success('租户已删除');
+      setSelectedTenantId(null);
+      await invalidateAll();
+    },
+    onError: () => message.error('删除租户失败'),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) => {
+      if (!selectedTenantId) throw new Error('missing tenant');
+      return adminApi.tenants.updateTeamUser(selectedTenantId, userId, {
+        password,
+      } as Parameters<typeof adminApi.tenants.updateTeamUser>[2]);
+    },
+    onSuccess: async () => {
+      message.success('密码已重置，用户下次登录需修改密码');
+      setResetPwdUserId(null);
+      resetPwdForm.resetFields();
+    },
+    onError: () => message.error('重置密码失败'),
   });
 
   const statusMutation = useMutation({
@@ -164,7 +181,7 @@ export function Component() {
       action === 'activate' ? adminApi.tenants.activate(id) : adminApi.tenants.suspend(id),
     onSuccess: async () => {
       message.success('租户状态已更新');
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('租户状态更新失败'),
   });
@@ -178,7 +195,7 @@ export function Component() {
       message.success('域名已添加');
       setDomainOpen(false);
       domainForm.resetFields();
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('添加域名失败'),
   });
@@ -188,7 +205,7 @@ export function Component() {
       adminApi.tenants.verifyDomain(tenantId, domainId),
     onSuccess: async () => {
       message.success('域名已触发验证');
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('域名验证失败'),
   });
@@ -202,7 +219,7 @@ export function Component() {
       message.success('成员已创建');
       setUserOpen(false);
       userForm.resetFields();
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('创建成员失败'),
   });
@@ -214,7 +231,7 @@ export function Component() {
     },
     onSuccess: async () => {
       message.success('成员已删除');
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('删除成员失败'),
   });
@@ -228,7 +245,7 @@ export function Component() {
       message.success('OpenRouter 配置已更新');
       setOpenRouterOpen(false);
       openRouterForm.resetFields();
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('OpenRouter 配置保存失败'),
   });
@@ -240,7 +257,7 @@ export function Component() {
     },
     onSuccess: async () => {
       message.success('OpenRouter 余额已刷新');
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('OpenRouter 余额刷新失败'),
   });
@@ -252,7 +269,7 @@ export function Component() {
     },
     onSuccess: async () => {
       message.success('OpenRouter 配置已清空');
-      await refreshSelectedTenant();
+      await invalidateAll();
     },
     onError: () => message.error('OpenRouter 配置清空失败'),
   });
@@ -276,12 +293,6 @@ export function Component() {
       render: (value) => statusTag(value),
     },
     {
-      title: 'Onboarding',
-      dataIndex: 'needs_onboarding',
-      width: 120,
-      render: (value) => (value ? <Tag color="orange">待完成</Tag> : <Tag color="green">已完成</Tag>),
-    },
-    {
       title: '操作',
       width: 180,
       render: (_, record) => (
@@ -300,6 +311,12 @@ export function Component() {
               启用
             </Button>
           )}
+          <Popconfirm
+            title="确认删除此租户？此操作不可撤销。"
+            onConfirm={() => deleteTenantMutation.mutate(record.id)}
+          >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
         </Space>
       ),
     },
@@ -359,20 +376,19 @@ export function Component() {
       render: (value) => statusTag(value),
     },
     {
-      title: '强制改密',
-      dataIndex: 'must_change_pwd',
-      width: 120,
-      render: (value) => (value ? '是' : '否'),
-    },
-    {
       title: '操作',
       width: 110,
       render: (_, record) => (
-        <Popconfirm title="确认删除此成员？" onConfirm={() => deleteUserMutation.mutate(record.id)}>
-          <Button type="link" size="small" danger>
-            删除
+        <Space size={0}>
+          <Button type="link" size="small" onClick={() => setResetPwdUserId(record.id)}>
+            重置密码
           </Button>
-        </Popconfirm>
+          <Popconfirm title="确认删除此成员？" onConfirm={() => deleteUserMutation.mutate(record.id)}>
+            <Button type="link" size="small" danger>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -424,13 +440,16 @@ export function Component() {
             <Card size="small">
               <Descriptions column={2} bordered size="small">
                 <Descriptions.Item label="状态">{statusTag(detailQuery.data.status)}</Descriptions.Item>
-                <Descriptions.Item label="Onboarding">{detailQuery.data.needs_onboarding ? '待完成' : '已完成'}</Descriptions.Item>
                 <Descriptions.Item label="行业">{detailQuery.data.industry ?? '—'}</Descriptions.Item>
-                <Descriptions.Item label="Slug">{detailQuery.data.slug}</Descriptions.Item>
                 <Descriptions.Item label="联系人">{detailQuery.data.contact_name ?? '—'}</Descriptions.Item>
                 <Descriptions.Item label="联系电话">{detailQuery.data.contact_phone ?? '—'}</Descriptions.Item>
-                <Descriptions.Item label="联系邮箱" span={2}>
+                <Descriptions.Item label="联系邮箱">
                   {detailQuery.data.contact_email ?? '—'}
+                </Descriptions.Item>
+                <Descriptions.Item label="登录入口">
+                  <Typography.Text copyable={{ text: `https://tenant.xinanpcb.com/login?slug=${detailQuery.data.slug}` }}>
+                    {`https://tenant.xinanpcb.com/login?slug=${detailQuery.data.slug}`}
+                  </Typography.Text>
                 </Descriptions.Item>
               </Descriptions>
             </Card>
@@ -465,8 +484,8 @@ export function Component() {
                 <Descriptions.Item label="Key 掩码">{providerDetail?.secret_masked ?? '—'}</Descriptions.Item>
                 <Descriptions.Item label="可判定余额">{providerDetail?.balance.amount ?? '—'}</Descriptions.Item>
                 <Descriptions.Item label="余额来源">{providerDetail?.balance.source ?? '—'}</Descriptions.Item>
-                <Descriptions.Item label="最近刷新">{formatDate(providerDetail?.balance.checked_at)}</Descriptions.Item>
-                <Descriptions.Item label="最近轮换">{formatDate(providerDetail?.last_rotated_at)}</Descriptions.Item>
+                <Descriptions.Item label="最近刷新">{formatDateTime(providerDetail?.balance.checked_at)}</Descriptions.Item>
+                <Descriptions.Item label="最近轮换">{formatDateTime(providerDetail?.last_rotated_at)}</Descriptions.Item>
                 <Descriptions.Item label="最后修改人" span={2}>
                   {providerDetail?.configured_by
                     ? `${providerDetail.configured_by.name ?? '未知'} (${providerDetail.configured_by.email ?? '—'})`
@@ -527,12 +546,9 @@ export function Component() {
         confirmLoading={createMutation.isPending}
         width={680}
       >
-        <Form form={createForm} layout="vertical" initialValues={{ industry: 'PCB' }}>
+        <Form form={createForm} layout="vertical" initialValues={{ industry: 'PCB', warmup_level: 1 }}>
           <Form.Item name="name" label="租户名称" rules={[{ required: true, message: '请输入租户名称' }]}>
             <Input />
-          </Form.Item>
-          <Form.Item name="slug" label="Slug" rules={[{ required: true, message: '请输入 slug' }]}>
-            <Input placeholder="globex-pcb" />
           </Form.Item>
           <Form.Item name="industry" label="行业" rules={[{ required: true, message: '请输入行业' }]}>
             <Input />
@@ -551,6 +567,27 @@ export function Component() {
           </Form.Item>
           <Form.Item name="admin_password" label="管理员密码" rules={[{ required: true, message: '请输入管理员密码' }]}>
             <Input.Password />
+          </Form.Item>
+          {/* D-031：创建租户时同步配置发件域名（admin 运营一次提交完成） */}
+          <Form.Item
+            name="sender_domain"
+            label="发件域名"
+            extra="例如 mail.example.com，创建后自动在 domain_warmup_status 中初始化预热记录"
+          >
+            <Input placeholder="mail.example.com" />
+          </Form.Item>
+          {/* D-031：起始预热档位 1-6，默认 1 */}
+          <Form.Item name="warmup_level" label="起始预热档位">
+            <Select
+              options={[
+                { label: '1 档（初始，日限 50）', value: 1 },
+                { label: '2 档（日限 100）', value: 2 },
+                { label: '3 档（日限 200）', value: 3 },
+                { label: '4 档（日限 500）', value: 4 },
+                { label: '5 档（日限 1000）', value: 5 },
+                { label: '6 档（成熟，日限 2000）', value: 6 },
+              ]}
+            />
           </Form.Item>
         </Form>
       </Modal>
@@ -579,7 +616,7 @@ export function Component() {
         <Form
           form={userForm}
           layout="vertical"
-          initialValues={{ roles: ['viewer'], must_change_pwd: true, status: 'active' }}
+          initialValues={{ roles: ['viewer'], status: 'active' }}
         >
           <Form.Item name="email" label="邮箱" rules={[{ required: true, message: '请输入邮箱' }]}>
             <Input />
@@ -596,8 +633,23 @@ export function Component() {
           <Form.Item name="status" label="状态">
             <Select options={[{ label: 'active', value: 'active' }, { label: 'disabled', value: 'disabled' }]} />
           </Form.Item>
-          <Form.Item name="must_change_pwd" label="首次登录强制改密">
-            <Select options={[{ label: '是', value: true }, { label: '否', value: false }]} />
+        </Form>
+      </Modal>
+
+      <Modal
+        title="重置成员密码"
+        open={Boolean(resetPwdUserId)}
+        onCancel={() => { setResetPwdUserId(null); resetPwdForm.resetFields(); }}
+        onOk={async () => {
+          const values = await resetPwdForm.validateFields();
+          resetPasswordMutation.mutate({ userId: resetPwdUserId!, password: values.password });
+        }}
+        confirmLoading={resetPasswordMutation.isPending}
+        okText="确认重置"
+      >
+        <Form form={resetPwdForm} layout="vertical">
+          <Form.Item name="password" label="新密码" rules={[{ required: true, message: '请输入新密码' }, { min: 6, message: '密码至少 6 位' }]}>
+            <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>
       </Modal>
@@ -619,6 +671,7 @@ export function Component() {
           </Form.Item>
         </Form>
       </Modal>
+
     </Space>
   );
 }

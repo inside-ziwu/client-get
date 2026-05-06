@@ -25,6 +25,7 @@ import { queryKeys } from '@shared/api';
 import { AIAccessGuard } from '@shared/ui';
 import type { AiAnalysisResult, AiCapabilityState, EmailStats, EmailTrend, MonitorFilters, SendingPlan } from '@shared/types';
 import { tenantApi } from '../../lib/api';
+import { formatDateTime, formatDate } from '../../lib/format';
 
 const { Text, Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -57,26 +58,6 @@ function toPercent(numerator: number, denominator: number) {
     return '0%';
   }
   return `${Math.round((numerator / denominator) * 1000) / 10}%`;
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-  });
-}
-
-function formatFullDate(value?: string) {
-  if (!value) {
-    return '—';
-  }
-  return new Date(value).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function readText(row: RecordRow, keys: string[]) {
@@ -219,7 +200,7 @@ export function Component() {
       title: '日期',
       dataIndex: 'date',
       width: 120,
-      render: (value: string) => <Text type="secondary">{formatFullDate(value)}</Text>,
+      render: (value: string) => <Text type="secondary">{formatDateTime(value)}</Text>,
     },
     {
       title: '总量',
@@ -374,37 +355,94 @@ export function Component() {
         <Alert
           type="error"
           showIcon
-          message="监控数据加载失败"
+          title="监控数据加载失败"
           description={getErrorMessage(aiCapabilitiesQuery.error ?? statsQuery.error ?? trendQuery.error)}
         />
       )}
 
-      <Row gutter={[12, 12]}>
-        <Col span={6}>
-          <Card size="small" loading={aiCapabilitiesQuery.isLoading}>
+      {/* D-041 投递监控 6 个指标卡片 */}
+      <Row gutter={[12, 12]} align="stretch">
+        {/* 指标 1：发送量 */}
+        <Col span={4}>
+          <Card size="small" loading={statsQuery.isLoading} style={{ height: '100%' }}>
+            <Statistic title="发送量" value={totalSent} />
+          </Card>
+        </Col>
+        {/* 指标 2：送达率 = (sent - hard_bounce) / sent */}
+        <Col span={4}>
+          <Card size="small" loading={statsQuery.isLoading} style={{ height: '100%' }}>
             <Statistic
-              title="OpenRouter"
-              value={aiCapabilities?.provider.balance_status === 'available' ? '可用' : '受限'}
-              prefix={<RobotOutlined />}
+              title="送达率"
+              value={toPercent(stats?.delivered ?? 0, totalSent)}
+              styles={{ content: { color: '#1677ff' } }}
             />
-            <div style={{ marginTop: 8 }}>
-              <Text type="secondary">{aiCapabilities?.provider.message ?? '当前租户尚未配置 OpenRouter API key'}</Text>
-            </div>
           </Card>
         </Col>
-        <Col span={6}>
-          <Card size="small" loading={statsQuery.isLoading}>
-            <Statistic title="总邮件" value={stats?.total ?? 0} />
+        {/* 指标 3：独立打开率 = opened_unique / sent */}
+        <Col span={4}>
+          <Card size="small" loading={statsQuery.isLoading} style={{ height: '100%' }}>
+            <Statistic
+              title="独立打开率"
+              value={toPercent(
+                stats?.opened_unique ?? stats?.opened ?? 0,
+                totalSent,
+              )}
+              styles={{ content: { color: '#52c41a' } }}
+            />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card size="small" loading={statsQuery.isLoading}>
-            <Statistic title="送达率" value={toPercent(stats?.delivered ?? 0, totalSent)} />
+        {/* 指标 4：软退信率 */}
+        <Col span={4}>
+          <Card size="small" loading={statsQuery.isLoading} style={{ height: '100%' }}>
+            <Statistic
+              title="软退信率"
+              value={toPercent(
+                stats?.soft_bounce_count ?? 0,
+                totalSent,
+              )}
+              styles={{
+                content: {
+                  color: (stats?.soft_bounce_count ?? 0) > 0 ? '#faad14' : undefined,
+                },
+              }}
+            />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card size="small" loading={statsQuery.isLoading}>
-            <Statistic title="回复率" value={toPercent(stats?.replied ?? 0, totalSent)} valueStyle={{ color: '#52c41a' }} />
+        {/* 指标 5：举报垃圾率 */}
+        <Col span={4}>
+          <Card size="small" loading={statsQuery.isLoading} style={{ height: '100%' }}>
+            <Statistic
+              title="举报垃圾率"
+              value={toPercent(
+                stats?.report_spam_count ?? 0,
+                totalSent,
+              )}
+              styles={{
+                content: {
+                  color: (stats?.report_spam_count ?? 0) > 0 ? '#ff4d4f' : undefined,
+                },
+              }}
+            />
+          </Card>
+        </Col>
+        {/* 指标 6：退订率 */}
+        <Col span={4}>
+          <Card size="small" loading={statsQuery.isLoading} style={{ height: '100%' }}>
+            <Statistic
+              title="退订率"
+              value={toPercent(
+                stats?.unsubscribed_count ?? stats?.unsubscribed ?? 0,
+                totalSent,
+              )}
+              styles={{
+                content: {
+                  color:
+                    (stats?.unsubscribed_count ?? stats?.unsubscribed ?? 0) > 0
+                      ? '#ff7875'
+                      : undefined,
+                },
+              }}
+            />
           </Card>
         </Col>
       </Row>
@@ -445,7 +483,7 @@ export function Component() {
         <Col span={12}>
           <Card title="发送趋势" size="small" loading={trendQuery.isLoading}>
             {trendQuery.isError ? (
-              <Alert type="error" showIcon message="趋势加载失败" description={getErrorMessage(trendQuery.error)} />
+              <Alert type="error" showIcon title="趋势加载失败" description={getErrorMessage(trendQuery.error)} />
             ) : trend.length === 0 ? (
               <Empty description="暂无趋势数据" />
             ) : (
@@ -488,7 +526,7 @@ export function Component() {
         <Col span={12}>
           <Card title="AI 智能分析" size="small">
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
                 <Text type="secondary">
                   基于当前筛选条件调用后端分析，返回真实摘要和建议。
                 </Text>
@@ -502,17 +540,17 @@ export function Component() {
                     AI 分析
                   </Button>
                 </AIAccessGuard>
-              </Space>
+              </div>
 
               {emailAnalysisFeature && !emailAnalysisFeature.available && (
                 <Alert
                   type="warning"
                   showIcon
-                  message={aiCapabilities?.provider.message ?? '当前租户的 OpenRouter 状态异常，AI 分析功能已禁用。'}
+                  title={aiCapabilities?.provider.message ?? '当前租户的 OpenRouter 状态异常，AI 分析功能已禁用。'}
                 />
               )}
 
-              {aiError && <Alert type="error" showIcon message="AI 分析失败" description={aiError} />}
+              {aiError && <Alert type="error" showIcon title="AI 分析失败" description={aiError} />}
 
               {aiMutation.isPending && (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
@@ -529,12 +567,12 @@ export function Component() {
 
               {aiResult && (
                 <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                  <Alert type="info" showIcon message={aiResult.summary} />
+                  <Alert type="info" showIcon title={aiResult.summary} />
                   {Array.isArray(aiResult.insights) && aiResult.insights.length > 0 && (
                     <Card size="small" type="inner" title="洞察">
                       <Space direction="vertical" style={{ width: '100%' }} size="small">
                         {aiResult.insights.map((item, index) => (
-                          <Alert key={index} type="info" showIcon message={item} />
+                          <Alert key={index} type="info" showIcon title={item} />
                         ))}
                       </Space>
                     </Card>
@@ -543,7 +581,7 @@ export function Component() {
                     <Card size="small" type="inner" title="建议">
                       <Space direction="vertical" style={{ width: '100%' }} size="small">
                         {aiResult.recommendations.map((item, index) => (
-                          <Alert key={index} type="success" showIcon message={item} />
+                          <Alert key={index} type="success" showIcon title={item} />
                         ))}
                       </Space>
                     </Card>
@@ -570,7 +608,7 @@ export function Component() {
             style={{ marginBottom: 16 }}
             type="warning"
             showIcon
-            message="部分分布数据加载失败"
+            title="部分分布数据加载失败"
             description={getErrorMessage(
               byPlanQuery.error ?? byTemplateQuery.error ?? byGradeQuery.error ?? byStepQuery.error,
             )}
