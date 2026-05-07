@@ -22,9 +22,27 @@ export const router = createBrowserRouter([
       { path: 'ai-config', hydrateFallbackElement, lazy: () => import('./pages/AIConfig') },
       { path: 'tenants', hydrateFallbackElement, lazy: () => import('./pages/Tenants') },
       { path: 'collection-tasks', hydrateFallbackElement, lazy: () => import('./pages/CollectionTasks') },
-      { path: 'collection/dashboard', hydrateFallbackElement, lazy: () => import('./pages/CollectionDashboard') },
-      { path: 'collection/archive', hydrateFallbackElement, lazy: () => import('./pages/CollectionArchive') },
-      { path: 'collection/cleanup-health', hydrateFallbackElement, lazy: () => import('./pages/CleanupHealth') },
+      {
+        path: 'collection/tendata',
+        hydrateFallbackElement,
+        lazy: async () => {
+          const { TendataComponent } = await import('./pages/CollectionArchive');
+          return { Component: TendataComponent };
+        },
+      },
+      {
+        path: 'collection/customers',
+        hydrateFallbackElement,
+        lazy: async () => {
+          const { CustomersComponent } = await import('./pages/CollectionArchive');
+          return { Component: CustomersComponent };
+        },
+      },
+      {
+        path: 'collection/peers',
+        hydrateFallbackElement,
+        lazy: () => import('./pages/PeersData'),
+      },
       { path: 'contact-classification', hydrateFallbackElement, lazy: () => import('./pages/ContactClassification') },
     ],
   },
