@@ -13,9 +13,10 @@ const { Header, Sider, Content } = Layout;
 
 export interface SidebarItem {
   key: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   label: string;
-  path: string;
+  path?: string;
+  type?: 'group';
   children?: SidebarItem[];
 }
 
@@ -42,20 +43,44 @@ export function AppLayout({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const selectedKey =
-    sidebarItems.find((item) => location.pathname.startsWith(item.path))?.key ??
-    sidebarItems[0]?.key;
+  const findByPath = (items: SidebarItem[], pathname: string): SidebarItem | undefined => {
+    for (const item of items) {
+      if (item.path && pathname.startsWith(item.path)) return item;
+      if (item.children) {
+        const found = findByPath(item.children, pathname);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
 
-  const menuItems = sidebarItems.map((item) => ({
-    key: item.key,
-    icon: item.icon,
-    label: item.label,
-    children: item.children?.map((child) => ({
-      key: child.key,
-      icon: child.icon,
-      label: child.label,
-    })),
-  }));
+  const firstLeaf = (items: SidebarItem[]): SidebarItem | undefined => {
+    for (const item of items) {
+      if (item.path) return item;
+      if (item.children) {
+        const found = firstLeaf(item.children);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  };
+
+  const selectedKey =
+    findByPath(sidebarItems, location.pathname)?.key ?? firstLeaf(sidebarItems)?.key;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toMenuItem = (item: SidebarItem): any => {
+    if (item.type === 'group') {
+      return {
+        type: 'group',
+        label: item.label,
+        children: item.children?.map(toMenuItem) ?? [],
+      };
+    }
+    return { key: item.key, icon: item.icon, label: item.label };
+  };
+
+  const menuItems = sidebarItems.map(toMenuItem);
 
   const userMenuItems = [
     {
