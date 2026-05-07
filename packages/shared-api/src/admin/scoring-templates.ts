@@ -24,6 +24,8 @@ export function scoringTemplatesApi(client: AxiosInstance) {
       client.post<ApiResponse<ScoringTemplate>>('/api/v1/scoring-templates', data),
     update: (id: string, data: Partial<ScoringTemplate>) =>
       client.put<ApiResponse<ScoringTemplate>>(`/api/v1/scoring-templates/${id}`, data),
+    delete: (id: string) =>
+      client.delete(`/api/v1/scoring-templates/${id}`),
     versions: (id: string) =>
       client.get<PaginatedResponse<ScoringTemplate>>(`/api/v1/scoring-templates/${id}/versions`),
   };

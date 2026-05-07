@@ -6,11 +6,8 @@ export interface AiModel {
   display_name: string;
   provider: string;
   model_id: string;
-  model_type: string;
-  input_price: number;
-  output_price: number;
   is_active: boolean;
-  config: Record<string, unknown>;
+  config?: Record<string, unknown>;
 }
 
 export interface AiPricing {
@@ -24,7 +21,6 @@ export interface AiSceneDefault {
   scene: string;
   model_id: string;
   model_display_name?: string;
-  fallback_model_ids?: string[];
   config?: Record<string, unknown>;
 }
 
@@ -50,6 +46,6 @@ export function aiConfigApi(client: AxiosInstance) {
     getSceneDefaults: () =>
       client.get<PaginatedResponse<AiSceneDefault>>('/api/v1/ai-config/scene-defaults'),
     updateSceneDefaults: (data: AiSceneDefault[]) =>
-      client.put<ApiResponse<AiSceneDefault[]>>('/api/v1/ai-config/scene-defaults', { items: data }),
+      client.put<ApiResponse<AiSceneDefault[]>>('/api/v1/ai-config/scene-defaults', data),
   };
 }

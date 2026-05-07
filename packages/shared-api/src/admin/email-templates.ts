@@ -3,9 +3,11 @@ import type { ApiResponse, PaginatedResponse } from '@shared/types';
 
 export interface PlatformEmailTemplate {
   id: string;
+  industry?: string;
   name: string;
   subject: string;
   body_html: string;
+  body_design?: unknown;
   category: string;
   variables: Array<{ name: string; label: string }>;
   is_active: boolean;

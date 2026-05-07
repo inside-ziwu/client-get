@@ -17,6 +17,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createApiClient, createTenantApi, queryKeys } from '@shared/api';
+import { formatDateTime } from '../../../lib/format';
 
 const { Text, Title } = Typography;
 
@@ -27,13 +28,6 @@ interface KeywordRecord {
 }
 
 const api = createTenantApi(createApiClient('tenant'));
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleString('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 export function Component() {
   const queryClient = useQueryClient();
@@ -96,7 +90,7 @@ export function Component() {
       title: '创建时间',
       dataIndex: 'created_at',
       width: 180,
-      render: (value: string) => <Text type="secondary">{formatDate(value)}</Text>,
+      render: (value: string) => <Text type="secondary">{formatDateTime(value)}</Text>,
     },
     {
       title: '操作',
@@ -129,14 +123,14 @@ export function Component() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
         <div>
           <Title level={5} style={{ marginBottom: 4 }}>关键词管理</Title>
-          <Text type="secondary">使用真实接口管理租户关键词，新增、编辑和删除会立即同步到后端。</Text>
+          <Text type="secondary">添加关键词用于行业情报采集和公司过滤。</Text>
         </div>
       </div>
 
       <Alert
         type="info"
         showIcon
-        message="关键词列表来自 `/api/v1/keywords`，修改后会立即保存，无需再点全局保存。"
+        title="关键词列表来自 `/api/v1/keywords`，修改后会立即保存，无需再点全局保存。"
       />
 
       <Card size="small">

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   Button,
-  Descriptions,
   Drawer,
   Empty,
   Form,
@@ -25,6 +24,7 @@ import { AIAccessGuard } from '@shared/ui';
 import type { EmailTemplate } from '@shared/api';
 import { queryKeys } from '@shared/api';
 import { tenantApi } from '../../lib/api';
+import { formatDateTime } from '../../lib/format';
 
 const { Text, Paragraph } = Typography;
 
@@ -45,10 +45,10 @@ type AiValues = {
 };
 
 const CATEGORY_OPTIONS = [
-  { label: 'cold_outreach', value: 'cold_outreach' },
-  { label: 'follow_up', value: 'follow_up' },
-  { label: 'promotion', value: 'promotion' },
-  { label: 'festival', value: 'festival' },
+  { label: '首次触达', value: 'cold_outreach' },
+  { label: '跟进', value: 'follow_up' },
+  { label: '推广', value: 'promotion' },
+  { label: '节日问候', value: 'festival' },
 ];
 
 export function Component() {
@@ -205,7 +205,10 @@ export function Component() {
       title: '分类',
       dataIndex: 'category',
       width: 140,
-      render: (value) => <Tag>{value ?? 'uncategorized'}</Tag>,
+      render: (value) => {
+        const label = CATEGORY_OPTIONS.find((o) => o.value === value)?.label ?? value ?? '未分类';
+        return <Tag>{label}</Tag>;
+      },
     },
     {
       title: '主题',
@@ -216,6 +219,7 @@ export function Component() {
       title: '更新时间',
       dataIndex: 'updated_at',
       width: 180,
+      render: (v: string) => formatDateTime(v),
     },
     {
       title: '操作',
@@ -249,7 +253,7 @@ export function Component() {
         <div>
           <Text strong style={{ fontSize: 16 }}>邮件模板</Text>
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            平台模板、副本模板和 AI 生成模板全部来自真实后端。
+            管理邮件模板，支持使用平台模板副本或 AI 生成自定义模板。
           </Paragraph>
         </div>
         <Space>
@@ -265,13 +269,13 @@ export function Component() {
       </Space>
 
       {templatesQuery.isError && (
-        <Alert type="error" showIcon message="模板加载失败" />
+        <Alert type="error" showIcon title="模板加载失败" />
       )}
       {emailGenerateFeature && !emailGenerateFeature.available && (
         <Alert
           type="warning"
           showIcon
-          message={aiCapabilitiesQuery.data?.provider.message ?? '当前租户的 OpenRouter 状态异常，AI 模板生成功能已禁用。'}
+          title={aiCapabilitiesQuery.data?.provider.message ?? '当前租户的 OpenRouter 状态异常，AI 模板生成功能已禁用。'}
         />
       )}
 
@@ -342,16 +346,20 @@ export function Component() {
         </Form>
       </Drawer>
 
-      <Modal title="模板预览" open={previewOpen} onCancel={() => setPreviewOpen(false)} footer={null} width={760}>
-        <Descriptions column={1} bordered size="small">
-          <Descriptions.Item label="主题">{previewData?.subject ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="纯文本">
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{previewData?.body_text ?? '—'}</pre>
-          </Descriptions.Item>
-          <Descriptions.Item label="HTML">
-            <div dangerouslySetInnerHTML={{ __html: previewData?.body_html ?? '<p>—</p>' }} />
-          </Descriptions.Item>
-        </Descriptions>
+      <Modal
+        title={`预览：${previewData?.subject ?? ''}`}
+        open={previewOpen}
+        onCancel={() => setPreviewOpen(false)}
+        footer={null}
+        width={860}
+        styles={{ body: { padding: 0 } }}
+      >
+        <iframe
+          srcDoc={previewData?.body_html ?? '<p style="padding:24px;color:#999">暂无内容</p>'}
+          style={{ width: '100%', height: 560, border: 'none', display: 'block' }}
+          title="邮件预览"
+          sandbox="allow-same-origin"
+        />
       </Modal>
 
       <Modal

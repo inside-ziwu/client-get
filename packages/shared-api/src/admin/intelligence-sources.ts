@@ -4,9 +4,10 @@ import type { ApiResponse, PaginatedResponse, ImportResult } from '@shared/types
 export interface IntelligenceSource {
   id: string;
   name: string;
-  type: 'rss' | 'website' | 'manual';
+  source_type: 'rss' | 'website' | 'manual';
   url?: string;
-  config: Record<string, unknown>;
+  fetch_config?: Record<string, unknown>;
+  industry_tags?: unknown[];
   is_active: boolean;
   last_fetched_at?: string;
   created_at: string;

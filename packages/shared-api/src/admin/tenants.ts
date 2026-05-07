@@ -52,6 +52,8 @@ export function tenantsApi(client: AxiosInstance) {
       client.post<ApiResponse<Tenant>>(`/api/v1/tenants/${id}/suspend`),
     activate: (id: string) =>
       client.post<ApiResponse<Tenant>>(`/api/v1/tenants/${id}/activate`),
+    delete: (id: string) =>
+      client.delete(`/api/v1/tenants/${id}`),
 
     // Domains
     listDomains: (tenantId: string) =>

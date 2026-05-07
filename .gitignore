@@ -9,3 +9,10 @@ dist/
 *.tsbuildinfo
 coverage/
 .gstack/
+
+# 部署脚本自动生成的版本追踪文件
+deploy/.admin-rev
+deploy/.tenant-rev
+
+# 数据库备份文件
+*.dump

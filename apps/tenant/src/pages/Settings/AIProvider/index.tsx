@@ -21,6 +21,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQueries, useQueryClient } from '@tanstack/react-query';
 import type { AiProviderConfig, AiUsageSummary, AiUsageTrend } from '@shared/types';
 import { createApiClient, createTenantApi, queryKeys } from '@shared/api';
+import { formatDateTime } from '../../../lib/format';
 
 const { Title, Paragraph } = Typography;
 
@@ -35,14 +36,6 @@ const STATUS_TAGS: Record<string, { color: string; label: string }> = {
   provider_error: { color: 'red', label: '服务异常' },
   not_configured: { color: 'default', label: '未配置' },
 };
-
-function formatDate(value?: string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleString('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-}
 
 function statusAlert(config?: AiProviderConfig) {
   const status = config?.balance.status ?? 'not_configured';
@@ -182,7 +175,7 @@ export function Component() {
         width: 140,
       },
       {
-        title: '总 tokens',
+        title: 'Token 用量',
         dataIndex: 'total_tokens',
         width: 160,
       },
@@ -191,12 +184,12 @@ export function Component() {
   );
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size="large">
+    <Space orientation="vertical" style={{ width: '100%' }} size="large">
       <Space style={{ justifyContent: 'space-between', width: '100%' }}>
         <div>
           <Title level={5} style={{ marginBottom: 0 }}>OpenRouter</Title>
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            每个租户单独维护自己的 OpenRouter API key，页面仅展示掩码、状态与用量。
+            配置 OpenRouter API key 以启用 AI 功能。
           </Paragraph>
         </div>
         <Space>
@@ -218,19 +211,16 @@ export function Component() {
         </Space>
       </Space>
 
-      <Alert type={alert.type} showIcon message={alert.message} />
+      <Alert type={alert.type} showIcon title={alert.message} />
 
       <Row gutter={[16, 16]}>
         <Col span={8}>
           <Card size="small" loading={configQuery.isLoading}>
             <Statistic
               title="余额状态"
-              value={statusTag.label}
-              valueStyle={{ color: statusTag.color === 'default' ? undefined : undefined }}
+              value=" "
+              suffix={<Tag color={statusTag.color}>{statusTag.label}</Tag>}
             />
-            <div style={{ marginTop: 12 }}>
-              <Tag color={statusTag.color}>{statusTag.label}</Tag>
-            </div>
           </Card>
         </Col>
         <Col span={8}>
@@ -245,29 +235,22 @@ export function Component() {
         </Col>
       </Row>
 
-      <Card title="配置状态" size="small" loading={configQuery.isLoading}>
+      <Card title="配置详情" size="small" loading={configQuery.isLoading}>
         <Descriptions column={2} bordered size="small">
-          <Descriptions.Item label="Provider">OpenRouter</Descriptions.Item>
-          <Descriptions.Item label="是否已配置">{config?.is_configured ? '已配置' : '未配置'}</Descriptions.Item>
-          <Descriptions.Item label="Key 掩码">{config?.secret_masked ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="最近刷新">{formatDate(config?.balance.checked_at)}</Descriptions.Item>
-          <Descriptions.Item label="更新时间">{formatDate(config?.updated_at)}</Descriptions.Item>
-          <Descriptions.Item label="最近轮换">{formatDate(config?.last_rotated_at)}</Descriptions.Item>
+          <Descriptions.Item label="服务商">OpenRouter</Descriptions.Item>
+          <Descriptions.Item label="配置状态">{config?.is_configured ? '已配置' : '未配置'}</Descriptions.Item>
+          <Descriptions.Item label="密钥掩码">{config?.secret_masked ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="余额来源">{config?.balance.source ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="更新时间">{formatDateTime(config?.updated_at)}</Descriptions.Item>
+          <Descriptions.Item label="最近刷新">{formatDateTime(config?.balance.checked_at)}</Descriptions.Item>
+          <Descriptions.Item label="最近轮换">{formatDateTime(config?.last_rotated_at)}</Descriptions.Item>
           <Descriptions.Item label="最后修改人">
             {config?.configured_by ? `${config.configured_by.name ?? '未知'} (${config.configured_by.email ?? '—'})` : '—'}
           </Descriptions.Item>
-          <Descriptions.Item label="余额来源">{config?.balance.source ?? '—'}</Descriptions.Item>
-        </Descriptions>
-      </Card>
-
-      <Card title="额度细节" size="small" loading={configQuery.isLoading}>
-        <Descriptions column={2} bordered size="small">
-          <Descriptions.Item label="可判定余额">{config?.balance.amount ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="币种">{config?.balance.currency ?? 'USD'}</Descriptions.Item>
-          <Descriptions.Item label="Total Credits">{config?.balance.total_credits ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="Total Usage">{config?.balance.total_usage ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="Key Limit">{config?.balance.key_limit ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="Key Limit Remaining">{config?.balance.key_limit_remaining ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="总积分">{config?.balance.total_credits ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="已用额度">{config?.balance.total_usage ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="密钥限额">{config?.balance.key_limit ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="剩余密钥限额">{config?.balance.key_limit_remaining ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="状态消息" span={2}>
             {config?.balance.message ?? '—'}
           </Descriptions.Item>

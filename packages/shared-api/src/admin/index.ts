@@ -1,5 +1,7 @@
 import type { AxiosInstance } from 'axios';
 import { authApi } from './auth';
+import { collectionApi } from './collection';
+import { contactClassificationApi } from './contact-classification';
 import { dataSourcesApi } from './data-sources';
 import { scoringTemplatesApi } from './scoring-templates';
 import { intelligenceSourcesApi } from './intelligence-sources';
@@ -11,6 +13,8 @@ import { tenantsApi } from './tenants';
 export function createAdminApi(client: AxiosInstance) {
   return {
     auth: authApi(client),
+    collection: collectionApi(client),
+    contactClassification: contactClassificationApi(client),
     dataSources: dataSourcesApi(client),
     scoringTemplates: scoringTemplatesApi(client),
     intelligenceSources: intelligenceSourcesApi(client),

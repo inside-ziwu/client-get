@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -19,6 +18,8 @@ import { PlusOutlined, UserOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createApiClient, createTenantApi, queryKeys, type TeamUser } from '@shared/api';
+import { useAuthStore } from '@shared/hooks';
+import { formatDate } from '../../../lib/format';
 
 const { Text, Title } = Typography;
 
@@ -55,10 +56,6 @@ const STATUS_COLOR: Record<MemberStatus, 'success' | 'error'> = {
   disabled: 'error',
 };
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('zh-CN');
-}
-
 function readPrimaryRole(user: TeamUser): Role {
   const first = user.roles?.[0];
   if (first === 'admin' || first === 'operator' || first === 'viewer') {
@@ -73,6 +70,7 @@ function readStatus(user: TeamUser): MemberStatus {
 
 export function Component() {
   const queryClient = useQueryClient();
+  const currentUserId = useAuthStore((s) => s.payload?.sub);
   const [inviteForm] = Form.useForm<TeamFormValues>();
   const [editForm] = Form.useForm<TeamFormValues>();
   const [open, setOpen] = useState(false);
@@ -197,6 +195,10 @@ export function Component() {
         width: 220,
         render: (_, record) => {
           const status = readStatus(record);
+          const isSelf = record.id === currentUserId;
+          if (isSelf) {
+            return <Text type="secondary" style={{ fontSize: 12 }}>当前账号</Text>;
+          }
           return (
             <Space size={0}>
               {status === 'active' && (
@@ -247,18 +249,12 @@ export function Component() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
         <div>
           <Title level={5} style={{ marginBottom: 4 }}>团队管理</Title>
-          <Text type="secondary">团队成员来自真实 API，角色严格使用 `admin / operator / viewer`。</Text>
+          <Text type="secondary">管理团队成员与访问权限。</Text>
         </div>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>
           新增成员
         </Button>
       </div>
-
-      <Alert
-        type="info"
-        showIcon
-        message="成员列表来自 `/api/v1/team/users`，页面不再把角色伪装成单独的 `role` 字段。"
-      />
 
       <Card size="small">
         <Table<TeamUser>

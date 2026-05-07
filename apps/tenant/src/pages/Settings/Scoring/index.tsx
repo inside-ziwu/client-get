@@ -17,6 +17,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createApiClient, createTenantApi, queryKeys, type TenantScoringTemplate } from '@shared/api';
+import { formatDateTime } from '../../../lib/format';
 
 const { Text, Title } = Typography;
 
@@ -159,7 +160,7 @@ export function Component() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
         <div>
           <Title level={5} style={{ marginBottom: 4 }}>评分配置</Title>
-          <Text type="secondary">直接从 `/api/v1/scoring-templates` 读取当前启用模板，不再依赖页面内强转。</Text>
+          <Text type="secondary">调整评分维度权重，保存后对后续评分立即生效。</Text>
         </div>
         <Button
           type="primary"
@@ -184,7 +185,7 @@ export function Component() {
       <Alert
         type="info"
         showIcon
-        message="评分模板支持在线编辑维度名称、权重和判定条件。保存后会立即写回当前启用模板。"
+        title="评分模板支持在线编辑维度名称、权重和判定条件。保存后会立即写回当前启用模板。"
       />
 
       <Card
@@ -210,7 +211,7 @@ export function Component() {
           <Alert
             type="warning"
             showIcon
-            message="请确保所有维度都已填写完整，且总权重为 100 才能保存。"
+            title="请确保所有维度都已填写完整，且总权重为 100 才能保存。"
             style={{ marginBottom: 12 }}
           />
         )}
@@ -228,7 +229,7 @@ export function Component() {
       <Card size="small">
         <Space direction="vertical" size={4}>
           <Text strong>同步信息</Text>
-          <Text type="secondary">最后同步：{scoringQuery.data ? new Date(scoringQuery.data.updated_at).toLocaleString('zh-CN') : '—'}</Text>
+          <Text type="secondary">最后同步：{scoringQuery.data ? formatDateTime(scoringQuery.data.updated_at) : '—'}</Text>
           <Text type="secondary">保存后会影响后续重新评分，不会回写历史结果。</Text>
         </Space>
       </Card>

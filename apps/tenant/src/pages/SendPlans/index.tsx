@@ -30,6 +30,7 @@ import { queryKeys, type SendingPlan } from '@shared/api';
 import { StatusTag } from '@shared/ui';
 import type { SendingPlanStatus } from '@shared/types';
 import { tenantApi } from '../../lib/api';
+import { formatDateTime } from '../../lib/format';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -41,19 +42,6 @@ interface PlanFiltersState {
   keyword?: string;
   status?: SendingPlanStatus[];
   created_at?: [any, any];
-}
-
-function formatDateTime(value?: string) {
-  if (!value) {
-    return '—';
-  }
-  return new Date(value).toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function parseDateTime(value?: string) {
@@ -304,18 +292,18 @@ export function Component() {
   return (
     <>
       <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space style={{ justifyContent: 'space-between', width: '100%' }} align="center">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Title level={5} style={{ margin: 0 }}>发送计划</Title>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/send-plans/new')}>
             新建计划
           </Button>
-        </Space>
+        </div>
 
         {plansQuery.isError && (
           <Alert
             type="error"
             showIcon
-            message="发送计划加载失败"
+            title="发送计划加载失败"
             description={getErrorMessage(plansQuery.error)}
           />
         )}
