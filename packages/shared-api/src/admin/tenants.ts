@@ -24,8 +24,13 @@ export interface TenantDomain {
   id: string;
   domain: string;
   verification_status: 'pending' | 'verifying' | 'verified' | 'failed';
-  dns_records: Array<{ type: string; name: string; value: string }>;
+  dns_records?: Array<{ type: string; name: string; value: string }>;
+  warmup_rule_id?: string | null;
+  warmup_level?: number | null;
+  daily_limit?: number | null;
+  total_sent?: number | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface TenantTeamUser {
@@ -58,7 +63,7 @@ export function tenantsApi(client: AxiosInstance) {
     // Domains
     listDomains: (tenantId: string) =>
       client.get<PaginatedResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains`),
-    createDomain: (tenantId: string, data: { domain: string }) =>
+    createDomain: (tenantId: string, data: { domain: string; warmup_rule_id: string; warmup_level: number }) =>
       client.post<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains`, data),
     verifyDomain: (tenantId: string, domainId: string) =>
       client.post<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains/${domainId}/verify`),

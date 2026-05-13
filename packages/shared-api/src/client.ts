@@ -3,9 +3,15 @@ import { useAuthStore } from '@shared/hooks';
 
 type AppType = 'admin' | 'tenant';
 
-export function createApiClient(appType: AppType): AxiosInstance {
+interface ApiClientOptions {
+  baseURL?: string;
+}
+
+export function createApiClient(appType: AppType, options: ApiClientOptions = {}): AxiosInstance {
+  const rootBaseURL = options.baseURL ?? import.meta.env.VITE_API_BASE_URL;
+
   const client = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: rootBaseURL,
     timeout: 30_000,
     headers: { 'Content-Type': 'application/json' },
   });
@@ -16,9 +22,9 @@ export function createApiClient(appType: AppType): AxiosInstance {
       config.headers.Authorization = `Bearer ${token}`;
     }
     if (appType === 'tenant' && payload?.slug) {
-      config.baseURL = `${import.meta.env.VITE_API_BASE_URL}/t/${payload.slug}`;
+      config.baseURL = `${rootBaseURL}/t/${payload.slug}`;
     } else if (appType === 'admin') {
-      config.baseURL = `${import.meta.env.VITE_API_BASE_URL}/admin`;
+      config.baseURL = `${rootBaseURL}/admin`;
     }
     return config;
   });

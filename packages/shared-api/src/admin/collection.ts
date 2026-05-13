@@ -94,6 +94,50 @@ export interface CleanCompanyRow {
   created_at: string;
 }
 
+export interface PeerCompanyKeyword {
+  keyword_master_id: string;
+  keyword: string;
+  keyword_normalized: string;
+}
+
+export interface PeerCompanyRow {
+  id: string;
+  name: string | null;
+  english_name: string | null;
+  has_english_name: boolean;
+  domain: string | null;
+  website_host: string | null;
+  identity_type: 'website_host' | 'source_id';
+  identity_value: string;
+  identity_source: string;
+  identity_confidence: number;
+  identity_rule_version: string;
+  merge_reason: string | null;
+  conflict_count: number;
+  keywords: PeerCompanyKeyword[];
+  keyword_count: number;
+  raw_count: number;
+  source_ids: string[];
+  source_id: string | null;
+  esdate: string | null;
+  legalperson: string | null;
+  uncid: string | null;
+  reg_capital: string | null;
+  employee_scale: string | null;
+  reg_address: string | null;
+  contact_count: number;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  created_at: string | null;
+}
+
+export interface PeerCompanyHealthStats {
+  raw_count: number;
+  peer_count: number;
+  dedup_rate: number;
+  english_name_coverage: number;
+}
+
 export interface CleanupHealthStats {
   pending_count: number;
   oldest_pending_seconds: number | null;
@@ -148,6 +192,31 @@ export function collectionApi(client: AxiosInstance) {
       client.get<PaginatedResponse<CleanCompanyRow>>(
         '/api/v1/collection/clean-companies',
         { params },
+      ),
+    listPeerCompanies: (params: {
+      page?: number;
+      page_size?: number;
+      keyword?: string;
+      keyword_filter?: string;
+      found_date_start?: string;
+      found_date_end?: string;
+      reg_capital?: string;
+      employee_scale?: string;
+      contacts_count?: string;
+      has_name_en?: boolean;
+      has_domain?: boolean;
+    }) =>
+      client.get<PaginatedResponse<PeerCompanyRow>>(
+        '/api/v1/collection/peer-companies',
+        { params },
+      ),
+    getPeerCompany: (id: string) =>
+      client.get<ApiResponse<PeerCompanyRow>>(
+        `/api/v1/collection/peer-companies/${encodeURIComponent(id)}`,
+      ),
+    getPeerCompanyHealth: () =>
+      client.get<ApiResponse<PeerCompanyHealthStats>>(
+        '/api/v1/collection/peer-companies/health',
       ),
     getCleanupHealth: () =>
       client.get<ApiResponse<CleanupHealthStats>>(

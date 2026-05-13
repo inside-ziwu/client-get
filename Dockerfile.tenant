@@ -5,7 +5,6 @@ WORKDIR /app
 RUN npm install -g pnpm@9.15.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
-COPY apps/admin/package.json apps/admin/package.json
 COPY apps/tenant/package.json apps/tenant/package.json
 COPY packages/shared-api/package.json packages/shared-api/package.json
 COPY packages/shared-hooks/package.json packages/shared-hooks/package.json
@@ -30,4 +29,3 @@ COPY --from=build /app/apps/tenant/dist /usr/share/nginx/html
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
-

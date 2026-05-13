@@ -5,7 +5,7 @@ WORKDIR /app
 RUN npm install -g pnpm@9.15.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
-COPY apps/admin/package.json apps/admin/package.json
+COPY apps/admin-next/package.json apps/admin-next/package.json
 COPY apps/tenant/package.json apps/tenant/package.json
 COPY packages/shared-api/package.json packages/shared-api/package.json
 COPY packages/shared-hooks/package.json packages/shared-hooks/package.json
@@ -14,20 +14,40 @@ COPY packages/shared-ui/package.json packages/shared-ui/package.json
 
 RUN pnpm install --frozen-lockfile
 
-COPY apps apps
+COPY apps/admin-next/next-env.d.ts apps/admin-next/next-env.d.ts
+COPY apps/admin-next/vite-env-shim.d.ts apps/admin-next/vite-env-shim.d.ts
+COPY apps/admin-next/components.json apps/admin-next/components.json
+COPY apps/admin-next/next.config.ts apps/admin-next/next.config.ts
+COPY apps/admin-next/postcss.config.mjs apps/admin-next/postcss.config.mjs
+COPY apps/admin-next/tailwind.config.ts apps/admin-next/tailwind.config.ts
+COPY apps/admin-next/tsconfig.json apps/admin-next/tsconfig.json
+COPY apps/admin-next/public apps/admin-next/public
+COPY apps/admin-next/src apps/admin-next/src
 COPY packages packages
 
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ARG NEXT_PUBLIC_ADMIN_API_BASE_URL
+ENV NEXT_PUBLIC_ADMIN_API_BASE_URL=${NEXT_PUBLIC_ADMIN_API_BASE_URL}
 
-RUN pnpm --filter @apps/admin build
+RUN pnpm --filter @apps/admin-next build
 
-FROM nginx:1.27-alpine
+FROM node:20-alpine AS runner
 
-COPY deploy/nginx-spa.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/admin/dist /usr/share/nginx/html
+WORKDIR /app
 
-EXPOSE 80
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
 
-CMD ["nginx", "-g", "daemon off;"]
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
 
+COPY --from=build --chown=nextjs:nodejs /app/apps/admin-next/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/apps/admin-next/.next/static ./apps/admin-next/.next/static
+COPY --from=build --chown=nextjs:nodejs /app/apps/admin-next/public ./apps/admin-next/public
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "apps/admin-next/server.js"]
