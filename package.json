@@ -7,11 +7,9 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev:admin": "pnpm --filter @apps/admin-next dev",
-    "dev:admin-next": "pnpm --filter @apps/admin-next dev",
+    "dev:admin": "pnpm --filter @apps/admin dev",
     "dev:tenant": "pnpm --filter @apps/tenant dev",
-    "build:admin": "pnpm --filter @apps/admin-next build",
-    "build:admin-next": "pnpm --filter @apps/admin-next build",
+    "build:admin": "pnpm --filter @apps/admin build",
     "build:tenant": "pnpm --filter @apps/tenant build",
     "build": "pnpm -r build",
     "lint": "eslint . --ext .ts,.tsx",

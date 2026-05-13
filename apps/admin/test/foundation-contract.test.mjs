@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appDir = resolve(__dirname, '..');
 const rootDir = resolve(appDir, '../..');
+const transitionalName = ['admin', 'next'].join('-');
 
 function read(relativePath) {
   return readFileSync(resolve(appDir, relativePath), 'utf8');
@@ -34,22 +35,22 @@ for (const relativePath of [
   'src/lib/format.ts',
   'src/lib/utils.ts',
 ]) {
-  assert.ok(existsSync(resolve(appDir, relativePath)), `缺少 admin-next 文件：${relativePath}`);
+  assert.ok(existsSync(resolve(appDir, relativePath)), `缺少 admin 文件：${relativePath}`);
 }
 
-assert.ok(!existsSync(resolve(rootDir, 'apps/admin')), '旧 Vite Admin 目录必须已删除。');
-assert.ok(!existsSync(resolve(rootDir, 'Dockerfile.admin-next')), '过渡 Dockerfile.admin-next 必须已删除。');
-assert.ok(!existsSync(resolve(rootDir, 'deploy/push-admin-next.sh')), '过渡 push-admin-next.sh 必须已删除。');
+assert.ok(!existsSync(resolve(rootDir, `apps/${transitionalName}`)), '过渡 Admin Next 目录必须已删除。');
+assert.ok(!existsSync(resolve(rootDir, `Dockerfile.${transitionalName}`)), '过渡 Admin Next Dockerfile 必须已删除。');
+assert.ok(!existsSync(resolve(rootDir, `deploy/push-${transitionalName}.sh`)), '过渡 Admin Next 推送脚本必须已删除。');
 
 const packageJson = JSON.parse(read('package.json'));
-assert.equal(packageJson.name, '@apps/admin-next');
+assert.equal(packageJson.name, '@apps/admin');
 assert.equal(packageJson.scripts.dev, 'next dev');
 assert.equal(packageJson.scripts.build, 'next build');
-assert.ok(packageJson.dependencies.next, 'admin-next 必须依赖 Next.js。');
-assert.ok(packageJson.dependencies['@tanstack/react-query'], 'admin-next 必须复用 TanStack Query。');
-assert.ok(packageJson.dependencies.zustand, 'admin-next 必须保留 zustand auth store。');
-assert.ok(packageJson.dependencies.axios, 'admin-next 必须继续复用 axios shared api。');
-assert.ok(packageJson.dependencies.dayjs, 'admin-next 必须提供日期格式化依赖。');
+assert.ok(packageJson.dependencies.next, 'admin 必须依赖 Next.js。');
+assert.ok(packageJson.dependencies['@tanstack/react-query'], 'admin 必须复用 TanStack Query。');
+assert.ok(packageJson.dependencies.zustand, 'admin 必须保留 zustand auth store。');
+assert.ok(packageJson.dependencies.axios, 'admin 必须继续复用 axios shared api。');
+assert.ok(packageJson.dependencies.dayjs, 'admin 必须提供日期格式化依赖。');
 assert.ok(packageJson.dependencies['lucide-react'], 'shadcn 图标按钮使用 lucide-react。');
 
 const nextConfig = read('next.config.ts');
@@ -68,19 +69,19 @@ assert.match(
 );
 
 const dockerfile = readRoot('Dockerfile.admin');
-assert.match(dockerfile, /FROM node:20-alpine AS build/, 'admin-next Dockerfile 必须使用 node:20-alpine build 阶段。');
-assert.match(dockerfile, /ARG NEXT_PUBLIC_ADMIN_API_BASE_URL/, 'admin-next Dockerfile 必须声明生产 API base URL 构建参数。');
-assert.match(dockerfile, /ENV NEXT_PUBLIC_ADMIN_API_BASE_URL=\$\{NEXT_PUBLIC_ADMIN_API_BASE_URL\}/, 'admin-next Dockerfile 必须在 next build 前暴露生产 API base URL。');
-assert.match(dockerfile, /pnpm --filter @apps\/admin-next build/, 'admin-next Dockerfile 必须构建 admin-next。');
-assert.match(dockerfile, /\.next\/standalone/, 'admin-next Dockerfile 必须复制 Next standalone 输出。');
-assert.match(dockerfile, /EXPOSE 3000/, 'admin-next standalone 容器必须暴露 3000 端口。');
-assert.match(dockerfile, /CMD \["node", "apps\/admin-next\/server\.js"\]/, 'admin-next 容器必须启动 standalone server。');
-assert.doesNotMatch(dockerfile, /COPY apps\/admin-next apps\/admin-next/, 'admin-next Dockerfile 不能覆盖安装后生成的 workspace node_modules。');
-assert.doesNotMatch(dockerfile, /apps\/admin\/package\.json|@apps\/admin build|apps\/admin\/dist/, '正式 admin Dockerfile 不能再引用旧 Vite admin。');
+assert.match(dockerfile, /FROM node:20-alpine AS build/, 'admin Dockerfile 必须使用 node:20-alpine build 阶段。');
+assert.match(dockerfile, /ARG NEXT_PUBLIC_ADMIN_API_BASE_URL/, 'admin Dockerfile 必须声明生产 API base URL 构建参数。');
+assert.match(dockerfile, /ENV NEXT_PUBLIC_ADMIN_API_BASE_URL=\$\{NEXT_PUBLIC_ADMIN_API_BASE_URL\}/, 'admin Dockerfile 必须在 next build 前暴露生产 API base URL。');
+assert.match(dockerfile, /pnpm --filter @apps\/admin build/, 'admin Dockerfile 必须构建 admin。');
+assert.match(dockerfile, /\.next\/standalone/, 'admin Dockerfile 必须复制 Next standalone 输出。');
+assert.match(dockerfile, /EXPOSE 3000/, 'admin standalone 容器必须暴露 3000 端口。');
+assert.match(dockerfile, /CMD \["node", "apps\/admin\/server\.js"\]/, 'admin 容器必须启动 standalone server。');
+assert.doesNotMatch(dockerfile, /COPY apps\/admin apps\/admin/, 'admin Dockerfile 不能覆盖安装后生成的 workspace node_modules。');
+assert.doesNotMatch(dockerfile, /apps\/admin\/dist/, '正式 admin Dockerfile 不能再引用旧 Vite admin dist。');
 
 const pushAdmin = readRoot('deploy/push-admin.sh');
 assert.match(pushAdmin, /clientget-admin/, '正式 Admin 推送脚本必须使用 clientget-admin 镜像名。');
-assert.doesNotMatch(pushAdmin, /clientget-admin-next/, '正式 Admin 推送脚本不能再使用过渡镜像名。');
+assert.doesNotMatch(pushAdmin, new RegExp(`clientget-${transitionalName}`), '正式 Admin 推送脚本不能再使用过渡镜像名。');
 assert.match(pushAdmin, /crpi-q6fqloatvalw3jr2\.cn-beijing\.personal\.cr\.aliyuncs\.com/, 'Admin 推送脚本必须指向阿里云 ACR。');
 assert.match(pushAdmin, /PLATFORM=["']linux\/amd64["']/, 'Admin 推送脚本必须固定 linux/amd64。');
 assert.match(pushAdmin, /MODE="\$\{1:---load\}"/, 'Admin 推送脚本默认必须只本地 load，不推送。');
@@ -91,7 +92,7 @@ assert.match(pushAdmin, /API_URL=["']https:\/\/api\.xinanpcb\.com["']/, 'Admin �
 assert.match(pushAdmin, /--build-arg\s+NEXT_PUBLIC_ADMIN_API_BASE_URL="\$\{API_URL\}"/, 'Admin 推送脚本必须把生产 API base URL 写入构建。');
 
 const healthz = read('src/app/api/healthz/route.ts');
-assert.match(healthz, /NextResponse\.json\(\{\s*ok:\s*true\s*\}\)/, 'admin-next 必须提供 /api/healthz 健康检查。');
+assert.match(healthz, /NextResponse\.json\(\{\s*ok:\s*true\s*\}\)/, 'admin 必须提供 /api/healthz 健康检查。');
 
 const tsconfig = read('tsconfig.json');
 assert.match(tsconfig, /"@shared\/api"/, 'tsconfig 必须配置 @shared/api alias。');
@@ -113,9 +114,9 @@ assert.match(sharedClient, /baseURL\?:\s*string/, 'createApiClient 必须接受�
 assert.match(sharedClient, /import\.meta\.env\.VITE_API_BASE_URL/, '默认 baseURL 必须保持 Vite 环境变量。');
 
 const adminApi = read('src/lib/api.ts');
-assert.match(adminApi, /NEXT_PUBLIC_ADMIN_API_BASE_URL/, 'admin-next 生产构建必须读取 NEXT_PUBLIC_ADMIN_API_BASE_URL。');
-assert.match(adminApi, /createApiClient\(['"]admin['"],\s*\{\s*baseURL:\s*adminBaseURL\s*\}\)/, 'admin-next 必须把生产 API base URL 传给 shared api。');
-assert.match(adminApi, /createAdminApi\(client\)/, 'admin-next 必须复用 createAdminApi。');
+assert.match(adminApi, /NEXT_PUBLIC_ADMIN_API_BASE_URL/, 'admin 生产构建必须读取 NEXT_PUBLIC_ADMIN_API_BASE_URL。');
+assert.match(adminApi, /createApiClient\(['"]admin['"],\s*\{\s*baseURL:\s*adminBaseURL\s*\}\)/, 'admin 必须把生产 API base URL 传给 shared api。');
+assert.match(adminApi, /createAdminApi\(client\)/, 'admin 必须复用 createAdminApi。');
 
 const format = read('src/lib/format.ts');
 assert.match(format, /formatDateTime/, '必须提供 formatDateTime 工具。');

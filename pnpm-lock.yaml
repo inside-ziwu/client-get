@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  apps/admin-next:
+  apps/admin:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.0.1
