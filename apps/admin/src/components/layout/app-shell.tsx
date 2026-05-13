@@ -24,7 +24,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     email: 'platform-admin',
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/auth/clear-token', { method: 'POST' });
     logout();
     router.replace('/login');
   };

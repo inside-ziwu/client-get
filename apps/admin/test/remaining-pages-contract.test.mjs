@@ -26,7 +26,7 @@ for (const relativePath of [
   assert.ok(existsSync(resolve(appDir, relativePath)), `缺少 Phase 4/5 文件：${relativePath}`);
 }
 
-const dataSources = read('src/app/(dashboard)/data-sources/page.tsx');
+const dataSources = read('src/app/(dashboard)/data-sources/client-page.tsx');
 assert.match(dataSources, /adminApi\.dataSources\.list/, '数据源页必须加载数据源列表。');
 assert.match(dataSources, /adminApi\.dataSources\.create/, '数据源页必须支持创建数据源。');
 assert.match(dataSources, /adminApi\.dataSources\.update/, '数据源页必须支持更新数据源。');
@@ -41,7 +41,7 @@ for (const label of ['外贸通', '腾道', '励销云', '凭证', '账号编号
   assert.match(dataSources, new RegExp(label), `数据源页缺少字段/文案：${label}`);
 }
 
-const classification = read('src/app/(dashboard)/contact-classification/page.tsx');
+const classification = read('src/app/(dashboard)/contact-classification/client-page.tsx');
 assert.match(classification, /adminApi\.contactClassification\.listLevels/, '联系人分类页必须加载层级。');
 assert.match(classification, /adminApi\.contactClassification\.createLevel/, '联系人分类页必须支持创建 Level。');
 assert.match(classification, /adminApi\.contactClassification\.updateLevel/, '联系人分类页必须支持更新 Level。');
@@ -63,7 +63,7 @@ assert.match(editor, /grapesjs-preset-newsletter/, 'GrapesJS 编辑器必须加�
 assert.match(editor, /getHtml/, 'GrapesJS 编辑器必须支持读取 HTML。');
 assert.match(editor, /getDesign/, 'GrapesJS 编辑器必须支持读取 design。');
 
-const emails = read('src/app/(dashboard)/email-templates/page.tsx');
+const emails = read('src/app/(dashboard)/email-templates/client-page.tsx');
 assert.match(emails, /adminApi\.emailTemplates\.list/, '邮件模板页必须加载模板列表。');
 assert.match(emails, /adminApi\.emailTemplates\.detail/, '邮件模板页必须加载模板详情。');
 assert.match(emails, /adminApi\.emailTemplates\.create/, '邮件模板页必须支持创建模板。');
@@ -82,7 +82,7 @@ assert.match(calendar, /DayPicker/, 'Calendar 组件必须基于 react-day-picke
 assert.match(datePicker, /Calendar/, 'DatePicker 必须复用 Calendar。');
 assert.match(datePicker, /formatDate/, 'DatePicker 必须格式化日期显示。');
 
-const tendata = read('src/app/(dashboard)/collection/tendata/page.tsx');
+const tendata = read('src/app/(dashboard)/collection/tendata/client-page.tsx');
 assert.match(tendata, /adminApi\.collection\.listRawCompanies\(['"]tendata['"]/, 'Tendata 页必须查询 tendata raw 公司。');
 assert.match(tendata, /DatePicker/, 'Tendata 页必须使用日期选择器。');
 assert.match(tendata, /RangeField/, 'Tendata 页必须保留范围筛选字段。');
@@ -91,7 +91,7 @@ for (const label of ['Tendata 采集归档', '贸易金额', '供应商', '成�
   assert.match(tendata, new RegExp(label), `Tendata 页缺少字段/文案：${label}`);
 }
 
-const customers = read('src/app/(dashboard)/collection/customers/page.tsx');
+const customers = read('src/app/(dashboard)/collection/customers/client-page.tsx');
 assert.match(customers, /adminApi\.collection\.listCleanCompanies/, '客户归档页必须查询 clean companies。');
 assert.match(customers, /adminApi\.collection\.getCleanupHealth/, '客户归档页必须展示清洗健康状态。');
 assert.match(customers, /RangeField/, '客户归档页必须保留范围筛选字段。');
@@ -100,7 +100,7 @@ for (const label of ['客户采集归档', '规范化公司', '来源', '待清�
   assert.match(customers, new RegExp(label), `客户归档页缺少字段/文案：${label}`);
 }
 
-const peersCleaned = read('src/app/(dashboard)/collection/peers-cleaned/page.tsx');
+const peersCleaned = read('src/app/(dashboard)/collection/peers-cleaned/client-page.tsx');
 assert.match(peersCleaned, /adminApi\.collection\.listPeerCompanies/, '同行数据清洗页必须查询 peer companies API。');
 assert.match(peersCleaned, /adminApi\.collection\.getPeerCompanyHealth/, '同行数据清洗页必须展示 peer company health 指标。');
 assert.doesNotMatch(peersCleaned, /listRawCompanies|collection\/raw\/lixiaoyun/, '同行数据清洗页不能查询原 raw 同行公司 API。');
@@ -110,7 +110,7 @@ for (const label of ['同行数据（清洗）', 'Raw 数', 'Peer 数', '去重�
   assert.match(peersCleaned, new RegExp(label), `同行数据清洗页缺少字段/文案：${label}`);
 }
 
-const scoring = read('src/app/(dashboard)/scoring-templates/page.tsx');
+const scoring = read('src/app/(dashboard)/scoring-templates/client-page.tsx');
 assert.match(scoring, /adminApi\.scoringTemplates\.list/, '评分模板页必须加载列表。');
 assert.match(scoring, /adminApi\.scoringTemplates\.detail/, '评分模板页必须加载详情。');
 assert.match(scoring, /adminApi\.scoringTemplates\.create/, '评分模板页必须支持创建。');
@@ -123,7 +123,7 @@ for (const label of ['评分维度', '等级阈值', 'S 级', 'A 级', 'B 级', 
   assert.match(scoring, new RegExp(label), `评分模板页缺少字段/文案：${label}`);
 }
 
-const tenants = read('src/app/(dashboard)/tenants/page.tsx');
+const tenants = read('src/app/(dashboard)/tenants/client-page.tsx');
 assert.match(tenants, /adminApi\.tenants\.list/, '租户页必须加载租户列表。');
 assert.match(tenants, /adminApi\.tenants\.create/, '租户页必须支持创建租户。');
 assert.match(tenants, /adminApi\.tenants\.update/, '用户详情必须支持编辑保存基础信息。');

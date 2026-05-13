@@ -26,7 +26,7 @@ for (const relativePath of [
   assert.ok(existsSync(resolve(appDir, relativePath)), `缺少 Phase 4 文件：${relativePath}`);
 }
 
-const intelligence = read('src/app/(dashboard)/intelligence-sources/page.tsx');
+const intelligence = read('src/app/(dashboard)/intelligence-sources/client-page.tsx');
 assert.match(intelligence, /adminApi\.intelligenceSources\.list/, '情报源页必须加载列表。');
 assert.match(intelligence, /adminApi\.intelligenceSources\.create/, '情报源页必须支持创建。');
 assert.match(intelligence, /adminApi\.intelligenceSources\.update/, '情报源页必须支持更新。');
@@ -38,7 +38,7 @@ for (const label of ['RSS', '网站', '手工', '最后采集', '批量导入', 
   assert.match(intelligence, new RegExp(label), `情报源页缺少文案：${label}`);
 }
 
-const peers = read('src/app/(dashboard)/collection/peers/page.tsx');
+const peers = read('src/app/(dashboard)/collection/peers/client-page.tsx');
 assert.match(peers, /adminApi\.collection\.listLixiaoyunRawCompanies/, '同行公司页必须查询 V3 励销云 raw 公司 API。');
 assert.doesNotMatch(peers, /listRawCompanies\(['"]lixiaoyun['"]/, '同行公司页不能回退到旧 collection raw API。');
 assert.match(peers, /PAGE_SIZE\s*=\s*20/, '同行公司页分页大小必须保持 20。');
@@ -65,7 +65,7 @@ for (const field of ['english_name', 'employee_scale', 'reg_capital', 'esdate', 
 }
 assert.match(peers, /setSelected/, '同行公司页必须支持详情 Sheet 状态。');
 
-const tasks = read('src/app/(dashboard)/collection-tasks/page.tsx');
+const tasks = read('src/app/(dashboard)/collection-tasks/client-page.tsx');
 assert.match(tasks, /adminApi\.collection\.listKeywords/, '采集任务页必须加载关键词。');
 assert.match(tasks, /refetchInterval:\s*15_000/, '采集任务页必须保留 15 秒轮询。');
 assert.match(tasks, /adminApi\.collection\.trigger/, '采集任务页必须支持触发采集。');
