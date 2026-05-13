@@ -1,5 +1,6 @@
 'use client';
 
+import type { LixiaoyunRawCompanyRow } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
@@ -15,17 +16,8 @@ import { formatDateTime } from '@/lib/format';
 
 const PAGE_SIZE = 20;
 
-interface LixiaoyunRow {
-  id: string;
-  name: string;
-  domain?: string | null;
-  task_id?: string | null;
-  created_at: string;
-  raw_payload: unknown;
-}
-
 interface PageData {
-  data: LixiaoyunRow[];
+  data: LixiaoyunRawCompanyRow[];
   pagination: { cursor: string | null; has_more: boolean; total?: number };
 }
 
@@ -53,47 +45,39 @@ const EMPTY_FILTERS: FilterValues = {
   has_domain: false,
 };
 
-function safePayload(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function pick(payload: unknown, ...keys: string[]): string {
-  const source = safePayload(payload);
-  for (const key of keys) {
-    const value = source[key];
-    if (value != null && value !== '') {
-      return String(value);
-    }
-  }
-  return '-';
+function dash(value: string | number | null | undefined) {
+  return value === null || value === undefined || value === '' ? '-' : String(value);
 }
 
 function emptyPage(): PageData {
   return { data: [], pagination: { cursor: null, has_more: false, total: 0 } };
 }
 
-function contactsFrom(row: LixiaoyunRow | null) {
-  const contacts = safePayload(row?.raw_payload).contacts;
-  return Array.isArray(contacts) ? (contacts as Record<string, unknown>[]) : [];
-}
-
 export default function PeersDataPage() {
   const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTERS);
-  const [appliedName, setAppliedName] = useState<string | undefined>();
+  const [appliedFilters, setAppliedFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<LixiaoyunRow | null>(null);
+  const [selected, setSelected] = useState<LixiaoyunRawCompanyRow | null>(null);
 
   const query = useQuery({
-    queryKey: ['admin', 'peers', page, appliedName],
+    queryKey: ['admin', 'peers', 'raw-lixiaoyun', page, appliedFilters],
     queryFn: async () => {
       try {
         return (
-          await adminApi.collection.listRawCompanies('lixiaoyun', {
+          await adminApi.collection.listLixiaoyunRawCompanies({
             page,
             page_size: PAGE_SIZE,
-            keyword: appliedName,
+            keyword: appliedFilters.name.trim() || undefined,
+            keyword_filter: appliedFilters.keyword_filter.trim() || undefined,
+            found_date_start: appliedFilters.found_from || undefined,
+            found_date_end: appliedFilters.found_to || undefined,
+            reg_capital: appliedFilters.reg_capital || undefined,
+            employee_scale: appliedFilters.employee_scale || undefined,
+            contacts_filter: appliedFilters.contacts_count || undefined,
+            has_name_en: appliedFilters.has_name_en || undefined,
+            has_domain: appliedFilters.has_domain || undefined,
           })
-        ).data as PageData;
+        ).data;
       } catch {
         return emptyPage();
       }
@@ -103,18 +87,16 @@ export default function PeersDataPage() {
   const pageData = query.data ?? emptyPage();
   const total = pageData.pagination.total ?? pageData.data.length;
   const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const payload = safePayload(selected?.raw_payload);
-  const contacts = contactsFrom(selected);
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setAppliedName(filters.name.trim() || undefined);
+    setAppliedFilters(filters);
     setPage(1);
   };
 
   const onReset = () => {
     setFilters(EMPTY_FILTERS);
-    setAppliedName(undefined);
+    setAppliedFilters(EMPTY_FILTERS);
     setPage(1);
   };
 
@@ -253,30 +235,23 @@ export default function PeersDataPage() {
               </thead>
               <tbody>
                 {pageData.data.map((row) => {
-                  const rowPayload = safePayload(row.raw_payload);
-                  const contactCount = Number(pick(rowPayload, 'contacts_count', 'contact_num'));
-                  const count = Number.isNaN(contactCount) ? 0 : contactCount;
-                  const domain = row.domain ?? pick(rowPayload, 'website', 'domain');
-                  const keyword = pick(rowPayload, 'keyword', 'search_keyword', 'query');
                   return (
                     <tr key={row.id} className="cursor-pointer border-b hover:bg-muted/40" onClick={() => setSelected(row)}>
-                      <td className="max-w-[210px] px-3 py-2 font-medium">
-                        {pick(rowPayload, 'name_cn', 'name_zh') || row.name}
-                      </td>
-                      <td className="max-w-[180px] px-3 py-2 text-muted-foreground">
-                        {pick(rowPayload, 'name_en', 'name_english')}
-                      </td>
-                      <td className="px-3 py-2">{pick(rowPayload, 'employee_scale', 'staff_num')}</td>
-                      <td className="px-3 py-2">{pick(rowPayload, 'reg_capital', 'registered_capital')}</td>
-                      <td className="px-3 py-2">{pick(rowPayload, 'established_date', 'found_date', 'reg_date')}</td>
+                      <td className="max-w-[210px] px-3 py-2 font-medium">{dash(row.name)}</td>
+                      <td className="max-w-[180px] px-3 py-2 text-muted-foreground">{dash(row.english_name)}</td>
+                      <td className="px-3 py-2">{dash(row.employee_scale)}</td>
+                      <td className="px-3 py-2">{dash(row.reg_capital)}</td>
+                      <td className="px-3 py-2">{dash(row.esdate)}</td>
                       <td className="max-w-[180px] truncate px-3 py-2 text-muted-foreground">
-                        {pick(rowPayload, 'address', 'reg_address', 'location')}
+                        {dash(row.reg_address)}
                       </td>
-                      <td className="max-w-[150px] truncate px-3 py-2 text-primary">{domain !== '-' ? domain : '-'}</td>
+                      <td className="max-w-[150px] truncate px-3 py-2 text-primary">{dash(row.domain)}</td>
                       <td className="px-3 py-2">
-                        <Badge variant={count > 0 ? 'secondary' : 'outline'}>{count}</Badge>
+                        <Badge variant={row.contacts_count > 0 ? 'secondary' : 'outline'}>{row.contacts_count}</Badge>
                       </td>
-                      <td className="px-3 py-2">{keyword !== '-' ? <Badge variant="outline">{keyword}</Badge> : '-'}</td>
+                      <td className="px-3 py-2">
+                        {row.keyword_normalized ? <Badge variant="outline">{row.keyword_normalized}</Badge> : '-'}
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{formatDateTime(row.created_at)}</td>
                       <td className="px-3 py-2">
                         <Button size="sm" variant="outline" onClick={() => setSelected(row)}>
@@ -319,7 +294,7 @@ export default function PeersDataPage() {
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent className="max-w-2xl overflow-y-auto p-0 sm:w-[620px]">
           <div className="border-b px-5 py-4">
-            <SheetTitle>{selected ? pick(selected.raw_payload, 'name_cn', 'name_zh') || selected.name : '详情'}</SheetTitle>
+            <SheetTitle>{selected?.name || selected?.english_name || '详情'}</SheetTitle>
             <SheetDescription>原始同行公司记录详情</SheetDescription>
           </div>
           {selected && (
@@ -328,17 +303,15 @@ export default function PeersDataPage() {
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">基本信息</h2>
                 <DescriptionGrid
                   rows={[
-                    ['中文名', pick(payload, 'name_cn', 'name_zh') || selected.name],
-                    ['英文名', pick(payload, 'name_en', 'name_english')],
-                    ['网址', selected.domain ?? pick(payload, 'website', 'domain')],
-                    ['成立时间', pick(payload, 'established_date', 'found_date', 'reg_date')],
-                    ['员工规模', pick(payload, 'employee_scale', 'staff_num')],
-                    ['注册资金', pick(payload, 'reg_capital', 'registered_capital')],
-                    ['实缴资金', pick(payload, 'paid_capital', 'actual_capital')],
-                    ['公司法人', pick(payload, 'legal_person', 'legal_representative')],
-                    ['统一信用代码', pick(payload, 'credit_code', 'unified_credit_code')],
-                    ['注册地址', pick(payload, 'address', 'reg_address')],
-                    ['通讯地址', pick(payload, 'contact_address', 'mailing_address')],
+                    ['中文名', dash(selected.name)],
+                    ['英文名', dash(selected.english_name)],
+                    ['网址', dash(selected.domain)],
+                    ['成立时间', dash(selected.esdate)],
+                    ['员工规模', dash(selected.employee_scale)],
+                    ['注册资金', dash(selected.reg_capital)],
+                    ['公司法人', dash(selected.legalperson)],
+                    ['统一信用代码', dash(selected.uncid)],
+                    ['注册地址', dash(selected.reg_address)],
                   ]}
                 />
               </section>
@@ -347,45 +320,13 @@ export default function PeersDataPage() {
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">采集信息</h2>
                 <DescriptionGrid
                   rows={[
-                    ['励销云 ID', selected.id],
-                    ['关键词', pick(payload, 'keyword', 'search_keyword')],
+                    ['励销云 ID', dash(selected.source_id || selected.id)],
+                    ['关键词', dash(selected.keyword_normalized)],
+                    ['联系人', dash(selected.contacts_count)],
                     ['采集时间', formatDateTime(selected.created_at)],
                   ]}
                 />
               </section>
-
-              {contacts.length > 0 && (
-                <section>
-                  <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    联系人（{contacts.length}）
-                  </h2>
-                  <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/70 text-left text-muted-foreground">
-                        <tr>
-                          {['姓名', '职位', '电话', '邮箱'].map((label) => (
-                            <th key={label} className="px-3 py-2">
-                              {label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {contacts.map((contact, index) => (
-                          <tr key={index} className="border-t">
-                            <td className="px-3 py-2">{String(contact.name ?? '-')}</td>
-                            <td className="px-3 py-2 text-muted-foreground">
-                              {String(contact.title ?? contact.position ?? '-')}
-                            </td>
-                            <td className="px-3 py-2 font-mono">{String(contact.phone ?? contact.mobile ?? '-')}</td>
-                            <td className="px-3 py-2 text-muted-foreground">{String(contact.email ?? '-')}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              )}
             </div>
           )}
         </SheetContent>

@@ -39,7 +39,8 @@ for (const label of ['RSS', '网站', '手工', '最后采集', '批量导入', 
 }
 
 const peers = read('src/app/(dashboard)/collection/peers/page.tsx');
-assert.match(peers, /adminApi\.collection\.listRawCompanies\(['"]lixiaoyun['"]/, '同行公司页必须查询励销云 raw 公司。');
+assert.match(peers, /adminApi\.collection\.listLixiaoyunRawCompanies/, '同行公司页必须查询 V3 励销云 raw 公司 API。');
+assert.doesNotMatch(peers, /listRawCompanies\(['"]lixiaoyun['"]/, '同行公司页不能回退到旧 collection raw API。');
 assert.match(peers, /PAGE_SIZE\s*=\s*20/, '同行公司页分页大小必须保持 20。');
 for (const label of [
   '中文名',
@@ -58,9 +59,10 @@ for (const label of [
 ]) {
   assert.match(peers, new RegExp(label), `同行公司页缺少字段/文案：${label}`);
 }
-assert.match(peers, /raw_payload/, '同行公司页必须读取 raw_payload。');
-assert.match(peers, /safePayload/, '同行公司页必须兼容 raw_payload 为空或非对象，避免线上数据触发白屏。');
-assert.match(peers, /contacts/, '同行公司详情必须展示联系人。');
+assert.doesNotMatch(peers, /safePayload|pick\(.*raw_payload/, '同行公司页必须读取 V3 raw API 顶层字段，而不是依赖 raw_payload 映射。');
+for (const field of ['english_name', 'employee_scale', 'reg_capital', 'esdate', 'reg_address', 'contacts_count', 'keyword_normalized']) {
+  assert.match(peers, new RegExp(field), `同行公司页必须映射 V3 raw 字段：${field}`);
+}
 assert.match(peers, /setSelected/, '同行公司页必须支持详情 Sheet 状态。');
 
 const tasks = read('src/app/(dashboard)/collection-tasks/page.tsx');

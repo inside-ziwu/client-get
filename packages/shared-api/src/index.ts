@@ -13,6 +13,7 @@ export type {
   CollectionKeyword,
   CollectionTaskInfo,
   CollectionHistoryItem,
+  LixiaoyunRawCompanyRow,
   PeerCompanyHealthStats,
   PeerCompanyKeyword,
   PeerCompanyRow,

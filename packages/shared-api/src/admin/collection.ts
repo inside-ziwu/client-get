@@ -84,6 +84,24 @@ export interface RawCompanyRow {
   raw_payload: Record<string, unknown>;
 }
 
+export interface LixiaoyunRawCompanyRow {
+  id: string;
+  keyword_master_id: string | null;
+  source_id: string | null;
+  name: string | null;
+  english_name: string | null;
+  domain: string | null;
+  esdate: string | null;
+  legalperson: string | null;
+  uncid: string | null;
+  reg_capital: string | null;
+  employee_scale: string | null;
+  reg_address: string | null;
+  contacts_count: number;
+  keyword_normalized: string | null;
+  created_at: string | null;
+}
+
 export interface CleanCompanyRow {
   id: string;
   name_normalized: string;
@@ -186,6 +204,23 @@ export function collectionApi(client: AxiosInstance) {
     ) =>
       client.get<PaginatedResponse<RawCompanyRow>>(
         `/api/v1/collection/raw/${table}`,
+        { params },
+      ),
+    listLixiaoyunRawCompanies: (params: {
+      page?: number;
+      page_size?: number;
+      keyword?: string;
+      keyword_filter?: string;
+      found_date_start?: string;
+      found_date_end?: string;
+      reg_capital?: string;
+      employee_scale?: string;
+      contacts_filter?: string;
+      has_name_en?: boolean;
+      has_domain?: boolean;
+    }) =>
+      client.get<PaginatedResponse<LixiaoyunRawCompanyRow>>(
+        '/api/v1/raw/lixiaoyun/companies',
         { params },
       ),
     listCleanCompanies: (params: { page?: number; page_size?: number; keyword?: string }) =>
