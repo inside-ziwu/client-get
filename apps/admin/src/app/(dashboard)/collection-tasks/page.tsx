@@ -4,8 +4,14 @@ import { createPrefetchPage } from '@/lib/create-prefetch-page';
 import { serverApi } from '@/lib/server-api';
 import { CollectionTasksPage } from './client-page';
 
-export default createPrefetchPage<PaginatedResponse<CollectionKeyword>>({
+export default createPrefetchPage<CollectionKeyword[]>({
   queryKey: ['admin', 'collection-keywords'],
-  fetchFn: (token) => serverApi.get('/api/v1/collection-keywords', { token }),
+  fetchFn: async (token) => {
+    const res = await serverApi.get<PaginatedResponse<CollectionKeyword>>(
+      '/api/v1/collection-keywords',
+      { token },
+    );
+    return res.data;
+  },
   Component: CollectionTasksPage,
 });

@@ -26,9 +26,14 @@ export function createPrefetchPage<TData>({
           queryKey,
           queryFn: () => fetchFn(token),
         });
-      } catch {
-        // 预取失败时交给客户端 useQuery 继续加载，避免服务端白屏。
+      } catch (err) {
+        console.error(
+          `[SSR prefetch FAILED] key=${JSON.stringify(queryKey)}`,
+          err instanceof Error ? err.message : err,
+        );
       }
+    } else {
+      console.warn('[SSR prefetch SKIP] 无 token，跳过预取');
     }
 
     return (

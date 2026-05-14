@@ -4,8 +4,14 @@ import { createPrefetchPage } from '@/lib/create-prefetch-page';
 import { serverApi } from '@/lib/server-api';
 import { AIConfigPage } from './client-page';
 
-export default createPrefetchPage<ApiResponse<AiPricingResponse>>({
+export default createPrefetchPage<AiPricingResponse>({
   queryKey: ['admin', 'ai-config'],
-  fetchFn: (token) => serverApi.get('/api/v1/ai-config/pricing', { token }),
+  fetchFn: async (token) => {
+    const res = await serverApi.get<ApiResponse<AiPricingResponse>>(
+      '/api/v1/ai-config/pricing',
+      { token },
+    );
+    return res.data;
+  },
   Component: AIConfigPage,
 });

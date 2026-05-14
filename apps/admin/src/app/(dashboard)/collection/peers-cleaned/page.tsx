@@ -18,7 +18,7 @@ const EMPTY_FILTERS = {
 };
 
 export default createPrefetchPage<PaginatedResponse<PeerCompanyRow>>({
-  queryKey: ['admin', 'peer-companies', 1, EMPTY_FILTERS],
+  queryKey: ['admin', 'peer-companies', 1, PAGE_SIZE, EMPTY_FILTERS],
   fetchFn: (token) => serverApi.get('/api/v1/collection/peer-companies', {
     token,
     params: { page: 1, page_size: PAGE_SIZE },

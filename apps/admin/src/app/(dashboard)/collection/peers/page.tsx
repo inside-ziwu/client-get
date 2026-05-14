@@ -18,7 +18,7 @@ const EMPTY_FILTERS = {
 };
 
 export default createPrefetchPage<PaginatedResponse<LixiaoyunRawCompanyRow>>({
-  queryKey: ['admin', 'peers', 'raw-lixiaoyun', 1, EMPTY_FILTERS],
+  queryKey: ['admin', 'peers', 'raw-lixiaoyun', 1, PAGE_SIZE, EMPTY_FILTERS],
   fetchFn: (token) => serverApi.get('/api/v1/raw/lixiaoyun/companies', {
     token,
     params: { page: 1, page_size: PAGE_SIZE },
