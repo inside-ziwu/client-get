@@ -102,6 +102,18 @@ export interface LixiaoyunRawCompanyRow {
   created_at: string | null;
 }
 
+export interface LixiaoyunRawContactRow {
+  id: string;
+  raw_company_id: string;
+  source_contact_id: string | null;
+  name: string | null;
+  position: string | null;
+  email: string | null;
+  phone: string | null;
+  mobile: string | null;
+  created_at: string | null;
+}
+
 export interface CleanCompanyRow {
   id: string;
   name_normalized: string;
@@ -149,11 +161,17 @@ export interface PeerCompanyRow {
   created_at: string | null;
 }
 
-export interface PeerCompanyHealthStats {
-  raw_count: number;
-  peer_count: number;
-  dedup_rate: number;
-  english_name_coverage: number;
+export interface PeerCompanyContact {
+  id: number;
+  email: string | null;
+  name: string | null;
+  position: string | null;
+  phone: string | null;
+  mobile: string | null;
+  source_contact_id: string | null;
+  raw_company_id: number | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface CleanupHealthStats {
@@ -223,6 +241,10 @@ export function collectionApi(client: AxiosInstance) {
         '/api/v1/raw/lixiaoyun/companies',
         { params },
       ),
+    listLixiaoyunRawContacts: (rawCompanyId: string) =>
+      client.get<PaginatedResponse<LixiaoyunRawContactRow>>(
+        `/api/v1/raw/lixiaoyun/companies/${encodeURIComponent(rawCompanyId)}/contacts`,
+      ),
     listCleanCompanies: (params: { page?: number; page_size?: number; keyword?: string }) =>
       client.get<PaginatedResponse<CleanCompanyRow>>(
         '/api/v1/collection/clean-companies',
@@ -249,9 +271,9 @@ export function collectionApi(client: AxiosInstance) {
       client.get<ApiResponse<PeerCompanyRow>>(
         `/api/v1/collection/peer-companies/${encodeURIComponent(id)}`,
       ),
-    getPeerCompanyHealth: () =>
-      client.get<ApiResponse<PeerCompanyHealthStats>>(
-        '/api/v1/collection/peer-companies/health',
+    listPeerCompanyContacts: (peerId: string) =>
+      client.get<PaginatedResponse<PeerCompanyContact>>(
+        `/api/v1/collection/peer-companies/${encodeURIComponent(peerId)}/contacts`,
       ),
     getCleanupHealth: () =>
       client.get<ApiResponse<CleanupHealthStats>>(

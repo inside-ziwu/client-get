@@ -1,8 +1,8 @@
 'use client';
 
-import type { PeerCompanyRow } from '@shared/api';
+import type { PeerCompanyContact, PeerCompanyRow } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Search, X } from 'lucide-react';
+import { Search, X, Users } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 type FilterValues = {
   name: string;
@@ -52,16 +52,18 @@ export function PeersCleanedPage() {
   const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [jumpPage, setJumpPage] = useState('');
   const [selected, setSelected] = useState<PeerCompanyRow | null>(null);
 
   const query = useQuery({
-    queryKey: ['admin', 'peer-companies', page, appliedFilters],
+    queryKey: ['admin', 'peer-companies', page, pageSize, appliedFilters],
     queryFn: async () => {
       try {
         return (
           await adminApi.collection.listPeerCompanies({
             page,
-            page_size: PAGE_SIZE,
+            page_size: pageSize,
             keyword: appliedFilters.name.trim() || undefined,
             keyword_filter: appliedFilters.keyword_filter.trim() || undefined,
             found_date_start: appliedFilters.found_date_start || undefined,
@@ -81,7 +83,7 @@ export function PeersCleanedPage() {
 
   const pageData = query.data ?? emptyPage();
   const total = pageData.pagination.total ?? pageData.data.length;
-  const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const maxPage = Math.max(1, Math.ceil(total / pageSize));
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -254,12 +256,52 @@ export function PeersCleanedPage() {
             )}
           </div>
           <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
-            <span className="text-muted-foreground">共 {total} 条</span>
+            <div className="flex items-center gap-3">
+              <span className="text-muted-foreground">共 {total} 条</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+              >
+                <SelectTrigger className="h-8 w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n} 条/页</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
                 上一页
               </Button>
-              <span>第 {page} / {maxPage} 页</span>
+              <span>第</span>
+              <Input
+                type="number"
+                className="h-8 w-16 text-center"
+                min={1}
+                max={maxPage}
+                value={jumpPage || page}
+                onChange={(e) => setJumpPage(e.target.value)}
+                onFocus={() => setJumpPage(String(page))}
+                onBlur={() => {
+                  if (jumpPage) {
+                    const clamped = Math.max(1, Math.min(Number(jumpPage) || 1, maxPage));
+                    setPage(clamped);
+                  }
+                  setJumpPage('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const clamped = Math.max(1, Math.min(Number(jumpPage) || 1, maxPage));
+                    setPage(clamped);
+                    setJumpPage('');
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+              <span>/ {maxPage} 页</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -279,55 +321,113 @@ export function PeersCleanedPage() {
             <SheetTitle>{selected?.name || selected?.english_name || '同行公司详情'}</SheetTitle>
             <SheetDescription>清洗去重后的同行公司记录详情</SheetDescription>
           </div>
-          {selected && (
-            <div className="space-y-5 p-5 text-sm">
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">基本信息</h2>
-                <DescriptionGrid
-                  rows={[
-                    ['中文名', dash(selected.name)],
-                    ['英文名', dash(selected.english_name)],
-                    ['是否有英文名', selected.has_english_name ? '是' : '否'],
-                    ['网址', dash(selected.domain || selected.website_host)],
-                    ['成立时间', dash(selected.esdate)],
-                    ['员工规模', dash(selected.employee_scale)],
-                    ['注册资金', dash(selected.reg_capital)],
-                    ['公司法人', dash(selected.legalperson)],
-                    ['统一信用代码', dash(selected.uncid)],
-                    ['注册地址', dash(selected.reg_address)],
-                  ]}
-                />
-              </section>
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">清洗信息</h2>
-                <DescriptionGrid
-                  rows={[
-                    ['Raw 数', dash(selected.raw_count)],
-                    ['关键词数', dash(selected.keyword_count)],
-                    ['联系人', dash(selected.contact_count)],
-                    ['身份类型', dash(selected.identity_type)],
-                    ['身份值', dash(selected.identity_value)],
-                    ['合并原因', dash(selected.merge_reason)],
-                    ['冲突数', dash(selected.conflict_count)],
-                    ['励销云 source_id', selected.source_ids.length ? selected.source_ids.join(', ') : dash(selected.source_id)],
-                    ['首次采集', formatDateTime(selected.first_seen_at)],
-                    ['最近采集', formatDateTime(selected.last_seen_at)],
-                  ]}
-                />
-              </section>
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">关键词</h2>
-                <div className="flex flex-wrap gap-1">
-                  {selected.keywords.length
-                    ? selected.keywords.map((item) => <Badge key={item.keyword_master_id} variant="outline">{item.keyword}</Badge>)
-                    : <span className="text-muted-foreground">-</span>}
-                </div>
-              </section>
-            </div>
-          )}
+          {selected && <PeerDetailContent peer={selected} />}
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function PeerDetailContent({ peer }: { peer: PeerCompanyRow }) {
+  return (
+    <div className="space-y-5 p-5 text-sm">
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">基本信息</h2>
+        <DescriptionGrid
+          rows={[
+            ['中文名', dash(peer.name)],
+            ['英文名', dash(peer.english_name)],
+            ['是否有英文名', peer.has_english_name ? '是' : '否'],
+            ['网址', dash(peer.domain || peer.website_host)],
+            ['成立时间', dash(peer.esdate)],
+            ['员工规模', dash(peer.employee_scale)],
+            ['注册资金', dash(peer.reg_capital)],
+            ['公司法人', dash(peer.legalperson)],
+            ['统一信用代码', dash(peer.uncid)],
+            ['注册地址', dash(peer.reg_address)],
+          ]}
+        />
+      </section>
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">清洗信息</h2>
+        <DescriptionGrid
+          rows={[
+            ['Raw 数', dash(peer.raw_count)],
+            ['关键词数', dash(peer.keyword_count)],
+            ['联系人', dash(peer.contact_count)],
+            ['身份类型', dash(peer.identity_type)],
+            ['身份值', dash(peer.identity_value)],
+            ['合并原因', dash(peer.merge_reason)],
+            ['冲突数', dash(peer.conflict_count)],
+            ['励销云 source_id', peer.source_ids.length ? peer.source_ids.join(', ') : dash(peer.source_id)],
+            ['首次采集', formatDateTime(peer.first_seen_at)],
+            ['最近采集', formatDateTime(peer.last_seen_at)],
+          ]}
+        />
+      </section>
+      <section>
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">关键词</h2>
+        <div className="flex flex-wrap gap-1">
+          {peer.keywords.length
+            ? peer.keywords.map((item) => <Badge key={item.keyword_master_id} variant="outline">{item.keyword}</Badge>)
+            : <span className="text-muted-foreground">-</span>}
+        </div>
+      </section>
+      <ContactsSection peerId={peer.id} contactCount={peer.contact_count} />
+    </div>
+  );
+}
+
+function ContactsSection({ peerId, contactCount }: { peerId: string; contactCount: number }) {
+  const contactsQuery = useQuery({
+    queryKey: ['admin', 'peer-company-contacts', peerId],
+    queryFn: async () => {
+      try {
+        const res = await adminApi.collection.listPeerCompanyContacts(peerId);
+        return res.data.data as PeerCompanyContact[];
+      } catch {
+        return [] as PeerCompanyContact[];
+      }
+    },
+    enabled: contactCount > 0,
+  });
+
+  const contacts = contactsQuery.data ?? [];
+
+  return (
+    <section>
+      <h2 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <Users className="h-3.5 w-3.5" />
+        联系人（{contactCount}）
+      </h2>
+      {contactCount === 0 ? (
+        <p className="text-muted-foreground">暂无联系人</p>
+      ) : contactsQuery.isLoading ? (
+        <p className="text-muted-foreground">加载中...</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
+              <tr>
+                {['姓名', '职位', '邮箱', '电话'].map((h) => (
+                  <th key={h} className="px-3 py-1.5">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map((c) => (
+                <tr key={c.id} className="border-b last:border-0">
+                  <td className="px-3 py-1.5">{dash(c.name)}</td>
+                  <td className="px-3 py-1.5 text-muted-foreground">{dash(c.position)}</td>
+                  <td className="px-3 py-1.5 text-primary">{dash(c.email)}</td>
+                  <td className="px-3 py-1.5">{dash(c.phone || c.mobile)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

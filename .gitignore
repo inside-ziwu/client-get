@@ -17,3 +17,4 @@ deploy/.tenant-rev
 
 # 数据库备份文件
 *.dump
+.worktrees

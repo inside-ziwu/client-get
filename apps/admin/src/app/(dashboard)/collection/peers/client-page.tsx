@@ -1,6 +1,6 @@
 'use client';
 
-import type { LixiaoyunRawCompanyRow } from '@shared/api';
+import type { LixiaoyunRawCompanyRow, LixiaoyunRawContactRow } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 interface PageData {
   data: LixiaoyunRawCompanyRow[];
@@ -57,16 +57,32 @@ export function PeersDataPage() {
   const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [jumpPage, setJumpPage] = useState('');
   const [selected, setSelected] = useState<LixiaoyunRawCompanyRow | null>(null);
 
+  const contactsQuery = useQuery({
+    queryKey: ['admin', 'peers', 'raw-lixiaoyun', 'contacts', selected?.id],
+    queryFn: async () => {
+      if (!selected) return [];
+      try {
+        const res = await adminApi.collection.listLixiaoyunRawContacts(String(selected.id));
+        return res.data.data as LixiaoyunRawContactRow[];
+      } catch {
+        return [];
+      }
+    },
+    enabled: Boolean(selected),
+  });
+
   const query = useQuery({
-    queryKey: ['admin', 'peers', 'raw-lixiaoyun', page, appliedFilters],
+    queryKey: ['admin', 'peers', 'raw-lixiaoyun', page, pageSize, appliedFilters],
     queryFn: async () => {
       try {
         return (
           await adminApi.collection.listLixiaoyunRawCompanies({
             page,
-            page_size: PAGE_SIZE,
+            page_size: pageSize,
             keyword: appliedFilters.name.trim() || undefined,
             keyword_filter: appliedFilters.keyword_filter.trim() || undefined,
             found_date_start: appliedFilters.found_from || undefined,
@@ -86,7 +102,7 @@ export function PeersDataPage() {
 
   const pageData = query.data ?? emptyPage();
   const total = pageData.pagination.total ?? pageData.data.length;
-  const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const maxPage = Math.max(1, Math.ceil(total / pageSize));
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -270,14 +286,52 @@ export function PeersDataPage() {
             )}
           </div>
           <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
-            <span className="text-muted-foreground">共 {total} 条</span>
+            <div className="flex items-center gap-3">
+              <span className="text-muted-foreground">共 {total} 条</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+              >
+                <SelectTrigger className="h-8 w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n} 条/页</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
                 上一页
               </Button>
-              <span>
-                第 {page} / {maxPage} 页
-              </span>
+              <span>第</span>
+              <Input
+                type="number"
+                className="h-8 w-16 text-center"
+                min={1}
+                max={maxPage}
+                value={jumpPage || page}
+                onChange={(e) => setJumpPage(e.target.value)}
+                onFocus={() => setJumpPage(String(page))}
+                onBlur={() => {
+                  if (jumpPage) {
+                    const clamped = Math.max(1, Math.min(Number(jumpPage) || 1, maxPage));
+                    setPage(clamped);
+                  }
+                  setJumpPage('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const clamped = Math.max(1, Math.min(Number(jumpPage) || 1, maxPage));
+                    setPage(clamped);
+                    setJumpPage('');
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+              <span>/ {maxPage} 页</span>
               <Button
                 variant="outline"
                 size="sm"
@@ -326,6 +380,33 @@ export function PeersDataPage() {
                     ['采集时间', formatDateTime(selected.created_at)],
                   ]}
                 />
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  联系人 ({contactsQuery.data?.length ?? 0})
+                </h2>
+                {contactsQuery.isFetching ? (
+                  <p className="text-muted-foreground">加载中...</p>
+                ) : contactsQuery.data?.length ? (
+                  <div className="space-y-2">
+                    {contactsQuery.data.map((c) => (
+                      <div key={c.id} className="rounded-md border p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{c.name || '-'}</span>
+                          {c.position && <Badge variant="outline">{c.position}</Badge>}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                          {c.email && <span>邮箱: {c.email}</span>}
+                          {c.phone && <span>电话: {c.phone}</span>}
+                          {c.mobile && <span>手机: {c.mobile}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">暂无联系人</p>
+                )}
               </section>
             </div>
           )}

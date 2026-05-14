@@ -14,7 +14,8 @@ export type {
   CollectionTaskInfo,
   CollectionHistoryItem,
   LixiaoyunRawCompanyRow,
-  PeerCompanyHealthStats,
+  LixiaoyunRawContactRow,
+  PeerCompanyContact,
   PeerCompanyKeyword,
   PeerCompanyRow,
 } from './admin/collection';
