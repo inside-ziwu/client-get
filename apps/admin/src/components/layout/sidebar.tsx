@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Bot,
   Building2,
@@ -50,6 +50,7 @@ const groups = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   return (
     <aside className="hidden h-screen w-64 shrink-0 border-r border-border bg-white lg:block">
@@ -70,6 +71,7 @@ export function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onMouseEnter={() => router.prefetch(item.href)}
                     className={cn(
                       'flex h-9 items-center gap-2 rounded-md px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       active
