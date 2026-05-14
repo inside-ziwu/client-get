@@ -79,15 +79,9 @@ export function PeersCleanedPage() {
     },
   });
 
-  const healthQuery = useQuery({
-    queryKey: ['admin', 'peer-companies', 'health'],
-    queryFn: async () => (await adminApi.collection.getPeerCompanyHealth()).data.data,
-  });
-
   const pageData = query.data ?? emptyPage();
   const total = pageData.pagination.total ?? pageData.data.length;
   const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const health = healthQuery.data;
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -108,16 +102,6 @@ export function PeersCleanedPage() {
           <h1 className="admin-page-title">同行数据（清洗）</h1>
           <p className="admin-page-description">按官网或励销云 source_id 去重后的同行公司池。</p>
         </div>
-        <Button asChild variant="outline">
-          <a href="/collection/peers">原同行公司页</a>
-        </Button>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-4">
-        <StatCard label="Raw 数" value={health?.raw_count ?? '-'} />
-        <StatCard label="Peer 数" value={health?.peer_count ?? '-'} />
-        <StatCard label="去重率" value={health ? `${(health.dedup_rate * 100).toFixed(1)}%` : '-'} />
-        <StatCard label="英文名覆盖率" value={health ? `${(health.english_name_coverage * 100).toFixed(1)}%` : '-'} />
       </div>
 
       <Card>
@@ -344,17 +328,6 @@ export function PeersCleanedPage() {
         </SheetContent>
       </Sheet>
     </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="mt-1 text-2xl font-semibold">{value}</div>
-      </CardContent>
-    </Card>
   );
 }
 
