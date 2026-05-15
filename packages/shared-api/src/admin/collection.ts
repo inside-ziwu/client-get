@@ -86,32 +86,32 @@ export interface RawCompanyRow {
 
 export interface LixiaoyunRawCompanyRow {
   id: string;
+  pid: string | null;
   keyword_master_id: string | null;
-  source_id: string | null;
-  name: string | null;
-  english_name: string | null;
-  domain: string | null;
+  keyword: string | null;
+  entname: string | null;
+  entname_eng: string | null;
   esdate: string | null;
+  reg_cap: string | null;
+  official_website: string | null;
+  regccap: string | null;
+  scale: string | null;
+  annual_turnover: string | null;
   legalperson: string | null;
-  uncid: string | null;
-  reg_capital: string | null;
-  employee_scale: string | null;
-  reg_address: string | null;
-  contacts_count: number;
-  keyword_normalized: string | null;
-  created_at: string | null;
+  geo_address: string | null;
+  dom: string | null;
+  collected_at: string | null;
 }
 
-export interface LixiaoyunRawContactRow {
-  id: string;
-  raw_company_id: string;
-  source_contact_id: string | null;
-  name: string | null;
-  position: string | null;
-  email: string | null;
-  phone: string | null;
-  mobile: string | null;
-  created_at: string | null;
+export interface LixiaoyunApiCompanyDetail extends LixiaoyunRawCompanyRow {
+  provider?: string;
+  entstatus?: string | null;
+  enttype?: string | null;
+  opscope?: string | null;
+  industryphy_desc?: string | null;
+  secindustry_desc?: string[] | string | null;
+  industry_l3_desc?: string | null;
+  industry_l4_desc?: string | null;
 }
 
 export interface CleanCompanyRow {
@@ -233,7 +233,6 @@ export function collectionApi(client: AxiosInstance) {
       found_date_end?: string;
       reg_capital?: string;
       employee_scale?: string;
-      contacts_filter?: string;
       has_name_en?: boolean;
       has_domain?: boolean;
     }) =>
@@ -241,9 +240,9 @@ export function collectionApi(client: AxiosInstance) {
         '/api/v1/raw/lixiaoyun/companies',
         { params },
       ),
-    listLixiaoyunRawContacts: (rawCompanyId: string) =>
-      client.get<PaginatedResponse<LixiaoyunRawContactRow>>(
-        `/api/v1/raw/lixiaoyun/companies/${encodeURIComponent(rawCompanyId)}/contacts`,
+    getLixiaoyunRawCompanyDebug: (rawCompanyId: string) =>
+      client.get<ApiResponse<LixiaoyunApiCompanyDetail>>(
+        `/api/v1/raw/lixiaoyun/companies/${encodeURIComponent(rawCompanyId)}/debug`,
       ),
     listCleanCompanies: (params: { page?: number; page_size?: number; keyword?: string }) =>
       client.get<PaginatedResponse<CleanCompanyRow>>(

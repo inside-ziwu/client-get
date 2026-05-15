@@ -1,8 +1,8 @@
 'use client';
 
-import type { LixiaoyunRawCompanyRow, LixiaoyunRawContactRow } from '@shared/api';
+import type { LixiaoyunApiCompanyDetail, LixiaoyunRawCompanyRow } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Search, X } from 'lucide-react';
+import { Check, Copy, Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,6 @@ type FilterValues = {
   found_to: string;
   reg_capital: string;
   employee_scale: string;
-  contacts_count: string;
   has_name_en: boolean;
   has_domain: boolean;
 };
@@ -40,7 +39,6 @@ const EMPTY_FILTERS: FilterValues = {
   found_to: '',
   reg_capital: '',
   employee_scale: '',
-  contacts_count: '',
   has_name_en: false,
   has_domain: false,
 };
@@ -60,20 +58,7 @@ export function PeersDataPage() {
   const [pageSize, setPageSize] = useState(20);
   const [jumpPage, setJumpPage] = useState('');
   const [selected, setSelected] = useState<LixiaoyunRawCompanyRow | null>(null);
-
-  const contactsQuery = useQuery({
-    queryKey: ['admin', 'peers', 'raw-lixiaoyun', 'contacts', selected?.id],
-    queryFn: async () => {
-      if (!selected) return [];
-      try {
-        const res = await adminApi.collection.listLixiaoyunRawContacts(String(selected.id));
-        return res.data.data as LixiaoyunRawContactRow[];
-      } catch {
-        return [];
-      }
-    },
-    enabled: Boolean(selected),
-  });
+  const [copiedEnglishName, setCopiedEnglishName] = useState(false);
 
   const query = useQuery({
     queryKey: ['admin', 'peers', 'raw-lixiaoyun', page, pageSize, appliedFilters],
@@ -89,7 +74,6 @@ export function PeersDataPage() {
             found_date_end: appliedFilters.found_to || undefined,
             reg_capital: appliedFilters.reg_capital || undefined,
             employee_scale: appliedFilters.employee_scale || undefined,
-            contacts_filter: appliedFilters.contacts_count || undefined,
             has_name_en: appliedFilters.has_name_en || undefined,
             has_domain: appliedFilters.has_domain || undefined,
           })
@@ -103,6 +87,15 @@ export function PeersDataPage() {
   const pageData = query.data ?? emptyPage();
   const total = pageData.pagination.total ?? pageData.data.length;
   const maxPage = Math.max(1, Math.ceil(total / pageSize));
+  const detailQuery = useQuery({
+    queryKey: ['admin', 'peers', 'raw-lixiaoyun', 'debug', selected?.id],
+    queryFn: async () => {
+      if (!selected) return null;
+      return (await adminApi.collection.getLixiaoyunRawCompanyDebug(String(selected.id))).data.data;
+    },
+    enabled: Boolean(selected),
+  });
+  const detail = (detailQuery.data ?? selected) as LixiaoyunApiCompanyDetail;
 
   const onSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -114,6 +107,13 @@ export function PeersDataPage() {
     setFilters(EMPTY_FILTERS);
     setAppliedFilters(EMPTY_FILTERS);
     setPage(1);
+  };
+
+  const copyEnglishName = async () => {
+    if (!detail.entname_eng) return;
+    await navigator.clipboard.writeText(detail.entname_eng);
+    setCopiedEnglishName(true);
+    window.setTimeout(() => setCopiedEnglishName(false), 1200);
   };
 
   return (
@@ -135,7 +135,7 @@ export function PeersDataPage() {
                 onChange={(event) => setFilters((current) => ({ ...current, name: event.target.value }))}
               />
               <Input
-                placeholder="全部关键词"
+                placeholder="全部搜索词"
                 value={filters.keyword_filter}
                 onChange={(event) => setFilters((current) => ({ ...current, keyword_filter: event.target.value }))}
               />
@@ -153,7 +153,7 @@ export function PeersDataPage() {
               />
               <div className="flex items-center gap-2 text-sm text-muted-foreground">成立时间</div>
             </div>
-            <div className="grid gap-3 lg:grid-cols-[150px_150px_150px_auto_auto_1fr]">
+            <div className="grid gap-3 lg:grid-cols-[150px_150px_auto_auto_1fr]">
               <Select
                 value={filters.reg_capital || 'all'}
                 onValueChange={(value) => setFilters((current) => ({ ...current, reg_capital: value === 'all' ? '' : value }))}
@@ -186,21 +186,6 @@ export function PeersDataPage() {
                   <SelectItem value="gt1000">&gt; 1000 人</SelectItem>
                 </SelectContent>
               </Select>
-              <Select
-                value={filters.contacts_count || 'all'}
-                onValueChange={(value) => setFilters((current) => ({ ...current, contacts_count: value === 'all' ? '' : value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="联系人数（不限）" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">联系人数（不限）</SelectItem>
-                  <SelectItem value="0">0（无）</SelectItem>
-                  <SelectItem value="1_3">1 - 3</SelectItem>
-                  <SelectItem value="4_10">4 - 10</SelectItem>
-                  <SelectItem value="gt10">&gt; 10</SelectItem>
-                </SelectContent>
-              </Select>
               <label className="flex h-9 items-center gap-2 text-sm">
                 <Checkbox
                   checked={filters.has_name_en}
@@ -217,7 +202,7 @@ export function PeersDataPage() {
                     setFilters((current) => ({ ...current, has_domain: checked === true }))
                   }
                 />
-                有域名
+                有官网
               </label>
               <div className="flex justify-end gap-2">
                 <Button type="submit">
@@ -240,7 +225,7 @@ export function PeersDataPage() {
             <table className="w-full min-w-[1320px] text-sm">
               <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
                 <tr>
-                  {['中文名', '英文名', '员工规模', '注册资金', '成立时间', '注册地址', '网址', '联系人', '关键词', '采集时间', '操作'].map(
+                  {['企业名称', '英文名', '员工规模', '注册资本', '成立时间', '通讯地址', '官网', '实缴资本', '年营业额', '搜索词', '采集时间', '操作'].map(
                     (label) => (
                       <th key={label} className="px-3 py-2">
                         {label}
@@ -253,22 +238,21 @@ export function PeersDataPage() {
                 {pageData.data.map((row) => {
                   return (
                     <tr key={row.id} className="cursor-pointer border-b hover:bg-muted/40" onClick={() => setSelected(row)}>
-                      <td className="max-w-[210px] px-3 py-2 font-medium">{dash(row.name)}</td>
-                      <td className="max-w-[180px] px-3 py-2 text-muted-foreground">{dash(row.english_name)}</td>
-                      <td className="px-3 py-2">{dash(row.employee_scale)}</td>
-                      <td className="px-3 py-2">{dash(row.reg_capital)}</td>
+                      <td className="max-w-[210px] px-3 py-2 font-medium">{dash(row.entname)}</td>
+                      <td className="max-w-[180px] px-3 py-2 text-muted-foreground">{dash(row.entname_eng)}</td>
+                      <td className="px-3 py-2">{dash(row.scale)}</td>
+                      <td className="px-3 py-2">{dash(row.reg_cap)}</td>
                       <td className="px-3 py-2">{dash(row.esdate)}</td>
                       <td className="max-w-[180px] truncate px-3 py-2 text-muted-foreground">
-                        {dash(row.reg_address)}
+                        {dash(row.geo_address)}
                       </td>
-                      <td className="max-w-[150px] truncate px-3 py-2 text-primary">{dash(row.domain)}</td>
+                      <td className="max-w-[150px] truncate px-3 py-2 text-primary">{dash(row.official_website)}</td>
+                      <td className="px-3 py-2">{dash(row.regccap)}</td>
+                      <td className="px-3 py-2">{dash(row.annual_turnover)}</td>
                       <td className="px-3 py-2">
-                        <Badge variant={row.contacts_count > 0 ? 'secondary' : 'outline'}>{row.contacts_count}</Badge>
+                        {row.keyword ? <Badge variant="outline">{row.keyword}</Badge> : '-'}
                       </td>
-                      <td className="px-3 py-2">
-                        {row.keyword_normalized ? <Badge variant="outline">{row.keyword_normalized}</Badge> : '-'}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{formatDateTime(row.created_at)}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">{formatDateTime(row.collected_at)}</td>
                       <td className="px-3 py-2">
                         <Button size="sm" variant="outline" onClick={() => setSelected(row)}>
                           详情
@@ -348,65 +332,54 @@ export function PeersDataPage() {
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent className="max-w-2xl overflow-y-auto p-0 sm:w-[620px]">
           <div className="border-b px-5 py-4">
-            <SheetTitle>{selected?.name || selected?.english_name || '详情'}</SheetTitle>
-            <SheetDescription>原始同行公司记录详情</SheetDescription>
+            <SheetTitle>{selected?.entname || selected?.entname_eng || '详情'}</SheetTitle>
+            <SheetDescription>励销云 API 工商数据详情</SheetDescription>
           </div>
           {selected && (
             <div className="space-y-5 p-5 text-sm">
               <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">基本信息</h2>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">工商信息</h2>
                 <DescriptionGrid
                   rows={[
-                    ['中文名', dash(selected.name)],
-                    ['英文名', dash(selected.english_name)],
-                    ['网址', dash(selected.domain)],
-                    ['成立时间', dash(selected.esdate)],
-                    ['员工规模', dash(selected.employee_scale)],
-                    ['注册资金', dash(selected.reg_capital)],
-                    ['公司法人', dash(selected.legalperson)],
-                    ['统一信用代码', dash(selected.uncid)],
-                    ['注册地址', dash(selected.reg_address)],
+                    ['企业名称', dash(detail.entname)],
+                    ['英文名', dash(detail.entname_eng)],
+                    ['官网', dash(detail.official_website)],
+                    ['成立时间', dash(detail.esdate)],
+                    ['员工规模', dash(detail.scale)],
+                    ['注册资本', dash(detail.reg_cap)],
+                    ['实缴资本', dash(detail.regccap)],
+                    ['年营业额', dash(detail.annual_turnover)],
+                    ['法定代表人', dash(detail.legalperson)],
+                    ['通讯地址', dash(detail.geo_address)],
+                    ['注册地址', dash(detail.dom)],
                   ]}
+                  englishName={detail.entname_eng}
+                  copiedEnglishName={copiedEnglishName}
+                  onCopyEnglishName={copyEnglishName}
                 />
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">行业分类</h2>
+                <div className="flex flex-wrap gap-2">
+                  <ClassificationBadge label="一级" value={detail.industryphy_desc} />
+                  {toBadgeValues(detail.secindustry_desc).map((value) => (
+                    <ClassificationBadge key={value} label="二级" value={value} />
+                  ))}
+                  <ClassificationBadge label="三级" value={detail.industry_l3_desc} />
+                  <ClassificationBadge label="四级" value={detail.industry_l4_desc} />
+                </div>
               </section>
 
               <section>
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">采集信息</h2>
                 <DescriptionGrid
                   rows={[
-                    ['励销云 ID', dash(selected.source_id || selected.id)],
-                    ['关键词', dash(selected.keyword_normalized)],
-                    ['联系人', dash(selected.contacts_count)],
-                    ['采集时间', formatDateTime(selected.created_at)],
+                    ['励销云 PID', dash(detail.pid || detail.id)],
+                    ['搜索词', dash(detail.keyword)],
+                    ['采集时间', formatDateTime(detail.collected_at)],
                   ]}
                 />
-              </section>
-
-              <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  联系人 ({contactsQuery.data?.length ?? 0})
-                </h2>
-                {contactsQuery.isFetching ? (
-                  <p className="text-muted-foreground">加载中...</p>
-                ) : contactsQuery.data?.length ? (
-                  <div className="space-y-2">
-                    {contactsQuery.data.map((c) => (
-                      <div key={c.id} className="rounded-md border p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">{c.name || '-'}</span>
-                          {c.position && <Badge variant="outline">{c.position}</Badge>}
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          {c.email && <span>邮箱: {c.email}</span>}
-                          {c.phone && <span>电话: {c.phone}</span>}
-                          {c.mobile && <span>手机: {c.mobile}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">暂无联系人</p>
-                )}
               </section>
             </div>
           )}
@@ -416,15 +389,61 @@ export function PeersDataPage() {
   );
 }
 
-function DescriptionGrid({ rows }: { rows: Array<[string, string]> }) {
+function DescriptionGrid({
+  rows,
+  englishName,
+  copiedEnglishName,
+  onCopyEnglishName,
+}: {
+  rows: Array<[string, string]>;
+  englishName?: string | null;
+  copiedEnglishName?: boolean;
+  onCopyEnglishName?: () => void;
+}) {
   return (
     <dl className="overflow-hidden rounded-md border">
       {rows.map(([label, value]) => (
         <div key={label} className="grid grid-cols-[120px_1fr] border-b last:border-0">
           <dt className="bg-muted/60 px-3 py-2 text-muted-foreground">{label}</dt>
-          <dd className="min-w-0 px-3 py-2 break-words">{value || '-'}</dd>
+          <dd className="group flex min-w-0 items-center gap-2 px-3 py-2">
+            <span className="min-w-0 break-words">{value || '-'}</span>
+            {label === '英文名' && englishName ? (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={onCopyEnglishName}
+                aria-label="复制英文名"
+              >
+                {copiedEnglishName ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              </Button>
+            ) : null}
+          </dd>
         </div>
       ))}
     </dl>
   );
+}
+
+function ClassificationBadge({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <Badge variant="secondary" className="gap-1">
+      <span className="text-muted-foreground">{label}</span>
+      {value}
+    </Badge>
+  );
+}
+
+function toBadgeValues(value: string[] | string | null | undefined) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === 'string' && Boolean(item));
+  } catch {
+    return [value];
+  }
+  return [value];
 }

@@ -12,7 +12,6 @@ const EMPTY_FILTERS = {
   found_to: '',
   reg_capital: '',
   employee_scale: '',
-  contacts_count: '',
   has_name_en: false,
   has_domain: false,
 };
