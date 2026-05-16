@@ -49,6 +49,7 @@ backend/scripts/.backend-rev
 *.dump
 .playwright-mcp/
 .worktrees
+.claude/worktrees/
 
 # ══════════════════════════════════════
 # Agent 本地状态

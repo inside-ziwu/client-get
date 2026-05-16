@@ -6,7 +6,6 @@
 
 - 实施类任务必须先确认当前 `openspec/changes/<change-id>/`；没有合适 change，不得直接改代码或写新文档。
 - 若用户未指定 change，先用 `openspec list` 查看 active changes，再判断是否需要创建或补齐 change。
-- `_control/` 只按任务需要读取；不再作为所有任务的固定前置真源。
 
 ## 2. 与 Skill 的协作
 
@@ -20,14 +19,14 @@
 
 ## 4. 不要做的事
 
-- 不要移动或重命名 `docs/`、`blueprint/` 下的任何文件。
+- 不要移动或重命名 `docs/`下的任何文件。
 - 不要凭记忆引用文件路径；先 grep / read 再说。
 - 不要把历史文档、现状代码、口头推测直接当作实施命令；必须先沉淀到当前 OpenSpec change。
-- 不要在当前 OpenSpec change 之外写过程性决策、计划、调研；确需沉淀长期控制信息时，再按 AGENTS.md 读取并更新 `_control/`。
+- 不要在当前 OpenSpec change 之外写过程性决策、计划、调研；
 
 ## 5. 模块说明
 
-单一 monorepo，所有代码和 PM 资产在同一个 git 历史中。入口以实际目录和当前 OpenSpec change 为准；历史入口索引如需追溯，可查看 `_control/archive/root-control/`。
+单一 monorepo，所有代码和 PM 资产在同一个 git 历史中。入口以实际目录和当前 OpenSpec change 为准；
 
 - 前端：[`frontend/apps/tenant/`](frontend/apps/tenant/)（租户端）+ [`frontend/apps/admin/`](frontend/apps/admin/)（管理端）+ [`frontend/packages/`](frontend/packages/) 共享包
 - 后端 API：[`backend/app/main.py`](backend/app/main.py)，路由分布在 [`backend/app/api/`](backend/app/api/)

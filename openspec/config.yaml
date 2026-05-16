@@ -8,8 +8,8 @@ context: |
   - 单一 monorepo（根目录一个 .git）
   - frontend/：pnpm monorepo（tenant 租户端 + admin 管理端 + packages/ 共享包）
   - backend/：Python（FastAPI + SQLAlchemy + Alembic）
-  - openspec/、_control/：规范驱动开发与输入/证据/历史归档
-  - docs/ & blueprint/：只读历史文档，禁止修改
+  - openspec/：规范驱动开发与输入/证据/历史归档
+  - docs/：只读历史文档，禁止修改
 
   # 技术栈
   - 前端：pnpm monorepo（apps/tenant + apps/admin + packages/ 共享包）
