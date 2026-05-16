@@ -359,6 +359,53 @@ async def get_peer_company_detail(
     return success_response(result)
 
 
+
+# ── 同行公司（清洗）──────────────────────
+
+
+@router.get("/collection/lixiaoyun-clean-companies")
+async def list_lixiaoyun_clean_companies(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    keyword: str | None = None,
+    keyword_filter: str | None = None,
+    industry_tag: str | None = None,
+    found_date_start: str | None = None,
+    found_date_end: str | None = None,
+    reg_capital: str | None = None,
+    employee_scale: str | None = None,
+    has_name_en: bool | None = None,
+    has_domain: bool | None = None,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
+    rows, total = await service.list_lixiaoyun_clean_companies(
+        context.connection,
+        page=page,
+        page_size=page_size,
+        keyword=keyword,
+        keyword_filter=keyword_filter,
+        industry_tag=industry_tag,
+        found_date_start=found_date_start,
+        found_date_end=found_date_end,
+        reg_capital=reg_capital,
+        employee_scale=employee_scale,
+        has_name_en=has_name_en,
+        has_domain=has_domain,
+    )
+    return paginated_response(rows, total=total, has_more=(page * page_size < total))
+
+
+@router.get("/collection/lixiaoyun-clean-companies/{company_id}")
+async def get_lixiaoyun_clean_company_detail(
+    company_id: int,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
+    result = await service.get_lixiaoyun_clean_company_detail(
+        context.connection, company_id=company_id
+    )
+    return success_response(result)
+
+
 @router.get("/collection/peer-companies/{peer_id}/contacts")
 async def list_peer_company_contacts(
     peer_id: str,

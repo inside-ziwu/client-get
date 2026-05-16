@@ -14,6 +14,8 @@ export type {
   CollectionTaskInfo,
   CollectionHistoryItem,
   LixiaoyunApiCompanyDetail,
+  LixiaoyunCleanCompanyDetail,
+  LixiaoyunCleanCompanyRow,
   LixiaoyunRawCompanyRow,
   PeerCompanyContact,
   PeerCompanyKeyword,
