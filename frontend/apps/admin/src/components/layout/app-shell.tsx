@@ -33,9 +33,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex">
-        <Sidebar />
+        <div className="relative">
+          <Sidebar />
+        </div>
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur lg:px-6">
+          <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur lg:px-6">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" className="lg:hidden" aria-label="打开导航">
                 <Menu className="h-4 w-4" />
