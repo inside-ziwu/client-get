@@ -352,11 +352,14 @@ export function PeersDataPage() {
                     ['实缴资本', dash(detail.regccap)],
                     ['年营业额', dash(detail.annual_turnover)],
                     ['法定代表人', dash(detail.legalperson)],
+                    ['经营状态', dash(detail.entstatus)],
+                    ['企业类型', dash(detail.enttype)],
                     ['登记机关', dash(detail.regorg)],
                     ['核准日期', dash(detail.apprdate)],
                     ['通讯地址', dash(detail.geo_address)],
                     ['注册地址', dash(detail.dom)],
                     ['经营场所', dash(detail.oploc)],
+                    ['经营范围', dash(detail.opscope)],
                   ]}
                   englishName={detail.entname_eng}
                   copiedEnglishName={copiedEnglishName}
