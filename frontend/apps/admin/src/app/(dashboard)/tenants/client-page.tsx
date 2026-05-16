@@ -3,7 +3,7 @@
 import type { Tenant, TenantDomain, TenantTeamUser, WarmupRules } from '@shared/api';
 import type { AiProviderConfig } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Copy, Edit2, Plus, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Copy, Edit2, Plus, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -67,6 +67,11 @@ function userStatusLabel(status: string) {
   return status === 'active' ? '启用' : status === 'disabled' ? '停用' : status;
 }
 
+function roleLabel(role: string) {
+  const labels: Record<string, string> = { admin: '管理员', operator: '运营', viewer: '查看者' };
+  return labels[role] ?? role;
+}
+
 function verificationLabel(status: TenantDomain['verification_status']) {
   const labels: Record<TenantDomain['verification_status'], string> = {
     pending: '待验证',
@@ -120,6 +125,7 @@ export function TenantsPage() {
   const [team, setTeam] = useState<TenantTeamUser[]>([]);
   const [teamForm, setTeamForm] = useState(EMPTY_TEAM_FORM);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(EMPTY_TEAM_FORM);
   const [openRouter, setOpenRouter] = useState<AiProviderConfig | null>(null);
   const [apiKey, setApiKey] = useState('');
   const tenantsQuery = useQuery({
@@ -294,7 +300,7 @@ export function TenantsPage() {
 
   const startEditTeamUser = (user: TenantTeamUser) => {
     setEditingUserId(user.id);
-    setTeamForm({
+    setEditForm({
       email: user.email,
       name: user.name,
       roles: user.roles[0] ?? 'viewer',
@@ -305,32 +311,45 @@ export function TenantsPage() {
 
   const cancelEditTeamUser = () => {
     setEditingUserId(null);
-    setTeamForm(EMPTY_TEAM_FORM);
   };
 
-  const saveTeamUser = async (event: FormEvent<HTMLFormElement>) => {
+  const addTeamUser = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selected) return;
-    const payload = {
-      email: teamForm.email,
-      name: teamForm.name,
-      roles: [teamForm.roles],
-      status: teamForm.status,
-      password: teamForm.password || undefined,
-      must_change_pwd: Boolean(teamForm.password),
-    };
     try {
-      if (editingUserId) {
-        await adminApi.tenants.updateTeamUser(selected.id, editingUserId, payload as Partial<TenantTeamUser>);
-        toast.success('团队成员已更新');
-      } else {
-        await adminApi.tenants.createTeamUser(selected.id, payload as Partial<TenantTeamUser>);
-        toast.success('团队成员已创建');
-      }
+      await adminApi.tenants.createTeamUser(selected.id, {
+        email: teamForm.email,
+        name: teamForm.name,
+        roles: [teamForm.roles],
+        status: 'active',
+        password: teamForm.password || undefined,
+        must_change_pwd: Boolean(teamForm.password),
+      } as Partial<TenantTeamUser>);
+      toast.success('团队成员已创建');
+      setTeamForm(EMPTY_TEAM_FORM);
+      await loadDetail(selected);
+    } catch {
+      toast.error('创建团队成员失败');
+    }
+  };
+
+  const updateTeamUser = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selected || !editingUserId) return;
+    try {
+      await adminApi.tenants.updateTeamUser(selected.id, editingUserId, {
+        email: editForm.email,
+        name: editForm.name,
+        roles: [editForm.roles],
+        status: editForm.status,
+        password: editForm.password || undefined,
+        must_change_pwd: Boolean(editForm.password),
+      } as Partial<TenantTeamUser>);
+      toast.success('团队成员已更新');
       cancelEditTeamUser();
       await loadDetail(selected);
     } catch {
-      toast.error('保存团队成员失败');
+      toast.error('更新团队成员失败');
     }
   };
 
@@ -668,24 +687,16 @@ export function TenantsPage() {
             </TabsContent>
 
             <TabsContent value="team" className="mt-5 space-y-5">
-              <form className="rounded-md border bg-card p-4" onSubmit={saveTeamUser}>
+              <form className="rounded-md border bg-card p-4" onSubmit={addTeamUser}>
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-sm font-medium">{editingUserId ? '编辑团队成员' : '添加团队成员'}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">角色使用下拉选择，修改密码时会要求成员下次登录更新。</div>
+                    <div className="text-sm font-medium">添加团队成员</div>
+                    <div className="mt-1 text-xs text-muted-foreground">新成员默认启用，修改密码时会要求成员下次登录更新。</div>
                   </div>
-                  <div className="flex gap-2">
-                    {editingUserId && (
-                      <Button type="button" variant="outline" onClick={cancelEditTeamUser}>
-                        <X className="h-4 w-4" />
-                        取消编辑
-                      </Button>
-                    )}
-                    <Button type="submit">{editingUserId ? '保存成员' : '添加成员'}</Button>
-                  </div>
+                  <Button type="submit">添加成员</Button>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-5">
-                  <div className="space-y-2 lg:col-span-2">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-2">
                     <Label>邮箱</Label>
                     <Input type="email" value={teamForm.email} onChange={(event) => setTeamForm((current) => ({ ...current, email: event.target.value }))} required />
                   </div>
@@ -705,20 +716,10 @@ export function TenantsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>状态</Label>
-                    <Select value={teamForm.status} onValueChange={(value) => setTeamForm((current) => ({ ...current, status: value }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">启用</SelectItem>
-                        <SelectItem value="disabled">停用</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2 lg:col-span-2">
-                    <Label>{editingUserId ? '重置密码' : '初始密码'}</Label>
+                    <Label>初始密码</Label>
                     <Input
                       type="password"
-                      placeholder={editingUserId ? '不填写则不修改' : '默认可填写临时密码'}
+                      placeholder="默认可填写临时密码"
                       value={teamForm.password}
                       onChange={(event) => setTeamForm((current) => ({ ...current, password: event.target.value }))}
                     />
@@ -742,7 +743,7 @@ export function TenantsPage() {
                           <div className="font-medium">{user.name}</div>
                           <div className="mt-1 text-xs text-muted-foreground">{user.email}</div>
                         </td>
-                        <td className="px-4 py-3">{user.roles.join(', ')}</td>
+                        <td className="px-4 py-3">{user.roles.map(roleLabel).join(', ')}</td>
                         <td className="px-4 py-3">{userStatusLabel(user.status)}</td>
                         <td className="px-4 py-3 text-muted-foreground">{formatDateTime(user.created_at)}</td>
                         <td className="px-4 py-3">
@@ -765,6 +766,54 @@ export function TenantsPage() {
                   </tbody>
                 </table>
               </div>
+
+              <Dialog open={editingUserId !== null} onOpenChange={(open) => { if (!open) cancelEditTeamUser(); }}>
+                <DialogContent>
+                  <DialogTitle>编辑团队成员</DialogTitle>
+                  <DialogDescription>修改成员信息。留空密码则不修改。</DialogDescription>
+                  <form className="space-y-4" onSubmit={updateTeamUser}>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>邮箱</Label>
+                        <Input type="email" value={editForm.email} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>姓名</Label>
+                        <Input value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>角色</Label>
+                        <Select value={editForm.roles} onValueChange={(value) => setEditForm((current) => ({ ...current, roles: value }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">管理员</SelectItem>
+                            <SelectItem value="operator">运营</SelectItem>
+                            <SelectItem value="viewer">查看者</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>状态</Label>
+                        <Select value={editForm.status} onValueChange={(value) => setEditForm((current) => ({ ...current, status: value }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">启用</SelectItem>
+                            <SelectItem value="disabled">停用</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>重置密码</Label>
+                        <Input type="password" placeholder="不填写则不修改" value={editForm.password} onChange={(event) => setEditForm((current) => ({ ...current, password: event.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={cancelEditTeamUser}>取消</Button>
+                      <Button type="submit">保存</Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </TabsContent>
 
             <TabsContent value="openrouter" className="mt-5 space-y-5">
