@@ -20,6 +20,43 @@ _MAX_REQUEST_PAGE_SIZE = 100
 _BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 
+def _reg_cap_case(col: str) -> str:
+    return f"""
+CASE
+  WHEN {col} ~ E'^[0-9.]+(亿|亿元)' THEN (substring({col}, E'^([0-9.]+)'))::numeric * 10000
+  WHEN {col} ~ E'^[0-9.]+(万|万元)' THEN (substring({col}, E'^([0-9.]+)'))::numeric
+  ELSE NULL
+END"""
+
+
+REG_CAP_RANGE = {
+    "lt100": "< 100",
+    "100_500": "BETWEEN 100 AND 499.999",
+    "500_2000": "BETWEEN 500 AND 1999.999",
+    "2000_1e": "BETWEEN 2000 AND 9999.999",
+    "gt1e": ">= 10000",
+}
+
+
+def _employee_scale_case(col: str) -> str:
+    return f"""
+CASE
+  WHEN {col} ~ E'^([0-9]+)人以下' THEN 1
+  WHEN {col} ~ E'^([0-9]+)[-–]([0-9]+)' THEN (substring({col}, E'^([0-9]+)'))::int
+  WHEN {col} ~ E'^([0-9]+)人以上' THEN (substring({col}, E'^([0-9]+)'))::int
+  ELSE NULL
+END"""
+
+
+EMPLOYEE_SCALE_RANGE = {
+    "lt10": "< 10",
+    "10_50": "BETWEEN 10 AND 49",
+    "50_200": "BETWEEN 50 AND 199",
+    "200_1000": "BETWEEN 200 AND 999",
+    "gt1000": ">= 1000",
+}
+
+
 def _parse_date(value: str | date | None) -> date | None:
     if value is None or isinstance(value, date):
         return value
@@ -705,41 +742,12 @@ class AdminCollectionService:
             if found_date_end is not None:
                 where_parts.append("esdate <= :found_date_end")
                 params["found_date_end"] = found_date_end
-            # reg_capital: 提取万元数值后做范围比较
-            _RC_EXPR = """
-CASE
-  WHEN reg_capital ~ E'^[0-9.]+(亿|亿元)' THEN (substring(reg_capital, E'^([0-9.]+)'))::numeric * 10000
-  WHEN reg_capital ~ E'^[0-9.]+(万|万元)' THEN (substring(reg_capital, E'^([0-9.]+)'))::numeric
-  ELSE NULL
-END
-"""
-            RC_MAP = {
-                "lt100": f"({_RC_EXPR}) < 100",
-                "100_500": f"({_RC_EXPR}) BETWEEN 100 AND 499.999",
-                "500_2000": f"({_RC_EXPR}) BETWEEN 500 AND 1999.999",
-                "2000_1e": f"({_RC_EXPR}) BETWEEN 2000 AND 9999.999",
-                "gt1e": f"({_RC_EXPR}) >= 10000",
-            }
-            if reg_capital and reg_capital in RC_MAP:
-                where_parts.append(RC_MAP[reg_capital])
-            # employee_scale: 提取范围下界做数值比较
-            _ES_EXPR = """
-CASE
-  WHEN employee_scale ~ E'^([0-9]+)人以下' THEN 1
-  WHEN employee_scale ~ E'^([0-9]+)[-–]([0-9]+)' THEN (substring(employee_scale, E'^([0-9]+)'))::int
-  WHEN employee_scale ~ E'^([0-9]+)人以上' THEN (substring(employee_scale, E'^([0-9]+)'))::int
-  ELSE NULL
-END
-"""
-            ES_MAP = {
-                "lt10": f"({_ES_EXPR}) < 10",
-                "10_50": f"({_ES_EXPR}) BETWEEN 10 AND 49",
-                "50_200": f"({_ES_EXPR}) BETWEEN 50 AND 199",
-                "200_1000": f"({_ES_EXPR}) BETWEEN 200 AND 999",
-                "gt1000": f"({_ES_EXPR}) >= 1000",
-            }
-            if employee_scale and employee_scale in ES_MAP:
-                where_parts.append(ES_MAP[employee_scale])
+            _rc = _reg_cap_case("reg_capital")
+            if reg_capital and reg_capital in REG_CAP_RANGE:
+                where_parts.append(f"({_rc}) {REG_CAP_RANGE[reg_capital]}")
+            _es = _employee_scale_case("employee_scale")
+            if employee_scale and employee_scale in EMPLOYEE_SCALE_RANGE:
+                where_parts.append(f"({_es}) {EMPLOYEE_SCALE_RANGE[employee_scale]}")
             # contacts_count 来自 raw_payload（lixiaoyun 表无此列）
             _CC_EXPR = """
 COALESCE(
@@ -1153,41 +1161,12 @@ COALESCE(
                     "c.esdate <= EXTRACT(EPOCH FROM (CAST(:found_date_end AS date) AT TIME ZONE 'Asia/Shanghai')) * 1000 + 86399999"
                 )
                 params["found_date_end"] = _parse_date(found_date_end)
-            _RC_EXPR = """
-CASE
-  WHEN c.reg_cap ~ E'^[0-9.]+(亿|亿元)'
-  THEN (substring(c.reg_cap, E'^([0-9.]+)'))::numeric * 10000
-  WHEN c.reg_cap ~ E'^[0-9.]+(万|万元)' THEN (substring(c.reg_cap, E'^([0-9.]+)'))::numeric
-  ELSE NULL
-END
-"""
-            rc_map = {
-                "lt100": f"({_RC_EXPR}) < 100",
-                "100_500": f"({_RC_EXPR}) BETWEEN 100 AND 499.999",
-                "500_2000": f"({_RC_EXPR}) BETWEEN 500 AND 1999.999",
-                "2000_1e": f"({_RC_EXPR}) BETWEEN 2000 AND 9999.999",
-                "gt1e": f"({_RC_EXPR}) >= 10000",
-            }
-            if reg_capital in rc_map:
-                where_parts.append(rc_map[reg_capital])
-            _ES_EXPR = """
-CASE
-  WHEN c.scale ~ E'^([0-9]+)人以下' THEN 1
-  WHEN c.scale ~ E'^([0-9]+)[-–]([0-9]+)'
-  THEN (substring(c.scale, E'^([0-9]+)'))::int
-  WHEN c.scale ~ E'^([0-9]+)人以上' THEN (substring(c.scale, E'^([0-9]+)'))::int
-  ELSE NULL
-END
-"""
-            es_map = {
-                "lt10": f"({_ES_EXPR}) < 10",
-                "10_50": f"({_ES_EXPR}) BETWEEN 10 AND 49",
-                "50_200": f"({_ES_EXPR}) BETWEEN 50 AND 199",
-                "200_1000": f"({_ES_EXPR}) BETWEEN 200 AND 999",
-                "gt1000": f"({_ES_EXPR}) >= 1000",
-            }
-            if employee_scale in es_map:
-                where_parts.append(es_map[employee_scale])
+            _rc = _reg_cap_case("c.reg_cap")
+            if reg_capital in REG_CAP_RANGE:
+                where_parts.append(f"({_rc}) {REG_CAP_RANGE[reg_capital]}")
+            _es = _employee_scale_case("c.scale")
+            if employee_scale in EMPLOYEE_SCALE_RANGE:
+                where_parts.append(f"({_es}) {EMPLOYEE_SCALE_RANGE[employee_scale]}")
             if has_name_en is True:
                 where_parts.append("c.entname_eng IS NOT NULL AND c.entname_eng != ''")
             elif has_name_en is False:
@@ -2140,3 +2119,250 @@ END
             "last_seen_at": self._datetime_iso(r["last_seen_at"]),
             "created_at": self._datetime_iso(r["created_at"]),
         }
+
+    # ── 同行公司（清洗）lixiaoyun_api_clean_companies ──────────
+
+    def _esdate_to_date(self, ms_value) -> str | None:
+        if ms_value is None:
+            return None
+        try:
+            return datetime.fromtimestamp(int(ms_value) / 1000, tz=_BEIJING_TZ).date().isoformat()
+        except (ValueError, TypeError, OSError):
+            return None
+
+    def _format_lixiaoyun_clean_row(self, r, *, detail: bool = False) -> dict:
+        row = {
+            "id": str(r["id"]),
+            "pid": r["pid"],
+            "entname": r["entname"],
+            "entname_eng": r["entname_eng"],
+            "esdate": self._esdate_to_date(r["esdate"]),
+            "reg_cap": r["reg_cap"],
+            "official_website": r["official_website"],
+            "regccap": r["regccap"],
+            "scale": r["scale"],
+            "annual_turnover": r["annual_turnover"],
+            "legalperson": r["legalperson"],
+            "geo_address": r["geo_address"],
+            "dom": r["dom"],
+            "industry_tag": r["industry_tags"],
+            "keyword_master": r.get("keyword_master") or [],
+            "created_at": self._datetime_iso(r["created_at"]),
+        }
+        if detail:
+            row.update(
+                {
+                    "uncid": r["uncid"],
+                    "enttype": r["enttype"],
+                    "enttype_code": r["enttype_code"],
+                    "entstatus": r["entstatus"],
+                    "entstatus_code": r["entstatus_code"],
+                    "regno": r["regno"],
+                    "organizational_code": r["organizational_code"],
+                    "opfrom": r["opfrom"],
+                    "opto": r["opto"],
+                    "regorg": r["regorg"],
+                    "apprdate": r["apprdate"],
+                    "revokedate": r["revokedate"],
+                    "province": r["province"],
+                    "city": r["city"],
+                    "district": r["district"],
+                    "reg_province": r["reg_province"],
+                    "reg_city": r["reg_city"],
+                    "reg_district": r["reg_district"],
+                    "oploc": r["oploc"],
+                    "industryphy": r["industryphy"],
+                    "industryphy_desc": r["industryphy_desc"],
+                    "opscope": r["opscope"],
+                    "secindustry": r["secindustry"],
+                    "secindustry_desc": r["secindustry_desc"],
+                    "industry_l3": r["industry_l3"],
+                    "industry_l3_desc": r["industry_l3_desc"],
+                    "industry_l4": r["industry_l4"],
+                    "industry_l4_desc": r["industry_l4_desc"],
+                    "historyname_list": r["historyname_list"],
+                    "legalperson_desc": r["legalperson_desc"],
+                    "location_code": r["location_code"],
+                    "updated_at": self._datetime_iso(r["updated_at"]),
+                }
+            )
+        return row
+
+    def _lixiaoyun_clean_filter_parts(
+        self,
+        *,
+        keyword: str | None = None,
+        keyword_filter: str | None = None,
+        industry_tag: str | None = None,
+        found_date_start: str | None = None,
+        found_date_end: str | None = None,
+        reg_capital: str | None = None,
+        employee_scale: str | None = None,
+        has_name_en: bool | None = None,
+        has_domain: bool | None = None,
+    ) -> tuple[list[str], dict]:
+        where_parts: list[str] = []
+        params: dict = {}
+
+        if keyword:
+            where_parts.append(
+                "(c.entname ILIKE :kw OR c.entname_eng ILIKE :kw"
+                " OR c.official_website ILIKE :kw OR c.pid ILIKE :kw)"
+            )
+            params["kw"] = f"%{keyword}%"
+
+        if keyword_filter:
+            where_parts.append(
+                "EXISTS (SELECT 1 FROM keyword_master km"
+                " WHERE km.id = ANY(c.keyword_master_ids)"
+                " AND (km.keyword ILIKE :keyword_filter"
+                " OR km.keyword_normalized ILIKE :keyword_filter))"
+            )
+            params["keyword_filter"] = f"%{keyword_filter}%"
+
+        if industry_tag:
+            where_parts.append("c.industry_tags = :industry_tag")
+            params["industry_tag"] = industry_tag
+
+        if found_date_start:
+            where_parts.append(
+                "c.esdate >= EXTRACT(EPOCH FROM (CAST(:found_date_start AS date)"
+                " AT TIME ZONE 'Asia/Shanghai')) * 1000"
+            )
+            params["found_date_start"] = _parse_date(found_date_start)
+
+        if found_date_end:
+            where_parts.append(
+                "c.esdate <= EXTRACT(EPOCH FROM (CAST(:found_date_end AS date)"
+                " AT TIME ZONE 'Asia/Shanghai')) * 1000 + 86399999"
+            )
+            params["found_date_end"] = _parse_date(found_date_end)
+
+        _rc = _reg_cap_case("c.reg_cap")
+        if reg_capital and reg_capital in REG_CAP_RANGE:
+            where_parts.append(f"({_rc}) {REG_CAP_RANGE[reg_capital]}")
+
+        _es = _employee_scale_case("c.scale")
+        if employee_scale and employee_scale in EMPLOYEE_SCALE_RANGE:
+            where_parts.append(f"({_es}) {EMPLOYEE_SCALE_RANGE[employee_scale]}")
+
+        if has_name_en is True:
+            where_parts.append("c.entname_eng IS NOT NULL AND c.entname_eng != ''")
+        elif has_name_en is False:
+            where_parts.append("(c.entname_eng IS NULL OR c.entname_eng = '')")
+
+        if has_domain is True:
+            where_parts.append("c.official_website IS NOT NULL AND c.official_website != ''")
+        elif has_domain is False:
+            where_parts.append("(c.official_website IS NULL OR c.official_website = '')")
+
+        return where_parts, params
+
+    async def list_lixiaoyun_clean_companies(
+        self,
+        conn: AsyncConnection,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        keyword: str | None = None,
+        keyword_filter: str | None = None,
+        industry_tag: str | None = None,
+        found_date_start: str | None = None,
+        found_date_end: str | None = None,
+        reg_capital: str | None = None,
+        employee_scale: str | None = None,
+        has_name_en: bool | None = None,
+        has_domain: bool | None = None,
+    ) -> tuple[list[dict], int]:
+        where_parts, params = self._lixiaoyun_clean_filter_parts(
+            keyword=keyword,
+            keyword_filter=keyword_filter,
+            industry_tag=industry_tag,
+            found_date_start=found_date_start,
+            found_date_end=found_date_end,
+            reg_capital=reg_capital,
+            employee_scale=employee_scale,
+            has_name_en=has_name_en,
+            has_domain=has_domain,
+        )
+        where_clause = " AND ".join(where_parts) if where_parts else "TRUE"
+        params["limit"] = page_size
+        params["offset"] = (page - 1) * page_size
+
+        rows = (
+            await conn.execute(
+                text(f"""
+                    WITH filtered AS (
+                        SELECT c.* FROM lixiaoyun_api_clean_companies c
+                        WHERE {where_clause}
+                        ORDER BY c.created_at DESC, c.id DESC
+                        LIMIT :limit OFFSET :offset
+                    ),
+                    keyword_agg AS (
+                        SELECT f.id AS company_id,
+                               jsonb_agg(
+                                   jsonb_build_object(
+                                       'keyword_master_id', km.id::text,
+                                       'keyword', km.keyword,
+                                       'keyword_normalized', km.keyword_normalized
+                                   ) ORDER BY km.keyword_normalized
+                               ) AS keyword_master
+                        FROM filtered f
+                        JOIN keyword_master km ON km.id = ANY(f.keyword_master_ids)
+                        GROUP BY f.id
+                    )
+                    SELECT f.*, COALESCE(ka.keyword_master, '[]'::jsonb) AS keyword_master
+                    FROM filtered f
+                    LEFT JOIN keyword_agg ka ON ka.company_id = f.id
+                    ORDER BY f.created_at DESC, f.id DESC
+                """),
+                params,
+            )
+        ).mappings().all()
+
+        total = (
+            await conn.execute(
+                text(f"SELECT COUNT(*) FROM lixiaoyun_api_clean_companies c WHERE {where_clause}"),
+                params,
+            )
+        ).scalar_one()
+
+        return [self._format_lixiaoyun_clean_row(r) for r in rows], int(total)
+
+    async def get_lixiaoyun_clean_company_detail(
+        self,
+        conn: AsyncConnection,
+        *,
+        company_id: int,
+    ) -> dict:
+        row = (
+            await conn.execute(
+                text("""
+                    SELECT c.*,
+                           COALESCE(
+                               (SELECT jsonb_agg(
+                                   jsonb_build_object(
+                                       'keyword_master_id', km.id::text,
+                                       'keyword', km.keyword,
+                                       'keyword_normalized', km.keyword_normalized
+                                   ) ORDER BY km.keyword_normalized
+                               )
+                               FROM keyword_master km
+                               WHERE km.id = ANY(c.keyword_master_ids)),
+                               '[]'::jsonb
+                           ) AS keyword_master
+                    FROM lixiaoyun_api_clean_companies c
+                    WHERE c.id = :company_id
+                """),
+                {"company_id": company_id},
+            )
+        ).mappings().first()
+
+        if row is None:
+            raise AppError(
+                code="CLEAN_COMPANY_NOT_FOUND",
+                message="清洗公司不存在",
+                status_code=404,
+            )
+
+        return self._format_lixiaoyun_clean_row(row, detail=True)
