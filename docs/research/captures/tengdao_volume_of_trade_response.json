@@ -1,0 +1,19 @@
+{
+  "stats": {
+    "total_sumOfMoney_sum": 19041400.37,
+    "total_qtyUnitPrice_avg": 1.8688,
+    "total_quantity_sum": 10189195.94,
+    "total_trades_sum": 1488.0,
+    "total_weightUnitPrice_avg": 2.0826,
+    "total_weight_sum": 9143155.94
+  },
+  "results": {
+    "total": 33,
+    "items": [
+      {"__gk": "2025-11", "trades_sum": 97.0, "sumOfMoney_sum": 1398847.78, "trades_sum_ratio": "0.0652"},
+      {"__gk": "2026-01", "trades_sum": 80.0, "sumOfMoney_sum": 1544083.35, "trades_sum_ratio": "0.0538"},
+      {"__gk": "2024-09", "trades_sum": 72.0, "sumOfMoney_sum": 760749.70, "trades_sum_ratio": "0.0484"},
+      "... (33个月度条目，__gk=YYYY-MM 格式) ..."
+    ]
+  }
+}

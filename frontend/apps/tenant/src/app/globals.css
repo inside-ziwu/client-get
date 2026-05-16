@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '../../../../packages/shared-ui/src/theme/globals.css';
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    letter-spacing: 0;
+  }
+}
+
+@layer components {
+  .tenant-page {
+    @apply flex min-w-0 flex-col gap-5;
+  }
+
+  .tenant-page-header {
+    @apply flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .tenant-page-title {
+    @apply text-xl font-semibold tracking-normal text-slate-950;
+  }
+
+  .tenant-page-description {
+    @apply text-sm text-muted-foreground;
+  }
+}

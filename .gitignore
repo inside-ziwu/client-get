@@ -1,0 +1,56 @@
+# ══════════════════════════════════════
+# 通用
+# ══════════════════════════════════════
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ══════════════════════════════════════
+# 前端（frontend/）
+# ══════════════════════════════════════
+node_modules/
+dist/
+frontend/apps/*/.next/
+.turbo/
+*.local
+*.tsbuildinfo
+coverage/
+.gstack/
+
+# 部署脚本版本追踪
+frontend/deploy/.admin-rev
+frontend/deploy/.tenant-rev
+
+# ══════════════════════════════════════
+# 后端（backend/）
+# ══════════════════════════════════════
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+.coverage
+htmlcov/
+.ruff_cache/
+
+# 部署脚本版本追踪
+backend/scripts/.backend-rev
+
+# ══════════════════════════════════════
+# 环境与敏感文件
+# ══════════════════════════════════════
+.env
+.env.*
+!.env.example
+
+# ══════════════════════════════════════
+# 数据与工具缓存
+# ══════════════════════════════════════
+*.dump
+.playwright-mcp/
+.worktrees
+
+# ══════════════════════════════════════
+# Agent 本地状态
+# ══════════════════════════════════════
+.claude/settings.local.json

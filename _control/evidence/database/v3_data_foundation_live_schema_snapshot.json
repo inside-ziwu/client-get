@@ -1,0 +1,1603 @@
+{
+  "keyword_master": {
+    "columns": [
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "keyword_master",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "keyword_master",
+        "column_name": "keyword",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "keyword_master",
+        "column_name": "keyword_normalized",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "keyword_master",
+        "column_name": "created_at",
+        "ordinal_position": 4
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX keyword_master_keyword_normalized_key ON public.keyword_master USING btree (keyword_normalized)",
+        "indexname": "keyword_master_keyword_normalized_key",
+        "table_name": "keyword_master"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX keyword_master_pkey ON public.keyword_master USING btree (id)",
+        "indexname": "keyword_master_pkey",
+        "table_name": "keyword_master"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_keyword_master_normalized ON public.keyword_master USING btree (keyword_normalized)",
+        "indexname": "uq_keyword_master_normalized",
+        "table_name": "keyword_master"
+      }
+    ]
+  },
+  "tenant_keyword": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tenant_keyword",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "tenant_keyword",
+        "column_name": "tenant_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "tenant_keyword",
+        "column_name": "keyword_master_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tenant_keyword",
+        "column_name": "keyword_raw",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "tenant_keyword",
+        "column_name": "created_by",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tenant_keyword",
+        "column_name": "created_at",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tenant_keyword",
+        "column_name": "status",
+        "ordinal_position": 7
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_tenant_keyword_master ON public.tenant_keyword USING btree (keyword_master_id)",
+        "indexname": "idx_tenant_keyword_master",
+        "table_name": "tenant_keyword"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tenant_keyword_tenant_status ON public.tenant_keyword USING btree (tenant_id, status)",
+        "indexname": "idx_tenant_keyword_tenant_status",
+        "table_name": "tenant_keyword"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tenant_keyword_v3_pkey ON public.tenant_keyword USING btree (id)",
+        "indexname": "tenant_keyword_v3_pkey",
+        "table_name": "tenant_keyword"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tenant_keyword_v3_tenant_id_keyword_master_id_key ON public.tenant_keyword USING btree (tenant_id, keyword_master_id)",
+        "indexname": "tenant_keyword_v3_tenant_id_keyword_master_id_key",
+        "table_name": "tenant_keyword"
+      }
+    ]
+  },
+  "lixiaoyun_raw_companies": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "source_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "name",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "english_name",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "domain",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "date",
+        "data_type": "date",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "esdate",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "legalperson",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "uncid",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "reg_capital",
+        "ordinal_position": 9
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "employee_scale",
+        "ordinal_position": 10
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "reg_address",
+        "ordinal_position": 11
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "raw_payload",
+        "ordinal_position": 13
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "created_at",
+        "ordinal_position": 14
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "lixiaoyun_raw_companies",
+        "column_name": "keyword_master_id",
+        "ordinal_position": 16
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_lxy_raw_companies_keyword ON public.lixiaoyun_raw_companies USING btree (keyword_master_id)",
+        "indexname": "idx_lxy_raw_companies_keyword",
+        "table_name": "lixiaoyun_raw_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_lxy_raw_companies_source ON public.lixiaoyun_raw_companies USING btree (source_id)",
+        "indexname": "idx_lxy_raw_companies_source",
+        "table_name": "lixiaoyun_raw_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX lixiaoyun_raw_companies_pkey ON public.lixiaoyun_raw_companies USING btree (id)",
+        "indexname": "lixiaoyun_raw_companies_pkey",
+        "table_name": "lixiaoyun_raw_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_lxy_raw_companies_keyword_source ON public.lixiaoyun_raw_companies USING btree (keyword_master_id, source_id)",
+        "indexname": "uq_lxy_raw_companies_keyword_source",
+        "table_name": "lixiaoyun_raw_companies"
+      }
+    ]
+  },
+  "lixiaoyun_raw_contacts": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "raw_company_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "source_contact_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "name",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "position",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "citext",
+        "data_type": "USER-DEFINED",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "email",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "phone",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "raw_payload",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "lixiaoyun_raw_contacts",
+        "column_name": "created_at",
+        "ordinal_position": 9
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_lxy_raw_contacts_company ON public.lixiaoyun_raw_contacts USING btree (raw_company_id)",
+        "indexname": "idx_lxy_raw_contacts_company",
+        "table_name": "lixiaoyun_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_lxy_raw_contacts_email ON public.lixiaoyun_raw_contacts USING btree (email) WHERE (email IS NOT NULL)",
+        "indexname": "idx_lxy_raw_contacts_email",
+        "table_name": "lixiaoyun_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX lixiaoyun_raw_contacts_pkey ON public.lixiaoyun_raw_contacts USING btree (id)",
+        "indexname": "lixiaoyun_raw_contacts_pkey",
+        "table_name": "lixiaoyun_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_lxy_raw_contacts_email_fallback ON public.lixiaoyun_raw_contacts USING btree (raw_company_id, email) WHERE ((source_contact_id IS NULL) AND (email IS NOT NULL))",
+        "indexname": "uq_lxy_raw_contacts_email_fallback",
+        "table_name": "lixiaoyun_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_lxy_raw_contacts_source_contact ON public.lixiaoyun_raw_contacts USING btree (raw_company_id, source_contact_id) WHERE (source_contact_id IS NOT NULL)",
+        "indexname": "uq_lxy_raw_contacts_source_contact",
+        "table_name": "lixiaoyun_raw_contacts"
+      }
+    ]
+  },
+  "tendata_raw_companies": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tendata_raw_companies",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "tendata_raw_companies",
+        "column_name": "keyword_master_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "source_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "globiz_id",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "name",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "name_local",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "bpchar",
+        "data_type": "character",
+        "table_name": "tendata_raw_companies",
+        "column_name": "country_iso3",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "website",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "tax_no",
+        "ordinal_position": 9
+      },
+      {
+        "udt_name": "date",
+        "data_type": "date",
+        "table_name": "tendata_raw_companies",
+        "column_name": "incorporation_date",
+        "ordinal_position": 10
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "employee_num",
+        "ordinal_position": 11
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_companies",
+        "column_name": "industry_desc",
+        "ordinal_position": 12
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "tendata_raw_companies",
+        "column_name": "product_tags",
+        "ordinal_position": 13
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "tendata_raw_companies",
+        "column_name": "pcb_suppliers",
+        "ordinal_position": 14
+      },
+      {
+        "udt_name": "numeric",
+        "data_type": "numeric",
+        "table_name": "tendata_raw_companies",
+        "column_name": "trade_amount_3y_usd",
+        "ordinal_position": 15
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "tendata_raw_companies",
+        "column_name": "trade_count",
+        "ordinal_position": 16
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "tendata_raw_companies",
+        "column_name": "contacts_count",
+        "ordinal_position": 17
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "tendata_raw_companies",
+        "column_name": "has_trade_data",
+        "ordinal_position": 18
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "tendata_raw_companies",
+        "column_name": "aliases",
+        "ordinal_position": 19
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "tendata_raw_companies",
+        "column_name": "raw_payload",
+        "ordinal_position": 20
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tendata_raw_companies",
+        "column_name": "created_at",
+        "ordinal_position": 21
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_tendata_raw_companies_country ON public.tendata_raw_companies USING btree (country_iso3)",
+        "indexname": "idx_tendata_raw_companies_country",
+        "table_name": "tendata_raw_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tendata_raw_companies_globiz ON public.tendata_raw_companies USING btree (globiz_id) WHERE (globiz_id IS NOT NULL)",
+        "indexname": "idx_tendata_raw_companies_globiz",
+        "table_name": "tendata_raw_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tendata_raw_companies_keyword ON public.tendata_raw_companies USING btree (keyword_master_id)",
+        "indexname": "idx_tendata_raw_companies_keyword",
+        "table_name": "tendata_raw_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tendata_raw_companies_source ON public.tendata_raw_companies USING btree (source_id)",
+        "indexname": "idx_tendata_raw_companies_source",
+        "table_name": "tendata_raw_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tendata_raw_companies_keyword_master_id_source_id_key ON public.tendata_raw_companies USING btree (keyword_master_id, source_id)",
+        "indexname": "tendata_raw_companies_keyword_master_id_source_id_key",
+        "table_name": "tendata_raw_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tendata_raw_companies_pkey1 ON public.tendata_raw_companies USING btree (id)",
+        "indexname": "tendata_raw_companies_pkey1",
+        "table_name": "tendata_raw_companies"
+      }
+    ]
+  },
+  "tendata_raw_contacts": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "raw_company_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "source_contact_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "name",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "position",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "citext",
+        "data_type": "USER-DEFINED",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "email",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "phone",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "raw_payload",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tendata_raw_contacts",
+        "column_name": "created_at",
+        "ordinal_position": 9
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_tendata_raw_contacts_company ON public.tendata_raw_contacts USING btree (raw_company_id)",
+        "indexname": "idx_tendata_raw_contacts_company",
+        "table_name": "tendata_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tendata_raw_contacts_email ON public.tendata_raw_contacts USING btree (email) WHERE (email IS NOT NULL)",
+        "indexname": "idx_tendata_raw_contacts_email",
+        "table_name": "tendata_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tendata_raw_contacts_pkey ON public.tendata_raw_contacts USING btree (id)",
+        "indexname": "tendata_raw_contacts_pkey",
+        "table_name": "tendata_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_tendata_raw_contacts_email_fallback ON public.tendata_raw_contacts USING btree (raw_company_id, email) WHERE ((source_contact_id IS NULL) AND (email IS NOT NULL))",
+        "indexname": "uq_tendata_raw_contacts_email_fallback",
+        "table_name": "tendata_raw_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_tendata_raw_contacts_source_contact ON public.tendata_raw_contacts USING btree (raw_company_id, source_contact_id) WHERE (source_contact_id IS NOT NULL)",
+        "indexname": "uq_tendata_raw_contacts_source_contact",
+        "table_name": "tendata_raw_contacts"
+      }
+    ]
+  },
+  "clean_companies": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_companies",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_companies",
+        "column_name": "name",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_companies",
+        "column_name": "name_normalized",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "bpchar",
+        "data_type": "character",
+        "table_name": "clean_companies",
+        "column_name": "country_iso3",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_companies",
+        "column_name": "website",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_companies",
+        "column_name": "tax_no",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "date",
+        "data_type": "date",
+        "table_name": "clean_companies",
+        "column_name": "incorporation_date",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "numeric",
+        "data_type": "numeric",
+        "table_name": "clean_companies",
+        "column_name": "reg_capital",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_companies",
+        "column_name": "employee_num",
+        "ordinal_position": 9
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_companies",
+        "column_name": "industry_desc",
+        "ordinal_position": 10
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "clean_companies",
+        "column_name": "industry_tags",
+        "ordinal_position": 11
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "clean_companies",
+        "column_name": "product_tags",
+        "ordinal_position": 12
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "clean_companies",
+        "column_name": "pcb_suppliers",
+        "ordinal_position": 13
+      },
+      {
+        "udt_name": "numeric",
+        "data_type": "numeric",
+        "table_name": "clean_companies",
+        "column_name": "trade_amount_3y_usd",
+        "ordinal_position": 14
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "clean_companies",
+        "column_name": "trade_count",
+        "ordinal_position": 15
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "clean_companies",
+        "column_name": "contacts_count",
+        "ordinal_position": 16
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "clean_companies",
+        "column_name": "created_at",
+        "ordinal_position": 17
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "clean_companies",
+        "column_name": "updated_at",
+        "ordinal_position": 18
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_companies_name_normalized_country_iso3_key ON public.clean_companies USING btree (name_normalized, country_iso3)",
+        "indexname": "clean_companies_name_normalized_country_iso3_key",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_companies_pkey ON public.clean_companies USING btree (id)",
+        "indexname": "clean_companies_pkey",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_contacts_count ON public.clean_companies USING btree (contacts_count)",
+        "indexname": "idx_clean_companies_contacts_count",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_country ON public.clean_companies USING btree (country_iso3)",
+        "indexname": "idx_clean_companies_country",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_employee_num ON public.clean_companies USING btree (employee_num)",
+        "indexname": "idx_clean_companies_employee_num",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_incorporation_date ON public.clean_companies USING btree (incorporation_date)",
+        "indexname": "idx_clean_companies_incorporation_date",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_industry_tags ON public.clean_companies USING gin (industry_tags)",
+        "indexname": "idx_clean_companies_industry_tags",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_product_tags ON public.clean_companies USING gin (product_tags)",
+        "indexname": "idx_clean_companies_product_tags",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_reg_capital ON public.clean_companies USING btree (reg_capital)",
+        "indexname": "idx_clean_companies_reg_capital",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_trade_amount ON public.clean_companies USING btree (trade_amount_3y_usd)",
+        "indexname": "idx_clean_companies_trade_amount",
+        "table_name": "clean_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_companies_trade_count ON public.clean_companies USING btree (trade_count)",
+        "indexname": "idx_clean_companies_trade_count",
+        "table_name": "clean_companies"
+      }
+    ]
+  },
+  "clean_contacts": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_contacts",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_contacts",
+        "column_name": "clean_company_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_contacts",
+        "column_name": "name",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_contacts",
+        "column_name": "position",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "citext",
+        "data_type": "USER-DEFINED",
+        "table_name": "clean_contacts",
+        "column_name": "email",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_contacts",
+        "column_name": "phone",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "clean_contacts",
+        "column_name": "created_at",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "clean_contacts",
+        "column_name": "updated_at",
+        "ordinal_position": 8
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_contacts_pkey ON public.clean_contacts USING btree (id)",
+        "indexname": "clean_contacts_pkey",
+        "table_name": "clean_contacts"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_contacts_company ON public.clean_contacts USING btree (clean_company_id)",
+        "indexname": "idx_clean_contacts_company",
+        "table_name": "clean_contacts"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_contacts_email ON public.clean_contacts USING btree (email) WHERE (email IS NOT NULL)",
+        "indexname": "idx_clean_contacts_email",
+        "table_name": "clean_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_clean_contacts_company_email ON public.clean_contacts USING btree (clean_company_id, email) WHERE (email IS NOT NULL)",
+        "indexname": "uq_clean_contacts_company_email",
+        "table_name": "clean_contacts"
+      }
+    ]
+  },
+  "clean_company_sources": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_company_sources",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_company_sources",
+        "column_name": "clean_company_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_company_sources",
+        "column_name": "source_type",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_company_sources",
+        "column_name": "source_company_id",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "clean_company_sources",
+        "column_name": "source_key",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "clean_company_sources",
+        "column_name": "created_at",
+        "ordinal_position": 6
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_company_sources_pkey ON public.clean_company_sources USING btree (id)",
+        "indexname": "clean_company_sources_pkey",
+        "table_name": "clean_company_sources"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_company_sources_source_type_source_company_id_key ON public.clean_company_sources USING btree (source_type, source_company_id)",
+        "indexname": "clean_company_sources_source_type_source_company_id_key",
+        "table_name": "clean_company_sources"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_company_sources_company ON public.clean_company_sources USING btree (clean_company_id)",
+        "indexname": "idx_clean_company_sources_company",
+        "table_name": "clean_company_sources"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_company_sources_type ON public.clean_company_sources USING btree (source_type)",
+        "indexname": "idx_clean_company_sources_type",
+        "table_name": "clean_company_sources"
+      }
+    ]
+  },
+  "clean_company_keywords": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_company_keywords",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "clean_company_keywords",
+        "column_name": "clean_company_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "clean_company_keywords",
+        "column_name": "keyword_master_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "clean_company_keywords",
+        "column_name": "created_at",
+        "ordinal_position": 4
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_company_keywords_clean_company_id_keyword_master_id_key ON public.clean_company_keywords USING btree (clean_company_id, keyword_master_id)",
+        "indexname": "clean_company_keywords_clean_company_id_keyword_master_id_key",
+        "table_name": "clean_company_keywords"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX clean_company_keywords_pkey ON public.clean_company_keywords USING btree (id)",
+        "indexname": "clean_company_keywords_pkey",
+        "table_name": "clean_company_keywords"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_clean_company_keywords_keyword ON public.clean_company_keywords USING btree (keyword_master_id)",
+        "indexname": "idx_clean_company_keywords_keyword",
+        "table_name": "clean_company_keywords"
+      }
+    ]
+  },
+  "tenant_companies": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tenant_companies",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "tenant_companies",
+        "column_name": "tenant_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tenant_companies",
+        "column_name": "clean_company_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tenant_companies",
+        "column_name": "business_status",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tenant_companies",
+        "column_name": "data_status",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "numeric",
+        "data_type": "numeric",
+        "table_name": "tenant_companies",
+        "column_name": "model_score",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "numeric",
+        "data_type": "numeric",
+        "table_name": "tenant_companies",
+        "column_name": "score",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tenant_companies",
+        "column_name": "note",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "_text",
+        "data_type": "ARRAY",
+        "table_name": "tenant_companies",
+        "column_name": "tags",
+        "ordinal_position": 9
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tenant_companies",
+        "column_name": "created_at",
+        "ordinal_position": 10
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tenant_companies",
+        "column_name": "updated_at",
+        "ordinal_position": 11
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_tenant_companies_tags ON public.tenant_companies USING gin (tags)",
+        "indexname": "idx_tenant_companies_tags",
+        "table_name": "tenant_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tenant_companies_tenant_business_status ON public.tenant_companies USING btree (tenant_id, business_status)",
+        "indexname": "idx_tenant_companies_tenant_business_status",
+        "table_name": "tenant_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tenant_companies_tenant_data_status ON public.tenant_companies USING btree (tenant_id, data_status)",
+        "indexname": "idx_tenant_companies_tenant_data_status",
+        "table_name": "tenant_companies"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tenant_companies_tenant_score ON public.tenant_companies USING btree (tenant_id, score)",
+        "indexname": "idx_tenant_companies_tenant_score",
+        "table_name": "tenant_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tenant_companies_pkey ON public.tenant_companies USING btree (id)",
+        "indexname": "tenant_companies_pkey",
+        "table_name": "tenant_companies"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tenant_companies_tenant_id_clean_company_id_key ON public.tenant_companies USING btree (tenant_id, clean_company_id)",
+        "indexname": "tenant_companies_tenant_id_clean_company_id_key",
+        "table_name": "tenant_companies"
+      }
+    ]
+  },
+  "tenant_contacts": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tenant_contacts",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "tenant_contacts",
+        "column_name": "tenant_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tenant_contacts",
+        "column_name": "clean_contact_id",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "tenant_contacts",
+        "column_name": "clean_company_id",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "tenant_contacts",
+        "column_name": "contact_status",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "bool",
+        "data_type": "boolean",
+        "table_name": "tenant_contacts",
+        "column_name": "is_sendable",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tenant_contacts",
+        "column_name": "created_at",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "tenant_contacts",
+        "column_name": "updated_at",
+        "ordinal_position": 8
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE INDEX idx_tenant_contacts_tenant_company ON public.tenant_contacts USING btree (tenant_id, clean_company_id)",
+        "indexname": "idx_tenant_contacts_tenant_company",
+        "table_name": "tenant_contacts"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tenant_contacts_tenant_sendable ON public.tenant_contacts USING btree (tenant_id, is_sendable)",
+        "indexname": "idx_tenant_contacts_tenant_sendable",
+        "table_name": "tenant_contacts"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_tenant_contacts_tenant_status ON public.tenant_contacts USING btree (tenant_id, contact_status)",
+        "indexname": "idx_tenant_contacts_tenant_status",
+        "table_name": "tenant_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tenant_contacts_pkey ON public.tenant_contacts USING btree (id)",
+        "indexname": "tenant_contacts_pkey",
+        "table_name": "tenant_contacts"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX tenant_contacts_tenant_id_clean_contact_id_key ON public.tenant_contacts USING btree (tenant_id, clean_contact_id)",
+        "indexname": "tenant_contacts_tenant_id_clean_contact_id_key",
+        "table_name": "tenant_contacts"
+      }
+    ]
+  },
+  "collection_runs": {
+    "columns": [
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "collection_runs",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "collection_runs",
+        "column_name": "keyword_master_id",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_runs",
+        "column_name": "provider",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_runs",
+        "column_name": "stage",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_runs",
+        "column_name": "status",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_runs",
+        "column_name": "daily_limit",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_runs",
+        "column_name": "request_page_size",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_runs",
+        "column_name": "cursor",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_runs",
+        "column_name": "skip_source_ids",
+        "ordinal_position": 9
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_runs",
+        "column_name": "total_fetched",
+        "ordinal_position": 10
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_runs",
+        "column_name": "today_fetched",
+        "ordinal_position": 11
+      },
+      {
+        "udt_name": "date",
+        "data_type": "date",
+        "table_name": "collection_runs",
+        "column_name": "biz_date",
+        "ordinal_position": 12
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_runs",
+        "column_name": "next_run_at",
+        "ordinal_position": 13
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_runs",
+        "column_name": "manual_stopped_at",
+        "ordinal_position": 14
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_runs",
+        "column_name": "completed_at",
+        "ordinal_position": 15
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_runs",
+        "column_name": "error_message",
+        "ordinal_position": 16
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "collection_runs",
+        "column_name": "triggered_by",
+        "ordinal_position": 17
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "collection_runs",
+        "column_name": "triggered_tenant_id",
+        "ordinal_position": 18
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_runs",
+        "column_name": "created_at",
+        "ordinal_position": 19
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_runs",
+        "column_name": "updated_at",
+        "ordinal_position": 20
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX collection_runs_pkey ON public.collection_runs USING btree (id)",
+        "indexname": "collection_runs_pkey",
+        "table_name": "collection_runs"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_runs_keyword_stage_status ON public.collection_runs USING btree (keyword_master_id, provider, stage, status)",
+        "indexname": "idx_collection_runs_keyword_stage_status",
+        "table_name": "collection_runs"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_runs_resume ON public.collection_runs USING btree (next_run_at) WHERE (status = 'daily_limit_reached'::text)",
+        "indexname": "idx_collection_runs_resume",
+        "table_name": "collection_runs"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_runs_triggered_tenant ON public.collection_runs USING btree (triggered_tenant_id) WHERE (triggered_tenant_id IS NOT NULL)",
+        "indexname": "idx_collection_runs_triggered_tenant",
+        "table_name": "collection_runs"
+      },
+      {
+        "indexdef": "CREATE UNIQUE INDEX uq_collection_runs_active ON public.collection_runs USING btree (keyword_master_id, provider, stage) WHERE (status = ANY (ARRAY['not_started'::text, 'running'::text, 'daily_limit_reached'::text]))",
+        "indexname": "uq_collection_runs_active",
+        "table_name": "collection_runs"
+      }
+    ]
+  },
+  "collection_tasks": {
+    "columns": [
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "collection_tasks",
+        "column_name": "id",
+        "ordinal_position": 1
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_tasks",
+        "column_name": "keyword",
+        "ordinal_position": 2
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_tasks",
+        "column_name": "keyword_normalized",
+        "ordinal_position": 3
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_tasks",
+        "column_name": "countries",
+        "ordinal_position": 4
+      },
+      {
+        "udt_name": "varchar",
+        "data_type": "character varying",
+        "table_name": "collection_tasks",
+        "column_name": "countries_hash",
+        "ordinal_position": 5
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_tasks",
+        "column_name": "source_types",
+        "ordinal_position": 6
+      },
+      {
+        "udt_name": "varchar",
+        "data_type": "character varying",
+        "table_name": "collection_tasks",
+        "column_name": "status",
+        "ordinal_position": 7
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_tasks",
+        "column_name": "priority",
+        "ordinal_position": 8
+      },
+      {
+        "udt_name": "uuid",
+        "data_type": "uuid",
+        "table_name": "collection_tasks",
+        "column_name": "lease_id",
+        "ordinal_position": 9
+      },
+      {
+        "udt_name": "varchar",
+        "data_type": "character varying",
+        "table_name": "collection_tasks",
+        "column_name": "lease_owner",
+        "ordinal_position": 10
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_tasks",
+        "column_name": "lease_expires_at",
+        "ordinal_position": 11
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_tasks",
+        "column_name": "attempt_count",
+        "ordinal_position": 12
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_tasks",
+        "column_name": "max_attempts",
+        "ordinal_position": 13
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_tasks",
+        "column_name": "result_summary",
+        "ordinal_position": 14
+      },
+      {
+        "udt_name": "text",
+        "data_type": "text",
+        "table_name": "collection_tasks",
+        "column_name": "error_message",
+        "ordinal_position": 15
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_tasks",
+        "column_name": "scheduled_at",
+        "ordinal_position": 16
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_tasks",
+        "column_name": "started_at",
+        "ordinal_position": 17
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_tasks",
+        "column_name": "completed_at",
+        "ordinal_position": 18
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_tasks",
+        "column_name": "created_at",
+        "ordinal_position": 19
+      },
+      {
+        "udt_name": "timestamptz",
+        "data_type": "timestamp with time zone",
+        "table_name": "collection_tasks",
+        "column_name": "updated_at",
+        "ordinal_position": 20
+      },
+      {
+        "udt_name": "varchar",
+        "data_type": "character varying",
+        "table_name": "collection_tasks",
+        "column_name": "task_type",
+        "ordinal_position": 21
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_tasks",
+        "column_name": "context",
+        "ordinal_position": 22
+      },
+      {
+        "udt_name": "int8",
+        "data_type": "bigint",
+        "table_name": "collection_tasks",
+        "column_name": "run_id",
+        "ordinal_position": 23
+      },
+      {
+        "udt_name": "date",
+        "data_type": "date",
+        "table_name": "collection_tasks",
+        "column_name": "scheduled_biz_date",
+        "ordinal_position": 24
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_tasks",
+        "column_name": "batch_no",
+        "ordinal_position": 25
+      },
+      {
+        "udt_name": "int4",
+        "data_type": "integer",
+        "table_name": "collection_tasks",
+        "column_name": "page_size",
+        "ordinal_position": 26
+      },
+      {
+        "udt_name": "jsonb",
+        "data_type": "jsonb",
+        "table_name": "collection_tasks",
+        "column_name": "cursor_snapshot",
+        "ordinal_position": 27
+      }
+    ],
+    "indexes": [
+      {
+        "indexdef": "CREATE UNIQUE INDEX collection_tasks_pkey ON public.collection_tasks USING btree (id)",
+        "indexname": "collection_tasks_pkey",
+        "table_name": "collection_tasks"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_tasks_claim ON public.collection_tasks USING btree (status, priority DESC, scheduled_at) WHERE ((status)::text = 'pending'::text)",
+        "indexname": "idx_collection_tasks_claim",
+        "table_name": "collection_tasks"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_tasks_lease ON public.collection_tasks USING btree (lease_id) WHERE (lease_id IS NOT NULL)",
+        "indexname": "idx_collection_tasks_lease",
+        "table_name": "collection_tasks"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_tasks_run ON public.collection_tasks USING btree (run_id)",
+        "indexname": "idx_collection_tasks_run",
+        "table_name": "collection_tasks"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_tasks_run_status_scheduled ON public.collection_tasks USING btree (run_id, status, scheduled_at)",
+        "indexname": "idx_collection_tasks_run_status_scheduled",
+        "table_name": "collection_tasks"
+      },
+      {
+        "indexdef": "CREATE INDEX idx_collection_tasks_type ON public.collection_tasks USING btree (task_type, status) WHERE ((status)::text = 'pending'::text)",
+        "indexname": "idx_collection_tasks_type",
+        "table_name": "collection_tasks"
+      }
+    ]
+  }
+}

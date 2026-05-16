@@ -1,0 +1,54 @@
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9.15.0
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
+COPY apps/admin/package.json apps/admin/package.json
+COPY apps/tenant/package.json apps/tenant/package.json
+COPY packages/shared-api/package.json packages/shared-api/package.json
+COPY packages/shared-hooks/package.json packages/shared-hooks/package.json
+COPY packages/shared-types/package.json packages/shared-types/package.json
+COPY packages/shared-ui/package.json packages/shared-ui/package.json
+
+RUN pnpm install --frozen-lockfile
+
+COPY apps/admin/next-env.d.ts apps/admin/next-env.d.ts
+COPY apps/admin/vite-env-shim.d.ts apps/admin/vite-env-shim.d.ts
+COPY apps/admin/components.json apps/admin/components.json
+COPY apps/admin/next.config.ts apps/admin/next.config.ts
+COPY apps/admin/postcss.config.mjs apps/admin/postcss.config.mjs
+COPY apps/admin/tailwind.config.ts apps/admin/tailwind.config.ts
+COPY apps/admin/tsconfig.json apps/admin/tsconfig.json
+COPY apps/admin/public apps/admin/public
+COPY apps/admin/src apps/admin/src
+COPY packages packages
+
+ARG NEXT_PUBLIC_ADMIN_API_BASE_URL
+ENV NEXT_PUBLIC_ADMIN_API_BASE_URL=${NEXT_PUBLIC_ADMIN_API_BASE_URL}
+ENV BACKEND_INTERNAL_URL=
+
+RUN pnpm --filter @apps/admin build
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+COPY --from=build --chown=nextjs:nodejs /app/apps/admin/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/apps/admin/.next/static ./apps/admin/.next/static
+COPY --from=build --chown=nextjs:nodejs /app/apps/admin/public ./apps/admin/public
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "apps/admin/server.js"]

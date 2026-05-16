@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>优选客户 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+  .btn-link { background: none; border: none; color: #1677ff; cursor: pointer; font-size: 13px; padding: 0; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  select.input { padding: 5px 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue   { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-green  { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-orange { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+  .tag-red    { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .tag-gray   { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .tag-gold   { background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); padding: 24px; }
+  .label { display: block; font-size: 13px; color: #000000d9; margin-bottom: 4px; }
+  .label-required::before { content: '*'; color: #ff4d4f; margin-right: 2px; }
+  .filter-sep { color: #bfbfbf; padding: 0 2px; font-size: 13px; }
+  .filter-label { font-size: 13px; color: #595959; white-space: nowrap; }
+  .group-item { padding: 10px 14px; cursor: pointer; border-left: 3px solid transparent; }
+  .group-item:hover { background: #f8fafc; }
+  .group-item.active { background: #eff6ff; border-left-color: #1677ff; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>数据</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">优选客户</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+  <div class="flex gap-4" style="min-height:calc(100vh - 104px)">
+
+    <!-- 左侧：群组列表 -->
+    <div class="w-52 bg-white rounded-md shadow-sm border border-slate-100 flex-shrink-0 self-start">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div class="font-medium text-sm text-slate-700">客户群组</div>
+        <button class="btn-link text-xs" onclick="showCreateGroup()">+ 新建</button>
+      </div>
+      <div>
+        <div class="group-item active" onclick="selectGroup(this, 'PCB 核心采购商', 38)">
+          <div class="text-sm text-slate-800 font-medium">PCB 核心采购商</div>
+          <div class="text-xs text-slate-400 mt-0.5">38 家公司</div>
+        </div>
+        <div class="group-item" onclick="selectGroup(this, '欧洲电子分销', 24)">
+          <div class="text-sm text-slate-700">欧洲电子分销</div>
+          <div class="text-xs text-slate-400 mt-0.5">24 家公司</div>
+        </div>
+        <div class="group-item" onclick="selectGroup(this, '北美半导体设备', 15)">
+          <div class="text-sm text-slate-700">北美半导体设备</div>
+          <div class="text-xs text-slate-400 mt-0.5">15 家公司</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：群组内公司列表 -->
+    <div class="flex-1">
+      <div class="bg-white rounded-md shadow-sm border border-slate-100">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <div>
+            <span class="font-medium text-sm text-slate-800" id="groupTitle">PCB 核心采购商</span>
+            <span class="text-xs text-slate-400 ml-2" id="groupCount">38 家公司</span>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary btn-sm" onclick="showAddCompany()">从公司列表添加</button>
+          </div>
+        </div>
+
+        <!-- 与公司列表相同的列 -->
+        <table>
+          <thead>
+            <tr>
+              <th>公司名称</th>
+              <th>国家</th>
+              <th>细分行业</th>
+              <th>关键词</th>
+              <th>评级</th>
+              <th>总分</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="font-medium text-slate-800">Shenzhen Tech Electronics</div>
+                <div class="text-xs text-slate-400">shenzhentech.com</div>
+              </td>
+              <td><span class="tag tag-gray">CN</span></td>
+              <td>PCB 制造</td>
+              <td><span class="tag tag-blue">multilayer pcb</span></td>
+              <td><span class="tag tag-green">A</span></td>
+              <td>87</td>
+              <td><span class="tag tag-blue">精准客户</span></td>
+              <td class="space-x-1">
+                <button class="btn btn-default btn-sm" onclick="showDetail('Shenzhen Tech Electronics')">查看详情</button>
+                <button class="btn btn-danger btn-sm" onclick="showRemove('Shenzhen Tech Electronics')">移除</button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="font-medium text-slate-800">Samsung Electro-Mechanics</div>
+                <div class="text-xs text-slate-400">samsungsem.com</div>
+              </td>
+              <td><span class="tag tag-gray">KR</span></td>
+              <td>PCB 制造</td>
+              <td><span class="tag tag-blue">ev charger pcb</span></td>
+              <td><span class="tag tag-green">A</span></td>
+              <td>91</td>
+              <td><span class="tag tag-blue">精准客户</span></td>
+              <td class="space-x-1">
+                <button class="btn btn-default btn-sm" onclick="showDetail('Samsung Electro-Mechanics')">查看详情</button>
+                <button class="btn btn-danger btn-sm" onclick="showRemove('Samsung Electro-Mechanics')">移除</button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="font-medium text-slate-800">Advanced Circuits Inc.</div>
+                <div class="text-xs text-slate-400">advancedcircuits.com</div>
+              </td>
+              <td><span class="tag tag-gray">US</span></td>
+              <td>PCB 制造</td>
+              <td><span class="tag tag-blue">industrial pcb</span></td>
+              <td><span class="tag tag-green">A</span></td>
+              <td>82</td>
+              <td><span class="tag tag-gray">普通</span></td>
+              <td class="space-x-1">
+                <button class="btn btn-default btn-sm" onclick="showDetail('Advanced Circuits Inc.')">查看详情</button>
+                <button class="btn btn-danger btn-sm" onclick="showRemove('Advanced Circuits Inc.')">移除</button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="font-medium text-slate-800">European PCB Trading GmbH</div>
+                <div class="text-xs text-slate-400">eupcb.de</div>
+              </td>
+              <td><span class="tag tag-gray">DE</span></td>
+              <td>电子分销</td>
+              <td><span class="tag tag-blue">multilayer pcb</span></td>
+              <td><span class="tag tag-gold">B</span></td>
+              <td>72</td>
+              <td><span class="tag tag-gray">普通</span></td>
+              <td class="space-x-1">
+                <button class="btn btn-default btn-sm" onclick="showDetail('European PCB Trading GmbH')">查看详情</button>
+                <button class="btn btn-danger btn-sm" onclick="showRemove('European PCB Trading GmbH')">移除</button>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="font-medium text-slate-800">TTM Technologies</div>
+                <div class="text-xs text-slate-400">ttmtech.com</div>
+              </td>
+              <td><span class="tag tag-gray">US</span></td>
+              <td>PCB 制造</td>
+              <td><span class="tag tag-blue">multilayer pcb</span></td>
+              <td><span class="tag tag-green">A</span></td>
+              <td>85</td>
+              <td><span class="tag tag-blue">精准客户</span></td>
+              <td class="space-x-1">
+                <button class="btn btn-default btn-sm" onclick="showDetail('TTM Technologies')">查看详情</button>
+                <button class="btn btn-danger btn-sm" onclick="showRemove('TTM Technologies')">移除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="px-4 py-3 border-t border-slate-100">
+          <span class="text-sm text-slate-400">显示 5 / 38 条</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 新建群组 Modal -->
+<div class="modal-overlay" id="createGroupModal" style="display:none">
+  <div class="modal-box" style="min-width:400px">
+    <div class="font-semibold text-slate-800 mb-4">新建客户群组</div>
+    <div class="mb-3">
+      <label class="label label-required">群组名称</label>
+      <input class="input w-full" placeholder="如：日本精密电子采购商">
+    </div>
+    <div class="mb-4">
+      <label class="label">描述（可选）</label>
+      <textarea class="input w-full" rows="2" placeholder="群组用途描述..."></textarea>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModals()">取消</button>
+      <button class="btn btn-primary" onclick="hideModals()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 从公司列表添加 Modal（筛选条件与公司列表一致） -->
+<div class="modal-overlay" id="addCompanyModal" style="display:none">
+  <div class="modal-box" style="min-width:760px;max-width:900px">
+    <div class="font-semibold text-slate-800 mb-3">从公司列表添加</div>
+
+    <!-- 筛选条件（与公司列表完全一致） -->
+    <div class="bg-slate-50 rounded-md p-3 mb-3">
+      <div class="flex gap-2 items-center mb-2 flex-wrap">
+        <input class="input" style="width:180px;font-size:13px;" placeholder="公司名 / 域名搜索">
+        <select class="input" style="width:100px;font-size:13px;">
+          <option value="">全部国家</option>
+          <option>美国</option><option>德国</option><option>日本</option><option>英国</option><option>韩国</option>
+        </select>
+        <select class="input" style="width:136px;font-size:13px;">
+          <option value="">全部细分行业</option>
+          <option>PCB 制造</option><option>电子分销</option><option>半导体设备</option><option>汽车电子</option>
+        </select>
+        <select class="input" style="width:148px;font-size:13px;">
+          <option value="">全部关键词</option>
+          <option>multilayer pcb</option><option>industrial pcb</option><option>medical pcb</option><option>ev charger pcb</option>
+        </select>
+        <select class="input" style="width:100px;font-size:13px;">
+          <option value="">全部评级</option>
+          <option>S</option><option>A</option><option>B</option><option>C</option><option>D</option>
+        </select>
+      </div>
+      <div class="flex gap-2 items-center flex-wrap mb-2">
+        <span class="filter-label">进口额</span>
+        <input type="number" class="input" style="width:72px;font-size:13px;" placeholder="最小">
+        <span class="filter-sep">—</span>
+        <input type="number" class="input" style="width:72px;font-size:13px;" placeholder="最大">
+        <span class="text-slate-300 mx-1">|</span>
+        <span class="filter-label">进口次数</span>
+        <input type="number" class="input" style="width:60px;font-size:13px;" placeholder="最小">
+        <span class="filter-sep">—</span>
+        <input type="number" class="input" style="width:60px;font-size:13px;" placeholder="最大">
+        <span class="text-slate-300 mx-1">|</span>
+        <span class="filter-label">成立年</span>
+        <input type="number" class="input" style="width:64px;font-size:13px;" placeholder="起始">
+        <span class="filter-sep">—</span>
+        <input type="number" class="input" style="width:64px;font-size:13px;" placeholder="截止">
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary btn-sm">查询</button>
+        <button class="btn btn-default btn-sm">重置</button>
+      </div>
+    </div>
+
+    <!-- 公司列表（与公司列表相同列，支持多选） -->
+    <table style="margin-bottom:12px">
+      <thead>
+        <tr>
+          <th style="width:32px"><input type="checkbox" onchange="toggleAll(this)"></th>
+          <th>公司名称</th>
+          <th>国家</th>
+          <th>细分行业</th>
+          <th>关键词</th>
+          <th>评级</th>
+          <th>总分</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input type="checkbox" class="row-cb" checked></td>
+          <td>
+            <div class="font-medium text-slate-800">Nippon Electronic Supplies</div>
+            <div class="text-xs text-slate-400">nippon-es.jp</div>
+          </td>
+          <td><span class="tag tag-gray">JP</span></td>
+          <td>半导体设备</td>
+          <td><span class="tag tag-blue">medical pcb</span></td>
+          <td><span class="tag tag-gold">B</span></td>
+          <td>68</td>
+          <td><span class="tag tag-gray">普通</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" class="row-cb"></td>
+          <td>
+            <div class="font-medium text-slate-800">UK Circuit Solutions Ltd</div>
+            <div class="text-xs text-slate-400">ukcircuit.co.uk</div>
+          </td>
+          <td><span class="tag tag-gray">GB</span></td>
+          <td>PCB 制造</td>
+          <td><span class="tag tag-blue">multilayer pcb</span></td>
+          <td><span class="tag tag-red">C</span></td>
+          <td>54</td>
+          <td><span class="tag tag-gray">普通</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" class="row-cb"></td>
+          <td>
+            <div class="font-medium text-slate-800">Murata Manufacturing</div>
+            <div class="text-xs text-slate-400">murata.com</div>
+          </td>
+          <td><span class="tag tag-gray">JP</span></td>
+          <td>电子元器件</td>
+          <td><span class="tag tag-blue">industrial pcb</span></td>
+          <td><span class="tag tag-green">A</span></td>
+          <td>89</td>
+          <td><span class="tag tag-blue">精准客户</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="flex items-center justify-between">
+      <span class="text-sm text-slate-400" id="selectedCount">已选 1 家</span>
+      <div class="flex gap-2">
+        <button class="btn btn-default" onclick="hideModals()">取消</button>
+        <button class="btn btn-primary" onclick="hideModals()">添加至群组</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 移除确认 Modal -->
+<div class="modal-overlay" id="removeModal" style="display:none">
+  <div class="modal-box" style="min-width:360px">
+    <div class="font-semibold text-slate-800 mb-2">确认移除</div>
+    <div class="text-sm text-slate-600 mb-4" id="removeMsg">将该公司从当前群组移除？</div>
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModals()">取消</button>
+      <button class="btn btn-danger" onclick="hideModals()">确认移除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 查看详情 Modal（简版，指向公司列表 Drawer） -->
+<div class="modal-overlay" id="detailModal" style="display:none">
+  <div class="modal-box" style="min-width:360px">
+    <div class="font-semibold text-slate-800 mb-2" id="detailTitle">公司详情</div>
+    <div class="text-sm text-slate-500 mb-4">详情请前往「公司列表」页面查看完整信息。</div>
+    <div class="flex justify-end">
+      <button class="btn btn-default" onclick="hideModals()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function selectGroup(el, title, count) {
+  document.querySelectorAll('.group-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('groupTitle').textContent = title;
+  document.getElementById('groupCount').textContent = count + ' 家公司';
+}
+function showCreateGroup() { document.getElementById('createGroupModal').style.display = 'flex'; }
+function showAddCompany()   { document.getElementById('addCompanyModal').style.display = 'flex'; }
+function showRemove(name) {
+  document.getElementById('removeMsg').textContent = '将「' + name + '」从当前群组移除？移除后该公司仍在公司列表中。';
+  document.getElementById('removeModal').style.display = 'flex';
+}
+function showDetail(name) {
+  document.getElementById('detailTitle').textContent = name;
+  document.getElementById('detailModal').style.display = 'flex';
+}
+function hideModals() {
+  ['createGroupModal','addCompanyModal','removeModal','detailModal'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+}
+function toggleAll(cb) {
+  document.querySelectorAll('.row-cb').forEach(c => c.checked = cb.checked);
+  updateCount();
+}
+function updateCount() {
+  var n = document.querySelectorAll('.row-cb:checked').length;
+  document.getElementById('selectedCount').textContent = '已选 ' + n + ' 家';
+}
+document.addEventListener('change', function(e){ if(e.target.classList.contains('row-cb')) updateCount(); });
+</script>
+</body>
+</html>

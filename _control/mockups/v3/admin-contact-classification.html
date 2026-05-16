@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>联系人规则</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #d9d9d9; }
+  .btn-danger:hover { border-color: #ff4d4f; }
+  .btn-sm  { padding: 2px 10px; font-size: 13px; }
+  .btn-xs  { padding: 1px 8px;  font-size: 12px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; width: 100%; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-green { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+  .tag-red   { background: #fff2f0; color: #cf1322; border: 1px solid #ffccc7; }
+
+  .switch { display: inline-flex; align-items: center; width: 40px; height: 20px; border-radius: 10px; cursor: pointer; transition: background 0.2s; position: relative; }
+  .switch-on  { background: #1677ff; }
+  .switch-off { background: #d9d9d9; }
+  .switch-thumb { position: absolute; width: 16px; height: 16px; background: white; border-radius: 50%; transition: left 0.2s; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .switch-on  .switch-thumb { left: 22px; }
+  .switch-off .switch-thumb { left: 2px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); }
+
+  /* 关键词 chip */
+  .kw-chip { display: inline-flex; align-items: center; background: #f5f5f5; border: 1px solid #d9d9d9; border-radius: 4px; padding: 1px 6px; font-size: 11px; margin: 2px; color: #595959; }
+  .kw-chip-del { cursor: pointer; margin-left: 4px; color: #999; font-size: 12px; line-height: 1; }
+  .kw-chip-del:hover { color: #ff4d4f; }
+
+  /* Accordion */
+  .accordion-body { display: none; }
+  .accordion-body.open { display: block; }
+
+  /* 等级边框颜色 */
+  .tier-bar-green { border-left: 4px solid #52c41a; }
+  .tier-bar-blue  { border-left: 4px solid #1677ff; }
+  .tier-bar-red   { border-left: 4px solid #ff7875; }
+  .tier-bar-slate { border-left: 4px solid #94a3b8; }
+
+  /* 类别名称行内编辑 */
+  .cat-name-edit { display: none; align-items: center; gap: 4px; }
+  .cat-name-edit.active { display: flex; }
+  .cat-name-display.hidden { display: none; }
+  .cat-edit-btn { color: #94a3b8; cursor: pointer; font-size: 11px; padding: 0 2px; }
+  .cat-edit-btn:hover { color: #1677ff; }
+
+  /* 新增类别行 */
+  .new-cat-form { display: flex; align-items: center; gap: 6px; padding: 6px 0; }
+  .new-cat-input { padding: 3px 8px; border: 1px solid #d9d9d9; border-radius: 5px; font-size: 13px; outline: none; width: 140px; }
+  .new-cat-input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,.1); }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- 侧边导航 -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<!-- 顶部 Header -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500">
+    <span>营销</span><span class="mx-2">/</span>
+    <span class="text-slate-800 font-medium">联系人规则</span>
+  </div>
+  <div class="text-sm text-slate-500">admin@platform · 退出</div>
+</header>
+
+<!-- 主内容 -->
+<main class="ml-56 p-6">
+
+  <div class="flex items-start justify-between mb-4">
+    <div>
+      <p class="text-sm text-slate-500 mt-1">平台统一配置，所有租户继承</p>
+    </div>
+    <button class="btn btn-primary" onclick="openAddTierModal()">+ 新增等级</button>
+  </div>
+
+  <!-- 等级列表（JS 渲染） -->
+  <div id="tier-list" class="space-y-3"></div>
+
+</main>
+
+
+<!-- ===== 新增/编辑等级 Modal ===== -->
+<div id="tier-modal" class="modal-overlay hidden">
+  <div class="modal-box" style="width:420px;">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <span id="tier-modal-title" class="font-medium text-base">新增等级</span>
+      <button onclick="closeTierModal()" class="text-slate-400 text-xl leading-none hover:text-slate-600">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label">等级名称</label>
+        <input id="tier-name-input" class="input" placeholder="如：A、VIP…">
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="label" style="margin:0; min-width:64px;">允许投递</label>
+        <div id="tier-deliver-switch" class="switch switch-on" onclick="toggleTierSwitch()">
+          <div class="switch-thumb"></div>
+        </div>
+        <span id="tier-deliver-label" class="text-sm text-slate-600">是</span>
+      </div>
+    </div>
+    <div class="px-6 pb-5 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="closeTierModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmTierModal()">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 添加关键词 浮层 ===== -->
+<div id="kw-popup" class="hidden fixed z-50 bg-white border border-slate-200 rounded-lg shadow-lg p-2 flex gap-2 items-center" style="min-width:220px;">
+  <input id="kw-input" class="input" style="padding:3px 8px; font-size:13px; width:150px;" placeholder="关键词，回车确认">
+  <button class="btn btn-primary btn-xs" onclick="confirmAddKeyword()">确定</button>
+  <button class="btn btn-default btn-xs" onclick="closeKwPopup()">取消</button>
+</div>
+
+
+<script>
+/* ======================================================
+   数据模型
+====================================================== */
+var TIERS = [
+  {
+    id: 'a', label: 'A 级', deliver: true, open: true,
+    barClass: 'tier-bar-green',
+    categories: [
+      { id: 1, name: '老板 / 创始人', keywords: ['owner','founder','ceo','president','chairman','总裁','董事长','创始人','总经理'] },
+      { id: 2, name: '高管',          keywords: ['coo','cfo','cto','vp','vice president','director','副总','总监'] },
+      { id: 3, name: '采购决策',      keywords: ['purchasing manager','procurement','sourcing','head of purchasing','采购总监','采购经理','采购负责人'] },
+      { id: 4, name: '供应链',        keywords: ['supply chain manager','supply chain director','供应链总监','供应链经理'] },
+    ]
+  },
+  {
+    id: 'b', label: 'B 级', deliver: true, open: false,
+    barClass: 'tier-bar-blue',
+    categories: [
+      { id: 5, name: '技术工程', keywords: ['engineer','r&d','research','technical','工程师','研发','技术'] },
+      { id: 6, name: '产品',    keywords: ['product manager','pm','产品经理','产品总监'] },
+    ]
+  },
+  {
+    id: 'x', label: 'X 级', deliver: false, open: false,
+    barClass: 'tier-bar-red',
+    categories: [
+      { id: 7, name: '销售',   keywords: ['sales','account manager','business development','销售','业务员'] },
+      { id: 8, name: 'HR',     keywords: ['hr','human resources','recruiter','人力资源','招聘'] },
+      { id: 9, name: '财务法务', keywords: ['finance','accounting','legal','counsel','财务','法务','会计'] },
+    ]
+  }
+];
+
+var catNextId = 100;
+
+/* ======================================================
+   渲染
+====================================================== */
+function renderAll() {
+  var list = document.getElementById('tier-list');
+  list.innerHTML = TIERS.map(function(tier) { return renderTierHTML(tier); }).join('');
+}
+
+function renderTierHTML(tier) {
+  var kwCount = tier.categories.reduce(function(s, c) { return s + c.keywords.length; }, 0);
+  var deliverTag = tier.deliver
+    ? '<span class="tag tag-green">投递 ✓</span>'
+    : '<span class="tag tag-red">不投递 ✗</span>';
+  var chevronRot = tier.open ? 'rotate(0deg)' : 'rotate(-90deg)';
+
+  var catsHTML = tier.categories.map(function(cat) {
+    return renderCatRowHTML(tier.id, cat);
+  }).join('');
+
+  return '<div class="bg-white rounded-md shadow-sm ' + tier.barClass + ' overflow-hidden" id="tier-' + tier.id + '">' +
+    '<div class="flex items-center px-5 py-3 gap-3 cursor-pointer select-none" onclick="toggleTier(\'' + tier.id + '\')">' +
+      '<span class="font-semibold text-slate-800 text-sm w-10">' + tier.label + '</span>' +
+      deliverTag +
+      '<span class="text-sm text-slate-500 flex-1">' + tier.categories.length + ' 个类别 · ' + kwCount + ' 个关键词</span>' +
+      '<button class="btn btn-default btn-xs" onclick="event.stopPropagation(); openEditTierModal(\'' + tier.id + '\')">编辑</button>' +
+      '<button class="btn btn-danger btn-xs" onclick="event.stopPropagation(); deleteTier(\'' + tier.id + '\')">删除</button>' +
+      '<svg id="chev-' + tier.id + '" style="width:16px;height:16px;color:#94a3b8;transform:' + chevronRot + ';transition:transform 0.2s;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>' +
+      '</svg>' +
+    '</div>' +
+    '<div id="body-' + tier.id + '" class="accordion-body border-t border-slate-100' + (tier.open ? ' open' : '') + '">' +
+      '<div class="px-5 py-3 space-y-0" id="cats-' + tier.id + '">' +
+        catsHTML +
+      '</div>' +
+      '<div class="px-5 pb-3">' +
+        '<button class="btn btn-default btn-sm" onclick="startAddCategory(\'' + tier.id + '\')">+ 添加类别</button>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function renderCatRowHTML(tierId, cat) {
+  var chips = cat.keywords.map(function(kw) {
+    return '<span class="kw-chip">' + escHtml(kw) +
+      '<span class="kw-chip-del" onclick="removeKeyword(\'' + tierId + '\',' + cat.id + ',\'' + escJs(kw) + '\')">×</span></span>';
+  }).join('');
+
+  return '<div class="flex items-start gap-2 py-2 border-b border-slate-100" id="cat-row-' + cat.id + '">' +
+    '<div class="flex-shrink-0 pt-0.5" style="width:120px;">' +
+      '<span class="text-sm font-medium text-slate-700 cat-name-display" id="cat-name-' + cat.id + '">' + escHtml(cat.name) + '</span>' +
+      '<button class="cat-edit-btn" onclick="startEditCatName(' + cat.id + ',\'' + tierId + '\')" title="编辑名称">✎</button>' +
+      '<span class="cat-name-edit" id="cat-edit-' + cat.id + '">' +
+        '<input id="cat-input-' + cat.id + '" class="new-cat-input" value="' + escHtml(cat.name) + '" style="width:90px;">' +
+        '<button class="btn btn-primary btn-xs" onclick="saveCatName(' + cat.id + ',\'' + tierId + '\')">✓</button>' +
+        '<button class="btn btn-default btn-xs" onclick="cancelEditCatName(' + cat.id + ')">✗</button>' +
+      '</span>' +
+    '</div>' +
+    '<div class="flex flex-wrap flex-1 items-center" id="chips-' + cat.id + '">' +
+      chips +
+      '<button class="btn btn-default btn-xs ml-1" onclick="openKwPopup(event,' + cat.id + ',\'' + tierId + '\')">+ 关键词</button>' +
+    '</div>' +
+    '<button class="btn btn-danger btn-xs flex-shrink-0 mt-0.5" onclick="deleteCategory(\'' + tierId + '\',' + cat.id + ')">删除</button>' +
+  '</div>';
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escJs(s)   { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
+/* ======================================================
+   Accordion 折叠
+====================================================== */
+function toggleTier(id) {
+  var tier = TIERS.find(function(t){ return t.id === id; });
+  if (!tier) return;
+  tier.open = !tier.open;
+  var body  = document.getElementById('body-' + id);
+  var chev  = document.getElementById('chev-' + id);
+  body.classList.toggle('open', tier.open);
+  chev.style.transform = tier.open ? 'rotate(0deg)' : 'rotate(-90deg)';
+}
+
+/* ======================================================
+   等级操作：新增 / 编辑 / 删除
+====================================================== */
+var _tierModalMode = 'add';
+var _tierModalEditId = null;
+var _tierSwitchOn = true;
+
+function openAddTierModal() {
+  _tierModalMode = 'add';
+  _tierModalEditId = null;
+  document.getElementById('tier-modal-title').textContent = '新增等级';
+  document.getElementById('tier-name-input').value = '';
+  setTierSwitch(true);
+  document.getElementById('tier-modal').classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('tier-name-input').focus(); }, 50);
+}
+
+function openEditTierModal(id) {
+  var tier = TIERS.find(function(t){ return t.id === id; });
+  if (!tier) return;
+  _tierModalMode = 'edit';
+  _tierModalEditId = id;
+  document.getElementById('tier-modal-title').textContent = '编辑等级 · ' + tier.label;
+  document.getElementById('tier-name-input').value = tier.label;
+  setTierSwitch(tier.deliver);
+  document.getElementById('tier-modal').classList.remove('hidden');
+  setTimeout(function(){ document.getElementById('tier-name-input').focus(); }, 50);
+}
+
+function confirmTierModal() {
+  var name = document.getElementById('tier-name-input').value.trim();
+  if (!name) return;
+  if (_tierModalMode === 'add') {
+    var newId = 'tier-' + Date.now();
+    TIERS.push({ id: newId, label: name, deliver: _tierSwitchOn, open: true, barClass: 'tier-bar-slate', categories: [] });
+  } else {
+    var tier = TIERS.find(function(t){ return t.id === _tierModalEditId; });
+    if (tier) { tier.label = name; tier.deliver = _tierSwitchOn; }
+  }
+  closeTierModal();
+  renderAll();
+}
+
+function closeTierModal() {
+  document.getElementById('tier-modal').classList.add('hidden');
+}
+
+function deleteTier(id) {
+  TIERS = TIERS.filter(function(t){ return t.id !== id; });
+  renderAll();
+}
+
+function setTierSwitch(on) {
+  _tierSwitchOn = on;
+  var sw  = document.getElementById('tier-deliver-switch');
+  var lbl = document.getElementById('tier-deliver-label');
+  sw.className  = 'switch ' + (on ? 'switch-on' : 'switch-off');
+  lbl.textContent = on ? '是' : '否';
+}
+function toggleTierSwitch() { setTierSwitch(!_tierSwitchOn); }
+
+/* ======================================================
+   类别操作：新增 / 编辑名称 / 删除
+====================================================== */
+
+/* ——— 新增类别（两步：输入 → 确认 → 渲染行） ——— */
+function startAddCategory(tierId) {
+  // 如果已经有新增表单，不重复创建
+  if (document.getElementById('new-cat-form-' + tierId)) return;
+
+  var container = document.getElementById('cats-' + tierId);
+  var form = document.createElement('div');
+  form.className = 'new-cat-form';
+  form.id = 'new-cat-form-' + tierId;
+  form.innerHTML =
+    '<input id="new-cat-inp-' + tierId + '" class="new-cat-input" placeholder="类别名称">' +
+    '<button class="btn btn-primary btn-xs" onclick="confirmAddCategory(\'' + tierId + '\')">确定</button>' +
+    '<button class="btn btn-default btn-xs" onclick="cancelAddCategory(\'' + tierId + '\')">取消</button>';
+  container.appendChild(form);
+  document.getElementById('new-cat-inp-' + tierId).focus();
+}
+
+function confirmAddCategory(tierId) {
+  var inp = document.getElementById('new-cat-inp-' + tierId);
+  var name = inp ? inp.value.trim() : '';
+  if (!name) { cancelAddCategory(tierId); return; }
+
+  var tier = TIERS.find(function(t){ return t.id === tierId; });
+  if (!tier) return;
+  var newCat = { id: catNextId++, name: name, keywords: [] };
+  tier.categories.push(newCat);
+
+  // 移除表单，插入新行
+  var form = document.getElementById('new-cat-form-' + tierId);
+  if (form) form.remove();
+  var container = document.getElementById('cats-' + tierId);
+  container.insertAdjacentHTML('beforeend', renderCatRowHTML(tierId, newCat));
+
+  // 更新摘要行
+  refreshTierSummary(tierId);
+}
+
+function cancelAddCategory(tierId) {
+  var form = document.getElementById('new-cat-form-' + tierId);
+  if (form) form.remove();
+}
+
+/* ——— 编辑类别名称（行内切换） ——— */
+function startEditCatName(catId, tierId) {
+  document.getElementById('cat-name-' + catId).classList.add('hidden');
+  var editEl = document.getElementById('cat-edit-' + catId);
+  editEl.classList.add('active');
+  var inp = document.getElementById('cat-input-' + catId);
+  inp.focus();
+  inp.select();
+}
+
+function saveCatName(catId, tierId) {
+  var inp = document.getElementById('cat-input-' + catId);
+  var name = inp.value.trim();
+  if (!name) { cancelEditCatName(catId); return; }
+
+  // 更新数据
+  var tier = TIERS.find(function(t){ return t.id === tierId; });
+  if (tier) {
+    var cat = tier.categories.find(function(c){ return c.id === catId; });
+    if (cat) cat.name = name;
+  }
+
+  // 更新 DOM
+  document.getElementById('cat-name-' + catId).textContent = name;
+  cancelEditCatName(catId);
+}
+
+function cancelEditCatName(catId) {
+  var nameEl = document.getElementById('cat-name-' + catId);
+  nameEl.classList.remove('hidden');
+  document.getElementById('cat-edit-' + catId).classList.remove('active');
+}
+
+/* ——— 删除类别 ——— */
+function deleteCategory(tierId, catId) {
+  var tier = TIERS.find(function(t){ return t.id === tierId; });
+  if (!tier) return;
+  tier.categories = tier.categories.filter(function(c){ return c.id !== catId; });
+  var row = document.getElementById('cat-row-' + catId);
+  if (row) row.remove();
+  refreshTierSummary(tierId);
+}
+
+/* ——— 更新等级摘要（类别数 · 关键词数） ——— */
+function refreshTierSummary(tierId) {
+  var tier = TIERS.find(function(t){ return t.id === tierId; });
+  if (!tier) return;
+  var kwCount = tier.categories.reduce(function(s, c){ return s + c.keywords.length; }, 0);
+  // 找到摘要 span（header 里的第 3 个子元素）
+  var header = document.querySelector('#tier-' + tierId + ' > div:first-child');
+  if (!header) return;
+  var summarySpan = header.querySelector('.flex-1');
+  if (summarySpan) summarySpan.textContent = tier.categories.length + ' 个类别 · ' + kwCount + ' 个关键词';
+}
+
+/* ======================================================
+   关键词操作：新增 / 删除
+====================================================== */
+var _kwTargetCatId  = null;
+var _kwTargetTierId = null;
+
+function openKwPopup(event, catId, tierId) {
+  event.stopPropagation();
+  _kwTargetCatId  = catId;
+  _kwTargetTierId = tierId;
+  var btn  = event.currentTarget;
+  var rect = btn.getBoundingClientRect();
+  var pop  = document.getElementById('kw-popup');
+  pop.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  pop.style.left = rect.left + 'px';
+  pop.classList.remove('hidden');
+  var inp = document.getElementById('kw-input');
+  inp.value = '';
+  inp.focus();
+}
+
+function confirmAddKeyword() {
+  var val = document.getElementById('kw-input').value.trim();
+  if (!val) { closeKwPopup(); return; }
+
+  // 更新数据
+  var tier = TIERS.find(function(t){ return t.id === _kwTargetTierId; });
+  var cat  = tier && tier.categories.find(function(c){ return c.id === _kwTargetCatId; });
+  if (cat) cat.keywords.push(val);
+
+  // 插入 chip（不重新渲染整行，避免焦点丢失）
+  var chipsContainer = document.getElementById('chips-' + _kwTargetCatId);
+  var addBtn = chipsContainer.querySelector('button');
+  var chip = document.createElement('span');
+  chip.className = 'kw-chip';
+  var kw = val;
+  chip.innerHTML = escHtml(kw) +
+    '<span class="kw-chip-del" onclick="removeKeyword(\'' + _kwTargetTierId + '\',' + _kwTargetCatId + ',\'' + escJs(kw) + '\')">×</span>';
+  chipsContainer.insertBefore(chip, addBtn);
+
+  refreshTierSummary(_kwTargetTierId);
+  closeKwPopup();
+}
+
+function removeKeyword(tierId, catId, kw) {
+  var tier = TIERS.find(function(t){ return t.id === tierId; });
+  var cat  = tier && tier.categories.find(function(c){ return c.id === catId; });
+  if (cat) cat.keywords = cat.keywords.filter(function(k){ return k !== kw; });
+
+  // 找到对应 chip 并删除
+  var chips = document.querySelectorAll('#chips-' + catId + ' .kw-chip');
+  chips.forEach(function(chip) {
+    if (chip.textContent.replace('×','').trim() === kw) chip.remove();
+  });
+  refreshTierSummary(tierId);
+}
+
+function closeKwPopup() {
+  document.getElementById('kw-popup').classList.add('hidden');
+  _kwTargetCatId  = null;
+  _kwTargetTierId = null;
+}
+
+/* ======================================================
+   键盘 & 全局事件
+====================================================== */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    if (!document.getElementById('kw-popup').classList.contains('hidden')) {
+      confirmAddKeyword(); return;
+    }
+    if (!document.getElementById('tier-modal').classList.contains('hidden')) {
+      confirmTierModal(); return;
+    }
+  }
+  if (e.key === 'Escape') {
+    closeKwPopup();
+    closeTierModal();
+  }
+});
+
+// 点击弹层外部关闭关键词弹层
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('kw-popup');
+  if (!pop.classList.contains('hidden') && !pop.contains(e.target)) {
+    closeKwPopup();
+  }
+});
+
+/* 类别名称输入框回车 / ESC */
+document.addEventListener('keydown', function(e) {
+  var active = document.querySelector('.cat-name-edit.active input');
+  if (!active) return;
+  var catId = parseInt(active.id.replace('cat-input-',''));
+  if (e.key === 'Enter') {
+    // 找 tierId
+    var row   = document.getElementById('cat-row-' + catId);
+    var tierId = row ? row.closest('[id^="tier-"]').id.replace('tier-','') : null;
+    if (tierId) saveCatName(catId, tierId);
+  }
+  if (e.key === 'Escape') cancelEditCatName(catId);
+});
+
+/* 新增类别输入框回车 / ESC */
+document.addEventListener('keydown', function(e) {
+  var form = document.querySelector('[id^="new-cat-form-"]');
+  if (!form) return;
+  var tierId = form.id.replace('new-cat-form-','');
+  if (e.key === 'Enter') confirmAddCategory(tierId);
+  if (e.key === 'Escape') cancelAddCategory(tierId);
+});
+
+/* ======================================================
+   初始化
+====================================================== */
+renderAll();
+</script>
+</body>
+</html>

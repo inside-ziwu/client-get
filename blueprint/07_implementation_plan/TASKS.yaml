@@ -1,0 +1,82 @@
+project: clientget_backend
+source_of_truth:
+  - 00_SOURCE_OF_TRUTH_DECISIONS.md
+  - 01_final_repaired_docs/
+  - 03_database/schema.sql
+  - 04_api/API_CONTRACT.md
+phases:
+  P0:
+    goal: "可启动、可登录、可隔离、基础 CRUD 可供前端接入"
+    tasks:
+      - id: P0-001
+        title: "FastAPI scaffold with four route groups"
+        deliverables: ["app/main.py", "app/api/admin", "app/api/tenant", "app/api/internal", "app/api/webhooks"]
+        tests: ["health check", "CORS whitelist"]
+      - id: P0-002
+        title: "Alembic migrations from canonical schema"
+        deliverables: ["alembic/versions/*"]
+        tests: ["migration up/down in test DB"]
+      - id: P0-003
+        title: "RLS tenant connection dependency"
+        deliverables: ["app/db/rls.py", "tenant db dependency"]
+        tests: ["tenant A cannot read tenant B"]
+      - id: P0-004
+        title: "Platform and tenant auth"
+        deliverables: ["AuthService", "JWT utils", "login endpoints"]
+        tests: ["platform login", "tenant slug mismatch 403", "failed login lock"]
+      - id: P0-005
+        title: "RBAC dependencies"
+        deliverables: ["require_roles", "permission matrix tests"]
+        tests: ["viewer cannot mutate", "operator cannot billing/settings"]
+      - id: P0-006
+        title: "Admin tenant management"
+        deliverables: ["tenant create workflow", "users", "domains", "recharge"]
+        tests: ["create tenant copies templates", "recharge writes transaction"]
+      - id: P0-007
+        title: "Admin platform config APIs"
+        deliverables: ["data sources", "AI config", "warmup rules", "platform templates"]
+        tests: ["credentials masked", "scene default validates active model"]
+      - id: P0-008
+        title: "Tenant settings and base APIs"
+        deliverables: ["keywords", "scoring templates", "contact rules", "ai capabilities", "billing read"]
+        tests: ["onboarding complete", "RBAC"]
+      - id: P0-009
+        title: "Companies/prospects/groups/templates base APIs"
+        deliverables: ["company list/detail", "prospects", "groups", "email templates"]
+        tests: ["tenant isolation", "group uses tenant_company_id"]
+  P1:
+    goal: "业务闭环：采集、评分、AI、发送、Webhook、情报"
+    tasks:
+      - id: P1-001
+        title: "Collection internal API and scheduler"
+      - id: P1-002
+        title: "Collection worker adapters skeleton"
+      - id: P1-003
+        title: "Company/contact upsert and tenant linking"
+      - id: P1-004
+        title: "Scoring rule engine and LLM dimensions"
+      - id: P1-005
+        title: "AI billing authorization and settlement"
+      - id: P1-006
+        title: "Sending plan wizard APIs"
+      - id: P1-007
+        title: "Recipient preview/lock and enrollments"
+      - id: P1-008
+        title: "Sending worker and EngageLab integration"
+      - id: P1-009
+        title: "EngageLab webhook idempotent processor"
+      - id: P1-010
+        title: "Intelligence source fetch and tenant publication"
+  P2:
+    goal: "迁移、观测、安全加固、E2E"
+    tasks:
+      - id: P2-001
+        title: "Legacy migration scripts"
+      - id: P2-002
+        title: "Audit coverage"
+      - id: P2-003
+        title: "Metrics and dashboards"
+      - id: P2-004
+        title: "PII retention and partition maintenance jobs"
+      - id: P2-005
+        title: "Playwright frontend smoke tests"

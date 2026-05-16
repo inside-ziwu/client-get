@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>发送计划 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+  .btn-link { background: none; border: none; color: #1677ff; cursor: pointer; font-size: 13px; padding: 0; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  select.input { padding: 5px 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-green { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-orange { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+  .tag-red { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .tag-gray { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .tag-purple { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
+  .progress-bar { background: #f0f2f5; border-radius: 3px; height: 6px; overflow: hidden; width: 100px; }
+  .progress-fill { height: 100%; background: #1677ff; border-radius: 3px; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>营销</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">发送计划</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+  <!-- 操作栏 -->
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex gap-2 items-center">
+      <input class="input" style="width:220px" placeholder="搜索计划名称...">
+      <select class="input">
+        <option value="">全部状态</option>
+        <option value="draft">草稿</option>
+        <option value="scheduled">已调度</option>
+        <option value="running">运行中</option>
+        <option value="paused">已暂停</option>
+        <option value="completed">已完成</option>
+        <option value="cancelled">已取消</option>
+      </select>
+      <button class="btn btn-default">搜索</button>
+    </div>
+    <a href="tenant-send-plans-new.html"><button class="btn btn-primary">+ 新建发送计划</button></a>
+  </div>
+
+  <!-- 表格 -->
+  <div class="bg-white rounded-md shadow-sm overflow-hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>计划名称</th>
+          <th>状态</th>
+          <th>发送进度</th>
+          <th>总 / 已发</th>
+          <th>创建时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="font-medium text-slate-800">Q2 PCB采购商开发</td>
+          <td><span class="tag tag-blue">运行中</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="progress-bar"><div class="progress-fill" style="width:37%"></div></div>
+              <span class="text-xs text-slate-500">37%</span>
+            </div>
+          </td>
+          <td class="text-slate-600">380 / 142</td>
+          <td class="text-slate-500">2026-04-20</td>
+          <td>
+            <div class="flex gap-1.5">
+              <button class="btn btn-default btn-sm">暂停</button>
+              <a href="tenant-send-plans-detail.html"><button class="btn btn-link">查看</button></a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">欧洲电子分销商 Follow-up</td>
+          <td><span class="tag tag-blue">运行中</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="progress-bar"><div class="progress-fill" style="width:42%"></div></div>
+              <span class="text-xs text-slate-500">42%</span>
+            </div>
+          </td>
+          <td class="text-slate-600">210 / 89</td>
+          <td class="text-slate-500">2026-04-18</td>
+          <td>
+            <div class="flex gap-1.5">
+              <button class="btn btn-default btn-sm">暂停</button>
+              <a href="tenant-send-plans-detail.html"><button class="btn btn-link">查看</button></a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">北美半导体设备采购</td>
+          <td><span class="tag tag-orange">已暂停</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="progress-bar"><div class="progress-fill" style="width:37%"></div></div>
+              <span class="text-xs text-slate-500">37%</span>
+            </div>
+          </td>
+          <td class="text-slate-600">150 / 56</td>
+          <td class="text-slate-500">2026-04-15</td>
+          <td>
+            <div class="flex gap-1.5">
+              <button class="btn btn-primary btn-sm">恢复</button>
+              <button class="btn btn-danger btn-sm">取消</button>
+              <a href="tenant-send-plans-detail.html"><button class="btn btn-link">查看</button></a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">日本精密电子首次开发</td>
+          <td><span class="tag tag-gray">草稿</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+              <span class="text-xs text-slate-500">—</span>
+            </div>
+          </td>
+          <td class="text-slate-600">— / —</td>
+          <td class="text-slate-500">2026-05-01</td>
+          <td>
+            <div class="flex gap-1.5">
+              <button class="btn btn-primary btn-sm">启动</button>
+              <button class="btn btn-danger btn-sm">删除</button>
+              <a href="tenant-send-plans-detail.html"><button class="btn btn-link">查看</button></a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">Q1 全球采购商问卷</td>
+          <td><span class="tag tag-green">已完成</span></td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="progress-bar"><div class="progress-fill" style="width:100%; background:#52c41a"></div></div>
+              <span class="text-xs text-slate-500">100%</span>
+            </div>
+          </td>
+          <td class="text-slate-600">280 / 280</td>
+          <td class="text-slate-500">2026-03-01</td>
+          <td>
+            <a href="tenant-send-plans-detail.html"><button class="btn btn-link">查看</button></a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="px-4 py-3 flex items-center justify-between border-t border-slate-100">
+      <span class="text-sm text-slate-500">共 5 条</span>
+    </div>
+  </div>
+</main>
+</body>
+</html>

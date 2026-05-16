@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>发送计划详情 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+  .btn-link { background: none; border: none; color: #1677ff; cursor: pointer; font-size: 13px; padding: 0; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  select.input { padding: 5px 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-green { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-orange { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+  .tag-gray { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); border: 1px solid #f0f0f0; padding: 16px 20px; }
+  .progress-bar { background: #f0f2f5; border-radius: 3px; height: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: #1677ff; border-radius: 3px; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); padding: 24px; min-width: 400px; }
+  .timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: #1677ff; flex-shrink: 0; margin-top: 3px; }
+  .timeline-line { width: 2px; background: #e8e8e8; flex: 1; margin: 4px 0 4px 4px; min-height: 30px; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500">
+    <span>营销</span><span class="mx-2">/</span>
+    <a class="text-blue-600 cursor-pointer">发送计划</a><span class="mx-2">/</span>
+    <span class="text-slate-800 font-medium">Q2 PCB采购商开发</span>
+  </div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+
+  <!-- 顶部：计划名称 + 状态 + 操作 -->
+  <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center gap-3">
+      <span class="font-semibold text-lg text-slate-800">Q2 PCB采购商开发</span>
+      <span class="tag tag-blue">运行中</span>
+    </div>
+    <div class="flex gap-2">
+      <button class="btn btn-default" onclick="showPauseModal()">暂停计划</button>
+      <button class="btn btn-danger" onclick="showCancelModal()">取消计划</button>
+    </div>
+  </div>
+
+  <!-- Stat 行 -->
+  <div class="grid grid-cols-4 gap-4 mb-5">
+    <div class="card text-center">
+      <div class="text-2xl font-semibold text-slate-800">380</div>
+      <div class="text-xs text-slate-500 mt-1">总收件人</div>
+    </div>
+    <div class="card text-center">
+      <div class="text-2xl font-semibold text-blue-600">142</div>
+      <div class="text-xs text-slate-500 mt-1">已发送</div>
+    </div>
+    <div class="card text-center">
+      <div class="text-2xl font-semibold text-green-600">38</div>
+      <div class="text-xs text-slate-500 mt-1">已回复</div>
+    </div>
+    <div class="card">
+      <div class="text-xs text-slate-500 mb-2">总进度</div>
+      <div class="flex items-center gap-2">
+        <div class="progress-bar flex-1"><div class="progress-fill" style="width:37%"></div></div>
+        <span class="text-sm font-medium text-slate-700">37%</span>
+      </div>
+      <div class="text-xs text-slate-400 mt-1">第 1 轮中，预计 3 天后完成</div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-3 gap-4 mb-5">
+    <!-- 发送序列（时间线样式） -->
+    <div class="card col-span-1">
+      <div class="font-medium text-slate-700 text-sm mb-4">发送序列</div>
+      <div class="flex gap-3">
+        <div class="flex flex-col items-center">
+          <div class="timeline-dot"></div>
+          <div class="timeline-line"></div>
+          <div class="timeline-dot" style="background:#faad14"></div>
+        </div>
+        <div class="flex-1">
+          <div class="mb-5">
+            <div class="text-sm font-medium text-slate-700">第 1 步 · 即时发送</div>
+            <div class="text-xs text-slate-500 mt-0.5">PCB采购商开发信（首次联系）</div>
+            <div class="text-xs text-slate-400 mt-0.5">主题：Competitive PCB Solutions from China</div>
+            <div class="text-xs text-green-600 mt-1">✓ 已全部发出 142 封</div>
+          </div>
+          <div>
+            <div class="text-sm font-medium text-slate-700">第 2 步 · 第 7 天</div>
+            <div class="text-xs text-slate-500 mt-0.5">Follow-up 第2轮</div>
+            <div class="text-xs text-slate-400 mt-0.5">主题：Following Up: PCB Supply Partnership</div>
+            <div class="text-xs text-orange-500 mt-1">⏳ 等待发送（2026-05-09 起）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 收件人概览 -->
+    <div class="card col-span-2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="font-medium text-slate-700 text-sm">收件人列表</div>
+        <div class="flex gap-2 items-center">
+          <select class="input" style="font-size:12px; padding:3px 6px">
+            <option>全部状态</option>
+            <option>已发送</option>
+            <option>待发送</option>
+            <option>已回复</option>
+          </select>
+          <input class="input" style="font-size:12px; padding:3px 8px; width:140px" placeholder="搜索公司/邮箱...">
+        </div>
+      </div>
+      <!-- 注意：D-034 无手动标已回复按钮，状态只系统自动更新 -->
+      <div class="text-xs text-slate-400 bg-slate-50 rounded px-3 py-1.5 mb-3">状态由系统自动同步，不支持手动修改</div>
+      <table>
+        <thead>
+          <tr>
+            <th>公司</th>
+            <th>联系人</th>
+            <th>邮箱</th>
+            <th>状态</th>
+            <th>发送时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Shenzhen Tech Electronics</td>
+            <td>Li Wei</td>
+            <td>li.wei@shenzhentech.com</td>
+            <td><span class="tag tag-green">已回复</span></td>
+            <td class="text-slate-500">2026-04-21 09:30</td>
+          </tr>
+          <tr>
+            <td>Advanced Circuits Inc.</td>
+            <td>Mike Johnson</td>
+            <td>m.johnson@advancedcircuits.com</td>
+            <td><span class="tag tag-blue">已发送</span></td>
+            <td class="text-slate-500">2026-04-21 09:31</td>
+          </tr>
+          <tr>
+            <td>European PCB Trading GmbH</td>
+            <td>Hans Mueller</td>
+            <td>h.mueller@eupcb.de</td>
+            <td><span class="tag tag-blue">已发送</span></td>
+            <td class="text-slate-500">2026-04-21 09:32</td>
+          </tr>
+          <tr>
+            <td>Samsung Electro-Mechanics</td>
+            <td>Kim Hyun</td>
+            <td>kim.hyun@samsungsem.com</td>
+            <td><span class="tag tag-green">已回复</span></td>
+            <td class="text-slate-500">2026-04-21 09:33</td>
+          </tr>
+          <tr>
+            <td>TTM Technologies</td>
+            <td>Sarah Lee</td>
+            <td>s.lee@ttmtech.com</td>
+            <td><span class="tag tag-gray">待发送</span></td>
+            <td class="text-slate-500">—</td>
+          </tr>
+          <tr>
+            <td>Nippon Electronic Supplies</td>
+            <td>Tanaka Yuki</td>
+            <td>t.yuki@nippon-es.jp</td>
+            <td><span class="tag tag-gray">待发送</span></td>
+            <td class="text-slate-500">—</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="px-0 py-3 flex items-center justify-between border-t border-slate-100 mt-2">
+        <span class="text-sm text-slate-400">显示 6 / 380 条</span>
+        <div class="flex gap-1">
+          <button class="btn btn-default btn-sm">上一页</button>
+          <button class="btn btn-primary btn-sm">1</button>
+          <button class="btn btn-default btn-sm">2</button>
+          <button class="btn btn-default btn-sm">下一页</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- 暂停确认 Modal -->
+<div class="modal-overlay" id="pauseModal" style="display:none">
+  <div class="modal-box">
+    <div class="font-semibold text-slate-800 mb-2">确认暂停计划</div>
+    <div class="text-sm text-slate-600 mb-4">暂停后，待发送的邮件将不再自动发出，已发送的不受影响。可随时恢复。</div>
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModals()">返回</button>
+      <button class="btn btn-primary" onclick="hideModals()">确认暂停</button>
+    </div>
+  </div>
+</div>
+
+<!-- 取消确认 Modal -->
+<div class="modal-overlay" id="cancelModal" style="display:none">
+  <div class="modal-box">
+    <div class="font-semibold text-slate-800 mb-2">确认取消计划</div>
+    <div class="text-sm text-slate-600 mb-4">取消后，所有待发送邮件将被丢弃，且无法恢复。已发送的数据将保留。</div>
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModals()">返回</button>
+      <button class="btn btn-danger" onclick="hideModals()">确认取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPauseModal() { document.getElementById('pauseModal').style.display = 'flex'; }
+function showCancelModal() { document.getElementById('cancelModal').style.display = 'flex'; }
+function hideModals() {
+  document.getElementById('pauseModal').style.display = 'none';
+  document.getElementById('cancelModal').style.display = 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+# Machine-readable helper. API_CONTRACT.md remains the source of truth.
+admin:
+  base: /admin/api/v1
+  groups:
+    auth:
+      - POST /auth/login
+      - GET /auth/me
+    data_sources:
+      - GET /data-sources
+      - POST /data-sources
+      - PATCH /data-sources/{source_type}
+      - GET /data-sources/{source_type}/credentials
+      - POST /data-sources/{source_type}/credentials
+      - PATCH /data-sources/{source_type}/credentials/{id}
+      - DELETE /data-sources/{source_type}/credentials/{id}
+      - PATCH /data-sources/{source_type}/config
+    scoring_templates:
+      - GET /scoring-templates
+      - POST /scoring-templates
+      - GET /scoring-templates/{id}
+      - PUT /scoring-templates/{id}
+      - GET /scoring-templates/{id}/versions
+    intelligence_sources:
+      - GET /intelligence-sources
+      - POST /intelligence-sources
+      - POST /intelligence-sources/batch-import
+      - PATCH /intelligence-sources/{id}
+      - DELETE /intelligence-sources/{id}
+    email_templates:
+      - GET /email-templates
+      - POST /email-templates
+      - GET /email-templates/{id}
+      - PUT /email-templates/{id}
+      - DELETE /email-templates/{id}
+      - GET /email-templates/{id}/preview
+    warmup_rules:
+      - GET /warmup-rules
+      - PUT /warmup-rules
+    ai_config:
+      - GET /ai-config/models
+      - POST /ai-config/models
+      - PATCH /ai-config/models/{id}
+      - DELETE /ai-config/models/{id}
+      - GET /ai-config/scene-defaults
+      - PUT /ai-config/scene-defaults
+      - GET /ai-config/pricing
+      - PUT /ai-config/pricing
+    tenants:
+      - GET /tenants
+      - POST /tenants
+      - GET /tenants/{id}
+      - PATCH /tenants/{id}
+      - POST /tenants/{id}/suspend
+      - POST /tenants/{id}/activate
+      - GET /tenants/{tid}/users
+      - POST /tenants/{tid}/users
+      - PATCH /tenants/{tid}/users/{uid}
+      - DELETE /tenants/{tid}/users/{uid}
+      - GET /tenants/{tid}/domains
+      - POST /tenants/{tid}/domains
+      - POST /tenants/{tid}/domains/{did}/verify
+      - GET /tenants/{tid}/domains/{did}
+      - GET /tenants/{tid}/balance
+      - POST /tenants/{tid}/balance/recharge
+      - GET /tenants/{tid}/balance/transactions
+tenant:
+  base: /t/{slug}/api/v1
+  groups:
+    auth:
+      - POST /auth/login
+      - POST /auth/change-password
+      - GET /auth/me
+      - POST /onboarding/complete
+    dashboard:
+      - GET /dashboard/overview
+      - GET /dashboard/funnel
+    companies:
+      # static GET routes must be registered before /companies/{id}
+      - GET /companies
+      - GET /companies/filters
+      - GET /companies/export
+      - POST /companies
+      - POST /companies/batch-import
+      - GET /companies/{id}
+      - POST /companies/{id}/blacklist
+      - GET /companies/{id}/contacts
+    prospects:
+      - GET /prospects
+      - GET /prospects/{id}
+      - PATCH /prospects/{id}
+      - POST /prospects/{id}/select
+      - POST /prospects/{id}/exclude
+      - POST /prospects/{id}/blacklist
+    contacts:
+      - PATCH /contacts/{id}/set-default
+    groups:
+      - GET /groups
+      - POST /groups
+      - GET /groups/{id}
+      - PATCH /groups/{id}
+      - DELETE /groups/{id}
+      - GET /groups/{id}/members
+      - POST /groups/{id}/members/batch-add
+      - POST /groups/{id}/members/batch-remove
+    settings:
+      - GET /keywords
+      - POST /keywords
+      - PATCH /keywords/{id}
+      - DELETE /keywords/{id}
+      - GET /scoring-templates
+      - PUT /scoring-templates/{id}
+      - GET /scoring-templates/{id}/versions
+      - GET /contact-rules
+      - PUT /contact-rules/{id}
+    email_templates:
+      - GET /email-templates
+      - POST /email-templates
+      - POST /email-templates/ai-generate
+      - GET /email-templates/{id}
+      - PUT /email-templates/{id}
+      - DELETE /email-templates/{id}
+      - POST /email-templates/{id}/clone
+      - GET /email-templates/{id}/preview
+    sending_plans:
+      - GET /sending-plans
+      - POST /sending-plans
+      - GET /sending-plans/{id}
+      - PATCH /sending-plans/{id}
+      - DELETE /sending-plans/{id}
+      - POST /sending-plans/{id}/schedule
+      - POST /sending-plans/{id}/start
+      - POST /sending-plans/{id}/pause
+      - POST /sending-plans/{id}/resume
+      - POST /sending-plans/{id}/cancel
+      - GET /sending-plans/{id}/recipients
+      - GET /sending-plans/{id}/recipients/preview
+      - POST /sending-plans/{id}/recipients/lock
+      - POST /sending-plans/{id}/recipients/append
+      - GET /sending-plans/{id}/steps
+      - POST /sending-plans/{id}/steps
+      - PUT /sending-plans/{id}/steps/{sid}
+      - DELETE /sending-plans/{id}/steps/{sid}
+      - GET /sending-plans/{id}/preview
+      - GET /sending-plans/{id}/sample-emails
+    emails:
+      # stats routes must be registered before /emails/{id}
+      - GET /emails
+      - GET /emails/stats
+      - GET /emails/stats/by-plan
+      - GET /emails/stats/by-template
+      - GET /emails/stats/by-grade
+      - GET /emails/stats/by-step
+      - GET /emails/stats/trend
+      - POST /emails/ai-analysis
+      - GET /emails/{id}
+    intelligence:
+      - GET /intelligence/articles
+      - GET /intelligence/articles/{id}
+      - POST /intelligence/articles/{id}/read
+      - POST /intelligence/articles/{id}/star
+      - POST /intelligence/articles/{id}/archive
+      - GET /intelligence/subscriptions
+      - PUT /intelligence/subscriptions
+    domains_billing_notifications:
+      - GET /domains
+      - GET /domains/{id}
+      - GET /domains/{id}/history
+      - GET /ai-capabilities
+      - GET /billing/balance
+      - GET /billing/transactions
+      - GET /billing/usage-summary
+      - GET /billing/usage-trend
+      - GET /notifications
+      - POST /notifications/{id}/read
+      - POST /notifications/mark-all-read
+internal:
+  base: /internal/api/v1
+  groups:
+    collection:
+      - POST /collection/tasks/claim
+      - POST /collection/tasks/{id}/heartbeat
+      - POST /collection/tasks/{id}/submit-result
+      - GET /collection/credentials/{source_type}
+      - POST /collection/companies/batch-upsert
+      - POST /collection/contacts/batch-upsert
+      - POST /collection/competitors/batch-upsert
+    scoring:
+      - POST /scoring/jobs/claim
+      - POST /scoring/jobs/{id}/submit-result
+      - POST /scoring/trigger
+    sending:
+      - POST /sending/due-emails/claim
+      - POST /sending/emails/{id}/mark-sent
+      - POST /sending/emails/{id}/mark-failed
+      - POST /sending/domain-quota/reserve
+    intelligence:
+      - POST /intelligence/articles/publish
+webhooks:
+  base: /webhooks
+  groups:
+    engagelab:
+      - POST /engagelab

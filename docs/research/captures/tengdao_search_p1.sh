@@ -1,0 +1,16 @@
+curl 'https://data.tendata.cn/api/tradec1/v2/search' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: zh-CN,zh;q=0.9' \
+  -H 'content-type: application/json' \
+  -b 'Hm_lvt_8f1628d2f2aae1a36627f0bb3782e11d=1777528480; Hm_lpvt_8f1628d2f2aae1a36627f0bb3782e11d=1777528480; HMACCOUNT=FE57927A3D049717; Hm_lvt_5f979b4b1381d89336c0c15e7a863a84=1777528480; Hm_lpvt_5f979b4b1381d89336c0c15e7a863a84=1777528480; _gcl_au=1.1.1644837286.1777528480; locale=zh_CN; refresh_token=<REFRESH_TOKEN>; token=<TOKEN>; tokenUpdateTimestamp=2026-04-30T05:55:06.871Z; userId=79446; user=<USER_INFO_JSON_URLENCODED>; aliyungf_tc=<ALIYUN_WAF_COOKIE>; tradeDate=2022-05-01|2026-04-30; TENDATA_USER=79446; TENDATA_USER_LEVEL=PAY; zg_did=<ZG_DID>; zg_6f8d6d9ac36548f4bf11775c6262b304=<ZG_SESSION>' \
+  -H 'origin: https://data.tendata.cn' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://data.tendata.cn/trade' \
+  -H 'sec-ch-ua: "Google Chrome";v="147", "Not.A/Brand";v="8", "Chromium";v="147"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36' \
+  --data-raw '{"country":"america,america_ship,america_stat,canada_stat,canada,dominica,mexico_bol,mexico,costarica,dominican_republic,dominican_republic_stat,guatemala_nboe,guatemala_stat,guatemala,panama,panama_exp,honduras_stat,honduras,salvador_stat,salvador,nicaragua_boe,nicaragua,brazil_pro,brazil_stat,brazil_bol,brazil_air,brazil_proc,brazil,argentina,argentina_bol,colon_free_zone,ecuador,ecuador_bol,chile,peru,peru_exp,colombia,colombia_nboe,venezuela,venezuela_bol,bolivia,bolivia_stat,paraguay,uruguay,uruguay_nboe,uruguay_bol,china_stat,vietnam,india,india_exp,turkey,turkey_stat,philippines,philippines_stat,thailand,thailand_stat,japan,south_korea_co,south_korea_stat,south_korea,taiwan_stat,taiwan,hongkong_stat,indonesia_pro,indonesia_stat,indonesia,kyrghyzstan,uzbekistan,pakistan,pakistan_nboe,pakistan_bol,kazakhstan,sri_lanka,bangladesh,armenia,russia,russia_rail,bahrain_stat,maritime_silk_bol,qatar_stat,cis,european_union,eurasian_eu,eurasian_bol,malaysia_pro,spain,spain_co,afghanistan,england,england_stat,moldova,ukraine,eurasian_eu_kz,kenya_nboe,kenya_tboe,kenya,nigeria,united_nations_stat,uganda,iran,ethiopia,ivory_coast,south_africa_stat,ghana,zimbabwe,namibia,cameroon,tanzania,maldives,tanzania_tboe,liberia,mongolia,botswana,lesotho,burundi,central_african_republic,chad,palestine,rwanda,australia,malawi,new_zealand,fiji,congo_kinshasa,angola,angola_stat,sao_tome_and_principe,egypt_co,south_sudan,madagascar,madagascar_free_zone","catalog":"imports","conditions":{},"rangeConditions":{},"conditionGroups":[{"conditions":[{"param":"exporter","character":"","value":["FINEST PCB (SHENZHEN)LIMITED"],"queryFields":["exporter","exporterOrig"]}]}],"startDate":"2022-05-01","endDate":"2026-04-30","filterBlankFields":["importer"],"filterLogisticFields":[],"level":"LOW","active":true,"size":20,"page":1,"sessionId":"global@1777528830002|global$imports","filterRepetitive":true,"onlyRepetitive":false,"highlights":["exporter"]}'

@@ -1,0 +1,37 @@
+{
+  "stats": {
+    "total_sumOfMoney_sum": 19041400.37,
+    "total_exporter_sum": 85.0,
+    "total_weight_sum": 9143155.94,
+    "total_trades_sum": 1488.0,
+    "total_quantity_sum": 10189195.94
+  },
+  "exporter": {
+    "stats": {
+      "total_exporter_sum": 85.0,
+      "total_trades_sum": 1488.0,
+      "total_sumOfMoney_sum": 19041400.37
+    },
+    "results": [
+      {"__gk": "RAJRATAN THAI WIRE CO LTD",               "trades_sum": 437, "sumOfMoney_sum": 1238371.89},
+      {"__gk": "SHANGHAI BOSUN SUPPLY CHAIN",             "trades_sum": 290, "sumOfMoney_sum": 7944231.34},
+      {"__gk": "HANGZHOU HENGXIN FILMING PACKAGING",      "trades_sum": 125, "sumOfMoney_sum": 1732983.98},
+      {"__gk": "FUJIAN KAIJING GREENTECH MATERIAL CO LTD","trades_sum":  89, "sumOfMoney_sum": 1061410.13},
+      {"__gk": "WUHU NINGWEI NEW MATERIAL TECH",          "trades_sum":  67, "sumOfMoney_sum": 2847239.52},
+      {"__gk": "AZTEC FLUIDS AND MACHINERY PRIVATE LIMITED","trades_sum": 45, "sumOfMoney_sum": 47873.87},
+      {"__gk": "HANGZHOU FANGYUAN PLASTICS",              "trades_sum":  43, "sumOfMoney_sum": 972200.07},
+      {"__gk": "SHANGHAI HONGJI VENTILATION",             "trades_sum":  41, "sumOfMoney_sum": 413474.95},
+      {"__gk": "M S MUSHRAF BROTHER EXPORT COMPANY",      "trades_sum":  25, "sumOfMoney_sum": 291587.41},
+      {"__gk": "HONGKONG HAILIANG METAL TRADING LTD",     "trades_sum":  23, "sumOfMoney_sum": 207201.06}
+    ]
+  },
+  "top_items": [
+    {
+      "importer": "FILTERMATION MFG SDN BHD",
+      "exporter": "SHANGHAI BOSUN SUPPLY CHAIN",
+      "productTag": ["PP FIBER"],
+      "sumOfUSD": 34532.08,
+      "database": "malaysia_pro"
+    }
+  ]
+}

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>邮件监控 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; }
+  .btn-primary { background: #1677ff; color: white; border-color: #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .btn-preset { padding: 3px 10px; font-size: 12px; border-radius: 4px; cursor: pointer; border: 1px solid #d9d9d9; background: white; color: #595959; transition: all 0.15s; }
+  .btn-preset:hover, .btn-preset.active { border-color: #1677ff; color: #1677ff; background: #e6f4ff; }
+  .input { padding: 5px 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  select.input { padding: 4px 8px; }
+
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 9px 12px; font-size: 12px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+  td { padding: 9px 12px; font-size: 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 11px; white-space: nowrap; }
+  .tag-blue    { background: #e6f4ff; color: #1677ff;  border: 1px solid #91caff; }
+  .tag-teal    { background: #e6fffb; color: #08979c;  border: 1px solid #87e8de; }
+  .tag-green   { background: #f6ffed; color: #52c41a;  border: 1px solid #b7eb8f; }
+  .tag-orange  { background: #fff7e6; color: #fa8c16;  border: 1px solid #ffd591; }
+  .tag-red     { background: #fff1f0; color: #ff4d4f;  border: 1px solid #ffa39e; }
+  .tag-gray    { background: #f5f5f5; color: #595959;  border: 1px solid #d9d9d9; }
+  .tag-purple  { background: #f9f0ff; color: #722ed1;  border: 1px solid #d3adf7; }
+
+  /* Stat card */
+  .stat-card { background: white; border-radius: 8px; border: 1px solid #f0f0f0; box-shadow: 0 1px 3px rgba(0,0,0,.06); padding: 16px 20px; }
+  .stat-label { font-size: 12px; color: #8c8c8c; margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 11px; color: #8c8c8c; margin-top: 6px; }
+
+  /* Chart */
+  .chart-wrap { display: flex; align-items: flex-end; gap: 8px; height: 140px; }
+  .chart-col { display: flex; flex-direction: column; align-items: center; gap: 0; flex: 1; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 1px; width: 100%; justify-content: center; }
+  .bar { width: 30%; border-radius: 2px 2px 0 0; transition: opacity 0.15s; }
+  .bar:hover { opacity: 0.8; }
+  .bar-sent      { background: #1677ff; }
+  .bar-delivered { background: #52c41a; }
+  .bar-opens     { background: #fa8c16; }
+  .chart-label { font-size: 10px; color: #8c8c8c; margin-top: 4px; white-space: nowrap; }
+
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); display: flex; flex-direction: column; max-height: 90vh; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
+  .modal-body { padding: 20px; overflow-y: auto; flex: 1; font-size: 13px; }
+  .modal-footer { padding: 12px 20px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; flex-shrink: 0; }
+  .close-btn { background: none; border: none; cursor: pointer; color: #8c8c8c; font-size: 18px; line-height: 1; padding: 2px; }
+  .close-btn:hover { color: #000; }
+  .info-row { display: flex; padding: 7px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+  .info-label { width: 100px; color: #8c8c8c; flex-shrink: 0; }
+  .info-value { color: #000000d9; flex: 1; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ===== Sidebar ===== -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<!-- ===== Header ===== -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>营销</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">邮件监控</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<!-- ===== Main ===== -->
+<main class="ml-56 p-6">
+
+  <!-- ===== 筛选区 ===== -->
+  <div class="bg-white rounded-md p-4 mb-5 shadow-sm">
+    <div class="flex gap-3 items-center flex-wrap">
+      <!-- 快捷日期 -->
+      <div class="flex gap-1">
+        <button class="btn-preset" onclick="setPreset(this,'today')">今天</button>
+        <button class="btn-preset" onclick="setPreset(this,'yesterday')">昨天</button>
+        <button class="btn-preset active" onclick="setPreset(this,'7d')">近 7 天</button>
+        <button class="btn-preset" onclick="setPreset(this,'30d')">近 30 天</button>
+      </div>
+      <span class="text-slate-300">|</span>
+      <input type="date" class="input" id="dateFrom" value="2026-04-29">
+      <span class="text-slate-400 text-sm">—</span>
+      <input type="date" class="input" id="dateTo" value="2026-05-05">
+      <span class="text-slate-300">|</span>
+      <select class="input" style="width:200px">
+        <option>全部计划</option>
+        <option>Q2 PCB采购商开发</option>
+        <option>欧洲电子分销商 Follow-up</option>
+        <option>北美半导体设备采购</option>
+      </select>
+      <button class="btn btn-primary btn-sm">查询</button>
+      <button class="btn btn-default btn-sm">重置</button>
+    </div>
+  </div>
+
+  <!-- ===== 指标卡（6 个，2×3） ===== -->
+  <div class="grid grid-cols-3 gap-4 mb-5">
+
+    <div class="stat-card">
+      <div class="stat-label">发送量</div>
+      <div class="stat-value text-slate-800">685</div>
+      <div class="stat-sub">近 7 天</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">送达率</div>
+      <div class="stat-value text-green-600">97.8%</div>
+      <div class="stat-sub">670 封送达 · 软退信 8 · 无效邮箱 7</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">独立打开率</div>
+      <div class="stat-value text-blue-600">24.6%</div>
+      <div class="stat-sub">165 次独立打开 · 打开次数 238</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">软退信</div>
+      <div class="stat-value" style="color:#fa8c16">8</div>
+      <div class="stat-sub">占发送量 1.2%</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">举报垃圾邮件</div>
+      <div class="stat-value text-red-500">2</div>
+      <div class="stat-sub">占发送量 0.3% · 阈值 0.1%</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">退订</div>
+      <div class="stat-value text-slate-500">3</div>
+      <div class="stat-sub">占发送量 0.4%</div>
+    </div>
+
+  </div>
+
+  <!-- ===== 趋势图（3 系列） ===== -->
+  <div class="bg-white rounded-md shadow-sm border border-slate-100 p-5 mb-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="text-sm font-medium text-slate-700">发送趋势（近 7 天）</div>
+      <!-- 图例 -->
+      <div class="flex items-center gap-4 text-xs text-slate-500">
+        <span class="flex items-center gap-1.5"><span class="legend-dot bar-sent"></span>发送量</span>
+        <span class="flex items-center gap-1.5"><span class="legend-dot bar-delivered"></span>送达量</span>
+        <span class="flex items-center gap-1.5"><span class="legend-dot bar-opens"></span>打开次数</span>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <!-- 每列：3 个 bar 并排 -->
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:58px"  title="发送 82"></div>
+          <div class="bar bar-delivered" style="height:55px"  title="送达 78"></div>
+          <div class="bar bar-opens"     style="height:24px"  title="打开 34"></div>
+        </div>
+        <div class="chart-label">04-29</div>
+      </div>
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:86px"  title="发送 122"></div>
+          <div class="bar bar-delivered" style="height:84px"  title="送达 119"></div>
+          <div class="bar bar-opens"     style="height:32px"  title="打开 45"></div>
+        </div>
+        <div class="chart-label">04-30</div>
+      </div>
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:72px"  title="发送 102"></div>
+          <div class="bar bar-delivered" style="height:70px"  title="送达 99"></div>
+          <div class="bar bar-opens"     style="height:28px"  title="打开 39"></div>
+        </div>
+        <div class="chart-label">05-01</div>
+      </div>
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:42px"  title="发送 60"></div>
+          <div class="bar bar-delivered" style="height:40px"  title="送达 57"></div>
+          <div class="bar bar-opens"     style="height:14px"  title="打开 20"></div>
+        </div>
+        <div class="chart-label">05-02</div>
+      </div>
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:98px"  title="发送 139"></div>
+          <div class="bar bar-delivered" style="height:95px"  title="送达 136"></div>
+          <div class="bar bar-opens"     style="height:38px"  title="打开 54"></div>
+        </div>
+        <div class="chart-label">05-03</div>
+      </div>
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:112px" title="发送 158"></div>
+          <div class="bar bar-delivered" style="height:108px" title="送达 153"></div>
+          <div class="bar bar-opens"     style="height:46px"  title="打开 65"></div>
+        </div>
+        <div class="chart-label">05-04</div>
+      </div>
+      <div class="chart-col">
+        <div class="chart-bars">
+          <div class="bar bar-sent"      style="height:78px"  title="发送 110"></div>
+          <div class="bar bar-delivered" style="height:76px"  title="送达 107"></div>
+          <div class="bar bar-opens"     style="height:30px"  title="打开 42"></div>
+        </div>
+        <div class="chart-label">05-05</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 邮件日志 ===== -->
+  <div class="bg-white rounded-md shadow-sm overflow-hidden">
+    <!-- 日志标题 + 状态筛选 + 导出 -->
+    <div class="px-4 py-3 border-b border-slate-100 flex items-center gap-3 flex-wrap">
+      <div class="font-medium text-sm text-slate-700 mr-2">邮件日志</div>
+      <select class="input" style="width:140px">
+        <option>全部状态</option>
+        <option>已发送</option>
+        <option>已送达</option>
+        <option>已打开</option>
+        <option>已回复</option>
+        <option>软退信</option>
+        <option>无效邮箱</option>
+        <option>举报垃圾</option>
+        <option>已退订</option>
+        <option>发送失败</option>
+      </select>
+      <select class="input" style="width:190px">
+        <option>全部计划</option>
+        <option>Q2 PCB采购商开发</option>
+        <option>欧洲电子分销商 Follow-up</option>
+        <option>北美半导体设备采购</option>
+      </select>
+      <div class="flex-1"></div>
+      <button class="btn btn-default btn-sm">导出 CSV</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:180px">公司</th>
+          <th style="width:110px">联系人</th>
+          <th style="width:210px">邮箱</th>
+          <th style="min-width:200px">主题</th>
+          <th style="width:120px">所属计划</th>
+          <th style="width:60px">步骤</th>
+          <th style="width:90px">状态</th>
+          <th style="width:140px">发送时间</th>
+          <th style="width:56px">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <div class="font-medium text-slate-800" style="font-size:12px;">Shenzhen Tech Electronics</div>
+          </td>
+          <td>Li Wei</td>
+          <td style="color:#595959">li.wei@shenzhentech.com</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Competitive PCB Solutions – Shenzhen Tech Electronics</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">Q2 PCB开发</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-green">已回复</span></td>
+          <td style="color:#8c8c8c;">2026-05-05 14:22</td>
+          <td><button class="btn-link" onclick="showDetail(0)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">Samsung Electro-Mechanics</div></td>
+          <td>Kim Hyun</td>
+          <td style="color:#595959">kim.hyun@samsungsem.com</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Competitive PCB Solutions – Samsung Electro-Mechanics</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">Q2 PCB开发</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-green">已回复</span></td>
+          <td style="color:#8c8c8c;">2026-05-05 11:08</td>
+          <td><button class="btn-link" onclick="showDetail(1)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">Advanced Circuits Inc.</div></td>
+          <td>Mike Johnson</td>
+          <td style="color:#595959">m.johnson@advancedcircuits.com</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Competitive PCB Solutions – Advanced Circuits Inc.</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">Q2 PCB开发</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 2 步</td>
+          <td><span class="tag tag-orange">已打开</span></td>
+          <td style="color:#8c8c8c;">2026-05-05 09:31</td>
+          <td><button class="btn-link" onclick="showDetail(2)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">European PCB Trading GmbH</div></td>
+          <td>Hans Mueller</td>
+          <td style="color:#595959">h.mueller@eupcb.de</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">PCB Distribution Partnership Opportunity</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">欧洲分销 F-up</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-teal">已送达</span></td>
+          <td style="color:#8c8c8c;">2026-05-04 16:45</td>
+          <td><button class="btn-link" onclick="showDetail(3)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">Nippon Electronic Supplies</div></td>
+          <td>Tanaka Yuki</td>
+          <td style="color:#595959">t.yuki@nippon-es.jp</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Following Up on Our PCB Discussion</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">北美半导体</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-blue">已发送</span></td>
+          <td style="color:#8c8c8c;">2026-05-04 15:20</td>
+          <td><button class="btn-link" onclick="showDetail(4)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">UK Circuit Solutions Ltd</div></td>
+          <td>John Smith</td>
+          <td style="color:#595959">j.smith@ukcircuit.co.uk</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">PCB Distribution Partnership Opportunity</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">欧洲分销 F-up</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-red">软退信</span></td>
+          <td style="color:#8c8c8c;">2026-05-03 10:05</td>
+          <td><button class="btn-link" onclick="showDetail(5)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">Nordic Tech Components</div></td>
+          <td>Erik Larsson</td>
+          <td style="color:#595959">e.larsson@nordictech.se</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">PCB Distribution Partnership Opportunity</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">欧洲分销 F-up</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-purple">已退订</span></td>
+          <td style="color:#8c8c8c;">2026-05-02 08:44</td>
+          <td><button class="btn-link" onclick="showDetail(6)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+        <tr>
+          <td><div class="font-medium text-slate-800" style="font-size:12px;">Pacific Electronics Corp</div></td>
+          <td>Wang Fang</td>
+          <td style="color:#595959">w.fang@pacificec.com</td>
+          <td style="color:#595959;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Competitive PCB Solutions – Pacific Electronics</td>
+          <td><span class="tag tag-gray" style="font-size:11px;">Q2 PCB开发</span></td>
+          <td style="text-align:center;color:#8c8c8c;">第 1 步</td>
+          <td><span class="tag tag-red">无效邮箱</span></td>
+          <td style="color:#8c8c8c;">2026-05-01 13:10</td>
+          <td><button class="btn-link" onclick="showDetail(7)" style="font-size:12px;color:#1677ff;background:none;border:none;cursor:pointer;">详情</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="px-4 py-3 flex items-center justify-between border-t border-slate-100">
+      <span class="text-xs text-slate-500">共 685 条</span>
+      <div class="flex gap-1">
+        <button class="btn btn-default btn-sm">上一页</button>
+        <button class="btn btn-primary btn-sm">1</button>
+        <button class="btn btn-default btn-sm">2</button>
+        <button class="btn btn-default btn-sm">3</button>
+        <button class="btn btn-default btn-sm">下一页</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== 邮件详情 Modal ===== -->
+<div class="modal-overlay" id="detailModal" style="display:none" onclick="if(event.target===this)closeDetail()">
+  <div class="modal-box" style="width:560px">
+    <div class="modal-header">
+      <div style="font-size:15px;font-weight:600;color:#000000d9;">邮件详情</div>
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+    </div>
+    <div class="modal-body" id="detailContent"></div>
+    <div class="modal-footer">
+      <button class="btn btn-default btn-sm" onclick="closeDetail()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== 快捷日期预设 ===== */
+function setPreset(btn, preset) {
+  document.querySelectorAll('.btn-preset').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  var now = new Date();
+  var from = new Date();
+  if (preset === 'today') { from = new Date(now); }
+  else if (preset === 'yesterday') { from = new Date(now); from.setDate(from.getDate()-1); now = new Date(from); }
+  else if (preset === '7d') { from.setDate(from.getDate()-6); }
+  else if (preset === '30d') { from.setDate(from.getDate()-29); }
+  var fmt = function(d){ return d.toISOString().slice(0,10); };
+  document.getElementById('dateFrom').value = fmt(from);
+  document.getElementById('dateTo').value   = fmt(now);
+}
+
+/* ===== 邮件详情 Modal ===== */
+var DETAILS = [
+  { company:'Shenzhen Tech Electronics', contact:'Li Wei', email:'li.wei@shenzhentech.com', plan:'Q2 PCB采购商开发', step:'第 1 步', status:'已回复', sentAt:'2026-05-05 14:22', deliveredAt:'2026-05-05 14:23', openedAt:'2026-05-05 15:04', repliedAt:'2026-05-05 16:38', subject:'Competitive PCB Solutions – Shenzhen Tech Electronics', tag:'green' },
+  { company:'Samsung Electro-Mechanics', contact:'Kim Hyun', email:'kim.hyun@samsungsem.com', plan:'Q2 PCB采购商开发', step:'第 1 步', status:'已回复', sentAt:'2026-05-05 11:08', deliveredAt:'2026-05-05 11:09', openedAt:'2026-05-05 11:42', repliedAt:'2026-05-05 12:55', subject:'Competitive PCB Solutions – Samsung Electro-Mechanics', tag:'green' },
+  { company:'Advanced Circuits Inc.', contact:'Mike Johnson', email:'m.johnson@advancedcircuits.com', plan:'Q2 PCB采购商开发', step:'第 2 步', status:'已打开', sentAt:'2026-05-05 09:31', deliveredAt:'2026-05-05 09:32', openedAt:'2026-05-05 10:15', repliedAt:'—', subject:'Competitive PCB Solutions – Advanced Circuits Inc.', tag:'orange' },
+  { company:'European PCB Trading GmbH', contact:'Hans Mueller', email:'h.mueller@eupcb.de', plan:'欧洲电子分销商 Follow-up', step:'第 1 步', status:'已送达', sentAt:'2026-05-04 16:45', deliveredAt:'2026-05-04 16:46', openedAt:'—', repliedAt:'—', subject:'PCB Distribution Partnership Opportunity', tag:'teal' },
+  { company:'Nippon Electronic Supplies', contact:'Tanaka Yuki', email:'t.yuki@nippon-es.jp', plan:'北美半导体设备采购', step:'第 1 步', status:'已发送', sentAt:'2026-05-04 15:20', deliveredAt:'—', openedAt:'—', repliedAt:'—', subject:'Following Up on Our PCB Discussion', tag:'blue' },
+  { company:'UK Circuit Solutions Ltd', contact:'John Smith', email:'j.smith@ukcircuit.co.uk', plan:'欧洲电子分销商 Follow-up', step:'第 1 步', status:'软退信', sentAt:'2026-05-03 10:05', deliveredAt:'—', openedAt:'—', repliedAt:'—', subject:'PCB Distribution Partnership Opportunity', note:'Mailbox full (Soft Bounce)', tag:'red' },
+  { company:'Nordic Tech Components', contact:'Erik Larsson', email:'e.larsson@nordictech.se', plan:'欧洲电子分销商 Follow-up', step:'第 1 步', status:'已退订', sentAt:'2026-05-02 08:44', deliveredAt:'2026-05-02 08:45', openedAt:'2026-05-02 09:12', repliedAt:'—', subject:'PCB Distribution Partnership Opportunity', tag:'purple' },
+  { company:'Pacific Electronics Corp', contact:'Wang Fang', email:'w.fang@pacificec.com', plan:'Q2 PCB采购商开发', step:'第 1 步', status:'无效邮箱', sentAt:'2026-05-01 13:10', deliveredAt:'—', openedAt:'—', repliedAt:'—', subject:'Competitive PCB Solutions – Pacific Electronics', note:'Invalid email address (550 5.1.1)', tag:'red' },
+];
+
+var TAG_MAP = { green:'tag-green', orange:'tag-orange', teal:'tag-teal', blue:'tag-blue', red:'tag-red', purple:'tag-purple' };
+
+function showDetail(idx) {
+  var d = DETAILS[idx];
+  var tagClass = TAG_MAP[d.tag] || 'tag-gray';
+  var html = '<div class="info-row"><span class="info-label">公司</span><span class="info-value font-medium">' + d.company + '</span></div>'
+    + '<div class="info-row"><span class="info-label">联系人</span><span class="info-value">' + d.contact + '</span></div>'
+    + '<div class="info-row"><span class="info-label">邮箱</span><span class="info-value" style="color:#1677ff">' + d.email + '</span></div>'
+    + '<div class="info-row"><span class="info-label">主题</span><span class="info-value">' + d.subject + '</span></div>'
+    + '<div class="info-row"><span class="info-label">所属计划</span><span class="info-value">' + d.plan + '</span></div>'
+    + '<div class="info-row"><span class="info-label">序列步骤</span><span class="info-value">' + d.step + '</span></div>'
+    + '<div class="info-row"><span class="info-label">状态</span><span class="info-value"><span class="tag ' + tagClass + '">' + d.status + '</span></span></div>'
+    + '<div style="height:12px"></div>'
+    + '<div style="font-size:12px;font-weight:500;color:#8c8c8c;margin-bottom:8px;">时间轴</div>'
+    + '<div class="info-row"><span class="info-label">发送时间</span><span class="info-value">' + d.sentAt + '</span></div>'
+    + '<div class="info-row"><span class="info-label">送达时间</span><span class="info-value">' + (d.deliveredAt||'—') + '</span></div>'
+    + '<div class="info-row"><span class="info-label">首次打开</span><span class="info-value">' + (d.openedAt||'—') + '</span></div>'
+    + '<div class="info-row" style="border:none"><span class="info-label">回复时间</span><span class="info-value">' + (d.repliedAt||'—') + '</span></div>';
+  if (d.note) {
+    html += '<div style="margin-top:12px;background:#fff1f0;border:1px solid #ffa39e;border-radius:4px;padding:8px 12px;font-size:12px;color:#cf1322;">退信原因：' + d.note + '</div>';
+  }
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailModal').style.display = 'flex';
+}
+
+function closeDetail() {
+  document.getElementById('detailModal').style.display = 'none';
+}
+
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeDetail(); });
+</script>
+</body>
+</html>

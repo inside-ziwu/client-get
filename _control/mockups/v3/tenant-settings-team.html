@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>团队管理 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+  .btn-link { background: none; border: none; color: #1677ff; cursor: pointer; font-size: 13px; padding: 0; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  select.input { padding: 5px 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue   { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-purple { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
+  .tag-gray   { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .tag-green  { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-red    { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); padding: 24px; min-width: 420px; }
+  .label { display: block; font-size: 13px; color: #000000d9; margin-bottom: 4px; }
+  .label-required::before { content: '*'; color: #ff4d4f; margin-right: 2px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; background: #e6f4ff; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #1677ff; flex-shrink: 0; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<!-- Header -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500">
+    <span>设置</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">团队管理</span>
+  </div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<!-- Main -->
+<main class="ml-56 p-6">
+  <div class="max-w-4xl">
+
+    <!-- 顶部标题 + 新增按钮 -->
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-base font-semibold text-slate-800">团队管理</h1>
+      <button class="btn btn-primary" onclick="showAddModal()">+ 新增成员</button>
+    </div>
+
+    <!-- 成员表格 -->
+    <div class="bg-white rounded-md shadow-sm overflow-hidden mb-4">
+      <table id="memberTable">
+        <thead>
+          <tr>
+            <th>成员</th>
+            <th>角色</th>
+            <th>状态</th>
+            <th>创建时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="memberTbody">
+          <!-- 由 JS 渲染 -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 角色说明 Card -->
+    <div class="bg-white rounded-md shadow-sm p-4">
+      <div class="text-sm font-medium text-slate-700 mb-3">角色权限说明</div>
+      <div class="grid grid-cols-3 gap-6 text-sm">
+        <div>
+          <div class="mb-1.5"><span class="tag tag-blue">管理员</span></div>
+          <div class="text-xs text-slate-500">可管理规则、模板、发送计划与团队成员，拥有完整操作权限。</div>
+        </div>
+        <div>
+          <div class="mb-1.5"><span class="tag tag-purple">运营</span></div>
+          <div class="text-xs text-slate-500">可处理日常运营动作（查看/操作数据、发送计划），但不负责团队配置。</div>
+        </div>
+        <div>
+          <div class="mb-1.5"><span class="tag tag-gray">只读</span></div>
+          <div class="text-xs text-slate-500">只能查看数据，不可进行任何写操作，适合观察者角色。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- 新增成员 Modal -->
+<div class="modal-overlay" id="addModal" style="display:none">
+  <div class="modal-box">
+    <div class="font-semibold text-slate-800 mb-5">新增成员</div>
+    <div class="mb-4">
+      <label class="label label-required">姓名</label>
+      <input id="addName" class="input w-full" placeholder="请输入姓名">
+    </div>
+    <div class="mb-4">
+      <label class="label label-required">邮箱</label>
+      <input id="addEmail" class="input w-full" placeholder="请输入邮箱地址">
+    </div>
+    <div class="mb-5">
+      <label class="label label-required">角色</label>
+      <select id="addRole" class="input w-full">
+        <option value="admin">管理员</option>
+        <option value="operator" selected>运营</option>
+        <option value="viewer">只读</option>
+      </select>
+    </div>
+    <div class="text-xs text-slate-400 mb-5">创建后系统将要求该账号首次登录时修改密码。</div>
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModals()">取消</button>
+      <button class="btn btn-primary" onclick="confirmAdd()">确认新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 修改角色 Modal -->
+<div class="modal-overlay" id="editModal" style="display:none">
+  <div class="modal-box">
+    <div class="font-semibold text-slate-800 mb-5">修改成员</div>
+    <div class="mb-4">
+      <label class="label">姓名</label>
+      <input id="editName" class="input w-full" placeholder="姓名">
+    </div>
+    <div class="mb-5">
+      <label class="label">角色</label>
+      <select id="editRole" class="input w-full">
+        <option value="admin">管理员</option>
+        <option value="operator">运营</option>
+        <option value="viewer">只读</option>
+      </select>
+    </div>
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModals()">取消</button>
+      <button class="btn btn-primary" onclick="confirmEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== 数据 =====================
+const ROLE_META = {
+  admin:    { label: '管理员', tagClass: 'tag-blue' },
+  operator: { label: '运营',   tagClass: 'tag-purple' },
+  viewer:   { label: '只读',   tagClass: 'tag-gray' },
+};
+
+let members = [
+  { id: 1, name: '张三', email: 'zhangsan@company.com', role: 'admin',    status: 'active',   createdAt: '2026-01-10', isSelf: true  },
+  { id: 2, name: '李四', email: 'lisi@company.com',     role: 'operator', status: 'active',   createdAt: '2026-02-01', isSelf: false },
+  { id: 3, name: '王五', email: 'wangwu@company.com',   role: 'viewer',   status: 'active',   createdAt: '2026-03-15', isSelf: false },
+  { id: 4, name: '赵六', email: 'zhaoliu@external.com', role: 'viewer',   status: 'disabled', createdAt: '2026-04-01', isSelf: false },
+];
+
+let editingId = null;
+
+// ===================== 渲染 =====================
+function statusDot(status) {
+  if (status === 'active') {
+    return `<span style="display:inline-flex;align-items:center;gap:4px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#52c41a;display:inline-block"></span>已激活
+    </span>`;
+  } else {
+    return `<span style="display:inline-flex;align-items:center;gap:4px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#ff4d4f;display:inline-block"></span>已禁用
+    </span>`;
+  }
+}
+
+function renderTable() {
+  const tbody = document.getElementById('memberTbody');
+  tbody.innerHTML = members.map(m => {
+    const roleMeta = ROLE_META[m.role];
+    const initial = m.name.charAt(0);
+
+    const memberCell = `
+      <div class="flex items-center gap-2">
+        <div class="avatar">${initial}</div>
+        <div>
+          <div class="font-medium" style="color:#000000d9">${m.name}</div>
+          <div style="font-size:12px;color:#8c8c8c">${m.email}</div>
+        </div>
+      </div>`;
+
+    const roleCell = `<span class="tag ${roleMeta.tagClass}">${roleMeta.label}</span>`;
+    const statusCell = statusDot(m.status);
+    const dateCell = `<span style="color:#8c8c8c">${m.createdAt}</span>`;
+
+    let opCell;
+    if (m.isSelf) {
+      opCell = `<span style="font-size:13px;color:#8c8c8c">当前账号</span>`;
+    } else {
+      const toggleBtn = m.status === 'active'
+        ? `<button class="btn btn-default btn-sm" onclick="toggleStatus(${m.id})">禁用</button>`
+        : `<button class="btn btn-default btn-sm" onclick="toggleStatus(${m.id})">启用</button>`;
+      opCell = `
+        <div class="flex items-center gap-2">
+          ${toggleBtn}
+          <button class="btn-link" onclick="showEditModal(${m.id})">修改角色</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMember(${m.id})">删除</button>
+        </div>`;
+    }
+
+    return `<tr>
+      <td>${memberCell}</td>
+      <td>${roleCell}</td>
+      <td>${statusCell}</td>
+      <td>${dateCell}</td>
+      <td>${opCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ===================== 操作 =====================
+function toggleStatus(id) {
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  m.status = m.status === 'active' ? 'disabled' : 'active';
+  renderTable();
+}
+
+function deleteMember(id) {
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  if (confirm('确认删除该成员？')) {
+    members = members.filter(x => x.id !== id);
+    renderTable();
+  }
+}
+
+// ===================== 新增 Modal =====================
+function showAddModal() {
+  document.getElementById('addName').value = '';
+  document.getElementById('addEmail').value = '';
+  document.getElementById('addRole').value = 'operator';
+  document.getElementById('addModal').style.display = 'flex';
+}
+
+function confirmAdd() {
+  const name  = document.getElementById('addName').value.trim();
+  const email = document.getElementById('addEmail').value.trim();
+  const role  = document.getElementById('addRole').value;
+  if (!name || !email) { alert('请填写姓名和邮箱'); return; }
+  const newId = members.length ? Math.max(...members.map(m => m.id)) + 1 : 1;
+  const today = new Date().toISOString().slice(0, 10);
+  members.push({ id: newId, name, email, role, status: 'active', createdAt: today, isSelf: false });
+  renderTable();
+  hideModals();
+}
+
+// ===================== 修改角色 Modal =====================
+function showEditModal(id) {
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  editingId = id;
+  document.getElementById('editName').value = m.name;
+  document.getElementById('editRole').value = m.role;
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function confirmEdit() {
+  const m = members.find(x => x.id === editingId);
+  if (!m) return;
+  const name = document.getElementById('editName').value.trim();
+  const role = document.getElementById('editRole').value;
+  if (name) m.name = name;
+  m.role = role;
+  renderTable();
+  hideModals();
+}
+
+// ===================== 关闭 =====================
+function hideModals() {
+  document.getElementById('addModal').style.display  = 'none';
+  document.getElementById('editModal').style.display = 'none';
+  editingId = null;
+}
+
+// 点击遮罩关闭
+['addModal', 'editModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) hideModals();
+  });
+});
+
+// ===================== 初始化 =====================
+renderTable();
+</script>
+</body>
+</html>

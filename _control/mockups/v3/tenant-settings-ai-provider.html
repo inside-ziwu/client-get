@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>OpenRouter 配置 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); border: 1px solid #f0f0f0; padding: 20px 24px; }
+  .label { display: block; font-size: 13px; color: #000000d9; margin-bottom: 4px; }
+  .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-green { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-gray { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>设置</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">OpenRouter</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+  <div class="max-w-2xl space-y-4">
+
+    <!-- API Key 配置 -->
+    <div class="card">
+      <div class="font-medium text-slate-700 mb-4">API Key 配置</div>
+      <div class="mb-4">
+        <label class="label">OpenRouter API Key</label>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <input class="input w-full pr-20" id="apiKeyInput" type="password" value="sk-or-v1-ab3c9d8e7f2a1b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a">
+            <button class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-600 cursor-pointer" id="toggleBtn" onclick="toggleKey()">显示</button>
+          </div>
+          <button class="btn btn-default" onclick="saveKey()">保存</button>
+        </div>
+        <div class="text-xs text-slate-400 mt-1.5">
+          前往 <span class="text-blue-600 cursor-pointer">openrouter.ai</span> 获取 API Key。Key 仅保存于服务器，前端不可见。
+        </div>
+      </div>
+    </div>
+
+    <!-- 账户状态 -->
+    <div class="card">
+      <div class="font-medium text-slate-700 mb-4">账户状态</div>
+      <div class="info-row">
+        <span class="text-slate-500">账户余额</span>
+        <span class="font-semibold text-green-600 text-base">$12.40 · <span class="text-sm font-normal text-green-500">可用</span></span>
+      </div>
+      <div class="info-row">
+        <span class="text-slate-500">API 状态</span>
+        <span><span class="tag tag-green">已连接</span></span>
+      </div>
+      <div class="info-row">
+        <span class="text-slate-500">本月用量</span>
+        <span class="text-slate-700">$4.82（约 1,840 次调用）</span>
+      </div>
+      <div class="info-row" style="border-bottom:none">
+        <span class="text-slate-500">余额更新时间</span>
+        <span class="text-slate-500 text-xs">2026-05-06 08:15 自动同步</span>
+      </div>
+      <div class="mt-4 flex gap-2">
+        <button class="btn btn-default btn-sm" onclick="testConnect()">测试连接</button>
+        <button class="btn btn-default btn-sm" onclick="refreshBalance()">刷新余额</button>
+      </div>
+      <div id="testResult" class="mt-2 text-sm" style="display:none"></div>
+    </div>
+
+    <!-- 当前模型 -->
+    <div class="card">
+      <div class="font-medium text-slate-700 mb-4">当前使用模型</div>
+      <div class="info-row">
+        <span class="text-slate-500">AI 分析模型</span>
+        <span class="font-medium text-slate-700">anthropic/claude-3-haiku</span>
+      </div>
+      <div class="info-row">
+        <span class="text-slate-500">邮件生成模型</span>
+        <span class="font-medium text-slate-700">anthropic/claude-3-haiku</span>
+      </div>
+      <div class="info-row" style="border-bottom:none">
+        <span class="text-slate-500">单次调用估算费用</span>
+        <span class="text-slate-700">约 $0.0025 / 次</span>
+      </div>
+      <div class="mt-3 text-xs text-slate-400 bg-slate-50 rounded px-3 py-2">
+        模型选择由平台统一管理，如需切换模型请联系运营。
+      </div>
+    </div>
+
+    <!-- 用量说明 -->
+    <div class="card">
+      <div class="font-medium text-slate-700 mb-3">用量说明</div>
+      <div class="space-y-2 text-sm text-slate-600">
+        <div class="flex items-start gap-2"><span class="text-slate-400 mt-0.5">•</span><span>公司情报分析：每次约 $0.002 - $0.004</span></div>
+        <div class="flex items-start gap-2"><span class="text-slate-400 mt-0.5">•</span><span>邮件内容个性化生成：每封约 $0.001 - $0.003</span></div>
+        <div class="flex items-start gap-2"><span class="text-slate-400 mt-0.5">•</span><span>余额低于 $5 时系统将暂停 AI 功能，请及时充值</span></div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+let keyVisible = false;
+
+function toggleKey() {
+  keyVisible = !keyVisible;
+  const input = document.getElementById('apiKeyInput');
+  const btn = document.getElementById('toggleBtn');
+  input.type = keyVisible ? 'text' : 'password';
+  btn.textContent = keyVisible ? '隐藏' : '显示';
+}
+
+function saveKey() {
+  alert('API Key 已保存');
+}
+
+function testConnect() {
+  const result = document.getElementById('testResult');
+  result.style.display = 'block';
+  result.textContent = '正在测试连接...';
+  result.className = 'mt-2 text-sm text-slate-500';
+  setTimeout(() => {
+    result.textContent = '✓ 连接成功，API Key 有效，余额 $12.40';
+    result.className = 'mt-2 text-sm text-green-600';
+  }, 1200);
+}
+
+function refreshBalance() {
+  alert('余额已刷新：$12.40');
+}
+</script>
+</body>
+</html>

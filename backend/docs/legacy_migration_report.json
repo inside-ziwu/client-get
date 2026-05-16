@@ -1,0 +1,47 @@
+{
+  "mode": "dry-run",
+  "input_dir": null,
+  "discovered_inputs": [],
+  "mapping_rules": [
+    {
+      "source": "company_data",
+      "target": "shared_companies + company_sources + tenant_companies",
+      "status": "planned"
+    },
+    {
+      "source": "contact_data",
+      "target": "shared_contacts + tenant_contacts",
+      "status": "planned"
+    },
+    {
+      "source": "company_analysis",
+      "target": "company_scores + tenant_companies",
+      "status": "planned"
+    },
+    {
+      "source": "keyword_list",
+      "target": "collection_keywords",
+      "status": "planned"
+    },
+    {
+      "source": "email_plans",
+      "target": "sending_plans + sequence_steps + sequence_enrollments + emails",
+      "status": "planned"
+    },
+    {
+      "source": "system_config",
+      "target": "platform config / encrypted credentials / env",
+      "status": "planned"
+    }
+  ],
+  "validation": {
+    "row_count_checks": true,
+    "dedupe_report": true,
+    "unmatched_records_report": true,
+    "recoverable_plan_report": true
+  },
+  "notes": [
+    "该脚本当前仅输出迁移骨架与报告模板，不连接旧库执行真实导入。",
+    "真实导入需要补充旧库连接方式、样本结构或导出文件格式。"
+  ]
+}

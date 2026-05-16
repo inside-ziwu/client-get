@@ -1,0 +1,72 @@
+name: 构建并推送到阿里云 ACR
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: '要构建的服务'
+        required: true
+        type: choice
+        options:
+          - admin
+          - tenant
+          - backend
+      tag:
+        description: '镜像 tag（留空则自动生成 YYYY.MM.DD-r1）'
+        required: false
+        type: string
+
+env:
+  REGISTRY: crpi-q6fqloatvalw3jr2.cn-beijing.personal.cr.aliyuncs.com
+  API_URL: https://api.xinanpcb.com
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 生成镜像 tag
+        id: meta
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="$(date -u +%Y.%m.%d)-r1"
+          fi
+          IMAGE="${{ env.REGISTRY }}/lay_inside/clientget-${{ inputs.service }}:${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "▶ 构建目标: ${IMAGE}"
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录阿里云 ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: 构建并推送镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.service == 'backend' && 'backend' || 'frontend' }}
+          file: ${{ inputs.service == 'backend' && 'backend/Dockerfile' || format('frontend/Dockerfile.{0}', inputs.service) }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ${{ inputs.service == 'admin' && format('NEXT_PUBLIC_ADMIN_API_BASE_URL={0}', env.API_URL) || '' }}
+            ${{ inputs.service == 'tenant' && format('NEXT_PUBLIC_API_BASE_URL={0}', env.API_URL) || '' }}
+
+      - name: 输出结果
+        run: |
+          echo ""
+          echo "✅ 推送完成: ${{ steps.meta.outputs.image }}"
+          echo ""
+          echo "Sealos 更新镜像 tag 为:"
+          echo "  ${{ steps.meta.outputs.image }}"

@@ -1,0 +1,59 @@
+platform:
+  - platform_users
+  - tenants
+  - data_sources
+  - data_source_credentials
+  - platform_scoring_templates
+  - platform_scoring_template_versions
+  - platform_email_templates
+  - warmup_rules
+  - warmup_rule_levels
+  - ai_models
+  - ai_scene_defaults
+auth:
+  - users
+  - user_roles
+shared_pool:
+  - shared_companies
+  - company_sources
+  - shared_contacts
+collection:
+  - collection_keywords
+  - collection_tasks
+  - collection_task_keywords
+tenant_company:
+  - tenant_companies
+  - scoring_templates
+  - scoring_template_versions
+  - company_scores
+  - contact_rules
+  - company_blacklist
+  - competitor_companies
+contacts_groups:
+  - tenant_contacts
+  - groups
+  - group_members
+email:
+  - domain_warmup_status
+  - domain_warmup_history
+  - domain_daily_usage
+  - email_templates
+  - sending_plans
+  - sending_plan_recipients
+  - sequence_steps
+  - sequence_enrollments
+  - email_send_locks
+  - emails
+  - email_events
+intelligence:
+  - intelligence_sources
+  - intelligence_articles
+  - intelligence_subscriptions
+  - intelligence_article_publications
+billing_ai:
+  - balance_transactions
+  - ai_usage_logs
+system:
+  - notifications
+  - audit_logs
+  - service_idempotency_keys

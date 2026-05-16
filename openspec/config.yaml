@@ -1,0 +1,71 @@
+schema: spec-driven
+
+context: |
+  # 项目背景
+  ClientGet：B2B 外贸客户智能平台（采集 → 清洗 → 评分 → 邮件触达 全链路）。
+
+  # 工作区结构
+  - 单一 monorepo（根目录一个 .git）
+  - frontend/：pnpm monorepo（tenant 租户端 + admin 管理端 + packages/ 共享包）
+  - backend/：Python（FastAPI + SQLAlchemy + Alembic）
+  - openspec/、_control/：规范驱动开发与输入/证据/历史归档
+  - docs/ & blueprint/：只读历史文档，禁止修改
+
+  # 技术栈
+  - 前端：pnpm monorepo（apps/tenant + apps/admin + packages/ 共享包）
+  - 后端：Python / FastAPI / SQLAlchemy（async）
+  - 数据库：PostgreSQL + Alembic 迁移
+  - Worker：backend/app/workers/（collection / scheduler / scoring / sending）
+  - 部署：Sealos + 阿里云 ACR 容器镜像
+  - 外部服务：EngageLab（邮件通道）、Tendata（数据采集）
+
+  # 架构细节
+  - 后端路由前缀：/admin/api/v1（管理端）、/t/{slug}/api/v1（租户端）、/internal/api/v1（内部 worker）、/webhooks
+  - 认证机制：JWT + RLS（set_current_tenant 实现租户隔离）
+  - 前端状态管理：React Query（服务端状态）+ Zustand（认证状态）
+  - UI 组件库：shadcn/ui + Tailwind CSS（前端）、GrapeJS（Admin 邮件编辑器）
+
+  # 代码规范
+  - 后端分层：api（路由+参数+权限） → services（业务逻辑+SQL） → db/pools（连接池+RLS）
+  - 数据库访问：手写 SQL via AsyncConnection，无 ORM 实体层
+  - API 响应格式：统一 JSON，前端通过共享类型消费
+  - 命名约定：Python snake_case，TypeScript camelCase 变量 / PascalCase 组件
+  - 数据库迁移：Alembic auto-generate，每次变更一个 revision
+  - 中文沟通、中文注释、中文提交信息
+
+  # 约定
+  - 简洁优先（KISS），避免过度防御性设计
+  - 所有变更必须走 OpenSpec change 驱动，不得跳过
+  - 实施前有疑点必须先澄清，不允许 AI 自行补完
+  - 涉及数据库、worker、邮件、部署的改动需额外 review
+
+rules:
+  proposal:
+    - 必须评估对现有功能的影响（填写 Impact 表格）
+    - 涉及数据库变更时需说明迁移策略（新增表 / 字段 / 索引）
+    - 必须包含 Non-Goals 段，明确不做什么
+    - 涉及跨模块（前端 + 后端 + worker）时需标注依赖顺序
+    - 必须关联 _control/ 中的决策编号（D-xxx）和能力域（C-xxx）
+
+  specs:
+    - 使用 Given/When/Then 格式描述场景
+    - 每个需求至少包含一个正常场景和一个异常 / 边界场景
+    - 需求标题使用 SHALL / MUST 等 RFC 2119 关键词
+    - 涉及 API 变更时必须包含请求 / 响应字段说明
+
+  design:
+    - 必须与现有后端分层架构一致（api → services → db）
+    - route 层只负责参数校验、权限和调用 service，不写业务逻辑
+    - 涉及 API 变更时必须包含端点路径、请求体、响应体示例
+    - 新增 API 入参优先使用 Pydantic schema，避免 payload: dict
+    - 涉及数据库变更时必须包含表结构和 Alembic 迁移要点
+    - 涉及 worker 变更时必须说明调度机制和幂等性保证
+    - 涉及前端变更时必须标注影响的 app（tenant / admin / 共享包）
+    - 涉及前端 API 调用时必须同步更新 packages/shared-api
+    - 新增静态路由必须放在动态 /{id} 路由之前
+
+  tasks:
+    - 复杂任务必须拆分为子任务（可执行步骤，不能只有泛泛目标）
+    - 必须包含验证步骤（测试 / 构建 / lint / E2E / 手工验收）
+    - 涉及数据库迁移的任务必须标注迁移文件名和执行顺序
+    - 涉及部署的任务必须标注镜像构建和 Sealos 更新步骤

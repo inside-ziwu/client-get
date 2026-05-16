@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>预热规则</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger-icon { background: white; color: #ff4d4f; border: 1px solid #fca5a5; border-radius: 4px; width: 24px; height: 24px; font-size: 15px; cursor: pointer; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .btn-danger-icon:hover { background: #fff1f0; border-color: #ff4d4f; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  input[type="number"].input { -moz-appearance: textfield; }
+  input[type="number"].input::-webkit-outer-spin-button,
+  input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+  td { padding: 8px 14px; font-size: 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
+  .tooltip-wrap .tooltip-box {
+    display: none; position: absolute; left: 50%; bottom: calc(100% + 6px);
+    transform: translateX(-50%); background: rgba(0,0,0,0.75); color: #fff;
+    font-size: 12px; padding: 4px 10px; border-radius: 4px; white-space: nowrap;
+    pointer-events: none; z-index: 100;
+  }
+  .tooltip-wrap:hover .tooltip-box { display: block; }
+  .section-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .section-header { padding: 16px 20px 0; }
+  .section-body { padding: 16px 20px 20px; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ===== Sidebar ===== -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<!-- ===== Header ===== -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500">
+    <span>客户运营</span><span class="mx-2">/</span>
+    <span class="text-slate-800 font-medium">预热规则</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <span class="text-sm text-slate-500">admin@platform · 退出</span>
+    <button class="btn btn-primary" onclick="handleSave()">保存</button>
+  </div>
+</header>
+
+<!-- ===== Main ===== -->
+<main class="ml-56 p-6">
+
+  <!-- Page title -->
+  <div class="mb-4">
+    <p class="text-sm text-slate-500 mt-0.5">全局配置，保存后影响所有租户域名预热策略</p>
+  </div>
+
+  <!-- ===== 全局参数卡片 ===== -->
+  <div class="section-card">
+    <div class="section-body space-y-4">
+
+      <!-- 黄色警告条 -->
+      <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded p-3 text-sm flex items-start gap-2">
+        <span class="mt-0.5">⚠</span>
+        <span>这里是全局配置，保存后会影响所有租户域名的预热策略，请谨慎修改。</span>
+      </div>
+
+      <!-- 表单行 -->
+      <div class="grid grid-cols-2 gap-x-8 gap-y-4">
+        <div>
+          <label class="label">规则名称</label>
+          <input class="input w-full" type="text" value="PCB 行业预热规则">
+        </div>
+        <div>
+          <label class="label">退信报警阈值</label>
+          <input class="input" type="number" step="0.001" min="0" max="1" value="0.05" style="width:140px;">
+          <span class="text-sm text-slate-400 ml-2">（小数，如 0.05 = 5%）</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== 预热档位卡片 ===== -->
+  <div class="section-card">
+    <div class="section-header flex items-center justify-between pb-3 border-b border-slate-100">
+      <span class="font-medium text-slate-800">预热档位</span>
+      <button class="btn btn-default text-sm" onclick="addTier()">+ 新增档位</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table>
+        <thead>
+          <tr>
+            <th>档位</th>
+            <th>每日上限（封）</th>
+            <th>最少停留天数</th>
+            <th>最低送达率</th>
+            <th>最高退信率</th>
+            <th>最高投诉率</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tier-tbody">
+          <!-- 数据由 JS 渲染 -->
+        </tbody>
+      </table>
+    </div>
+    <!-- 底部说明 -->
+    <div class="px-5 py-3 border-t border-slate-100">
+      <p class="text-xs text-slate-400">
+        在当前档位停留满「最少停留天数」后，若送达率、退信率、投诉率同时达标，域名将自动升入下一档位。
+      </p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== 保存成功提示 ===== -->
+<div id="save-toast" class="hidden fixed bottom-6 right-6 bg-emerald-600 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg z-50">
+  保存成功
+</div>
+
+<script>
+// 初始数据
+var tiers = [
+  { id: 1, dailyLimit: 5,    minDays: 5,  minDelivery: 0.95, maxBounce: 0.02,  maxComplaint: 0.001 },
+  { id: 2, dailyLimit: 50,   minDays: 5,  minDelivery: 0.95, maxBounce: 0.02,  maxComplaint: 0.001 },
+  { id: 3, dailyLimit: 200,  minDays: 7,  minDelivery: 0.95, maxBounce: 0.02,  maxComplaint: 0.001 },
+  { id: 4, dailyLimit: 1000, minDays: 7,  minDelivery: 0.95, maxBounce: 0.02,  maxComplaint: 0.001 },
+  { id: 5, dailyLimit: 2500, minDays: 14, minDelivery: 0.95, maxBounce: 0.02,  maxComplaint: 0.001 },
+];
+var nextId = 6;
+
+function renderTiers() {
+  var tbody = document.getElementById('tier-tbody');
+  tbody.innerHTML = '';
+  tiers.forEach(function(tier, idx) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="text-slate-600 font-medium text-center" style="width:52px;">' + (idx + 1) + '</td>' +
+      '<td>' + numInput('dailyLimit', tier.id, tier.dailyLimit, 1, 'width:90px;') + '</td>' +
+      '<td>' + numInput('minDays',    tier.id, tier.minDays,    1, 'width:90px;') + '</td>' +
+      '<td>' + numInput('minDelivery',tier.id, tier.minDelivery,0.001,'width:90px;') + '</td>' +
+      '<td>' + numInput('maxBounce',  tier.id, tier.maxBounce,  0.001,'width:90px;') + '</td>' +
+      '<td>' + numInput('maxComplaint',tier.id,tier.maxComplaint,0.0001,'width:90px;') + '</td>' +
+      '<td style="width:40px; text-align:center;">' +
+        '<button class="btn-danger-icon" onclick="deleteTier(' + tier.id + ')" title="删除">×</button>' +
+      '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function numInput(field, id, val, step, styleStr) {
+  return '<input type="number" class="input" style="' + styleStr + '" ' +
+    'step="' + step + '" min="0" value="' + val + '" ' +
+    'onchange="updateTier(' + id + ',\'' + field + '\', this.value)">';
+}
+
+function updateTier(id, field, value) {
+  var tier = tiers.find(function(t) { return t.id === id; });
+  if (tier) tier[field] = parseFloat(value);
+}
+
+function deleteTier(id) {
+  tiers = tiers.filter(function(t) { return t.id !== id; });
+  renderTiers();
+}
+
+function addTier() {
+  var last = tiers[tiers.length - 1];
+  tiers.push({
+    id: nextId++,
+    dailyLimit: last ? last.dailyLimit * 2 : 5,
+    minDays: 7,
+    minDelivery: 0.95,
+    maxBounce: 0.02,
+    maxComplaint: 0.001,
+  });
+  renderTiers();
+}
+
+function handleSave() {
+  var toast = document.getElementById('save-toast');
+  toast.classList.remove('hidden');
+  setTimeout(function() { toast.classList.add('hidden'); }, 2000);
+}
+
+// 初始化
+renderTiers();
+</script>
+</body>
+</html>

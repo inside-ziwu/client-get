@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>评分模板</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  input[type="number"].input { -moz-appearance: textfield; }
+  input[type="number"].input::-webkit-outer-spin-button,
+  input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+  .label-required::before { content: '*'; color: #ff4d4f; margin-right: 2px; }
+
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 12px 16px; font-size: 14px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+  tr:hover td { background: #fafafa; }
+
+  .tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+  .tag-blue  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .tag-gray  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+  .tag-green { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .tag-gold  { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  .tag-orange{ background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+
+  .switch { display: inline-flex; align-items: center; cursor: pointer; }
+  .switch-track { width: 40px; height: 22px; border-radius: 11px; transition: background 0.2s; position: relative; }
+  .switch-on  .switch-track { background: #1677ff; }
+  .switch-off .switch-track { background: #d9d9d9; }
+  .switch-thumb { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .switch-on  .switch-thumb { left: 20px; }
+  .switch-off .switch-thumb { left: 2px; }
+
+  .drawer { position: fixed; inset: 0; z-index: 40; }
+  .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
+  .drawer-panel { position: absolute; top: 0; bottom: 0; right: 0; width: 680px; background: white; box-shadow: -4px 0 24px rgba(0,0,0,0.12); display: flex; flex-direction: column; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal-box { background: white; border-radius: 8px; width: 760px; max-height: 90vh; overflow-y: auto; }
+
+  /* 分数输入 — 小号 */
+  .score-input {
+    width: 64px; text-align: center; padding: 3px 6px;
+    border: 1px solid #d9d9d9; border-radius: 5px; font-size: 13px; outline: none;
+    -moz-appearance: textfield;
+  }
+  .score-input::-webkit-outer-spin-button,
+  .score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .score-input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+
+  /* 维度区块 */
+  .dim-block { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+  .dim-block + .dim-block { margin-top: 8px; }
+  .dim-header { background: #f8fafc; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .dim-name { font-size: 13px; font-weight: 600; color: #1e293b; }
+  .dim-max  { font-size: 12px; color: #64748b; }
+  .cond-row { display: flex; align-items: center; padding: 7px 14px; border-top: 1px solid #f1f5f9; }
+  .cond-label { flex: 1; font-size: 13px; color: #374151; }
+  .cond-unit  { font-size: 12px; color: #94a3b8; margin-left: 6px; }
+
+  /* 预览 — 权重环 */
+  .ring-wrap { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-val { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #1677ff; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ===== 侧边导航 ===== -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<!-- ===== 顶部导航 ===== -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>营销</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">评分模板</span></div>
+  <div class="text-sm text-slate-500">admin@platform · 退出</div>
+</header>
+
+<!-- ===== 主内容 ===== -->
+<main class="ml-56 p-6">
+  <div class="flex items-center justify-between mb-4">
+    <button class="btn btn-primary" onclick="showCreate()">+ 新建模板</button>
+  </div>
+
+  <div class="bg-white rounded-md shadow-sm overflow-hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>模板名称</th>
+          <th>行业</th>
+          <th>维度数</th>
+          <th>启用</th>
+          <th>更新时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="font-medium text-slate-800">PCB 行业默认模板</td>
+          <td><span class="tag tag-blue">PCB</span></td>
+          <td>7 个</td>
+          <td>
+            <div class="switch switch-on" onclick="toggleSwitch(this)">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </td>
+          <td class="text-slate-500">2026-05-01</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showPreview()">预览</a>
+            <a class="text-blue-600 cursor-pointer ml-3" onclick="showEdit()">编辑</a>
+            <a class="text-red-500 cursor-pointer ml-3">删除</a>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">通用精准客户模板</td>
+          <td><span class="tag tag-gray">无行业</span></td>
+          <td>3 个</td>
+          <td>
+            <div class="switch switch-off" onclick="toggleSwitch(this)">
+              <div class="switch-track"><div class="switch-thumb"></div></div>
+            </div>
+          </td>
+          <td class="text-slate-500">2026-04-20</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showPreview()">预览</a>
+            <a class="text-blue-600 cursor-pointer ml-3" onclick="showEdit()">编辑</a>
+            <a class="text-red-500 cursor-pointer ml-3">删除</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="px-4 py-3 text-sm text-slate-500 border-t border-slate-100 flex justify-between items-center">
+      <span>共 2 条</span>
+      <div class="flex gap-2 items-center">
+        <button class="btn btn-default text-xs">上一页</button>
+        <span class="text-xs">1 / 1</span>
+        <button class="btn btn-default text-xs">下一页</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+
+<!-- ===== 新建 / 编辑 Drawer ===== -->
+<div id="form-drawer" class="drawer hidden">
+  <div class="overlay" onclick="hideDrawer()"></div>
+  <div class="drawer-panel">
+
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+      <h2 id="drawer-title" class="text-base font-medium">新建模板</h2>
+      <button onclick="hideDrawer()" class="text-slate-400 text-xl leading-none">×</button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-6 space-y-5">
+
+      <!-- 基础信息 -->
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label label-required">模板名称</label>
+          <input class="input w-full" placeholder="如：PCB 行业默认模板" id="f-name">
+        </div>
+        <div>
+          <label class="label label-required">行业</label>
+          <input class="input w-full" placeholder="PCB" id="f-industry">
+        </div>
+      </div>
+
+      <div>
+        <label class="label">描述</label>
+        <textarea class="input w-full" rows="2" placeholder="简要描述此模板的用途..." id="f-desc"></textarea>
+      </div>
+
+      <!-- 等级阈值 -->
+      <div>
+        <label class="label label-required">等级阈值（分）</label>
+        <div class="flex gap-3">
+          <div class="flex-1 text-center">
+            <div class="text-xs text-amber-600 font-semibold mb-1">S</div>
+            <input class="input w-full text-center" type="number" value="90" id="f-s">
+          </div>
+          <div class="flex-1 text-center">
+            <div class="text-xs text-green-700 font-semibold mb-1">A</div>
+            <input class="input w-full text-center" type="number" value="70" id="f-a">
+          </div>
+          <div class="flex-1 text-center">
+            <div class="text-xs text-blue-600 font-semibold mb-1">B</div>
+            <input class="input w-full text-center" type="number" value="50" id="f-b">
+          </div>
+          <div class="flex-1 text-center">
+            <div class="text-xs text-orange-600 font-semibold mb-1">C</div>
+            <input class="input w-full text-center" type="number" value="30" id="f-c">
+          </div>
+          <div class="flex-1 text-center">
+            <div class="text-xs text-slate-500 font-semibold mb-1">D</div>
+            <input class="input w-full text-center" type="number" value="0" id="f-d">
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-1">各等级最低分（含），总分 100 分制</p>
+      </div>
+
+      <!-- 维度评分 -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="label" style="margin-bottom:0">维度评分</label>
+          <span class="text-xs text-slate-400">条件由工程初始化，此处仅调整各档分值</span>
+        </div>
+        <div id="dim-editor">
+          <!-- JS 渲染 -->
+        </div>
+        <!-- 汇总 -->
+        <div class="mt-2 text-right text-xs" id="dim-sum-row">
+          <span class="text-slate-400">最高可得：</span>
+          <span id="dim-sum" class="font-semibold text-slate-700">—</span>
+          <span class="text-slate-400"> 分</span>
+        </div>
+      </div>
+
+      <!-- 备注 -->
+      <div>
+        <label class="label">备注</label>
+        <input class="input w-full" id="f-notes" placeholder="如：以最近三年数据为基础，以美元计算">
+      </div>
+
+      <!-- 启用 -->
+      <div class="flex items-center gap-3">
+        <label class="label" style="margin-bottom:0">启用</label>
+        <div class="switch switch-on" id="f-switch" onclick="toggleDrawerSwitch()">
+          <div class="switch-track"><div class="switch-thumb"></div></div>
+        </div>
+        <span id="f-switch-label" class="text-sm text-slate-500">已启用</span>
+      </div>
+
+    </div>
+
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2 flex-shrink-0">
+      <button class="btn btn-default" onclick="hideDrawer()">取消</button>
+      <button class="btn btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ===== 预览 Modal ===== -->
+<div id="preview-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <h2 class="text-base font-medium">PCB 行业默认模板</h2>
+        <div class="text-xs text-slate-400 mt-0.5">行业：PCB · 7 个维度 · 最高 100 分 · 以最近三年数据为基础，以美元计算</div>
+      </div>
+      <button onclick="hidePreview()" class="text-slate-400 text-xl leading-none">×</button>
+    </div>
+
+    <div class="p-6 space-y-5">
+
+      <!-- 等级阈值 -->
+      <div>
+        <div class="text-sm font-medium text-slate-700 mb-2">等级阈值</div>
+        <div class="flex gap-2 flex-wrap">
+          <span class="tag tag-gold"   style="padding:3px 12px;font-size:13px;">S ≥ 90</span>
+          <span class="tag tag-green"  style="padding:3px 12px;font-size:13px;">A ≥ 70</span>
+          <span class="tag tag-blue"   style="padding:3px 12px;font-size:13px;">B ≥ 50</span>
+          <span class="tag tag-orange" style="padding:3px 12px;font-size:13px;">C ≥ 30</span>
+          <span class="tag tag-gray"   style="padding:3px 12px;font-size:13px;">D ≥ 0</span>
+        </div>
+      </div>
+
+      <!-- 维度卡片 -->
+      <div>
+        <div class="text-sm font-medium text-slate-700 mb-3">评分维度</div>
+        <div class="space-y-3">
+
+          <!-- 工厂性质 max=10 offset=101.8 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="101.8" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">10</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">工厂性质</span>
+                  <span class="text-xs text-slate-400">最高 10 分</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">生产制造</span><span class="font-semibold text-slate-800">10 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">ODM</span><span class="font-semibold text-slate-800">8 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">OEM</span><span class="font-semibold text-slate-800">6 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 工厂规模 max=20 offset=90.5 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="90.5" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">20</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">工厂规模</span>
+                  <span class="text-xs text-slate-400">最高 20 分</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">中型（51–499 人）</span><span class="font-semibold text-slate-800">20 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">大型（500–1999 人）</span><span class="font-semibold text-slate-800">16 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">小型（10–49 人）</span><span class="font-semibold text-slate-800">16 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">超大型（2000 人以上）</span><span class="font-semibold text-slate-800">0 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 进出口额 max=20 offset=90.5 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="90.5" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">20</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">进出口额</span>
+                  <span class="text-xs text-slate-400">最高 20 分 · 近三年 · USD</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">10–50 万</span><span class="font-semibold text-slate-800">20 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">50–3000 万</span><span class="font-semibold text-slate-800">16 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">10 万以下</span><span class="font-semibold text-slate-800">12 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">3000 万以上</span><span class="font-semibold text-slate-800">0 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 进出口次数 max=10 offset=101.8 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="101.8" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">10</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">进出口次数</span>
+                  <span class="text-xs text-slate-400">最高 10 分 · 近三年</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">36–360 次</span><span class="font-semibold text-slate-800">10 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">360 次以上</span><span class="font-semibold text-slate-800">8 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">6–36 次</span><span class="font-semibold text-slate-800">6 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 联系人 max=10 offset=101.8 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="101.8" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">10</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">联系人</span>
+                  <span class="text-xs text-slate-400">最高 10 分</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">有采购联系人</span><span class="font-semibold text-slate-800">10 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">无采购联系人</span><span class="font-semibold text-slate-800">8 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 数据来源 max=10 offset=101.8 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="101.8" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">10</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">数据来源</span>
+                  <span class="text-xs text-slate-400">最高 10 分</span>
+                </div>
+                <div class="space-y-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">A — 返推买家（腾道）</span><span class="font-semibold text-slate-800">10 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">B — 外贸通直采</span><span class="font-semibold text-slate-800">8 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">C — 其它网上采集</span><span class="font-semibold text-slate-800">6 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PCB 供应商 max=20 offset=90.5 -->
+          <div class="border border-slate-200 rounded-lg p-4 bg-white">
+            <div class="flex items-start gap-3">
+              <div class="ring-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#e2e8f0" stroke-width="4"/>
+                  <circle cx="22" cy="22" r="18" fill="none" stroke="#1677ff" stroke-width="4"
+                    stroke-dasharray="113.1" stroke-dashoffset="90.5" stroke-linecap="round"/>
+                </svg>
+                <div class="ring-val">20</div>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="font-semibold text-slate-800 text-sm">PCB 供应商</span>
+                  <span class="text-xs text-slate-400">最高 20 分</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">A — 有中国 PCB 供应商</span><span class="font-semibold text-slate-800">20 分</span></div>
+                  <div class="bg-slate-50 rounded px-3 py-1.5 text-xs flex justify-between"><span class="text-slate-600">B — 无中国 PCB 供应商</span><span class="font-semibold text-slate-800">10 分</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end">
+      <button class="btn btn-default" onclick="hidePreview()">关闭</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ===== PCB 模板维度定义（工程初始化，条件标签只读）===== */
+var PCB_TEMPLATE = [
+  {
+    key: 'factory_type',
+    name: '工厂性质',
+    conditions: [
+      { label: '生产制造', score: 10 },
+      { label: 'ODM',      score: 8  },
+      { label: 'OEM',      score: 6  },
+    ]
+  },
+  {
+    key: 'employee_scale',
+    name: '工厂规模',
+    conditions: [
+      { label: '中型（51–499 人）',    score: 20 },
+      { label: '大型（500–1999 人）',  score: 16 },
+      { label: '小型（10–49 人）',     score: 16 },
+      { label: '超大型（2000 人以上）',score: 0  },
+    ]
+  },
+  {
+    key: 'trade_amount',
+    name: '进出口额',
+    hint: '近三年 · USD',
+    conditions: [
+      { label: '10–50 万',   score: 20 },
+      { label: '50–3000 万', score: 16 },
+      { label: '10 万以下',  score: 12 },
+      { label: '3000 万以上',score: 0  },
+    ]
+  },
+  {
+    key: 'trade_count',
+    name: '进出口次数',
+    hint: '近三年',
+    conditions: [
+      { label: '36–360 次',  score: 10 },
+      { label: '360 次以上', score: 8  },
+      { label: '6–36 次',    score: 6  },
+    ]
+  },
+  {
+    key: 'contact_quality',
+    name: '联系人',
+    conditions: [
+      { label: '有采购联系人', score: 10 },
+      { label: '无采购联系人', score: 8  },
+    ]
+  },
+  {
+    key: 'data_source',
+    name: '数据来源',
+    conditions: [
+      { label: 'A — 返推买家（腾道）',score: 10 },
+      { label: 'B — 外贸通直采',      score: 8  },
+      { label: 'C — 其它网上采集',    score: 6  },
+    ]
+  },
+  {
+    key: 'pcb_supplier',
+    name: 'PCB 供应商',
+    conditions: [
+      { label: 'A — 有中国 PCB 供应商', score: 20 },
+      { label: 'B — 无中国 PCB 供应商', score: 10 },
+    ]
+  },
+];
+
+/* 当前 Drawer 里的维度数据（深拷贝后可编辑） */
+var editingDims = [];
+
+function deepCloneTemplate(tpl) {
+  return tpl.map(function(d) {
+    return {
+      key: d.key,
+      name: d.name,
+      hint: d.hint || '',
+      conditions: d.conditions.map(function(c) {
+        return { label: c.label, score: c.score };
+      })
+    };
+  });
+}
+
+/* ===== 渲染 Drawer 维度区 ===== */
+function renderDimEditor() {
+  var el = document.getElementById('dim-editor');
+  var totalMax = 0;
+
+  el.innerHTML = editingDims.map(function(dim, di) {
+    var dimMax = dim.conditions.reduce(function(m, c) { return Math.max(m, c.score); }, 0);
+    totalMax += dimMax;
+
+    var hintHtml = dim.hint ? '<span class="text-xs text-slate-400 ml-1">' + dim.hint + '</span>' : '';
+
+    var condRows = dim.conditions.map(function(c, ci) {
+      return '<div class="cond-row">' +
+        '<span class="cond-label">' + c.label + '</span>' +
+        '<input class="score-input" type="number" min="0" max="100" value="' + c.score + '" ' +
+          'onchange="updateScore(' + di + ',' + ci + ',+this.value)">' +
+        '<span class="cond-unit">分</span>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="dim-block">' +
+      '<div class="dim-header">' +
+        '<span class="dim-name">' + dim.name + hintHtml + '</span>' +
+        '<span class="dim-max">最高 ' + dimMax + ' 分</span>' +
+      '</div>' +
+      condRows +
+    '</div>';
+  }).join('');
+
+  /* 更新总分 */
+  var sumEl = document.getElementById('dim-sum');
+  if (sumEl) {
+    sumEl.textContent = totalMax;
+    sumEl.style.color = totalMax === 100 ? '#16a34a' : (totalMax > 100 ? '#dc2626' : '#d97706');
+  }
+}
+
+function updateScore(di, ci, val) {
+  if (editingDims[di] && editingDims[di].conditions[ci]) {
+    editingDims[di].conditions[ci].score = val;
+    renderDimEditor();
+  }
+}
+
+/* ===== Drawer 控制 ===== */
+function showCreate() {
+  document.getElementById('drawer-title').textContent = '新建模板';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-industry').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-notes').value = '';
+  editingDims = deepCloneTemplate(PCB_TEMPLATE);
+  renderDimEditor();
+  document.getElementById('form-drawer').classList.remove('hidden');
+}
+
+function showEdit() {
+  document.getElementById('drawer-title').textContent = '编辑模板';
+  document.getElementById('f-name').value = 'PCB 行业默认模板';
+  document.getElementById('f-industry').value = 'PCB';
+  document.getElementById('f-desc').value = '针对 PCB 制造商设计的 7 维评分规则，适用于外贸通 + 腾道数据。';
+  document.getElementById('f-notes').value = '以最近三年数据为基础，以美元计算';
+  editingDims = deepCloneTemplate(PCB_TEMPLATE);
+  renderDimEditor();
+  document.getElementById('form-drawer').classList.remove('hidden');
+}
+
+function hideDrawer() {
+  document.getElementById('form-drawer').classList.add('hidden');
+}
+
+/* ===== 预览 Modal ===== */
+function showPreview() { document.getElementById('preview-modal').classList.remove('hidden'); }
+function hidePreview() { document.getElementById('preview-modal').classList.add('hidden'); }
+
+/* ===== Switch ===== */
+function toggleSwitch(el) {
+  el.classList.toggle('switch-on');
+  el.classList.toggle('switch-off');
+}
+
+function toggleDrawerSwitch() {
+  var el = document.getElementById('f-switch');
+  el.classList.toggle('switch-on');
+  el.classList.toggle('switch-off');
+  document.getElementById('f-switch-label').textContent =
+    el.classList.contains('switch-on') ? '已启用' : '已禁用';
+}
+</script>
+</body>
+</html>

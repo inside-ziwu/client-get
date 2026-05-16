@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@shared/types": ["../shared-types/src"],
+      "@shared/hooks": ["../shared-hooks/src"]
+    }
+  },
+  "include": ["src"]
+}

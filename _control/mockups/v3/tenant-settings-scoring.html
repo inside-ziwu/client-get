@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>评分配置 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 16px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .weight-input { width: 80px; padding: 4px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; text-align: center; }
+  .weight-input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>设置</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">评分配置</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+  <div class="max-w-3xl">
+
+    <!-- 提示说明 D-039 -->
+    <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 flex items-start gap-2">
+      <span class="text-amber-500 text-base mt-0.5">ℹ</span>
+      <div class="text-sm text-amber-800">
+        <strong>说明：</strong>评分维度由平台统一定义，租户仅可调整各维度的权重比例。权重合计应为 100，系统将按此比例计算企业综合评分。
+      </div>
+    </div>
+
+    <div class="bg-white rounded-md shadow-sm overflow-hidden">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:180px">评分维度</th>
+            <th>说明</th>
+            <th style="width:120px; text-align:center">权重（0-100）</th>
+            <th style="width:100px; text-align:center">平台推荐</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="font-medium text-slate-800">工厂性质</td>
+            <td class="text-slate-500 text-xs leading-relaxed">判断对方是否为工厂型企业（买家），非贸易商；通过关键词与工商信息推断</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w1" value="20" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">20</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-slate-800">工厂规模</td>
+            <td class="text-slate-500 text-xs leading-relaxed">根据员工数量、年营收、厂区面积等信息综合评估企业规模大小</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w2" value="15" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">15</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-slate-800">进出口额</td>
+            <td class="text-slate-500 text-xs leading-relaxed">近3年进出口贸易总额，数据来源外贸通/腾道，金额越高分值越高</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w3" value="20" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">20</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-slate-800">进出口次数</td>
+            <td class="text-slate-500 text-xs leading-relaxed">近3年进出口记录条数，反映采购活跃度，次数越多说明采购频次越高</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w4" value="15" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">15</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-slate-800">联系人（有采购）</td>
+            <td class="text-slate-500 text-xs leading-relaxed">是否存在采购相关职位联系人（Procurement / Supply Chain 等），有则得分</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w5" value="15" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">15</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-slate-800">数据来源</td>
+            <td class="text-slate-500 text-xs leading-relaxed">数据来源质量评估：外贸通直采 > 腾道反推 > 励销云。来源越权威，置信度越高</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w6" value="5" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">5</td>
+          </tr>
+          <tr>
+            <td class="font-medium text-slate-800">PCB 供应商</td>
+            <td class="text-slate-500 text-xs leading-relaxed">是否有中国 PCB 供应商记录（has_china_pcb_supplier）；有记录则说明已是潜在采购商</td>
+            <td style="text-align:center"><input type="number" class="weight-input" id="w7" value="10" min="0" max="100" oninput="recalc()"></td>
+            <td style="text-align:center" class="text-slate-400 text-sm">10</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="font-medium text-slate-700">合计权重</td>
+            <td style="text-align:center">
+              <span id="totalWeight" class="font-semibold text-lg text-blue-600">100</span>
+              <span class="text-xs text-slate-400 ml-1">/ 100</span>
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- 合计提示 -->
+    <div id="weightWarning" class="mt-3 text-sm text-red-600" style="display:none">
+      权重合计不等于 100，请调整后再保存
+    </div>
+
+    <div class="mt-5 flex gap-3">
+      <button class="btn btn-primary" onclick="save()">保存配置</button>
+      <button class="btn btn-default" onclick="resetDefault()">恢复推荐值</button>
+    </div>
+
+  </div>
+</main>
+
+<script>
+function recalc() {
+  const ids = ['w1','w2','w3','w4','w5','w6','w7'];
+  const total = ids.reduce((sum, id) => sum + (parseInt(document.getElementById(id).value) || 0), 0);
+  const el = document.getElementById('totalWeight');
+  el.textContent = total;
+  el.className = total === 100 ? 'font-semibold text-lg text-blue-600' : 'font-semibold text-lg text-red-500';
+  document.getElementById('weightWarning').style.display = total !== 100 ? 'block' : 'none';
+}
+
+function save() {
+  const ids = ['w1','w2','w3','w4','w5','w6','w7'];
+  const total = ids.reduce((sum, id) => sum + (parseInt(document.getElementById(id).value) || 0), 0);
+  if (total !== 100) {
+    alert('权重合计必须为 100，当前合计为 ' + total);
+    return;
+  }
+  alert('评分配置已保存');
+}
+
+function resetDefault() {
+  const defaults = { w1: 20, w2: 15, w3: 20, w4: 15, w5: 15, w6: 5, w7: 10 };
+  Object.entries(defaults).forEach(([id, val]) => {
+    document.getElementById(id).value = val;
+  });
+  recalc();
+}
+</script>
+</body>
+</html>
