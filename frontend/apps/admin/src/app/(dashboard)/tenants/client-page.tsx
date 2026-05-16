@@ -623,7 +623,7 @@ export function TenantsPage() {
                   </div>
                   <Button type="submit" disabled={!domainText.trim() || !domainWarmupRuleId || !domainWarmupLevel}>添加</Button>
                 </div>
-                <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_240px]">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>域名</Label>
                     <Input placeholder="example.com" value={domainText} onChange={(event) => setDomainText(event.target.value)} />
