@@ -10,10 +10,8 @@
 | --- | --- | --- |
 | `frontend/` | 前端代码（pnpm monorepo：tenant + admin + packages/ 共享包） | 可改 |
 | `backend/` | 后端代码 | 可改 |
-| `blueprint/` | 历史后端蓝图与设计依据 | **只读，禁止修改/删除/移动** |
 | `docs/` | 历史文档：会议、原始资料、归档、计划（`docs/solutions/` 除外，见下行） | **只读，禁止修改/删除/移动** |
 | `docs/solutions/` | 已沉淀的解决方案（bug 修复 / 最佳实践 / 工作流方法论），按 category 组织 + YAML frontmatter（`module` / `tags` / `problem_type`）；由 `/ce:compound` skill 创建。**实施或调试涉及已有解决方案的领域时可参考。** | 可改（仅限 `ce:compound` / `ce:compound-refresh` 添加） |
-| `_control/` | OpenSpec 之外的输入 / 证据 / 历史归档区；详见 `_control/README.md` | 可改（仅限当前 OpenSpec change 明确要求） |
 | `openspec/` | 规范驱动开发（OpenSpec skill 识别） | 可改 |
 
 ## 2. 任务前置判断
@@ -33,13 +31,7 @@
    - 若 active changes 中无法唯一匹配当前任务，必须暂停并询问用户指定 change；不得自行选择相近 change
    - 若没有合适 change，不得实施；必须先创建或补齐 change
 
-2. 再按当前 change 需要读取 `_control/` 输入或证据：
-   - `_control/inputs/` — 业务目标、参考实现、数据库访问协议、schema 等输入材料
-   - `_control/mockups/` — UI 原型输入
-   - `_control/evidence/` — 已完成 slice 记录、部署清单、数据库 dump / snapshot 等证据
-   - `_control/archive/` — 仅追溯历史时读取；不得作为当前实施权威
-
-3. 最后读取相关代码、测试、配置与当前 change 指向的材料。
+2. 最后读取相关代码、测试、配置与当前 change 指向的材料。
 
 禁止在未确认当前 OpenSpec change 的情况下直接改代码。
 
@@ -129,7 +121,7 @@
 cd /Users/lay/Documents/Github/client_get/backend
 bash scripts/push-backend.sh
 
-# Admin 前端镜像（构建参数内置 VITE_API_BASE_URL=https://api.xinanpcb.com）
+# Admin 前端镜像（构建参数内置 NEXT_PUBLIC_ADMIN_API_BASE_URL=https://api.xinanpcb.com）
 cd /Users/lay/Documents/Github/client_get/frontend
 bash deploy/push-admin.sh
 
@@ -217,7 +209,7 @@ ce:brainstorm → ce:plan → gstack plan-eng-review → ce:work → verificatio
 适用：多天任务、跨模块改动、产品方向不确定、多人协作、需要长期维护。
 
 ```
-ce:brainstorm → openspec new change → openspec validate → ce:plan → gstack plan-eng-review → ce:work → verification-before-completion → gstack qa → ce:review → gstack ship → gstack land-and-deploy → openspec archive → ce:compound
+ce:brainstorm → opsx:propose → opsx:verify → ce:plan → gstack plan-eng-review → ce:work → verification-before-completion → gstack qa → ce:review → gstack ship → gstack land-and-deploy → opsx:archive → ce:compound
 ```
 
 ### 补充说明
