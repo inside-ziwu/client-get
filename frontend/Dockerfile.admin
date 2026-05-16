@@ -2,7 +2,7 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
-RUN npm install -g pnpm@9.15.0
+RUN npm install -g pnpm@10.28.1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
 COPY apps/admin/package.json apps/admin/package.json
