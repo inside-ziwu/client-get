@@ -181,6 +181,66 @@ export interface PeerCompanyContact {
   updated_at: string | null;
 }
 
+export interface LixiaoyunCleanCompanyKeyword {
+  keyword_master_id: string;
+  keyword: string;
+  keyword_normalized: string;
+}
+
+export interface LixiaoyunCleanCompanyRow {
+  id: string;
+  pid: string | null;
+  entname: string | null;
+  entname_eng: string | null;
+  esdate: string | null;
+  reg_cap: string | null;
+  official_website: string | null;
+  regccap: string | null;
+  scale: string | null;
+  annual_turnover: string | null;
+  legalperson: string | null;
+  geo_address: string | null;
+  dom: string | null;
+  industry_tag: string | null;
+  keyword_master: LixiaoyunCleanCompanyKeyword[];
+  created_at: string | null;
+}
+
+export interface LixiaoyunCleanCompanyDetail extends LixiaoyunCleanCompanyRow {
+  uncid: string | null;
+  enttype: string | null;
+  enttype_code: string | null;
+  entstatus: string | null;
+  entstatus_code: number | null;
+  regno: string | null;
+  organizational_code: string | null;
+  opfrom: number | null;
+  opto: number | null;
+  regorg: string | null;
+  apprdate: number | null;
+  revokedate: number | null;
+  province: number | null;
+  city: number | null;
+  district: number | null;
+  reg_province: number | null;
+  reg_city: number | null;
+  reg_district: number | null;
+  oploc: string | null;
+  industryphy: string | null;
+  industryphy_desc: string | null;
+  opscope: string | null;
+  secindustry: unknown;
+  secindustry_desc: unknown;
+  industry_l3: string | null;
+  industry_l3_desc: string | null;
+  industry_l4: string | null;
+  industry_l4_desc: string | null;
+  historyname_list: unknown;
+  legalperson_desc: string | null;
+  location_code: string | null;
+  updated_at: string | null;
+}
+
 export interface CleanupHealthStats {
   pending_count: number;
   oldest_pending_seconds: number | null;
@@ -280,6 +340,27 @@ export function collectionApi(client: AxiosInstance) {
     listPeerCompanyContacts: (peerId: string) =>
       client.get<PaginatedResponse<PeerCompanyContact>>(
         `/api/v1/collection/peer-companies/${encodeURIComponent(peerId)}/contacts`,
+      ),
+    listLixiaoyunCleanCompanies: (params: {
+      page?: number;
+      page_size?: number;
+      keyword?: string;
+      keyword_filter?: string;
+      industry_tag?: string;
+      found_date_start?: string;
+      found_date_end?: string;
+      reg_capital?: string;
+      employee_scale?: string;
+      has_name_en?: boolean;
+      has_domain?: boolean;
+    }) =>
+      client.get<PaginatedResponse<LixiaoyunCleanCompanyRow>>(
+        '/api/v1/collection/lixiaoyun-clean-companies',
+        { params },
+      ),
+    getLixiaoyunCleanCompanyDetail: (id: number) =>
+      client.get<ApiResponse<LixiaoyunCleanCompanyDetail>>(
+        `/api/v1/collection/lixiaoyun-clean-companies/${id}`,
       ),
     getCleanupHealth: () =>
       client.get<ApiResponse<CleanupHealthStats>>(
