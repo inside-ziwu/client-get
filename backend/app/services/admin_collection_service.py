@@ -827,7 +827,13 @@ COALESCE(
                               c.legalperson, c.geo_address, c.dom, c.keyword_master_id,
                               km.keyword, c.collected_at, c.entstatus, c.enttype,
                               c.opscope, c.industryphy_desc, c.secindustry_desc,
-                              c.industry_l3_desc, c.industry_l4_desc
+                              c.industry_l3_desc, c.industry_l4_desc,
+                              c.uncid, c.ent_introduction,
+                              to_timestamp(c.opfrom / 1000)::date AS opfrom,
+                              to_timestamp(c.opto / 1000)::date AS opto,
+                              c.regorg,
+                              to_timestamp(c.apprdate / 1000)::date AS apprdate,
+                              c.oploc
                             FROM lixiaoyun_api_companies c
                             JOIN keyword_master km ON km.id = c.keyword_master_id
                             WHERE c.id = :id
@@ -851,8 +857,9 @@ COALESCE(
             item["keyword_master_id"] = (
                 str(item["keyword_master_id"]) if item.get("keyword_master_id") else None
             )
-            if item.get("esdate"):
-                item["esdate"] = self._date_iso(item["esdate"])
+            for date_key in ("esdate", "opfrom", "opto", "apprdate"):
+                if item.get(date_key):
+                    item[date_key] = self._date_iso(item[date_key])
             if item.get("collected_at"):
                 item["collected_at"] = self._datetime_iso(item["collected_at"])
             return item

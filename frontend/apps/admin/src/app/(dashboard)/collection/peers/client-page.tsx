@@ -343,21 +343,33 @@ export function PeersDataPage() {
                   rows={[
                     ['企业名称', dash(detail.entname)],
                     ['英文名', dash(detail.entname_eng)],
+                    ['统一信用代码', dash(detail.uncid)],
                     ['官网', dash(detail.official_website)],
                     ['成立时间', dash(detail.esdate)],
+                    ['经营期限', `${dash(detail.opfrom)} ~ ${dash(detail.opto)}`],
                     ['员工规模', dash(detail.scale)],
                     ['注册资本', dash(detail.reg_cap)],
                     ['实缴资本', dash(detail.regccap)],
                     ['年营业额', dash(detail.annual_turnover)],
                     ['法定代表人', dash(detail.legalperson)],
+                    ['登记机关', dash(detail.regorg)],
+                    ['核准日期', dash(detail.apprdate)],
                     ['通讯地址', dash(detail.geo_address)],
                     ['注册地址', dash(detail.dom)],
+                    ['经营场所', dash(detail.oploc)],
                   ]}
                   englishName={detail.entname_eng}
                   copiedEnglishName={copiedEnglishName}
                   onCopyEnglishName={copyEnglishName}
                 />
               </section>
+
+              {detail.ent_introduction && (
+                <section>
+                  <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">企业简介</h2>
+                  <p className="whitespace-pre-wrap rounded-md border p-3 text-muted-foreground">{detail.ent_introduction}</p>
+                </section>
+              )}
 
               <section>
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">行业分类</h2>

@@ -112,6 +112,13 @@ export interface LixiaoyunApiCompanyDetail extends LixiaoyunRawCompanyRow {
   secindustry_desc?: string[] | string | null;
   industry_l3_desc?: string | null;
   industry_l4_desc?: string | null;
+  uncid?: string | null;
+  ent_introduction?: string | null;
+  opfrom?: string | null;
+  opto?: string | null;
+  regorg?: string | null;
+  apprdate?: string | null;
+  oploc?: string | null;
 }
 
 export interface CleanCompanyRow {
