@@ -17,7 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@shared/ui';
 
 const groups = [
   {

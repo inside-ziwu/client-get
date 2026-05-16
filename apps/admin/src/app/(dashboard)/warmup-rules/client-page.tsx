@@ -5,11 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@shared/ui';
+import { Button } from '@shared/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui';
+import { Input } from '@shared/ui';
+import { Label } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 
 const numericFields: Array<{

@@ -13,16 +13,16 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
-import { Textarea } from '@/components/ui/textarea';
+} from '@shared/ui';
+import { Badge } from '@shared/ui';
+import { Button } from '@shared/ui';
+import { Card, CardContent } from '@shared/ui';
+import { Checkbox } from '@shared/ui';
+import { Input } from '@shared/ui';
+import { Label } from '@shared/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
+import { Textarea } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 

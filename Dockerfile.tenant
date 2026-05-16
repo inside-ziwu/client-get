@@ -6,6 +6,7 @@ RUN npm install -g pnpm@9.15.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
 COPY apps/tenant/package.json apps/tenant/package.json
+COPY apps/admin/package.json apps/admin/package.json
 COPY packages/shared-api/package.json packages/shared-api/package.json
 COPY packages/shared-hooks/package.json packages/shared-hooks/package.json
 COPY packages/shared-types/package.json packages/shared-types/package.json
@@ -13,19 +14,44 @@ COPY packages/shared-ui/package.json packages/shared-ui/package.json
 
 RUN pnpm install --frozen-lockfile
 
-COPY apps apps
-COPY packages packages
+COPY apps/tenant/next-env.d.ts apps/tenant/next-env.d.ts
+COPY apps/tenant/vite-env-shim.d.ts apps/tenant/vite-env-shim.d.ts
+COPY apps/tenant/next.config.ts apps/tenant/next.config.ts
+COPY apps/tenant/postcss.config.mjs apps/tenant/postcss.config.mjs
+COPY apps/tenant/tailwind.config.ts apps/tenant/tailwind.config.ts
+COPY apps/tenant/tsconfig.json apps/tenant/tsconfig.json
+COPY apps/tenant/src apps/tenant/src
+COPY packages/shared-api/tsconfig.json packages/shared-api/tsconfig.json
+COPY packages/shared-hooks/tsconfig.json packages/shared-hooks/tsconfig.json
+COPY packages/shared-types/tsconfig.json packages/shared-types/tsconfig.json
+COPY packages/shared-ui/tsconfig.json packages/shared-ui/tsconfig.json
+COPY packages/shared-api/src packages/shared-api/src
+COPY packages/shared-hooks/src packages/shared-hooks/src
+COPY packages/shared-types/src packages/shared-types/src
+COPY packages/shared-ui/src packages/shared-ui/src
 
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 
 RUN pnpm --filter @apps/tenant build
 
-FROM nginx:1.27-alpine
+FROM node:20-alpine AS runner
 
-COPY deploy/nginx-spa.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/apps/tenant/dist /usr/share/nginx/html
+WORKDIR /app
 
-EXPOSE 80
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
 
-CMD ["nginx", "-g", "daemon off;"]
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 nextjs
+
+COPY --from=build --chown=nextjs:nodejs /app/apps/tenant/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/apps/tenant/.next/static ./apps/tenant/.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "apps/tenant/server.js"]

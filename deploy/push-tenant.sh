@@ -6,7 +6,16 @@ REGISTRY="crpi-q6fqloatvalw3jr2.cn-beijing.personal.cr.aliyuncs.com"
 REPO="lay_inside/clientget-tenant"
 API_URL="https://api.xinanpcb.com"
 DOCKERFILE="Dockerfile.tenant"
+PLATFORM="linux/amd64"
 REV_FILE="$(dirname "$0")/.tenant-rev"   # 记录当天已推次数
+MODE="${1:---load}"
+
+if [[ "${MODE}" != "--load" && "${MODE}" != "--push" ]]; then
+  echo "用法: bash deploy/push-tenant.sh [--load|--push]"
+  echo "  --load  本地构建 amd64 镜像，不推送（默认）"
+  echo "  --push  构建并推送到阿里云 ACR"
+  exit 1
+fi
 
 # ── 生成 tag ─────────────────────────────────────────────────────────────────
 TODAY=$(date +%Y.%m.%d)
@@ -20,36 +29,49 @@ else
   SAVED_REV=0
 fi
 
-if [[ "$SAVED_DATE" == "$TODAY" ]]; then
-  REV=$((SAVED_REV + 1))
+if [[ -n "${REV:-}" ]]; then
+  NEXT_REV="${REV}"
+elif [[ "$SAVED_DATE" == "$TODAY" ]]; then
+  NEXT_REV=$((SAVED_REV + 1))
 else
-  REV=1
+  NEXT_REV=1
 fi
 
-TAG="${TODAY}-r${REV}"
+if [[ -z "${TAG:-}" ]]; then
+  TAG="${TODAY}-r${NEXT_REV}"
+fi
 FULL_IMAGE="${REGISTRY}/${REPO}:${TAG}"
 
 echo "▶ 构建目标: ${FULL_IMAGE}"
-echo "▶ 平台: linux/amd64"
+echo "▶ 平台: ${PLATFORM}"
 echo "▶ API: ${API_URL}"
+echo "▶ 模式: ${MODE}"
 echo ""
 
-# ── 构建 + 推送 ───────────────────────────────────────────────────────────────
+# ── 构建 / 推送 ───────────────────────────────────────────────────────────────
 cd "$(dirname "$0")/.."
 
 docker buildx build \
-  --platform linux/amd64 \
+  --platform "${PLATFORM}" \
   -f "${DOCKERFILE}" \
-  --build-arg VITE_API_BASE_URL="${API_URL}" \
+  --build-arg NEXT_PUBLIC_API_BASE_URL="${API_URL}" \
   -t "${FULL_IMAGE}" \
-  --push \
+  "${MODE}" \
   .
 
-# ── 写回版本号 ────────────────────────────────────────────────────────────────
-echo "${TODAY}:${REV}" > "$REV_FILE"
+echo ""
+if [[ "${MODE}" == "--push" ]]; then
+  if [[ "${TAG}" =~ ^([0-9]{4}\.[0-9]{2}\.[0-9]{2})-r([0-9]+)$ ]]; then
+    echo "${BASH_REMATCH[1]}:${BASH_REMATCH[2]}" > "$REV_FILE"
+  fi
 
-echo ""
-echo "✅ 推送完成: ${FULL_IMAGE}"
-echo ""
-echo "Sealos 更新镜像 tag 为:"
-echo "  ${FULL_IMAGE}"
+  echo "✅ 推送完成: ${FULL_IMAGE}"
+  echo ""
+  echo "Sealos 更新镜像 tag 为:"
+  echo "  ${FULL_IMAGE}"
+else
+  echo "✅ 本地镜像构建完成: ${FULL_IMAGE}"
+  echo ""
+  echo "推送到阿里云 ACR 时运行:"
+  echo "  TAG=${TAG} bash deploy/push-tenant.sh --push"
+fi

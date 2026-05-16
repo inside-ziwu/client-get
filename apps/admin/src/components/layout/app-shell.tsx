@@ -6,8 +6,8 @@ import { LogOut, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type ReactNode } from 'react';
 import { adminApi } from '@/lib/api';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@shared/ui';
+import { Button } from '@shared/ui';
 import { Sidebar } from './sidebar';
 
 export function AppShell({ children }: { children: ReactNode }) {

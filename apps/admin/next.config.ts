@@ -6,7 +6,7 @@ export default function nextConfig(phase: string): NextConfig {
   return {
     output: 'standalone',
     outputFileTracingRoot: path.join(__dirname, '../..'),
-    transpilePackages: ['@shared/api', '@shared/types', '@shared/hooks'],
+    transpilePackages: ['@shared/api', '@shared/types', '@shared/hooks', '@shared/ui'],
     async rewrites() {
       if (phase !== PHASE_DEVELOPMENT_SERVER) {
         return [];

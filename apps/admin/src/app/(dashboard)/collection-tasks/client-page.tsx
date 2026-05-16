@@ -13,13 +13,13 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+} from '@shared/ui';
+import { Badge } from '@shared/ui';
+import { Button } from '@shared/ui';
+import { Card, CardContent } from '@shared/ui';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@shared/ui';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 

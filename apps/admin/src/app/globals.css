@@ -2,28 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 210 24% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --primary: 215 62% 25%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 189 70% 92%;
-    --secondary-foreground: 192 75% 18%;
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 158 56% 88%;
-    --accent-foreground: 159 72% 18%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 18% 86%;
-    --input: 214 18% 86%;
-    --ring: 192 74% 36%;
-    --radius: 0.5rem;
-  }
+@import '../../../../packages/shared-ui/src/theme/globals.css';
 
+@layer base {
   * {
     @apply border-border;
   }

@@ -6,6 +6,8 @@ import type { JWTPayload } from '@shared/types';
 interface AuthState {
   token: string | null;
   payload: JWTPayload | null;
+  hasHydrated: boolean;
+  setHasHydrated: (hasHydrated: boolean) => void;
   setToken: (token: string) => void;
   logout: () => void;
   isExpired: () => boolean;
@@ -16,7 +18,9 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       token: null,
       payload: null,
-      setToken: (token) => set({ token, payload: jwtDecode<JWTPayload>(token) }),
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+      setToken: (token) => set({ token, payload: jwtDecode<JWTPayload>(token), hasHydrated: true }),
       logout: () => set({ token: null, payload: null }),
       isExpired: () => {
         const p = get().payload;
@@ -26,6 +30,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => sessionStorage),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );
