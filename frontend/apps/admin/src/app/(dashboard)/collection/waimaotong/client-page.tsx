@@ -378,13 +378,21 @@ export function WaimaotongArchivePage() {
                   linkField="网站"
                   linkValue={detail.website as string}
                 />
-                {(detail.products as string[] | null)?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(detail.products as string[]).map((p) => (
-                      <Badge key={p} variant="secondary">{p}</Badge>
-                    ))}
-                  </div>
-                ) : null}
+                {(() => {
+                  const raw = detail.products as Array<string | { name?: string | null }> | null;
+                  if (!raw?.length) return null;
+                  const names = raw
+                    .map((p) => (typeof p === 'string' ? p : p?.name))
+                    .filter((n): n is string => Boolean(n));
+                  if (!names.length) return null;
+                  return (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {names.map((n) => (
+                        <Badge key={n} variant="secondary">{n}</Badge>
+                      ))}
+                    </div>
+                  );
+                })()}
               </section>
 
               {/* 采集信息 */}
