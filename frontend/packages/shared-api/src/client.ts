@@ -8,7 +8,7 @@ interface ApiClientOptions {
 }
 
 export function createApiClient(appType: AppType, options: ApiClientOptions = {}): AxiosInstance {
-  const rootBaseURL = options.baseURL ?? import.meta.env.VITE_API_BASE_URL;
+  const rootBaseURL = options.baseURL ?? '';
 
   const client = axios.create({
     baseURL: rootBaseURL,

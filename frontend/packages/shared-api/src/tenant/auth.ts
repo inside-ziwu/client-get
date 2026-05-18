@@ -11,7 +11,7 @@ export function authApi(client: AxiosInstance) {
   return {
     login: (data: TenantLoginRequest) =>
       client.post<ApiResponse<LoginResponse>>(
-        `${import.meta.env.VITE_API_BASE_URL}/t/${data.slug}/api/v1/auth/login`,
+        `/t/${data.slug}/api/v1/auth/login`,
         data,
       ),
     changePassword: (data: ChangePasswordRequest | { old_password?: string; current_password?: string; new_password: string }) =>
