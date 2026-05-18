@@ -111,33 +111,36 @@
 > 用于下次快速发布镜像。默认按实际改动选择更新 backend / admin / tenant
 > 正式推送镜像、同步线上快照、上线操作都属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
 
-### 8.1 正式推送到阿里云 ACR
+### 8.1 正式推送到阿里云 ACR（GitHub Actions，推荐）
 
-脚本会自动生成 `YYYY.MM.DD-rN` tag，构建 `linux/amd64` 镜像并 push 到：
-`crpi-q6fqloatvalw3jr2.cn-beijing.personal.cr.aliyuncs.com/lay_inside/*`
+通过 GitHub Actions `workflow_dispatch` 手动触发构建，镜像 tag 默认 `YYYY.MM.DD-r1`。
+工作流文件：`.github/workflows/build-and-push.yml`
 
 ```bash
-# 后端 API + 所有 worker 共用镜像
-cd /Users/lay/Documents/Github/client_get/backend
-bash scripts/push-backend.sh
+# 后端（API + 所有 worker 共用镜像）
+gh workflow run build-and-push.yml -f service=backend
 
-# Admin 前端镜像（构建参数内置 NEXT_PUBLIC_ADMIN_API_BASE_URL=https://api.xinanpcb.com）
-cd /Users/lay/Documents/Github/client_get/frontend
-bash deploy/push-admin.sh
+# Admin 前端
+gh workflow run build-and-push.yml -f service=admin
 
-# Tenant 前端镜像（仅租户端变更时执行）
-cd /Users/lay/Documents/Github/client_get/frontend
-bash deploy/push-tenant.sh
+# Tenant 前端
+gh workflow run build-and-push.yml -f service=tenant
+
+# 自定义 tag
+gh workflow run build-and-push.yml -f service=backend -f tag=hotfix-1
+
+# 查看构建状态
+gh run list --workflow=build-and-push.yml --limit 3
 ```
 
-推送后在 Sealos 更新：
+### 8.2 推送后 Sealos 更新
 
-- `clientget-backend` 使用 `push-backend.sh` 输出的 backend tag
+- `clientget-backend` 使用构建输出的 backend tag
 - collection / scheduler / scoring / sending 等 worker 应用也使用同一个 backend tag
-- `clientget-admin` 使用 `push-admin.sh` 输出的 admin tag
-- `clientget-tenant` 只有执行 `push-tenant.sh` 时才更新为 tenant tag
+- `clientget-admin` 使用构建输出的 admin tag
+- `clientget-tenant` 只有执行 tenant 构建时才更新为 tenant tag
 
-### 8.2 仅本地构建验证
+### 8.3 仅本地构建验证
 
 ```bash
 cd /Users/lay/Documents/Github/client_get/backend
