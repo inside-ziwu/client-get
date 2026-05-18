@@ -15,7 +15,6 @@ COPY packages/shared-ui/package.json packages/shared-ui/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY apps/admin/next-env.d.ts apps/admin/next-env.d.ts
-COPY apps/admin/vite-env-shim.d.ts apps/admin/vite-env-shim.d.ts
 COPY apps/admin/components.json apps/admin/components.json
 COPY apps/admin/next.config.ts apps/admin/next.config.ts
 COPY apps/admin/postcss.config.mjs apps/admin/postcss.config.mjs
