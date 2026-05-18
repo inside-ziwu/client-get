@@ -145,7 +145,7 @@ export function WaimaotongArchivePage() {
       <Card>
         <CardContent className="p-4">
           <form className="space-y-3" onSubmit={onSearch}>
-            <div className="grid gap-3 lg:grid-cols-[220px_160px_160px_220px_1fr]">
+            <div className="grid gap-3 lg:grid-cols-[220px_160px_1fr_220px_160px]">
               <Input
                 placeholder="公司名 / 域名搜索"
                 value={filters.q}
