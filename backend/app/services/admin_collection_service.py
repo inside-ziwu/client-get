@@ -2426,3 +2426,169 @@ COALESCE(
             )
 
         return self._format_lixiaoyun_clean_row(row, detail=True)
+
+    # ── waimaotong clean companies ──────────────────────────────────
+
+    async def list_wmt_clean_companies(
+        self,
+        conn: AsyncConnection,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        q: str | None = None,
+        country: str | None = None,
+        industry: str | None = None,
+        size: str | None = None,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        has_contacts: bool | None = None,
+        grade: str | None = None,
+    ) -> tuple[list[dict], int]:
+        where_parts: list[str] = []
+        params: dict = {"limit": page_size, "offset": (page - 1) * page_size}
+
+        if q:
+            where_parts.append(
+                "(company_name ILIKE '%' || :q || '%' OR domain ILIKE '%' || :q || '%')"
+            )
+            params["q"] = q
+        if country:
+            where_parts.append("country = :country")
+            params["country"] = country
+        if industry:
+            where_parts.append("industry ILIKE '%' || :industry || '%'")
+            params["industry"] = industry
+
+        _emp_expr = "NULLIF(substring(employee_size from '([0-9]+)'), '')::int"
+        size_num_map = {
+            "tiny": (None, 9),
+            "small": (10, 49),
+            "medium": (50, 199),
+            "large": (200, None),
+        }
+        if size and size in size_num_map:
+            lo, hi = size_num_map[size]
+            if lo is not None:
+                where_parts.append(f"({_emp_expr}) >= :size_lo")
+                params["size_lo"] = lo
+            if hi is not None:
+                where_parts.append(f"({_emp_expr}) <= :size_hi")
+                params["size_hi"] = hi
+
+        if year_min is not None:
+            where_parts.append("founded_year >= :year_min")
+            params["year_min"] = year_min
+        if year_max is not None:
+            where_parts.append("founded_year <= :year_max")
+            params["year_max"] = year_max
+        if has_contacts is True:
+            where_parts.append("contacts_count > 0")
+        if grade:
+            where_parts.append("grade = :grade")
+            params["grade"] = grade
+
+        where_clause = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
+
+        total = await self._scalar_int(
+            conn,
+            "SELECT COUNT(*) FROM waimaotong_clean_companies" + where_clause,
+            params,
+        )
+
+        result = await conn.execute(
+            text(
+                """
+                SELECT id, source_id, name, company_name, english_name,
+                       country, country_iso3, domain, industry, sub_industry,
+                       phone, employee_size, company_size, founded_year,
+                       website, full_address, description,
+                       grade, score, email_priority, company_type_analysis,
+                       product_tags, data_source_tags,
+                       has_trade_data, trade_amount_3y_usd, trade_count,
+                       contacts_count,
+                       detail_status, contacts_status, trade_status,
+                       sys_company_id,
+                       created_at, updated_at
+                FROM waimaotong_clean_companies
+                """
+                + where_clause
+                + """
+                ORDER BY created_at DESC
+                LIMIT :limit OFFSET :offset
+                """
+            ),
+            params,
+        )
+        rows = []
+        for r in result.mappings().all():
+            item = dict(r)
+            item["id"] = str(item["id"])
+            item["sys_company_id"] = str(item["sys_company_id"]) if item.get("sys_company_id") else None
+            item["score"] = float(item["score"]) if item.get("score") is not None else None
+            item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
+            item["product_tags"] = list(item["product_tags"] or [])
+            item["data_source_tags"] = list(item["data_source_tags"] or [])
+            item["created_at"] = self._datetime_iso(item.get("created_at"))
+            item["updated_at"] = self._datetime_iso(item.get("updated_at"))
+            rows.append(item)
+        return rows, total
+
+    async def get_wmt_clean_company(
+        self,
+        conn: AsyncConnection,
+        *,
+        company_id: int,
+    ) -> dict:
+        row = (
+            await conn.execute(
+                text("SELECT * FROM waimaotong_clean_companies WHERE id = :id"),
+                {"id": company_id},
+            )
+        ).mappings().first()
+
+        if row is None:
+            raise AppError(
+                code="NOT_FOUND",
+                message="公司不存在",
+                status_code=404,
+            )
+
+        item = dict(row)
+        item["id"] = str(item["id"])
+        item["sys_company_id"] = str(item["sys_company_id"]) if item.get("sys_company_id") else None
+        item["score"] = float(item["score"]) if item.get("score") is not None else None
+        item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
+        item["product_tags"] = list(item["product_tags"] or [])
+        item["data_source_tags"] = list(item["data_source_tags"] or [])
+        item["created_at"] = self._datetime_iso(item.get("created_at"))
+        item["updated_at"] = self._datetime_iso(item.get("updated_at"))
+        return item
+
+    async def list_wmt_clean_company_contacts(
+        self,
+        conn: AsyncConnection,
+        *,
+        company_id: int,
+    ) -> list[dict]:
+        result = await conn.execute(
+            text("""
+                SELECT id, name, position, department, email, email_status,
+                       phone, mobile, linkedin, whatsapp, source, confidence,
+                       created_at
+                FROM waimaotong_clean_contacts
+                WHERE sys_company_id = (
+                    SELECT sys_company_id FROM waimaotong_clean_companies WHERE id = :id
+                )
+                ORDER BY created_at ASC
+            """),
+            {"id": company_id},
+        )
+        rows = []
+        for r in result.mappings().all():
+            item = dict(r)
+            item["id"] = str(item["id"])
+            if item.get("confidence") is not None:
+                item["confidence"] = float(item["confidence"])
+            item["created_at"] = self._datetime_iso(item.get("created_at"))
+            rows.append(item)
+        return rows

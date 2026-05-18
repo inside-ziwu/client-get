@@ -449,3 +449,60 @@ async def keyword_master_check(
     if result is None:
         return success_response({"matched": False, "company_count": 0, "tenant_count": 0})
     return success_response(result)
+
+
+# ── waimaotong clean companies ──────────────────────────────────
+
+
+@router.get("/collection/wmt-clean-companies")
+async def list_wmt_clean_companies(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    q: str | None = None,
+    country: str | None = None,
+    industry: str | None = None,
+    size: str | None = None,
+    year_min: int | None = None,
+    year_max: int | None = None,
+    has_contacts: bool | None = None,
+    grade: str | None = None,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
+    rows, total = await service.list_wmt_clean_companies(
+        context.connection,
+        page=page,
+        page_size=page_size,
+        q=q,
+        country=country,
+        industry=industry,
+        size=size,
+        year_min=year_min,
+        year_max=year_max,
+        has_contacts=has_contacts,
+        grade=grade,
+    )
+    return paginated_response(rows, total=total, has_more=(page * page_size < total))
+
+
+@router.get("/collection/wmt-clean-companies/{company_id}")
+async def get_wmt_clean_company(
+    company_id: int,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
+    result = await service.get_wmt_clean_company(
+        context.connection,
+        company_id=company_id,
+    )
+    return success_response(result)
+
+
+@router.get("/collection/wmt-clean-companies/{company_id}/contacts")
+async def list_wmt_clean_company_contacts(
+    company_id: int,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
+    rows = await service.list_wmt_clean_company_contacts(
+        context.connection,
+        company_id=company_id,
+    )
+    return paginated_response(rows, total=len(rows))

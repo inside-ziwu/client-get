@@ -169,6 +169,69 @@ export interface CleanCompanyRow {
   created_at: string;
 }
 
+export interface WmtCleanCompanyRow {
+  id: string;
+  source_id: string | null;
+  name: string | null;
+  company_name: string | null;
+  english_name: string | null;
+  country: string | null;
+  country_iso3: string | null;
+  domain: string | null;
+  industry: string | null;
+  sub_industry: string | null;
+  phone: string | null;
+  employee_size: string | null;
+  company_size: string | null;
+  founded_year: number | null;
+  website: string | null;
+  full_address: string | null;
+  description: string | null;
+  grade: string | null;
+  score: number | null;
+  email_priority: string | null;
+  company_type_analysis: string | null;
+  product_tags: string[];
+  data_source_tags: string[];
+  has_trade_data: boolean | null;
+  trade_amount_3y_usd: number | null;
+  trade_count: number | null;
+  contacts_count: number | null;
+  detail_status: string | null;
+  contacts_status: string | null;
+  trade_status: string | null;
+  sys_company_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface WmtCleanCompanyDetail extends WmtCleanCompanyRow {
+  score_details: unknown[] | null;
+  match_reasons: unknown[] | null;
+  potential_needs: unknown[] | null;
+  recommended_products: unknown[] | null;
+  risk_factors: unknown[] | null;
+  main_business: unknown[] | null;
+  trade_summary: Record<string, unknown> | null;
+  sales_approach: string | null;
+}
+
+export interface WmtCleanContactRow {
+  id: string;
+  name: string | null;
+  position: string | null;
+  department: string | null;
+  email: string | null;
+  email_status: string | null;
+  phone: string | null;
+  mobile: string | null;
+  linkedin: string | null;
+  whatsapp: string | null;
+  source: string | null;
+  confidence: number | null;
+  created_at: string | null;
+}
+
 export interface PeerCompanyKeyword {
   keyword_master_id: string;
   keyword: string;
@@ -428,6 +491,30 @@ export function collectionApi(client: AxiosInstance) {
     getCleanupHealth: () =>
       client.get<ApiResponse<CleanupHealthStats>>(
         '/api/v1/collection/cleanup-health',
+      ),
+    listWmtCleanCompanies: (params: {
+      page?: number;
+      page_size?: number;
+      q?: string;
+      country?: string;
+      industry?: string;
+      size?: string;
+      year_min?: number;
+      year_max?: number;
+      has_contacts?: boolean;
+      grade?: string;
+    }) =>
+      client.get<PaginatedResponse<WmtCleanCompanyRow>>(
+        '/api/v1/collection/wmt-clean-companies',
+        { params },
+      ),
+    getWmtCleanCompany: (companyId: number) =>
+      client.get<ApiResponse<WmtCleanCompanyDetail>>(
+        `/api/v1/collection/wmt-clean-companies/${companyId}`,
+      ),
+    listWmtCleanCompanyContacts: (companyId: number) =>
+      client.get<PaginatedResponse<WmtCleanContactRow>>(
+        `/api/v1/collection/wmt-clean-companies/${companyId}/contacts`,
       ),
   };
 }
