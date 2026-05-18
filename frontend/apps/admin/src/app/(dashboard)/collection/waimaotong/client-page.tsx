@@ -297,7 +297,7 @@ export function WaimaotongArchivePage() {
                 value={String(pageSize)}
                 onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
               >
-                <SelectTrigger className="h-8 w-[72px]">
+                <SelectTrigger className="h-8 w-[100px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
