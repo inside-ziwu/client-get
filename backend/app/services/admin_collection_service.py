@@ -883,7 +883,7 @@ COALESCE(
             "waimaotong": """
                 SELECT id, company_name, country, domain, industry, phone,
                        employee_size, founded_year, description, full_address,
-                       website, products, source_tags,
+                       website, source_tags,
                        source_keyword, source_competitor, source_type,
                        id_verified, api_company_id,
                        contacts_count, email_count,
@@ -924,9 +924,8 @@ COALESCE(
             item["provider"] = provider
             item["created_at"] = self._datetime_iso(item.get("created_at"))
             item["updated_at"] = self._datetime_iso(item.get("updated_at"))
-            for key in ("products", "source_tags"):
-                if key in item:
-                    item[key] = list(item[key] or [])
+            if "source_tags" in item:
+                item["source_tags"] = list(item["source_tags"] or [])
             return item
 
         return {

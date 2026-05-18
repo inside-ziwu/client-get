@@ -4,7 +4,6 @@ import type { WaimaotongRawCompanyRow, WaimaotongRawContactRow } from '@shared/a
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { Badge } from '@shared/ui';
 import { Button } from '@shared/ui';
 import { Card, CardContent } from '@shared/ui';
 import { Checkbox } from '@shared/ui';
@@ -378,21 +377,6 @@ export function WaimaotongArchivePage() {
                   linkField="网站"
                   linkValue={detail.website as string}
                 />
-                {(() => {
-                  const raw = detail.products as Array<string | { name?: string | null }> | null;
-                  if (!raw?.length) return null;
-                  const names = raw
-                    .map((p) => (typeof p === 'string' ? p : p?.name))
-                    .filter((n): n is string => Boolean(n));
-                  if (!names.length) return null;
-                  return (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {names.map((n) => (
-                        <Badge key={n} variant="secondary">{n}</Badge>
-                      ))}
-                    </div>
-                  );
-                })()}
               </section>
 
               {/* 采集信息 */}
