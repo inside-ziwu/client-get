@@ -121,6 +121,44 @@ export interface LixiaoyunApiCompanyDetail extends LixiaoyunRawCompanyRow {
   oploc?: string | null;
 }
 
+export interface WaimaotongRawCompanyRow {
+  id: string;
+  company_name: string | null;
+  country: string | null;
+  domain: string | null;
+  industry: string | null;
+  employee_size: string | null;
+  founded_year: number | null;
+  full_address: string | null;
+  source_keyword: string | null;
+  source_competitor: string | null;
+  source_type: string | null;
+  contacts_count: number | null;
+  email_count: number | null;
+  has_detail: boolean | null;
+  has_contacts: boolean | null;
+  id_verified: boolean | null;
+  website: string | null;
+  api_company_id: string | null;
+  created_at: string;
+}
+
+export interface WaimaotongRawContactRow {
+  id: string;
+  raw_company_id: string;
+  source_contact_id: string | null;
+  name: string | null;
+  position: string | null;
+  department: string | null;
+  email: string | null;
+  email_status: string | null;
+  phone: string | null;
+  linkedin: string | null;
+  source: string | null;
+  confidence: number | null;
+  created_at: string;
+}
+
 export interface CleanCompanyRow {
   id: string;
   name_normalized: string;
@@ -310,6 +348,31 @@ export function collectionApi(client: AxiosInstance) {
     getLixiaoyunRawCompanyDebug: (rawCompanyId: string) =>
       client.get<ApiResponse<LixiaoyunApiCompanyDetail>>(
         `/api/v1/raw/lixiaoyun/companies/${encodeURIComponent(rawCompanyId)}/debug`,
+      ),
+    listWaimaotongRawCompanies: (params: {
+      page?: number;
+      page_size?: number;
+      q?: string;
+      country?: string;
+      source_keyword?: string;
+      source_competitor?: string;
+      industry?: string;
+      size?: string;
+      year_min?: number;
+      year_max?: number;
+      has_contacts?: boolean;
+    }) =>
+      client.get<PaginatedResponse<WaimaotongRawCompanyRow>>(
+        '/api/v1/raw/waimaotong/companies',
+        { params },
+      ),
+    getWaimaotongRawCompanyDebug: (rawCompanyId: string) =>
+      client.get<ApiResponse<Record<string, unknown>>>(
+        `/api/v1/raw/waimaotong/companies/${encodeURIComponent(rawCompanyId)}/debug`,
+      ),
+    listWaimaotongRawCompanyContacts: (rawCompanyId: string) =>
+      client.get<PaginatedResponse<WaimaotongRawContactRow>>(
+        `/api/v1/raw/waimaotong/companies/${encodeURIComponent(rawCompanyId)}/contacts`,
       ),
     listCleanCompanies: (params: { page?: number; page_size?: number; keyword?: string }) =>
       client.get<PaginatedResponse<CleanCompanyRow>>(

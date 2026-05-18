@@ -203,6 +203,10 @@ async def list_v3_raw_companies(
     year_min: int | None = None,
     year_max: int | None = None,
     method: str | None = None,
+    # waimaotong
+    source_keyword: str | None = None,
+    source_competitor: str | None = None,
+    has_contacts: bool | None = None,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     rows, total = await service.list_v3_raw_companies(
@@ -234,6 +238,9 @@ async def list_v3_raw_companies(
         year_min=year_min,
         year_max=year_max,
         method=method,
+        source_keyword=source_keyword,
+        source_competitor=source_competitor,
+        has_contacts=has_contacts,
     )
     return paginated_response(rows, total=total, has_more=(page * page_size < total))
 

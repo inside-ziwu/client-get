@@ -34,7 +34,7 @@ const groups = [
       { href: '/collection-tasks', label: '关键词', icon: Tags },
       { href: '/collection/peers', label: '同行公司', icon: Building2 },
       { href: '/collection/peers-cleaned', label: '同行数据（清洗）', icon: Building2 },
-      { href: '/collection/tendata', label: '腾道数据', icon: Server },
+      { href: '/collection/waimaotong', label: '外贸通', icon: Server },
       { href: '/collection/customers', label: '客户数据', icon: ShoppingBag },
     ],
   },

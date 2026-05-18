@@ -635,7 +635,8 @@ class AdminCollectionService:
         payload_select = ", raw_payload" if include_payload else ""
         table_sql = {
             "waimaotong": """
-                SELECT id::text AS id, NULL::text AS source_id, name, NULL::text AS country,
+                SELECT id::text AS id, NULL::text AS source_id,
+                       COALESCE(company_name, name) AS name, country,
                        domain, NULL::text AS task_id, created_at
                        {payload_select_null}
                 FROM waimaotong_raw_companies
@@ -880,9 +881,14 @@ COALESCE(
                 WHERE id = :id
             """,
             "waimaotong": """
-                SELECT id, NULL::text AS source_id,
-                       NULL::jsonb AS raw_payload, NULL::jsonb AS search_payload,
-                       NULL::jsonb AS detail_payload, NULL::jsonb AS trade_payload
+                SELECT id, company_name, country, domain, industry, phone,
+                       employee_size, founded_year, description, full_address,
+                       website, products, source_tags,
+                       source_keyword, source_competitor, source_type,
+                       id_verified, api_company_id,
+                       contacts_count, email_count,
+                       has_detail, has_contacts,
+                       created_at, updated_at
                 FROM waimaotong_raw_companies
                 WHERE id = :id
             """,
@@ -910,6 +916,19 @@ COALESCE(
                 message="raw company 不存在",
                 status_code=404,
             )
+
+        # waimaotong 使用 dict(row) 模式，与 lixiaoyun 一致
+        if provider == "waimaotong":
+            item = dict(row)
+            item["id"] = str(raw_company_id)
+            item["provider"] = provider
+            item["created_at"] = self._datetime_iso(item.get("created_at"))
+            item["updated_at"] = self._datetime_iso(item.get("updated_at"))
+            for key in ("products", "source_tags"):
+                if key in item:
+                    item[key] = list(item[key] or [])
+            return item
+
         return {
             "id": str(row["id"]),
             "provider": provider,
@@ -935,6 +954,14 @@ COALESCE(
                 WHERE raw_company_id = :raw_company_id
                 ORDER BY created_at ASC, id ASC
             """,
+            "waimaotong": """
+                SELECT id, raw_company_id, source_contact_id, name, position,
+                       department, email, email_status, phone,
+                       linkedin, source, confidence, created_at
+                FROM waimaotong_raw_contacts
+                WHERE raw_company_id = :raw_company_id
+                ORDER BY created_at ASC, id ASC
+            """,
         }
         sql = sql_by_provider.get(provider)
         if sql is None:
@@ -953,8 +980,9 @@ COALESCE(
             item["email"] = str(item["email"]) if item.get("email") else None
             item["mobile"] = raw_payload.get("mobile") or raw_payload.get("phone_mobile")
             item["created_at"] = self._datetime_iso(item.get("created_at"))
-            if provider == "tendata":
-                item.pop("raw_payload", None)
+            if item.get("confidence") is not None:
+                item["confidence"] = float(item["confidence"])
+            item.pop("raw_payload", None)
             rows.append(item)
         return rows
 
@@ -1111,6 +1139,10 @@ COALESCE(
         year_min: int | None = None,
         year_max: int | None = None,
         method: str | None = None,
+        # waimaotong 专属参数
+        source_keyword: str | None = None,
+        source_competitor: str | None = None,
+        has_contacts: bool | None = None,
     ) -> tuple[list[dict], int]:
         if provider not in {"lixiaoyun", "tendata", "waimaotong"}:
             return [], 0
@@ -1133,8 +1165,7 @@ COALESCE(
             elif provider == "waimaotong":
                 where_parts.append(
                     "("
-                    "c.name ILIKE :q OR c.domain ILIKE :q "
-                    "OR c.source_id ILIKE :q OR c.real_id ILIKE :q"
+                    "c.company_name ILIKE :q OR c.domain ILIKE :q"
                     ")"
                 )
             else:
@@ -1145,7 +1176,7 @@ COALESCE(
                     ")"
                 )
             params["q"] = f"%{q}%"
-        if provider in {"tendata", "waimaotong"} and country_iso3:
+        if provider == "tendata" and country_iso3:
             where_parts.append("c.country_iso3 = :country_iso3")
             params["country_iso3"] = country_iso3
 
@@ -1177,22 +1208,15 @@ COALESCE(
                 where_parts.append("c.official_website IS NOT NULL AND c.official_website != ''")
             elif has_domain is False:
                 where_parts.append("(c.official_website IS NULL OR c.official_website = '')")
-        elif provider in {"tendata", "waimaotong"}:
-            industry_column = "c.industry_desc" if provider == "tendata" else "c.industry"
-            employee_column = "c.employee_num" if provider == "tendata" else "c.employee_size"
-            employee_count_expr = f"NULLIF(substring({employee_column} from '([0-9]+)'), '')::int"
-            founded_year_expr = (
-                "EXTRACT(year FROM c.incorporation_date)::int"
-                if provider == "tendata"
-                else "c.founded_year"
-            )
+        elif provider == "waimaotong":
+            # waimaotong 独立筛选分支——不引用已删除列
+            if country_iso3:
+                where_parts.append("c.country = :country")
+                params["country"] = country_iso3
             if industry:
-                where_parts.append(f"{industry_column} ILIKE :industry")
+                where_parts.append("c.industry ILIKE :industry")
                 params["industry"] = f"%{industry}%"
-            if tag:
-                tag_column = "c.product_tags" if provider == "tendata" else "c.products"
-                where_parts.append(f":tag = ANY(COALESCE({tag_column}, ARRAY[]::text[]))")
-                params["tag"] = tag
+            _wmt_emp_expr = "NULLIF(substring(c.employee_size from '([0-9]+)'), '')::int"
             size_num_map = {
                 "tiny": (None, 9),
                 "small": (10, 49),
@@ -1202,10 +1226,46 @@ COALESCE(
             if size in size_num_map:
                 lo, hi = size_num_map[size]
                 if lo is not None:
-                    where_parts.append(f"({employee_count_expr}) >= :size_lo")
+                    where_parts.append(f"({_wmt_emp_expr}) >= :size_lo")
                     params["size_lo"] = lo
                 if hi is not None:
-                    where_parts.append(f"({employee_count_expr}) <= :size_hi")
+                    where_parts.append(f"({_wmt_emp_expr}) <= :size_hi")
+                    params["size_hi"] = hi
+            if year_min is not None:
+                where_parts.append("c.founded_year >= :year_min")
+                params["year_min"] = year_min
+            if year_max is not None:
+                where_parts.append("c.founded_year <= :year_max")
+                params["year_max"] = year_max
+            if source_keyword:
+                where_parts.append("c.source_keyword = :source_keyword")
+                params["source_keyword"] = source_keyword
+            if source_competitor:
+                where_parts.append("c.source_competitor ILIKE :source_competitor")
+                params["source_competitor"] = f"%{source_competitor}%"
+            if has_contacts is True:
+                where_parts.append("c.has_contacts = true")
+        elif provider == "tendata":
+            if industry:
+                where_parts.append("c.industry_desc ILIKE :industry")
+                params["industry"] = f"%{industry}%"
+            if tag:
+                where_parts.append(":tag = ANY(COALESCE(c.product_tags, ARRAY[]::text[]))")
+                params["tag"] = tag
+            _td_emp_expr = "NULLIF(substring(c.employee_num from '([0-9]+)'), '')::int"
+            size_num_map = {
+                "tiny": (None, 9),
+                "small": (10, 49),
+                "medium": (50, 199),
+                "large": (200, None),
+            }
+            if size in size_num_map:
+                lo, hi = size_num_map[size]
+                if lo is not None:
+                    where_parts.append(f"({_td_emp_expr}) >= :size_lo")
+                    params["size_lo"] = lo
+                if hi is not None:
+                    where_parts.append(f"({_td_emp_expr}) <= :size_hi")
                     params["size_hi"] = hi
             if amount_min is not None:
                 where_parts.append("c.trade_amount_3y_usd >= :amount_min")
@@ -1219,9 +1279,9 @@ COALESCE(
             if count_max is not None:
                 where_parts.append("c.trade_count <= :count_max")
                 params["count_max"] = count_max
-            if provider == "tendata" and pcb == "yes":
+            if pcb == "yes":
                 where_parts.append("array_length(c.pcb_suppliers, 1) > 0")
-            elif provider == "tendata" and pcb == "no":
+            elif pcb == "no":
                 where_parts.append(
                     "(c.pcb_suppliers IS NULL OR array_length(c.pcb_suppliers, 1) = 0)"
                 )
@@ -1232,10 +1292,10 @@ COALESCE(
                 where_parts.append("c.contacts_count <= :contact_max")
                 params["contact_max"] = contact_max
             if year_min is not None:
-                where_parts.append(f"({founded_year_expr}) >= :year_min")
+                where_parts.append("EXTRACT(year FROM c.incorporation_date)::int >= :year_min")
                 params["year_min"] = year_min
             if year_max is not None:
-                where_parts.append(f"({founded_year_expr}) <= :year_max")
+                where_parts.append("EXTRACT(year FROM c.incorporation_date)::int <= :year_max")
                 params["year_max"] = year_max
             if method:
                 where_parts.append("c.raw_payload->>'collection_method' = :method")
@@ -1276,17 +1336,12 @@ COALESCE(
             """
         elif provider == "waimaotong":
             sql = """
-                SELECT c.id, NULL::uuid AS keyword_master_id, NULL::text AS collection_type,
-                       NULL::text AS source_id, c.real_id,
-                       c.name, NULL::text AS country_iso3, c.domain, c.industry,
-                       NULL::text AS address, c.phone,
-                       c.employee_size, c.founded_year, c.description, c.products AS product_tags,
-                       c.source_tags, NULL::text[] AS emails,
-                       NULL::numeric AS trade_amount_3y_usd, NULL::int AS trade_count,
-                       c.contacts_count, NULL::boolean AS has_trade_data, c.detail_status,
-                       NULL::timestamptz AS detail_fetched_at,
-                       NULL::text AS trade_status, NULL::timestamptz AS trade_fetched_at,
-                       NULL::text AS contacts_status, NULL::timestamptz AS contacts_fetched_at,
+                SELECT c.id, c.company_name, c.country, c.domain, c.industry,
+                       c.employee_size, c.founded_year, c.full_address,
+                       c.source_keyword, c.source_competitor, c.source_type,
+                       c.contacts_count, c.email_count,
+                       c.has_detail, c.has_contacts, c.id_verified,
+                       c.website, c.api_company_id,
                        c.created_at
                 FROM waimaotong_raw_companies c
             """
@@ -1302,11 +1357,10 @@ COALESCE(
                 FROM tendata_raw_companies c
                 LEFT JOIN keyword_master km ON km.id = c.keyword_master_id
             """
-        order_by = (
-            " ORDER BY c.collected_at DESC, c.id DESC LIMIT :limit OFFSET :offset"
-            if provider == "lixiaoyun"
-            else " ORDER BY c.created_at DESC LIMIT :limit OFFSET :offset"
-        )
+        if provider == "lixiaoyun":
+            order_by = " ORDER BY c.collected_at DESC, c.id DESC LIMIT :limit OFFSET :offset"
+        else:
+            order_by = " ORDER BY c.created_at DESC, c.id DESC LIMIT :limit OFFSET :offset"
         result = await conn.execute(text(sql + where_clause + order_by), params)
         rows = []
         for row in result.mappings().all():

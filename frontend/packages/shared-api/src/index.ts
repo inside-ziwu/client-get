@@ -20,6 +20,8 @@ export type {
   PeerCompanyContact,
   PeerCompanyKeyword,
   PeerCompanyRow,
+  WaimaotongRawCompanyRow,
+  WaimaotongRawContactRow,
 } from './admin/collection';
 export type { AiModel, AiSceneDefault, AiPricingResponse } from './admin/ai-config';
 export type { Tenant, TenantDomain, TenantTeamUser } from './admin/tenants';
