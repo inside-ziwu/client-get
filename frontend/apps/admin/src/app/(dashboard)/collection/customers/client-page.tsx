@@ -215,7 +215,7 @@ export function CustomerArchivePage() {
                 <tr>
                   {[
                     '公司名', '国家', '域名', '行业', '员工规模', '成立',
-                    '电话', '评级', '评分', '细分行业', '联系人数', '详情状态', '入库时间',
+                    '电话', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间',
                   ].map((label) => (
                     <th key={label} className="whitespace-nowrap px-3 py-2">{label}</th>
                   ))}
@@ -256,7 +256,9 @@ export function CustomerArchivePage() {
                     <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
                     <td className="px-3 py-2">{row.contacts_count ?? '-'}</td>
                     <td className="px-3 py-2">
-                      {row.detail_status ? <Badge variant="outline">{row.detail_status}</Badge> : '-'}
+                      <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setSelectedId(Number(row.id))}>
+                        查看详情
+                      </Button>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">{formatDateTime(row.created_at)}</td>
                   </tr>
