@@ -145,7 +145,7 @@ export function WaimaotongArchivePage() {
       <Card>
         <CardContent className="p-4">
           <form className="space-y-3" onSubmit={onSearch}>
-            <div className="grid gap-3 lg:grid-cols-[220px_160px_160px_220px]">
+            <div className="grid gap-3 lg:grid-cols-[220px_160px_160px_220px_1fr]">
               <Input
                 placeholder="公司名 / 域名搜索"
                 value={filters.q}
@@ -183,8 +183,13 @@ export function WaimaotongArchivePage() {
                 value={filters.source_competitor}
                 onChange={(e) => setFilters((f) => ({ ...f, source_competitor: e.target.value }))}
               />
+              <Input
+                placeholder="行业搜索"
+                value={filters.industry}
+                onChange={(e) => setFilters((f) => ({ ...f, industry: e.target.value }))}
+              />
             </div>
-            <div className="grid gap-3 lg:grid-cols-[120px_120px_150px_200px_auto_1fr]">
+            <div className="grid gap-3 lg:grid-cols-[120px_120px_160px_auto_auto_1fr]">
               <Input
                 type="number"
                 placeholder="成立年份(起)"
@@ -212,18 +217,14 @@ export function WaimaotongArchivePage() {
                   <SelectItem value="large">&ge; 200 人</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                placeholder="行业搜索"
-                value={filters.industry}
-                onChange={(e) => setFilters((f) => ({ ...f, industry: e.target.value }))}
-              />
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex h-9 items-center gap-2 text-sm">
                 <Checkbox
                   checked={filters.has_contacts}
                   onCheckedChange={(v) => setFilters((f) => ({ ...f, has_contacts: v === true }))}
                 />
                 有联系人
               </label>
+              <div />
               <div className="flex items-center justify-end gap-2">
                 <Button type="submit" size="sm">
                   <Search className="mr-1 h-3.5 w-3.5" /> 搜索
@@ -241,26 +242,18 @@ export function WaimaotongArchivePage() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="admin-table w-full text-sm">
-              <thead>
+            <table className="w-full min-w-[1320px] text-sm">
+              <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="whitespace-nowrap">公司名</th>
-                  <th className="whitespace-nowrap">国家</th>
-                  <th className="whitespace-nowrap">域名</th>
-                  <th className="whitespace-nowrap">行业</th>
-                  <th className="whitespace-nowrap">员工规模</th>
-                  <th className="whitespace-nowrap">成立日期</th>
-                  <th className="whitespace-nowrap">注册地址</th>
-                  <th className="whitespace-nowrap">采集关键词</th>
-                  <th className="whitespace-nowrap">来源同行</th>
-                  <th className="whitespace-nowrap">联系人数</th>
-                  <th className="whitespace-nowrap">入库时间</th>
+                  {['公司名', '国家', '域名', '行业', '员工规模', '成立日期', '注册地址', '采集关键词', '来源同行', '联系人数', '入库时间', '操作'].map((label) => (
+                    <th key={label} className="whitespace-nowrap px-3 py-2">{label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {pageData.data.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={12} className="py-12 text-center text-muted-foreground">
                       {query.isLoading ? '加载中...' : '暂无数据'}
                     </td>
                   </tr>
@@ -268,20 +261,29 @@ export function WaimaotongArchivePage() {
                 {pageData.data.map((row) => (
                   <tr
                     key={row.id}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className="cursor-pointer border-b hover:bg-muted/40"
                     onClick={() => setSelected(row)}
                   >
-                    <td className="max-w-[200px] truncate font-medium">{dash(row.company_name)}</td>
-                    <td>{dash(row.country)}</td>
-                    <td className="max-w-[150px] truncate">{dash(row.domain)}</td>
-                    <td className="max-w-[120px] truncate">{dash(row.industry)}</td>
-                    <td>{dash(row.employee_size)}</td>
-                    <td>{dash(row.founded_year)}</td>
-                    <td className="max-w-[150px] truncate">{dash(row.full_address)}</td>
-                    <td>{dash(row.source_keyword)}</td>
-                    <td className="max-w-[120px] truncate">{dash(row.source_competitor)}</td>
-                    <td>{row.contacts_count ?? '-'}</td>
-                    <td className="whitespace-nowrap">{formatDateTime(row.created_at)}</td>
+                    <td className="max-w-[200px] truncate px-3 py-2 font-medium">{dash(row.company_name)}</td>
+                    <td className="px-3 py-2">{dash(row.country)}</td>
+                    <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
+                    <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry)}</td>
+                    <td className="px-3 py-2">{dash(row.employee_size)}</td>
+                    <td className="px-3 py-2">{dash(row.founded_year)}</td>
+                    <td className="max-w-[150px] truncate px-3 py-2">{dash(row.full_address)}</td>
+                    <td className="px-3 py-2">{dash(row.source_keyword)}</td>
+                    <td className="max-w-[140px] truncate px-3 py-2">{dash(row.source_competitor)}</td>
+                    <td className="px-3 py-2">{row.contacts_count ?? '-'}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{formatDateTime(row.created_at)}</td>
+                    <td className="px-3 py-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setSelected(row); }}
+                      >
+                        详情
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -289,9 +291,9 @@ export function WaimaotongArchivePage() {
           </div>
 
           {/* 分页 */}
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              共 {total} 条
+          <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span>共 {total} 条</span>
               <Select
                 value={String(pageSize)}
                 onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
