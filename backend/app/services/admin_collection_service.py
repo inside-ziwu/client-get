@@ -635,11 +635,11 @@ class AdminCollectionService:
         payload_select = ", raw_payload" if include_payload else ""
         table_sql = {
             "waimaotong": """
-                SELECT id::text AS id, source_id, name, country_iso3 AS country,
+                SELECT id::text AS id, NULL::text AS source_id, name, NULL::text AS country,
                        domain, NULL::text AS task_id, created_at
-                       {payload_select}
+                       {payload_select_null}
                 FROM waimaotong_raw_companies
-            """.format(payload_select=payload_select),
+            """.format(payload_select_null=", NULL::jsonb AS raw_payload" if include_payload else ""),
             "tendata": """
                 SELECT id::text AS id, source_id, name, country_iso3 AS country,
                        website AS domain, NULL::text AS task_id, created_at
@@ -880,7 +880,9 @@ COALESCE(
                 WHERE id = :id
             """,
             "waimaotong": """
-                SELECT id, source_id, raw_payload, search_payload, detail_payload, trade_payload
+                SELECT id, NULL::text AS source_id,
+                       NULL::jsonb AS raw_payload, NULL::jsonb AS search_payload,
+                       NULL::jsonb AS detail_payload, NULL::jsonb AS trade_payload
                 FROM waimaotong_raw_companies
                 WHERE id = :id
             """,
@@ -1274,13 +1276,18 @@ COALESCE(
             """
         elif provider == "waimaotong":
             sql = """
-                SELECT c.id, c.keyword_master_id, c.collection_type, c.source_id, c.real_id,
-                       c.name, c.country_iso3, c.domain, c.industry, c.address, c.phone,
+                SELECT c.id, NULL::uuid AS keyword_master_id, NULL::text AS collection_type,
+                       NULL::text AS source_id, c.real_id,
+                       c.name, NULL::text AS country_iso3, c.domain, c.industry,
+                       NULL::text AS address, c.phone,
                        c.employee_size, c.founded_year, c.description, c.products AS product_tags,
-                       c.source_tags, c.emails, c.trade_amount_3y_usd, c.trade_count,
-                       c.contacts_count, c.has_trade_data, c.detail_status, c.detail_fetched_at,
-                       c.trade_status, c.trade_fetched_at, c.contacts_status,
-                       c.contacts_fetched_at, c.created_at
+                       c.source_tags, NULL::text[] AS emails,
+                       NULL::numeric AS trade_amount_3y_usd, NULL::int AS trade_count,
+                       c.contacts_count, NULL::boolean AS has_trade_data, c.detail_status,
+                       NULL::timestamptz AS detail_fetched_at,
+                       NULL::text AS trade_status, NULL::timestamptz AS trade_fetched_at,
+                       NULL::text AS contacts_status, NULL::timestamptz AS contacts_fetched_at,
+                       c.created_at
                 FROM waimaotong_raw_companies c
             """
         else:
@@ -1536,7 +1543,7 @@ COALESCE(
             text(
                 """
                 SELECT 'waimaotong_raw_companies' AS raw_table,
-                       w.id, w.source_id, w.name, w.created_at
+                       w.id, NULL::text AS source_id, w.name, w.created_at
                 FROM waimaotong_raw_companies w
                 WHERE NOT EXISTS (
                     SELECT 1

@@ -6,17 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.crypto import decrypt_secret
 from app.core.errors import AppError
 from app.core.ids import new_uuid
-from app.services.collection_service import CollectionService
 from app.services.intelligence_service import IntelligenceService
-from app.services.scoring_service import ScoringService
 from app.services.tenant_messaging_service import TenantMessagingService
 
 
 class InternalOpsService:
     def __init__(self) -> None:
-        self.collection = CollectionService()
         self.messaging = TenantMessagingService()
-        self.scoring = ScoringService()
         self.intelligence = IntelligenceService()
 
     async def list_collection_credentials(self, conn: AsyncConnection, source_type: str) -> list[dict]:
@@ -75,33 +71,6 @@ class InternalOpsService:
                 )
                 count += 1
         return {"task_id": task_id, "count": count}
-
-    async def trigger_scoring(self, conn: AsyncConnection, payload: dict) -> dict:
-        return await self.scoring.trigger_scoring(
-            conn,
-            tenant_id=payload.get("tenant_id"),
-            tenant_company_ids=payload.get("tenant_company_ids"),
-            pending_only=payload.get("pending_only", False),
-            mode=payload.get("mode", "inline"),
-        )
-
-    async def claim_scoring_jobs(self, conn: AsyncConnection, payload: dict) -> dict:
-        return await self.scoring.claim_jobs(
-            conn,
-            service_instance=payload.get("service_instance", "scoring-service"),
-            limit=payload.get("limit", 20),
-            lease_seconds=payload.get("lease_seconds", 300),
-        )
-
-    async def submit_scoring_job(self, conn: AsyncConnection, *, job_id: str, payload: dict) -> dict:
-        return await self.scoring.submit_job_result(
-            conn,
-            job_id=job_id,
-            lease_id=payload["lease_id"],
-            score_result=payload.get("result"),
-            error=payload.get("error"),
-            retryable=payload.get("retryable", False),
-        )
 
     async def claim_due_emails(self, conn: AsyncConnection, payload: dict) -> dict:
         return await self.messaging.claim_due_emails(

@@ -34,34 +34,6 @@ async def batch_upsert_competitors(
     )
 
 
-@router.post("/scoring/trigger")
-async def trigger_scoring(
-    payload: dict,
-    _: ServiceAuthContext = Depends(require_service_scopes("scoring:trigger")),
-    conn=Depends(get_connection),
-) -> dict:
-    return success_response(await service.trigger_scoring(conn, payload))
-
-
-@router.post("/scoring/jobs/claim")
-async def claim_scoring_jobs(
-    payload: dict,
-    _: ServiceAuthContext = Depends(require_service_scopes("scoring:claim")),
-    conn=Depends(get_connection),
-) -> dict:
-    return success_response(await service.claim_scoring_jobs(conn, payload))
-
-
-@router.post("/scoring/jobs/{job_id}/submit-result")
-async def submit_scoring_result(
-    job_id: str,
-    payload: dict,
-    _: ServiceAuthContext = Depends(require_service_scopes("scoring:write")),
-    conn=Depends(get_connection),
-) -> dict:
-    return success_response(await service.submit_scoring_job(conn, job_id=job_id, payload=payload))
-
-
 @router.post("/sending/due-emails/claim")
 async def claim_due_emails(
     payload: dict,
