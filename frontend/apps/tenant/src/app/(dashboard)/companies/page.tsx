@@ -8,16 +8,25 @@ import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogTitle,
-  Badge, Button, Card, CardContent, Checkbox, Dialog, DialogContent,
-  DialogTitle, Input, MultiSelect, RatingTag,
+  Button, Card, CardContent, Checkbox, Dialog, DialogContent,
+  DialogTitle, Input, MultiSelect,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Sheet, SheetContent, SheetTitle,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
+import { formatDateTime } from '@/lib/format';
 import { PageHeader } from '@/components/pages/page-kit';
 import CompanyDetail from './company-detail';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+
+const GRADE_COLORS: Record<string, string> = {
+  S: 'bg-purple-100 text-purple-800',
+  A: 'bg-green-100 text-green-800',
+  B: 'bg-blue-100 text-blue-800',
+  C: 'bg-orange-100 text-orange-800',
+  D: 'bg-red-100 text-red-800',
+};
 
 type FilterValues = {
   keyword: string;
@@ -244,20 +253,20 @@ export default function CompaniesPage() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1400px] text-sm">
               <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
                 <tr>
                   <th className="w-10 px-3 py-2">
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
-                  {['公司', '国家', '细分行业', '产品标签', '评级', '总分', '操作'].map((h) => (
+                  {['公司名', '国家', '域名', '行业', '员工规模', '成立', '电话', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 && (
-                  <tr><td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={14} className="py-12 text-center text-muted-foreground">
                     {listQuery.isLoading ? '加载中...' : '暂无数据'}
                   </td></tr>
                 )}
@@ -266,23 +275,27 @@ export default function CompaniesPage() {
                     <td className="px-3 py-2">
                       <Checkbox checked={selectedIds.has(row.tc_id)} onCheckedChange={() => toggleSelect(row.tc_id)} />
                     </td>
-                    <td className="max-w-[200px] px-3 py-2">
+                    <td className="max-w-[180px] truncate px-3 py-2">
                       <button className="text-left font-medium text-primary hover:underline" onClick={() => setDetailId(row.id)}>
                         {dash(row.name)}
                       </button>
-                      <div className="truncate text-xs text-muted-foreground">{row.domain ?? ''}</div>
                     </td>
                     <td className="px-3 py-2">{dash(row.country_iso3)}</td>
-                    <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
-                    <td className="max-w-[160px] px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {(row.product_tags ?? []).slice(0, 3).map((t) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
-                        {(row.product_tags ?? []).length > 3 && <Badge variant="outline" className="text-xs">+{(row.product_tags!.length - 3)}</Badge>}
-                        {!(row.product_tags ?? []).length && '-'}
-                      </div>
+                    <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
+                    <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
+                    <td className="px-3 py-2">{dash(row.employee_num)}</td>
+                    <td className="px-3 py-2">{dash(row.founded_year)}</td>
+                    <td className="px-3 py-2">{dash(row.phone)}</td>
+                    <td className="px-3 py-2">
+                      {row.grade ? (
+                        <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[row.grade] ?? ''}`}>
+                          {row.grade}
+                        </span>
+                      ) : '-'}
                     </td>
-                    <td className="px-3 py-2">{row.grade ? <RatingTag grade={row.grade} /> : '-'}</td>
                     <td className="px-3 py-2">{row.wmt_score != null ? row.wmt_score : '-'}</td>
+                    <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
+                    <td className="px-3 py-2">{row.contacts_count ?? '-'}</td>
                     <td className="whitespace-nowrap px-3 py-2">
                       <div className="flex items-center gap-1">
                         <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setDetailId(row.id)}>详情</Button>
@@ -294,6 +307,7 @@ export default function CompaniesPage() {
                         }}>拉黑</Button>
                       </div>
                     </td>
+                    <td className="whitespace-nowrap px-3 py-2">{formatDateTime(row.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -345,6 +359,16 @@ export default function CompaniesPage() {
           <div className="border-b px-5 py-4">
             <SheetTitle>{detailQuery.data?.name ?? '公司详情'}</SheetTitle>
           </div>
+          {detailQuery.isLoading && (
+            <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">加载中...</div>
+          )}
+          {detailQuery.isError && (
+            <div className="px-5 py-10 text-center text-sm text-destructive">
+              <p>加载失败</p>
+              <p className="mt-1 text-xs text-muted-foreground">{String((detailQuery.error as Error)?.message ?? '未知错误')}</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => detailQuery.refetch()}>重试</Button>
+            </div>
+          )}
           {detailQuery.data && (
             <CompanyDetail
               company={detailQuery.data}
