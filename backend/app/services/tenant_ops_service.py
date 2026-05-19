@@ -64,9 +64,9 @@ class TenantOpsService:
             SELECT array_remove(array_agg(DISTINCT tag), NULL) AS product_tags
             FROM tenant_companies tc
             JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
-            CROSS JOIN unnest(wc.product_tags) AS tag
+            CROSS JOIN jsonb_array_elements_text(wc.product_tags) AS tag
             WHERE tc.tenant_id = :tenant_id AND tc.visibility_status = 'visible'
-              AND wc.product_tags IS NOT NULL
+              AND wc.product_tags IS NOT NULL AND jsonb_typeof(wc.product_tags) = 'array'
         """), params)
         row3 = r3.mappings().one()
 
