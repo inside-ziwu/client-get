@@ -20,6 +20,20 @@ import CompanyDetail from './company-detail';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
+const COUNTRY_ZH: Record<string, string> = {
+  'China': '中国', 'Hong Kong': '中国香港', 'Macau': '中国澳门', 'Taiwan': '中国台湾',
+  'United States': '美国', 'United Kingdom': '英国', 'France': '法国', 'Germany': '德国',
+  'Japan': '日本', 'South Korea': '韩国', 'India': '印度', 'Australia': '澳大利亚',
+  'Canada': '加拿大', 'Singapore': '新加坡', 'Malaysia': '马来西亚', 'Thailand': '泰国',
+  'Vietnam': '越南', 'Philippines': '菲律宾', 'Bangladesh': '孟加拉国', 'Mexico': '墨西哥',
+  'Kuwait': '科威特', 'Aruba': '阿鲁巴', 'Bulgaria': '保加利亚', 'Czech Republic': '捷克',
+  'Luxembourg': '卢森堡', '未公开': '未公开',
+};
+function countryZh(v: string | null | undefined) {
+  if (!v) return '-';
+  return COUNTRY_ZH[v] ?? v;
+}
+
 const GRADE_COLORS: Record<string, string> = {
   S: 'bg-purple-100 text-purple-800',
   A: 'bg-green-100 text-green-800',
@@ -152,7 +166,7 @@ export default function CompaniesPage() {
   const invalidateList = () => queryClient.invalidateQueries({ queryKey: ['tenant', 'companies'] });
 
   const fo = filtersQuery.data;
-  const countryOpts = (fo?.countries ?? []).map((v: string) => ({ label: v, value: v }));
+  const countryOpts = (fo?.countries ?? []).map((v: string) => ({ label: countryZh(v), value: v }));
   const subIndustryOpts = (fo?.sub_industries ?? []).map((v: string) => ({ label: v, value: v }));
   const productTagOpts = (fo?.product_tags ?? []).map((v: string) => ({ label: v, value: v }));
   const gradeOpts = (fo?.grades ?? []) as string[];
@@ -283,7 +297,7 @@ export default function CompaniesPage() {
                         {dash(row.name)}
                       </button>
                     </td>
-                    <td className="px-3 py-2">{dash(row.country_iso3)}</td>
+                    <td className="px-3 py-2">{countryZh(row.country_iso3)}</td>
                     <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
                     <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
                     <td className="px-3 py-2">{dash(row.employee_num)}</td>
