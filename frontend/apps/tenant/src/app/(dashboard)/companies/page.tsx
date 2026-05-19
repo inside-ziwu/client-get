@@ -152,6 +152,7 @@ export default function CompaniesPage() {
   const invalidateList = () => queryClient.invalidateQueries({ queryKey: ['tenant', 'companies'] });
 
   const fo = filtersQuery.data;
+  console.log('[filters-debug]', { status: filtersQuery.status, error: filtersQuery.error, data: fo });
   const countryOpts = (fo?.countries ?? []).map((v: string) => ({ label: v, value: v }));
   const subIndustryOpts = (fo?.sub_industries ?? []).map((v: string) => ({ label: v, value: v }));
   const productTagOpts = (fo?.product_tags ?? []).map((v: string) => ({ label: v, value: v }));
