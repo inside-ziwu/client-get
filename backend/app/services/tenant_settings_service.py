@@ -102,7 +102,7 @@ class TenantSettingsService:
         existing = await conn.execute(
             text(
                 """
-                SELECT keyword, status
+                SELECT keyword, status, keyword_master_id
                 FROM collection_keywords
                 WHERE id = :keyword_id AND tenant_id = :tenant_id
                 """
@@ -112,6 +112,7 @@ class TenantSettingsService:
         row = existing.mappings().first()
         if row is None:
             raise AppError(code="NOT_FOUND", message="关键词不存在", status_code=404)
+        old_keyword_master_id = row["keyword_master_id"]
         keyword = (payload.get("keyword") or row["keyword"]).strip()
         keyword_normalized = normalize_keyword(keyword)
         status = payload.get("status") or row["status"]
@@ -120,6 +121,12 @@ class TenantSettingsService:
             keyword=keyword,
             keyword_normalized=keyword_normalized,
         )
+        if str(old_keyword_master_id) != str(keyword_master_id):
+            await hide_tenant_companies_for_cancelled_keyword(
+                conn,
+                tenant_id=tenant_id,
+                keyword_master_id=str(old_keyword_master_id),
+            )
         await bind_tenant_keyword(
             conn,
             tenant_id=tenant_id,
