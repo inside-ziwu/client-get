@@ -28,7 +28,7 @@ export type {
 } from './admin/collection';
 export type { AiModel, AiSceneDefault, AiPricingResponse } from './admin/ai-config';
 export type { Tenant, TenantDomain, TenantTeamUser } from './admin/tenants';
-export type { Company } from './tenant/companies';
+export type { Company, CompanyListFilters } from './tenant/companies';
 export type { Prospect } from './tenant/prospects';
 export type { Group } from './tenant/groups';
 export type { TenantDomainInfo } from './tenant/domains';

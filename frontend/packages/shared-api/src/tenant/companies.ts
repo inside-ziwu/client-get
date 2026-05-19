@@ -6,32 +6,53 @@ import type {
 
 export interface Company {
   id: string;
+  tc_id: string;
   name: string;
   name_en?: string;
   domain?: string;
-  industry?: string;
-  country?: string;
-  employee_scale?: string;
-  contacts_count?: number;
+  country_iso3?: string;
+  website?: string;
+  founded_year?: number;
+  employee_num?: string;
+  industry_desc?: string;
+  sub_industry?: string;
+  industry_tags?: string[];
   product_tags?: string[];
+  grade?: string;
+  wmt_score?: number;
+  score?: number;
+  model_score?: number;
+  score_adjustment?: number;
+  phone?: string;
+  company_size?: string;
+  trade_amount_3y_usd?: number;
+  trade_count?: number;
+  contacts_count?: number;
+  description?: string;
+  data_source_tags?: string[];
+  sources?: string[];
+  full_address?: string;
+  matched_keywords?: string[];
   business_status?: string;
   data_status?: string;
-  grade?: string;
-  total_score?: number;
-  /** C4：人工调分，范围 -20 ~ +20 */
-  score_adjustment?: number;
-  score_adjusted_at?: string;
-  score_adjusted_by?: string;
-  score_adjust_reason?: string;
-  is_precise_customer?: boolean;
-  website?: string;
-  notes?: string;
+  note?: string;
   tags?: string[];
-  created_at: string;
-  updated_at: string;
+  score_details?: unknown;
+  company_type_analysis?: string;
+  email_priority?: string;
+  sales_approach?: string;
+  match_reasons?: unknown;
+  potential_needs?: unknown;
+  recommended_products?: unknown;
+  risk_factors?: unknown;
+  main_business?: string;
+  trade_summary?: string;
+  created_at?: string;
+  updated_at?: string;
+  tenant_created_at?: string;
+  tenant_updated_at?: string;
 }
 
-/** C5：10 项筛选参数 */
 export interface CompanyListFilters {
   keyword?: string;
   grade?: string;
@@ -39,14 +60,18 @@ export interface CompanyListFilters {
   'sub_industries[]'?: string[];
   'product_tags[]'?: string[];
   'sources[]'?: string[];
-  contact_count_range?: string;
+  trade_amount_min?: number;
+  trade_amount_max?: number;
+  trade_count_min?: number;
+  trade_count_max?: number;
+  contact_count_min?: number;
+  contact_count_max?: number;
   founded_year_from?: number;
   founded_year_to?: number;
-  'employee_scale[]'?: string[];
   min_score?: number;
   max_score?: number;
-  limit?: number;
-  cursor?: string;
+  page?: number;
+  page_size?: number;
 }
 
 export function companiesApi(client: AxiosInstance) {
@@ -65,5 +90,7 @@ export function companiesApi(client: AxiosInstance) {
       client.post<ApiResponse<Record<string, unknown>>>('/api/v1/companies/batch-import', { items }),
     blacklist: (id: string, reason?: string) =>
       client.post<ApiResponse<Record<string, unknown>>>(`/api/v1/companies/${id}/blacklist`, { reason }),
+    patch: (tcId: string, data: Record<string, unknown>) =>
+      client.patch<ApiResponse<Company>>(`/api/v1/prospects/${tcId}`, data),
   };
 }
