@@ -15,7 +15,6 @@ COPY packages/shared-ui/package.json packages/shared-ui/package.json
 RUN pnpm install --frozen-lockfile
 
 COPY apps/tenant/next-env.d.ts apps/tenant/next-env.d.ts
-COPY apps/tenant/vite-env-shim.d.ts apps/tenant/vite-env-shim.d.ts
 COPY apps/tenant/next.config.ts apps/tenant/next.config.ts
 COPY apps/tenant/postcss.config.mjs apps/tenant/postcss.config.mjs
 COPY apps/tenant/tailwind.config.ts apps/tenant/tailwind.config.ts
