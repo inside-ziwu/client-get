@@ -93,7 +93,10 @@ export default function NewSendPlanPage() {
       queryClient.invalidateQueries({ queryKey: ['tenant', 'sendingPlans'] });
       router.push(`/send-plans/${plan.id}`);
     },
-    onError: (err: Error) => toast.error(err.message || '创建失败'),
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr.response?.data?.message || '创建失败');
+    },
   });
 
   const validateCurrentStep = (): boolean => {

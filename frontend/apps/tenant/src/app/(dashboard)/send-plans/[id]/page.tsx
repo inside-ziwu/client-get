@@ -102,7 +102,10 @@ export default function SendPlanDetailPage() {
       toast.success(labels[action]);
       invalidateAll();
     },
-    onError: (err: Error) => toast.error(err.message || '操作失败'),
+    onError: (err: unknown) => {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr.response?.data?.message || '操作失败');
+    },
   });
 
   const handleAction = (action: ActionDef['action']) => {
