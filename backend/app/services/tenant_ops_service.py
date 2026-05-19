@@ -168,16 +168,19 @@ class TenantOpsService:
             except (ValueError, TypeError):
                 founded_year = None
 
+            manual_source_id = f"manual-{new_uuid()}"
             cc_insert = await conn.execute(
                 text(
                     """
                     INSERT INTO waimaotong_clean_companies
                       (company_name, english_name, country_iso3, domain, website, industry, product_tags,
-                       phone, employee_size, founded_year, full_address, description, source_id)
+                       phone, employee_size, founded_year, full_address, description, source_id,
+                       sys_company_id)
                     VALUES
                       (:company_name, :english_name, :country_iso3, :domain, :website, :industry,
                        CAST(:product_tags AS jsonb),
-                       :phone, :employee_size, :founded_year, :full_address, :description, :source_id)
+                       :phone, :employee_size, :founded_year, :full_address, :description, :source_id,
+                       :sys_company_id)
                     RETURNING id
                     """
                 ),
@@ -194,7 +197,8 @@ class TenantOpsService:
                     "founded_year": founded_year,
                     "full_address": payload.get("full_address"),
                     "description": payload.get("description"),
-                    "source_id": f"manual-{new_uuid()}",
+                    "source_id": manual_source_id,
+                    "sys_company_id": manual_source_id,
                 },
             )
             actual_clean_company_id = cc_insert.scalar_one()
