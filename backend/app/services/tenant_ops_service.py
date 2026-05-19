@@ -175,7 +175,7 @@ class TenantOpsService:
                        phone, employee_size, founded_year, full_address, description)
                     VALUES
                       (:company_name, :english_name, :country_iso3, :domain, :website, :industry,
-                       CAST(:product_tags AS text[]),
+                       CAST(:product_tags AS jsonb),
                        :phone, :employee_size, :founded_year, :full_address, :description)
                     RETURNING id
                     """
@@ -187,7 +187,7 @@ class TenantOpsService:
                     "domain": domain,
                     "website": website or (f"https://{domain}" if domain else None),
                     "industry": payload.get("industry"),
-                    "product_tags": payload.get("product_tags") or payload.get("tags") or [],
+                    "product_tags": json.dumps(payload.get("product_tags") or payload.get("tags") or []),
                     "phone": payload.get("phone"),
                     "employee_size": payload.get("employee_size"),
                     "founded_year": founded_year,
