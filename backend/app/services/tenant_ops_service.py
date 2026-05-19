@@ -161,14 +161,22 @@ class TenantOpsService:
         if existing is not None:
             actual_clean_company_id = existing
         else:
+            founded_year_raw = payload.get("founded_year")
+            try:
+                founded_year = int(founded_year_raw) if founded_year_raw not in (None, "") else None
+            except (ValueError, TypeError):
+                founded_year = None
+
             cc_insert = await conn.execute(
                 text(
                     """
                     INSERT INTO waimaotong_clean_companies
-                      (company_name, english_name, country_iso3, domain, website, industry, product_tags)
+                      (company_name, english_name, country_iso3, domain, website, industry, product_tags,
+                       phone, employee_size, founded_year, full_address, description)
                     VALUES
                       (:company_name, :english_name, :country_iso3, :domain, :website, :industry,
-                       CAST(:product_tags AS text[]))
+                       CAST(:product_tags AS text[]),
+                       :phone, :employee_size, :founded_year, :full_address, :description)
                     RETURNING id
                     """
                 ),
@@ -180,6 +188,11 @@ class TenantOpsService:
                     "website": website or (f"https://{domain}" if domain else None),
                     "industry": payload.get("industry"),
                     "product_tags": payload.get("product_tags") or payload.get("tags") or [],
+                    "phone": payload.get("phone"),
+                    "employee_size": payload.get("employee_size"),
+                    "founded_year": founded_year,
+                    "full_address": payload.get("full_address"),
+                    "description": payload.get("description"),
                 },
             )
             actual_clean_company_id = cc_insert.scalar_one()
