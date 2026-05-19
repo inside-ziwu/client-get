@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>情报中心 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-link { background: none; border: none; color: #1677ff; cursor: pointer; font-size: 13px; padding: 0; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  select.input { padding: 5px 8px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-green { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-orange { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+  .tag-gray { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .tag-purple { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
+  .article-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border: 1px solid #f0f0f0; padding: 16px; cursor: pointer; transition: all 0.15s; }
+  .article-card:hover { box-shadow: 0 3px 8px rgba(0,0,0,.1); border-color: #bae0ff; }
+  .article-card.active { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,.1); }
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; background: white; box-shadow: -6px 0 16px rgba(0,0,0,.1); z-index: 60; display: flex; flex-direction: column; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 55; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span class="text-slate-800 font-medium">情报中心</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+
+  <!-- 筛选区 -->
+  <div class="bg-white rounded-md p-4 mb-5 flex gap-3 items-center shadow-sm">
+    <input class="input flex-1" placeholder="搜索情报标题、关键词...">
+    <select class="input" style="width:160px">
+      <option>全部分类</option>
+      <option>行业动态</option>
+      <option>供应链</option>
+      <option>政策</option>
+      <option>技术</option>
+    </select>
+    <button class="btn btn-primary">搜索</button>
+    <button class="btn btn-default">重置</button>
+  </div>
+
+  <!-- 文章列表 -->
+  <div class="space-y-3" id="articleList">
+    <div class="article-card active" onclick="showDetail(this, 0)">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="tag tag-blue">行业动态</span>
+          <span class="text-xs text-slate-400">2026-05-05</span>
+        </div>
+        <button class="btn-link">查看详情 →</button>
+      </div>
+      <div class="font-medium text-slate-800 mb-1">2025年Q2全球PCB产值预计增长8.3%，亚太区领涨</div>
+      <div class="text-sm text-slate-500 leading-relaxed">根据Prismark最新报告，2025年第二季度全球PCB市场产值预计同比增长8.3%，其中亚太区增幅最为显著，主要受中国大陆、台湾及韩国出口带动，消费电子及汽车电子需求回升是主要驱动因素。</div>
+    </div>
+
+    <div class="article-card" onclick="showDetail(this, 1)">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="tag tag-orange">供应链</span>
+          <span class="text-xs text-slate-400">2026-05-04</span>
+        </div>
+        <button class="btn-link">查看详情 →</button>
+      </div>
+      <div class="font-medium text-slate-800 mb-1">部分欧洲采购商转向东南亚供应链，询盘量上涨12%</div>
+      <div class="text-sm text-slate-500 leading-relaxed">受地缘政治影响，德国、荷兰等部分电子制造商开始将部分PCB采购订单分散至越南和泰国供应商，但中国供应链整体仍保持主导地位，性价比优势依然显著。</div>
+    </div>
+
+    <div class="article-card" onclick="showDetail(this, 2)">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="tag tag-gray">政策</span>
+          <span class="text-xs text-slate-400">2026-05-02</span>
+        </div>
+        <button class="btn-link">查看详情 →</button>
+      </div>
+      <div class="font-medium text-slate-800 mb-1">欧盟电子废弃物新规7月生效，影响PCB进口认证要求</div>
+      <div class="text-sm text-slate-500 leading-relaxed">欧盟最新电子废弃物指令（WEEE）修订版将于2026年7月正式实施，新规对PCB中有害物质含量提出更严格标准，中国出口商需提前准备CE认证与RoHS合规文件。</div>
+    </div>
+
+    <div class="article-card" onclick="showDetail(this, 3)">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="tag tag-purple">技术</span>
+          <span class="text-xs text-slate-400">2026-04-30</span>
+        </div>
+        <button class="btn-link">查看详情 →</button>
+      </div>
+      <div class="font-medium text-slate-800 mb-1">HDI高密度互连板需求激增，AI服务器推动高端PCB订单</div>
+      <div class="text-sm text-slate-500 leading-relaxed">随着AI服务器市场爆发，HDI（高密度互连）PCB需求快速增长，英伟达、AMD等芯片大厂供应链中对高层数、高精度PCB的采购询盘明显增加，相关供应商产能普遍紧张。</div>
+    </div>
+
+    <div class="article-card" onclick="showDetail(this, 4)">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="tag tag-green">行业动态</span>
+          <span class="text-xs text-slate-400">2026-04-28</span>
+        </div>
+        <button class="btn-link">查看详情 →</button>
+      </div>
+      <div class="font-medium text-slate-800 mb-1">日本电子制造商扩大PCB采购预算，积极寻找中国优质供应商</div>
+      <div class="text-sm text-slate-500 leading-relaxed">据行业数据显示，多家日本中型电子制造商（年营收5-20亿日元级别）正积极扩大PCB采购来源，将中国大陆供应商列为重点开发对象，尤其关注高质量刚性板和软硬结合板产品。</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay" style="display:none" onclick="hideDrawer()"></div>
+
+<!-- 详情 Drawer -->
+<div class="drawer" id="detailDrawer" style="display:none; width:580px">
+  <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+    <div class="flex items-center gap-2">
+      <span class="tag tag-blue" id="drawerCategory">行业动态</span>
+      <span class="text-xs text-slate-400" id="drawerDate">2026-05-05</span>
+    </div>
+    <button class="btn btn-default btn-sm" onclick="hideDrawer()">关闭</button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-6">
+    <div class="font-semibold text-slate-800 text-base mb-3 leading-snug" id="drawerTitle">
+      2025年Q2全球PCB产值预计增长8.3%，亚太区领涨
+    </div>
+    <div class="text-xs text-slate-400 mb-4">来源：Prismark · 2026-05-05</div>
+    <div class="text-sm text-slate-600 leading-relaxed space-y-3" id="drawerContent">
+      <p>根据Prismark最新市场研究报告，2025年第二季度全球印制电路板（PCB）市场产值预计达到218亿美元，同比增长8.3%，较上一季度增速加快2.1个百分点。</p>
+      <p>从区域分布来看，亚太区依然是全球PCB产值最大的区域，占全球总产值的约87%。其中，中国大陆以42%的市场份额稳居第一，中国台湾（17%）和韩国（11%）紧随其后。</p>
+      <p>驱动本轮增长的主要因素包括：</p>
+      <ul style="list-style:disc; padding-left:20px; margin:4px 0">
+        <li>AI服务器及数据中心基础设施投资加速，带动高端HDI板需求</li>
+        <li>新能源汽车渗透率提升，车规级PCB需求持续旺盛</li>
+        <li>消费电子产品需求温和复苏，智能手机出货量回升</li>
+      </ul>
+      <p>分析师指出，当前PCB市场的主要风险在于原材料铜箔和覆铜板价格波动，以及地缘政治因素对供应链稳定性的潜在影响。</p>
+      <p>对于中国PCB供应商而言，此次市场回暖提供了向海外采购商拓展客户关系的有利时机，尤其是欧美市场对高质量、价格合理的PCB产品需求明显提升。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const articles = [
+  {
+    category: '行业动态', categoryClass: 'tag-blue', date: '2026-05-05',
+    title: '2025年Q2全球PCB产值预计增长8.3%，亚太区领涨',
+    content: '<p>根据Prismark最新市场研究报告，2025年第二季度全球印制电路板（PCB）市场产值预计达到218亿美元，同比增长8.3%，较上一季度增速加快2.1个百分点。</p><p>从区域分布来看，亚太区依然是全球PCB产值最大的区域，占全球总产值的约87%。其中，中国大陆以42%的市场份额稳居第一，中国台湾（17%）和韩国（11%）紧随其后。</p><p>分析师指出，当前PCB市场的主要风险在于原材料铜箔和覆铜板价格波动，以及地缘政治因素对供应链稳定性的潜在影响。</p>'
+  },
+  {
+    category: '供应链', categoryClass: 'tag-orange', date: '2026-05-04',
+    title: '部分欧洲采购商转向东南亚供应链，询盘量上涨12%',
+    content: '<p>受地缘政治影响，德国、荷兰等部分电子制造商开始将部分PCB采购订单分散至越南和泰国供应商，但中国供应链整体仍保持主导地位，性价比优势依然显著。</p><p>业内数据显示，2026年Q1中国PCB出口额仍同比增长5.2%，东南亚供应链短期内无法替代中国的规模与技术积累。建议供应商重点关注欧洲市场的认证和合规需求，以巩固竞争优势。</p>'
+  },
+  {
+    category: '政策', categoryClass: 'tag-gray', date: '2026-05-02',
+    title: '欧盟电子废弃物新规7月生效，影响PCB进口认证要求',
+    content: '<p>欧盟最新电子废弃物指令（WEEE）修订版将于2026年7月正式实施，新规对PCB中有害物质含量提出更严格标准，中国出口商需提前准备CE认证与RoHS合规文件。</p><p>主要变化包括：铅含量限制从100ppm降至75ppm；需提供第三方检测报告；强制要求产品生命周期末端回收方案。建议企业尽早与欧盟认证机构沟通，避免7月后出现出口阻碍。</p>'
+  },
+  {
+    category: '技术', categoryClass: 'tag-purple', date: '2026-04-30',
+    title: 'HDI高密度互连板需求激增，AI服务器推动高端PCB订单',
+    content: '<p>随着AI服务器市场爆发，HDI（高密度互连）PCB需求快速增长，英伟达、AMD等芯片大厂供应链中对高层数、高精度PCB的采购询盘明显增加，相关供应商产能普遍紧张。</p><p>市场数据显示，16层以上HDI板的询盘量同比增长约45%，部分规格已出现3-4个月的交货周期。具备HDI制造能力的供应商建议积极开发AI服务器供应链中的采购商，市场需求旺盛且溢价空间显著。</p>'
+  },
+  {
+    category: '行业动态', categoryClass: 'tag-green', date: '2026-04-28',
+    title: '日本电子制造商扩大PCB采购预算，积极寻找中国优质供应商',
+    content: '<p>据行业数据显示，多家日本中型电子制造商（年营收5-20亿日元级别）正积极扩大PCB采购来源，将中国大陆供应商列为重点开发对象，尤其关注高质量刚性板和软硬结合板产品。</p><p>日本企业普遍重视质量稳定性和交货准时率，建议供应商在开发此类客户时提供详细的质量管理体系文件（如ISO 9001、IATF 16949证书）及样品测试报告，以建立信任基础。</p>'
+  }
+];
+
+function showDetail(el, idx) {
+  document.querySelectorAll('.article-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const a = articles[idx];
+  document.getElementById('drawerCategory').className = 'tag ' + a.categoryClass;
+  document.getElementById('drawerCategory').textContent = a.category;
+  document.getElementById('drawerDate').textContent = a.date;
+  document.getElementById('drawerTitle').textContent = a.title;
+  document.getElementById('drawerContent').innerHTML = a.content;
+  document.getElementById('detailDrawer').style.display = 'flex';
+  document.getElementById('overlay').style.display = 'block';
+}
+
+function hideDrawer() {
+  document.getElementById('detailDrawer').style.display = 'none';
+  document.getElementById('overlay').style.display = 'none';
+}
+</script>
+</body>
+</html>

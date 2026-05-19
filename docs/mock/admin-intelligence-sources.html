@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>admin/CompetitorMeta — V3 UI 原型</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 5px 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; }
+  .input:focus { border-color: #1677ff; }
+  .select { padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 13px; outline: none; background: white; }
+  .select:focus { border-color: #1677ff; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 9px 12px; font-size: 12px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+  td { padding: 9px 12px; font-size: 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; }
+  .tag-blue { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-gray { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .tag-green { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+  .dash { color: #bbb; }
+  /* 详情 Drawer */
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; background: white; box-shadow: -6px 0 16px rgba(0,0,0,.1); z-index: 60; display: flex; flex-direction: column; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 55; }
+  .desc-row { display: flex; margin-bottom: 12px; }
+  .desc-label { width: 100px; flex-shrink: 0; color: #8c8c8c; font-size: 13px; }
+  .desc-value { flex: 1; font-size: 13px; color: #000000d9; word-break: break-all; }
+  /* 筛选区 */
+  .filter-sep { color: #bfbfbf; padding: 0 2px; font-size: 13px; }
+  .filter-label { font-size: 13px; color: #595959; white-space: nowrap; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- 侧边导航 -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>采集</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">同行公司元数据</span></div>
+  <div class="text-sm text-slate-500">admin@platform · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+
+  <div class="flex items-center justify-between mb-4">
+    <span class="text-sm text-slate-400">励销云采集的中国同行公司原始记录</span>
+  </div>
+
+  <!-- 筛选区 -->
+  <div class="bg-white rounded-md shadow-sm mb-4" style="padding:12px 20px 14px;display:flex;flex-direction:column;gap:10px;">
+    <!-- 第一行 -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <input type="text" class="input" placeholder="公司名（中文/英文）搜索" style="width:200px;">
+      <select class="input" style="width:160px;">
+        <option>全部关键词</option>
+        <option>multilayer pcb</option>
+        <option>flexible pcb</option>
+        <option>hdi pcb manufacturer</option>
+        <option>rigid flex pcb</option>
+        <option>aluminum pcb</option>
+      </select>
+      <span class="filter-label">成立时间</span>
+      <input type="date" class="input" style="width:130px;">
+      <span class="filter-sep">—</span>
+      <input type="date" class="input" style="width:130px;">
+    </div>
+    <!-- 第二行 -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <select class="input" style="width:140px;">
+        <option>注册资金（不限）</option>
+        <option>&lt; 100 万</option>
+        <option>100 – 500 万</option>
+        <option>500 – 2000 万</option>
+        <option>2000 万 – 1 亿</option>
+        <option>&gt; 1 亿</option>
+      </select>
+      <select class="input" style="width:140px;">
+        <option>员工规模（不限）</option>
+        <option>&lt; 10 人</option>
+        <option>10 – 50 人</option>
+        <option>50 – 200 人</option>
+        <option>200 – 1000 人</option>
+        <option>&gt; 1000 人</option>
+      </select>
+      <select class="input" style="width:140px;">
+        <option>联系人数（不限）</option>
+        <option>0（无）</option>
+        <option>1 – 3</option>
+        <option>4 – 10</option>
+        <option>&gt; 10</option>
+      </select>
+      <label style="cursor:pointer;font-size:13px;color:#595959;display:flex;align-items:center;gap:5px;">
+        <input type="checkbox"> 有英文名
+      </label>
+      <label style="cursor:pointer;font-size:13px;color:#595959;display:flex;align-items:center;gap:5px;">
+        <input type="checkbox"> 有域名
+      </label>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-primary">查询</button>
+        <button class="btn btn-default">重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 数据表 -->
+  <div class="bg-white rounded-md shadow-sm overflow-auto">
+    <table style="min-width:1200px;">
+      <thead>
+        <tr>
+          <th>中文名</th>
+          <th>英文名</th>
+          <th>员工规模</th>
+          <th>注册资金</th>
+          <th>成立时间</th>
+          <th>注册地址</th>
+          <th>网址</th>
+          <th>联系人</th>
+          <th>关键词</th>
+          <th>采集时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="font-medium max-w-xs truncate" title="深圳市信安电子有限公司">深圳市信安电子有限公司</td>
+          <td class="text-slate-500">Xincode Electronics</td>
+          <td>50 – 200 人</td>
+          <td>500 万</td>
+          <td>2009-03-14</td>
+          <td class="text-slate-500 max-w-xs truncate" title="广东省深圳市宝安区">广东省深圳市宝安区</td>
+          <td><a class="text-blue-600 text-xs" href="#" onclick="return false;">xca-pcb.com</a></td>
+          <td><span class="tag tag-green">3</span></td>
+          <td><span class="tag tag-blue text-xs">multilayer pcb</span></td>
+          <td class="text-slate-400 text-xs whitespace-nowrap">2026-05-06 09:42:15</td>
+          <td><button class="btn btn-default btn-sm" onclick="openDetail('深圳市信安电子有限公司')">详情</button></td>
+        </tr>
+        <tr>
+          <td class="font-medium max-w-xs truncate" title="东莞鸿明电子科技有限公司">东莞鸿明电子科技有限公司</td>
+          <td class="text-slate-400 dash">—</td>
+          <td>10 – 50 人</td>
+          <td>100 万</td>
+          <td>2013-07-08</td>
+          <td class="text-slate-500 max-w-xs truncate" title="广东省东莞市松山湖">广东省东莞市松山湖</td>
+          <td class="dash">—</td>
+          <td><span class="tag tag-gray">0</span></td>
+          <td><span class="tag tag-blue text-xs">flexible pcb</span></td>
+          <td class="text-slate-400 text-xs whitespace-nowrap">2026-05-06 09:38:02</td>
+          <td><button class="btn btn-default btn-sm" onclick="openDetail('东莞鸿明电子科技有限公司')">详情</button></td>
+        </tr>
+        <tr>
+          <td class="font-medium max-w-xs truncate" title="苏州博源电路板制造有限公司">苏州博源电路板制造有限公司</td>
+          <td class="text-slate-500">Boyuan Circuit Board</td>
+          <td>200 – 1000 人</td>
+          <td>2000 万</td>
+          <td>2005-11-22</td>
+          <td class="text-slate-500 max-w-xs truncate" title="江苏省苏州市工业园区">江苏省苏州市工业园区</td>
+          <td><a class="text-blue-600 text-xs" href="#" onclick="return false;">boyuanpcb.com</a></td>
+          <td><span class="tag tag-green">7</span></td>
+          <td><span class="tag tag-blue text-xs">multilayer pcb</span></td>
+          <td class="text-slate-400 text-xs whitespace-nowrap">2026-05-06 09:35:44</td>
+          <td><button class="btn btn-default btn-sm" onclick="openDetail('苏州博源电路板制造有限公司')">详情</button></td>
+        </tr>
+        <tr>
+          <td class="font-medium max-w-xs truncate" title="广州金宝电路科技有限公司">广州金宝电路科技有限公司</td>
+          <td class="text-slate-500">Jinbao Circuit Tech</td>
+          <td>50 – 200 人</td>
+          <td>300 万</td>
+          <td>2011-04-18</td>
+          <td class="text-slate-500 max-w-xs truncate" title="广东省广州市黄埔区">广东省广州市黄埔区</td>
+          <td><a class="text-blue-600 text-xs" href="#" onclick="return false;">jbpcb.cn</a></td>
+          <td><span class="tag tag-green">2</span></td>
+          <td><span class="tag tag-blue text-xs">aluminum pcb</span></td>
+          <td class="text-slate-400 text-xs whitespace-nowrap">2026-05-05 16:30:09</td>
+          <td><button class="btn btn-default btn-sm" onclick="openDetail('广州金宝电路科技有限公司')">详情</button></td>
+        </tr>
+        <tr>
+          <td class="font-medium max-w-xs truncate" title="厦门新华源电子技术有限公司">厦门新华源电子技术有限公司</td>
+          <td class="text-slate-400 dash">—</td>
+          <td>10 – 50 人</td>
+          <td>50 万</td>
+          <td>2017-09-05</td>
+          <td class="text-slate-500 max-w-xs truncate" title="福建省厦门市思明区">福建省厦门市思明区</td>
+          <td class="dash">—</td>
+          <td><span class="tag tag-gray">0</span></td>
+          <td><span class="tag tag-blue text-xs">thick copper pcb</span></td>
+          <td class="text-slate-400 text-xs whitespace-nowrap">2026-05-05 11:25:33</td>
+          <td><button class="btn btn-default btn-sm" onclick="openDetail('厦门新华源电子技术有限公司')">详情</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="px-4 py-3 text-sm text-slate-500 border-t border-slate-100">共 142 条 · 1 / 15 页</div>
+  </div>
+
+</main>
+
+<!-- 详情 Drawer -->
+<div id="detail-overlay" class="overlay hidden" onclick="closeDetail()"></div>
+<div id="detail-drawer" class="drawer hidden" style="width:520px;">
+  <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+    <span id="detail-title" class="font-medium text-base truncate" style="max-width:380px;"></span>
+    <button onclick="closeDetail()" class="text-slate-400 text-xl leading-none hover:text-slate-600 flex-shrink-0 ml-2">×</button>
+  </div>
+  <div class="p-6 overflow-y-auto flex-1">
+
+    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">基本信息</div>
+    <div class="desc-row"><span class="desc-label">中文名</span><span class="desc-value">深圳市信安电子有限公司</span></div>
+    <div class="desc-row"><span class="desc-label">英文名</span><span class="desc-value">Xincode Electronics</span></div>
+    <div class="desc-row"><span class="desc-label">网址</span><span class="desc-value"><a class="text-blue-600" href="#" onclick="return false;">xca-pcb.com</a></span></div>
+    <div class="desc-row"><span class="desc-label">成立时间</span><span class="desc-value">2009-03-14</span></div>
+    <div class="desc-row"><span class="desc-label">员工规模</span><span class="desc-value">50 – 200 人</span></div>
+    <div class="desc-row"><span class="desc-label">注册资金</span><span class="desc-value">500 万人民币</span></div>
+    <div class="desc-row"><span class="desc-label">实缴资金</span><span class="desc-value">200 万人民币</span></div>
+    <div class="desc-row"><span class="desc-label">公司法人</span><span class="desc-value">张伟</span></div>
+    <div class="desc-row"><span class="desc-label">统一信用代码</span><span class="desc-value font-mono text-xs">91440300MA5DK2FH4X</span></div>
+    <div class="desc-row"><span class="desc-label">注册地址</span><span class="desc-value">广东省深圳市宝安区新桥街道桥头社区共和工业路129号5栋</span></div>
+    <div class="desc-row"><span class="desc-label">通讯地址</span><span class="desc-value">广东省深圳市宝安区新桥街道共和工业路129号</span></div>
+
+    <div class="border-t border-slate-100 my-4"></div>
+    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">采集信息</div>
+    <div class="desc-row"><span class="desc-label">励销云 ID</span><span class="desc-value font-mono text-xs">1042381</span></div>
+    <div class="desc-row"><span class="desc-label">关键词</span><span class="desc-value"><span class="tag tag-blue">multilayer pcb</span></span></div>
+    <div class="desc-row"><span class="desc-label">采集时间</span><span class="desc-value">2026-05-06 09:42:15</span></div>
+
+    <div class="border-t border-slate-100 my-4"></div>
+    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">联系人（3）</div>
+    <table style="min-width:0;">
+      <thead>
+        <tr>
+          <th>姓名</th>
+          <th>职位</th>
+          <th>电话</th>
+          <th>邮箱</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>张建国</td>
+          <td class="text-slate-500">总经理</td>
+          <td class="font-mono text-xs">138****8821</td>
+          <td class="text-slate-400 dash">—</td>
+        </tr>
+        <tr>
+          <td>李小慧</td>
+          <td class="text-slate-500">采购经理</td>
+          <td class="font-mono text-xs">139****4432</td>
+          <td class="text-slate-400 dash">—</td>
+        </tr>
+        <tr>
+          <td>王强</td>
+          <td class="text-slate-500">业务员</td>
+          <td class="font-mono text-xs">186****7765</td>
+          <td class="text-slate-400 dash">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function openDetail(name) {
+  document.getElementById('detail-title').textContent = name;
+  document.getElementById('detail-overlay').classList.remove('hidden');
+  document.getElementById('detail-drawer').classList.remove('hidden');
+}
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.add('hidden');
+  document.getElementById('detail-drawer').classList.add('hidden');
+}
+</script>
+</body>
+</html>

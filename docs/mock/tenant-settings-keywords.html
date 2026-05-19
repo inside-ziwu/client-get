@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>关键词管理 - ClientGet</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+  .btn-link { background: none; border: none; color: #1677ff; cursor: pointer; font-size: 13px; padding: 0; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-gray { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 70; display: flex; align-items: center; justify-content: center; }
+  .modal-box { background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); padding: 24px; min-width: 380px; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">工作台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">工作台</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">公司列表</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">优选客户</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">发送计划</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件监控</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">情报中心</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">设置</div>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">关键词管理</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分配置</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">OpenRouter</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">团队管理</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>设置</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">关键词管理</span></div>
+  <div class="text-sm text-slate-500">张三 · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+  <div class="max-w-2xl">
+
+    <!-- 说明 -->
+    <div class="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 mb-5 text-sm text-blue-700">
+      关键词用于触发系统采集，添加后运营端将安排相关数据的定期收集与更新。建议添加贵司产品或目标行业的核心词。
+    </div>
+
+    <!-- 添加区 -->
+    <div class="bg-white rounded-md shadow-sm p-4 mb-4">
+      <div class="text-sm font-medium text-slate-700 mb-3">添加关键词</div>
+      <div class="flex gap-2">
+        <input class="input flex-1" id="newKeyword" placeholder="输入关键词，如：PCB、printed circuit board...">
+        <button class="btn btn-primary" onclick="addKeyword()">添加</button>
+      </div>
+      <div class="text-xs text-slate-400 mt-2">建议使用英文关键词，支持精确词组（如加引号："rigid flex PCB"）</div>
+    </div>
+
+    <!-- 表格 -->
+    <div class="bg-white rounded-md shadow-sm overflow-hidden">
+      <table id="keywordTable">
+        <thead>
+          <tr>
+            <th>关键词</th>
+            <th>状态</th>
+            <th>添加时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="keywordBody">
+          <tr>
+            <td><span class="font-medium text-slate-700">PCB</span></td>
+            <td><span class="tag tag-blue">采集中</span></td>
+            <td class="text-slate-500">2026-03-15</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn-link" onclick="editKeyword(this, 'PCB')">编辑</button>
+                <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="font-medium text-slate-700">PCBA</span></td>
+            <td><span class="tag tag-blue">采集中</span></td>
+            <td class="text-slate-500">2026-03-15</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn-link" onclick="editKeyword(this, 'PCBA')">编辑</button>
+                <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="font-medium text-slate-700">printed circuit board</span></td>
+            <td><span class="tag tag-blue">采集中</span></td>
+            <td class="text-slate-500">2026-03-20</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn-link" onclick="editKeyword(this, 'printed circuit board')">编辑</button>
+                <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="font-medium text-slate-700">rigid flex PCB</span></td>
+            <td><span class="tag tag-gray">等待采集</span></td>
+            <td class="text-slate-500">2026-04-10</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn-link" onclick="editKeyword(this, 'rigid flex PCB')">编辑</button>
+                <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="font-medium text-slate-700">HDI board</span></td>
+            <td><span class="tag tag-gray">等待采集</span></td>
+            <td class="text-slate-500">2026-04-15</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn-link" onclick="editKeyword(this, 'HDI board')">编辑</button>
+                <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="font-medium text-slate-700">multilayer PCB supplier</span></td>
+            <td><span class="tag tag-gray">等待采集</span></td>
+            <td class="text-slate-500">2026-05-01</td>
+            <td>
+              <div class="flex gap-2">
+                <button class="btn-link" onclick="editKeyword(this, 'multilayer PCB supplier')">编辑</button>
+                <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- 编辑关键词 Modal -->
+<div class="modal-overlay" id="editModal" style="display:none">
+  <div class="modal-box">
+    <div class="font-semibold text-slate-800 mb-3">编辑关键词</div>
+    <input class="input w-full mb-4" id="editInput" value="">
+    <div class="flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let editTarget = null;
+
+function addKeyword() {
+  const input = document.getElementById('newKeyword');
+  const kw = input.value.trim();
+  if (!kw) return;
+  const tbody = document.getElementById('keywordBody');
+  const now = new Date().toISOString().slice(0, 10);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><span class="font-medium text-slate-700">${kw}</span></td>
+    <td><span class="tag tag-gray">等待采集</span></td>
+    <td class="text-slate-500">${now}</td>
+    <td><div class="flex gap-2">
+      <button class="btn-link" onclick="editKeyword(this, '${kw}')">编辑</button>
+      <button class="btn-link" style="color:#ff4d4f" onclick="deleteRow(this)">删除</button>
+    </div></td>`;
+  tbody.appendChild(tr);
+  input.value = '';
+}
+
+function editKeyword(btn, kw) {
+  editTarget = btn.closest('tr').querySelector('span.font-medium');
+  document.getElementById('editInput').value = kw;
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function saveEdit() {
+  if (editTarget) editTarget.textContent = document.getElementById('editInput').value;
+  hideModal();
+}
+
+function deleteRow(btn) {
+  btn.closest('tr').remove();
+}
+
+function hideModal() {
+  document.getElementById('editModal').style.display = 'none';
+  editTarget = null;
+}
+</script>
+</body>
+</html>

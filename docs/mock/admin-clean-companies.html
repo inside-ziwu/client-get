@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>客户正式数据</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; border: none; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-sm { padding: 2px 10px; font-size: 13px; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+  .select { padding: 6px 28px 6px 10px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; background: white; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+  .select:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 10px 14px; font-size: 13px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; white-space: nowrap; }
+  td { padding: 8px 14px; font-size: 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .section-card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+  .tag-blue   { background: #e6f4ff; color: #1677ff; border: 1px solid #91caff; }
+  .tag-green  { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+  .tag-orange { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+  .tag-purple { background: #f9f0ff; color: #722ed1; border: 1px solid #d3adf7; }
+  .tag-red    { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffa39e; }
+  .tag-gray   { background: #f5f5f5; color: #595959; border: 1px solid #d9d9d9; }
+  /* Drawer */
+  .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 90; display: none; }
+  .drawer-overlay.open { display: block; }
+  .drawer-container { position: fixed; top: 0; right: 0; bottom: 0; z-index: 100; display: flex; align-items: stretch; pointer-events: none; }
+  .drawer-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 860px;
+    background: white;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+    overflow-y: auto;
+    z-index: 100;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    pointer-events: all;
+  }
+  .drawer-panel.open { transform: translateX(0); }
+  .drawer-section-title { font-size: 13px; font-weight: 600; color: #000000a6; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 6px; }
+  .detail-label { font-size: 12px; color: #00000073; margin-bottom: 2px; }
+  .detail-value { font-size: 14px; color: #000000d9; }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 100px; font-size: 12px; border: 1px solid; margin: 2px; }
+  /* Filter rows */
+  .filter-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 14px 20px; border-bottom: 1px solid #f0f0f0; }
+  /* Bottom bar + pagination */
+  .bottom-bar { padding: 8px 20px; font-size: 13px; color: #595959; background: #fafafa; display: flex; align-items: center; justify-content: space-between; }
+  .pagination { display: flex; align-items: center; gap: 4px; }
+  .page-btn { min-width: 28px; height: 28px; border: 1px solid #d9d9d9; background: white; border-radius: 4px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: #000000d9; transition: all 0.15s; padding: 0 6px; }
+  .page-btn:hover { border-color: #1677ff; color: #1677ff; }
+  .page-btn.active { background: #1677ff; color: white; border-color: #1677ff; }
+  .page-btn:disabled { color: #d9d9d9; cursor: not-allowed; border-color: #f0f0f0; background: #fafafa; }
+  .label-sm { display: block; font-size: 13px; color: #000000d9; margin-bottom: 3px; }
+  /* 筛选区 */
+  .filter-label { font-size: 13px; color: #595959; white-space: nowrap; flex-shrink: 0; }
+  .filter-sep { color: #bfbfbf; padding: 0 2px; font-size: 13px; flex-shrink: 0; }
+  input[type="number"].input { -moz-appearance: textfield; }
+  input[type="number"].input::-webkit-inner-spin-button,
+  input[type="number"].input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ============ 侧边导航 ============ -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<!-- ============ 主内容区 ============ -->
+<div class="ml-56 min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="fixed top-0 left-56 right-0 h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 z-20">
+    <div class="text-sm text-slate-500">
+      <span>采集</span>
+      <span class="mx-1.5 text-slate-300">/</span>
+      <span class="text-slate-800 font-medium">客户正式数据</span>
+    </div>
+    <div class="flex items-center gap-4 text-sm text-slate-500">
+      <span>admin@platform</span>
+      <a class="text-slate-400 hover:text-slate-700 cursor-pointer">退出</a>
+    </div>
+  </header>
+
+  <!-- 页面内容 -->
+  <main class="pt-12 px-6 py-6 flex-1">
+
+    <!-- 页面标题 -->
+    <div class="mb-4">
+    </div>
+
+    <!-- 过滤栏 -->
+    <div class="section-card mb-4">
+      <div style="padding:12px 20px 14px;display:flex;flex-direction:column;gap:10px;">
+        <!-- 第一行 -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input id="f-search" class="input" style="width:176px;font-size:13px;" placeholder="公司名 / 域名搜索">
+          <select id="f-country" class="input" style="width:116px;font-size:13px;">
+            <option value="">全部国家</option>
+            <option value="USA">🇺🇸 美国</option>
+            <option value="DEU">🇩🇪 德国</option>
+            <option value="JPN">🇯🇵 日本</option>
+            <option value="GBR">🇬🇧 英国</option>
+            <option value="AUS">🇦🇺 澳大利亚</option>
+            <option value="CAN">🇨🇦 加拿大</option>
+          </select>
+          <select id="f-industry" class="input" style="width:148px;font-size:13px;">
+            <option value="">全部细分行业</option>
+            <option value="充电桩">充电桩</option>
+            <option value="光伏产品">光伏产品</option>
+            <option value="电源">电源</option>
+            <option value="工业控制">工业控制</option>
+            <option value="通讯类型">通讯类型</option>
+            <option value="医疗（认证）">医疗（认证）</option>
+            <option value="汽车电子（认证）">汽车电子（认证）</option>
+            <option value="仪器仪表">仪器仪表</option>
+            <option value="电子烟">电子烟</option>
+            <option value="键盘">键盘</option>
+            <option value="音响">音响</option>
+            <option value="BMS">BMS</option>
+            <option value="P10/大尺寸MINI系列">P10/大尺寸MINI</option>
+            <option value="逆变器/PLC控制器单片机（机器设备）">逆变器/PLC</option>
+            <option value="LED模组">LED模组</option>
+            <option value="电机">电机</option>
+          </select>
+          <select id="f-keyword" class="input" style="width:160px;font-size:13px;">
+            <option value="">全部关键词</option>
+            <option value="multilayer pcb">multilayer pcb</option>
+            <option value="flexible pcb">flexible pcb</option>
+            <option value="hdi pcb manufacturer">hdi pcb manufacturer</option>
+            <option value="rigid flex pcb">rigid flex pcb</option>
+            <option value="aluminum pcb">aluminum pcb</option>
+            <option value="industrial pcb">industrial pcb</option>
+            <option value="communication pcb">communication pcb</option>
+            <option value="medical pcb">medical pcb</option>
+            <option value="ev charger pcb">ev charger pcb</option>
+            <option value="high reliability pcb">high reliability pcb</option>
+          </select>
+          <input id="f-tag" class="input" style="width:110px;font-size:13px;" placeholder="产品标签">
+          <select id="f-size" class="input" style="width:150px;font-size:13px;">
+            <option value="">全部规模</option>
+            <option value="tiny">微型（&lt;10人）</option>
+            <option value="small">小型（10-49）</option>
+            <option value="medium">中型（50-499）</option>
+            <option value="large">大型（500-1999）</option>
+            <option value="xlarge">超大型（2000+）</option>
+          </select>
+        </div>
+        <!-- 第二行 -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span class="filter-label">进口额</span>
+          <input id="f-amount-min" type="number" class="input" style="width:90px;font-size:13px;" placeholder="最小(USD)" list="dl-amount">
+          <span class="filter-sep">—</span>
+          <input id="f-amount-max" type="number" class="input" style="width:90px;font-size:13px;" placeholder="最大(USD)" list="dl-amount">
+          <datalist id="dl-amount">
+            <option value="100000"><option value="500000"><option value="1000000"><option value="2000000">
+          </datalist>
+          <span class="filter-label">进口次数</span>
+          <input id="f-count-min" type="number" class="input" style="width:64px;font-size:13px;" placeholder="最小" list="dl-count">
+          <span class="filter-sep">—</span>
+          <input id="f-count-max" type="number" class="input" style="width:64px;font-size:13px;" placeholder="最大" list="dl-count">
+          <datalist id="dl-count">
+            <option value="10"><option value="30"><option value="50"><option value="100">
+          </datalist>
+          <select id="f-pcb" class="input" style="width:100px;font-size:13px;">
+            <option value="">全部供应商</option>
+            <option value="yes">有供应商</option>
+            <option value="no">无供应商</option>
+            <option value="unknown">未知</option>
+          </select>
+          <span class="filter-label">联系人</span>
+          <input id="f-contact-min" type="number" class="input" style="width:56px;font-size:13px;" placeholder="最小" list="dl-contact">
+          <span class="filter-sep">—</span>
+          <input id="f-contact-max" type="number" class="input" style="width:56px;font-size:13px;" placeholder="最大" list="dl-contact">
+          <datalist id="dl-contact">
+            <option value="1"><option value="2"><option value="3"><option value="5">
+          </datalist>
+          <span class="filter-label">成立年</span>
+          <input id="f-year-min" type="number" class="input" style="width:64px;font-size:13px;" placeholder="起始" list="dl-year">
+          <span class="filter-sep">—</span>
+          <input id="f-year-max" type="number" class="input" style="width:64px;font-size:13px;" placeholder="截止" list="dl-year">
+          <datalist id="dl-year">
+            <option value="2000"><option value="2010"><option value="2015"><option value="2020">
+          </datalist>
+          <div style="display:flex;gap:8px;margin-left:auto;flex-shrink:0;">
+            <button class="btn btn-primary" onclick="applyFilters()">查询</button>
+            <button class="btn btn-default" onclick="resetFilters()">重置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 统计条 + 表格 -->
+    <div class="section-card">
+      <!-- 表格 -->
+      <div class="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>公司名称</th>
+              <th>国家/地区</th>
+              <th>细分行业</th>
+              <th>员工规模</th>
+              <th class="text-right">近3年进口额</th>
+              <th>工厂性质</th>
+              <th>供应商</th>
+              <th class="text-right">联系人数</th>
+              <th>数据来源</th>
+              <th>关键词</th>
+              <th>入库时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+        <div id="empty-state" class="hidden py-16 text-center text-slate-400 text-sm">暂无匹配数据</div>
+      </div>
+
+      <!-- 底部：统计 + 分页 -->
+      <div class="bottom-bar" style="border-top:1px solid #f0f0f0;">
+        <div id="stat-text" style="color:#595959;"></div>
+        <div class="pagination" id="pagination-2"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============ Drawer 遮罩 ============ -->
+<div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- ============ Drawer 面板 ============ -->
+<div id="drawer-panel" class="drawer-panel">
+  <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+    <h2 id="drawer-title" class="text-base font-semibold text-slate-800">公司详情</h2>
+    <button onclick="closeDrawer()" class="text-slate-400 hover:text-slate-700 text-xl leading-none">&times;</button>
+  </div>
+  <div id="drawer-body" class="px-6 py-5 space-y-6"></div>
+</div>
+
+<script>
+/* ============================
+   数据
+   ============================ */
+var COMPANIES = [
+  {
+    id: 1,
+    name_normalized: "PCB World Inc",
+    domain: "pcbworld.com",
+    country_iso3: "USA",
+    country_flag: "🇺🇸",
+    industry: "工业控制",
+    employee_count_band: "large",
+    employee_count_raw: "约 1200 人",
+    import_amount_usd: 1250000,
+    export_amount_usd: 320000,
+    import_frequency: "56次/3年",
+    export_frequency: "18次/3年",
+    factory_type: "生产制造",
+    has_china_pcb_supplier: "yes",
+    contact_count: 3,
+    sources: ["腾道"],
+    created_at: "2026-04-15 10:22:38",
+    updated_at: "2026-04-15 10:22:38",
+    website: "https://pcbworld.com",
+    established_year: 2003,
+    reg_capital_usd: 5000000,
+    product_tags: ["多层PCB", "高频板", "HDI", "刚挠结合板"],
+    keyword: "multilayer pcb",
+    revenue_estimate: "大型/5000万-2亿USD/年",
+    linkedin: "https://linkedin.com/company/pcb-world-inc",
+    youtube: "",
+    other_social: "",
+    potential_needs: ["大量采购多层HDI板用于服务器主板", "需要高频RF板供5G基站项目", "有刚挠结合板定制需求"],
+    recommended_products: ["HDI板（8层以上）", "高频RF板", "刚挠结合板"],
+    contacts: [
+      { name: "James Carter",   title: "VP of Procurement",     level: "buyer",    email: "j.carter@pcbworld.com",    phone: "+1-408-555-0101" },
+      { name: "Susan Lee",      title: "CEO",                   level: "decision",  email: "s.lee@pcbworld.com",       phone: "+1-408-555-0102" },
+      { name: "Mike Thompson",  title: "Quality Engineer",      level: "tech",      email: "m.thompson@pcbworld.com",  phone: "+1-408-555-0103" }
+    ]
+  },
+  {
+    id: 2,
+    name_normalized: "Elektronik Systeme GmbH",
+    domain: "elektronik-systeme.de",
+    country_iso3: "DEU",
+    country_flag: "🇩🇪",
+    industry: "工业控制",
+    employee_count_band: "medium",
+    employee_count_raw: "约 280 人",
+    import_amount_usd: 680000,
+    export_amount_usd: 150000,
+    import_frequency: "32次/3年",
+    export_frequency: "8次/3年",
+    factory_type: "OEM",
+    has_china_pcb_supplier: "yes",
+    contact_count: 2,
+    sources: ["腾道"],
+    created_at: "2026-04-16 14:37:05",
+    updated_at: "2026-04-16 14:37:05",
+    website: "https://elektronik-systeme.de",
+    established_year: 1998,
+    reg_capital_usd: 2000000,
+    product_tags: ["工控主板", "电源模块", "传感器接口板"],
+    keyword: "industrial pcb",
+    revenue_estimate: "中型/800万-3000万EUR/年",
+    linkedin: "https://linkedin.com/company/elektronik-systeme-gmbh",
+    youtube: "",
+    other_social: "",
+    potential_needs: ["工业控制板PCB需求稳定，年用量约2万片", "厚铜板用于大电流功率模块", "铝基板用于功率器件散热"],
+    recommended_products: ["厚铜板（Heavy Copper PCB）", "铝基板", "工控专用多层板"],
+    contacts: [
+      { name: "Klaus Müller",   title: "Einkaufsleiter",        level: "buyer",    email: "k.mueller@elektronik-systeme.de",  phone: "+49-89-555-0201" },
+      { name: "Anja Weber",     title: "Geschäftsführerin",     level: "decision",  email: "a.weber@elektronik-systeme.de",    phone: "+49-89-555-0202" }
+    ]
+  },
+  {
+    id: 3,
+    name_normalized: "Tokyo Electronics Co Ltd",
+    domain: "tokyo-elec.co.jp",
+    country_iso3: "JPN",
+    country_flag: "🇯🇵",
+    industry: "通讯类型",
+    employee_count_band: "xlarge",
+    employee_count_raw: "约 5800 人",
+    import_amount_usd: 3400000,
+    export_amount_usd: 1200000,
+    import_frequency: "120次/3年",
+    export_frequency: "45次/3年",
+    factory_type: "生产制造",
+    has_china_pcb_supplier: "yes",
+    contact_count: 5,
+    sources: ["腾道"],
+    created_at: "2026-04-12 08:51:19",
+    updated_at: "2026-04-13 09:14:33",
+    website: "https://tokyo-elec.co.jp",
+    established_year: 1985,
+    reg_capital_usd: 20000000,
+    product_tags: ["消费级PCB", "FPC柔性板", "LED驱动板", "音频模块", "摄像头模组"],
+    keyword: "communication pcb",
+    revenue_estimate: "超大型/50亿+JPY/年",
+    linkedin: "https://linkedin.com/company/tokyo-electronics",
+    youtube: "https://youtube.com/@tokyo-elec",
+    other_social: "",
+    potential_needs: ["5G基站天线PCB大批量采购", "FPC柔性板用于摄像头模组", "高层HDI用于服务器主板"],
+    recommended_products: ["5G高频板", "FPC柔性板", "HDI板（12层以上）"],
+    contacts: [
+      { name: "Hiroshi Tanaka", title: "部長（調達）",           level: "buyer",    email: "h.tanaka@tokyo-elec.co.jp",   phone: "+81-3-5555-0301" },
+      { name: "Yuki Sato",      title: "代表取締役",             level: "decision",  email: "y.sato@tokyo-elec.co.jp",     phone: "+81-3-5555-0302" },
+      { name: "Kenji Ito",      title: "品質管理エンジニア",     level: "tech",      email: "k.ito@tokyo-elec.co.jp",      phone: "+81-3-5555-0303" },
+      { name: "Mei Nakamura",   title: "購買担当",               level: "buyer",    email: "m.nakamura@tokyo-elec.co.jp", phone: "+81-3-5555-0304" },
+      { name: "Tom Wilson",     title: "International Sales",    level: "other",    email: "t.wilson@tokyo-elec.co.jp",   phone: "+81-3-5555-0305" }
+    ]
+  },
+  {
+    id: 4,
+    name_normalized: "Precision Circuits Ltd",
+    domain: "precisioncircuits.co.uk",
+    country_iso3: "GBR",
+    country_flag: "🇬🇧",
+    industry: "仪器仪表",
+    employee_count_band: "small",
+    employee_count_raw: "约 38 人",
+    import_amount_usd: 320000,
+    export_amount_usd: 80000,
+    import_frequency: "18次/3年",
+    export_frequency: "5次/3年",
+    factory_type: "ODM",
+    has_china_pcb_supplier: "unknown",
+    contact_count: 1,
+    sources: ["腾道"],
+    created_at: "2026-04-18 16:09:44",
+    updated_at: "2026-04-18 16:09:44",
+    website: "https://precisioncircuits.co.uk",
+    established_year: 2010,
+    reg_capital_usd: 500000,
+    product_tags: ["航空级PCB", "高可靠性板"],
+    keyword: "high reliability pcb",
+    revenue_estimate: "小型/100万-500万GBP/年",
+    linkedin: "https://linkedin.com/company/precision-circuits-ltd",
+    youtube: "",
+    other_social: "",
+    potential_needs: ["AS9100D认证高可靠PCB小批量", "ENIG表面处理精密板", "无卤素环保材料板"],
+    recommended_products: ["高可靠性多层PCB", "ENIG表面处理板", "无卤素PCB"],
+    contacts: [
+      { name: "Oliver Brown",   title: "Managing Director",     level: "decision",  email: "o.brown@precisioncircuits.co.uk", phone: "+44-20-5555-0401" }
+    ]
+  },
+  {
+    id: 5,
+    name_normalized: "Advanced PCB Solutions Pty",
+    domain: "advancedpcb.com.au",
+    country_iso3: "AUS",
+    country_flag: "🇦🇺",
+    industry: "医疗（认证）",
+    employee_count_band: "small",
+    employee_count_raw: "约 45 人",
+    import_amount_usd: 420000,
+    export_amount_usd: 60000,
+    import_frequency: "24次/3年",
+    export_frequency: "6次/3年",
+    factory_type: "OEM",
+    has_china_pcb_supplier: "yes",
+    contact_count: 4,
+    sources: ["腾道"],
+    created_at: "2026-04-14 09:15:27",
+    updated_at: "2026-04-14 09:15:27",
+    website: "https://advancedpcb.com.au",
+    established_year: 2008,
+    reg_capital_usd: 800000,
+    product_tags: ["双面板", "铝基板", "阻抗控制板"],
+    keyword: "medical pcb",
+    revenue_estimate: "小型/200万-800万AUD/年",
+    linkedin: "https://linkedin.com/company/advanced-pcb-solutions",
+    youtube: "",
+    other_social: "",
+    potential_needs: ["医疗器械PCB小批量定制（IPC-A-610 Class 3）", "铝基板用于LED手术灯散热", "精密阻抗控制板"],
+    recommended_products: ["医疗级PCB（IPC Class 3）", "铝基板", "阻抗控制板"],
+    contacts: [
+      { name: "Emma Johnson",   title: "Procurement Manager",   level: "buyer",    email: "e.johnson@advancedpcb.com.au", phone: "+61-2-5555-0501" },
+      { name: "Liam Smith",     title: "CEO",                   level: "decision",  email: "l.smith@advancedpcb.com.au",   phone: "+61-2-5555-0502" },
+      { name: "Olivia Brown",   title: "R&D Engineer",          level: "tech",      email: "o.brown@advancedpcb.com.au",   phone: "+61-2-5555-0503" },
+      { name: "Noah Davis",     title: "Sales Coordinator",     level: "other",    email: "n.davis@advancedpcb.com.au",   phone: "+61-2-5555-0504" }
+    ]
+  },
+  {
+    id: 6,
+    name_normalized: "Maple Circuits Inc",
+    domain: "maplecircuits.ca",
+    country_iso3: "CAN",
+    country_flag: "🇨🇦",
+    industry: "充电桩",
+    employee_count_band: "medium",
+    employee_count_raw: "约 180 人",
+    import_amount_usd: 890000,
+    export_amount_usd: 200000,
+    import_frequency: "48次/3年",
+    export_frequency: "12次/3年",
+    factory_type: "生产制造",
+    has_china_pcb_supplier: "yes",
+    contact_count: 2,
+    sources: ["腾道"],
+    created_at: "2026-04-20 11:43:52",
+    updated_at: "2026-04-20 11:43:52",
+    website: "https://maplecircuits.ca",
+    established_year: 2001,
+    reg_capital_usd: 3000000,
+    product_tags: ["工业控制板", "电机驱动板", "通信模块PCB"],
+    keyword: "ev charger pcb",
+    revenue_estimate: "中型/2000万-8000万CAD/年",
+    linkedin: "https://linkedin.com/company/maple-circuits",
+    youtube: "",
+    other_social: "https://twitter.com/maple_circuits",
+    potential_needs: ["充电桩控制板大电流厚铜PCB", "智能电网SCADA系统板", "户外IP65防护等级PCB"],
+    recommended_products: ["厚铜板（Heavy Copper PCB）", "充电桩专用PCB", "工业级防护板"],
+    contacts: [
+      { name: "David Chen",     title: "Head of Purchasing",    level: "buyer",    email: "d.chen@maplecircuits.ca",    phone: "+1-604-555-0601" },
+      { name: "Sarah Martin",   title: "President",             level: "decision",  email: "s.martin@maplecircuits.ca",  phone: "+1-604-555-0602" }
+    ]
+  }
+];
+
+/* ============================
+   国家中文映射
+   ============================ */
+var COUNTRY_CN = {
+  "USA": "美国", "DEU": "德国", "JPN": "日本",
+  "GBR": "英国", "AUS": "澳大利亚", "CAN": "加拿大",
+  "FRA": "法国", "ITA": "意大利", "KOR": "韩国",
+  "TWN": "台湾", "CHN": "中国", "IND": "印度",
+  "MEX": "墨西哥", "BRA": "巴西", "SGP": "新加坡"
+};
+
+/* ============================
+   状态
+   ============================ */
+var filteredData = COMPANIES.slice();
+var PAGE_SIZE = 20;
+var currentPage = 1;
+
+/* ============================
+   工具函数
+   ============================ */
+function formatUSD(n) {
+  if (n === null || n === undefined) return "—";
+  return "$" + n.toLocaleString("en-US");
+}
+
+function getBandLabel(band) {
+  var map = {
+    tiny:   "微型（≤9人）",
+    small:  "小型（10-49人）",
+    medium: "中型（50-499人）",
+    large:  "大型（500-1999人）",
+    xlarge: "超大型（2000+人）"
+  };
+  return map[band] || band;
+}
+
+function getBandTag(band) {
+  var cfg = {
+    tiny:   { cls: "tag-gray",   label: "微型" },
+    small:  { cls: "tag-blue",   label: "小型" },
+    medium: { cls: "tag-orange", label: "中型" },
+    large:  { cls: "tag-purple", label: "大型" },
+    xlarge: { cls: "tag-red",    label: "超大型" }
+  };
+  var c = cfg[band] || { cls: "tag-gray", label: band };
+  return '<span class="tag ' + c.cls + '">' + c.label + '</span>';
+}
+
+function getFactoryTag(ft) {
+  var cfg = {
+    "生产制造": { cls: "tag-green",  label: "生产制造" },
+    "OEM":      { cls: "tag-blue",   label: "OEM" },
+    "ODM":      { cls: "tag-purple", label: "ODM" },
+    "其他":     { cls: "tag-gray",   label: "其他" }
+  };
+  var c = cfg[ft] || { cls: "tag-gray", label: ft };
+  return '<span class="tag ' + c.cls + '">' + c.label + '</span>';
+}
+
+function getPCBCell(val) {
+  if (val === "yes")     return '<span class="text-green-600 font-medium">✓ 有</span>';
+  if (val === "no")      return '<span class="text-red-500 font-medium">✗ 无</span>';
+  return '<span class="text-slate-400">— 未知</span>';
+}
+
+function getContactLevelTag(level) {
+  var cfg = {
+    decision: { cls: "tag-red",    label: "决策者" },
+    buyer:    { cls: "tag-orange", label: "采购" },
+    tech:     { cls: "tag-blue",   label: "技术" },
+    other:    { cls: "tag-gray",   label: "其他" }
+  };
+  var c = cfg[level] || { cls: "tag-gray", label: level };
+  return '<span class="tag ' + c.cls + ' text-xs">' + c.label + '</span>';
+}
+
+/* ============================
+   渲染表格
+   ============================ */
+function renderTable() {
+  var tbody = document.getElementById("table-body");
+  var start = (currentPage - 1) * PAGE_SIZE;
+  var pageData = filteredData.slice(start, start + PAGE_SIZE);
+
+  if (!filteredData.length) {
+    tbody.innerHTML = "";
+    document.getElementById("empty-state").classList.remove("hidden");
+  } else {
+    document.getElementById("empty-state").classList.add("hidden");
+    tbody.innerHTML = pageData.map(function(c) {
+      return '<tr>' +
+        '<td>' +
+          '<div class="font-medium text-slate-800">' + c.name_normalized + '</div>' +
+          '<div class="text-xs text-slate-400 mt-0.5">' + c.domain + '</div>' +
+        '</td>' +
+        '<td class="whitespace-nowrap">' + c.country_flag + ' ' + (COUNTRY_CN[c.country_iso3] || c.country_iso3) + '</td>' +
+        '<td>' + c.industry + '</td>' +
+        '<td style="color:#595959;">' + (c.employee_count_raw || '—') + '</td>' +
+        '<td class="text-right font-mono text-slate-700">' + formatUSD(c.import_amount_usd) + '</td>' +
+        '<td>' + getFactoryTag(c.factory_type) + '</td>' +
+        '<td>' + getPCBCell(c.has_china_pcb_supplier) + '</td>' +
+        '<td class="text-right text-slate-700">' + c.contact_count + '</td>' +
+        '<td>' + c.sources.map(function(s){ return '<span class="tag tag-blue">' + s + '</span>'; }).join(" ") + '</td>' +
+        '<td>' + (c.keyword ? '<span class="tag tag-gray" style="font-size:11px;">' + c.keyword + '</span>' : '<span style="color:#bfbfbf;">—</span>') + '</td>' +
+        '<td class="text-slate-500 text-sm">' + c.created_at + '</td>' +
+        '<td><button class="btn btn-default btn-sm" onclick="openDrawer(' + c.id + ')">详情</button></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  updateStatBar();
+  renderPagination();
+}
+
+function updateStatBar() {
+  var totalPCB = filteredData.filter(function(c){ return c.has_china_pcb_supplier === "yes"; }).length;
+  var totalContacts = filteredData.reduce(function(sum, c){ return sum + c.contact_count; }, 0);
+  document.getElementById("stat-text").textContent =
+    "共 " + filteredData.length + " 条 · 有供应商 " + totalPCB + " 条 · 联系人总数 " + totalContacts + " 人";
+}
+
+function renderPagination() {
+  var totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  function buildHtml() {
+    var html = "";
+    html += '<button class="page-btn" onclick="goPage(' + (currentPage - 1) + ')" ' + (currentPage <= 1 ? "disabled" : "") + '>‹</button>';
+    for (var i = 1; i <= totalPages; i++) {
+      if (totalPages > 7 && i > 3 && i < totalPages - 1 && Math.abs(i - currentPage) > 1) {
+        if (i === 4 || i === totalPages - 2) html += '<span class="page-btn" style="border:none;background:none;cursor:default;">…</span>';
+        continue;
+      }
+      html += '<button class="page-btn' + (i === currentPage ? " active" : "") + '" onclick="goPage(' + i + ')">' + i + '</button>';
+    }
+    html += '<button class="page-btn" onclick="goPage(' + (currentPage + 1) + ')" ' + (currentPage >= totalPages ? "disabled" : "") + '>›</button>';
+    return html;
+  }
+  document.getElementById("pagination-2").innerHTML = buildHtml();
+}
+
+function goPage(p) {
+  var totalPages = Math.max(1, Math.ceil(filteredData.length / PAGE_SIZE));
+  if (p < 1 || p > totalPages) return;
+  currentPage = p;
+  renderTable();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/* ============================
+   过滤逻辑
+   ============================ */
+function applyFilters() {
+  var search     = (document.getElementById("f-search").value || "").trim().toLowerCase();
+  var country    = document.getElementById("f-country").value;
+  var industry   = document.getElementById("f-industry").value;
+  var keyword    = document.getElementById("f-keyword").value;
+  var tag        = (document.getElementById("f-tag").value || "").trim().toLowerCase();
+  var size       = document.getElementById("f-size").value;
+  var amtMin     = parseFloat(document.getElementById("f-amount-min").value) || 0;
+  var amtMax     = parseFloat(document.getElementById("f-amount-max").value) || 0;
+  var cntMin     = parseInt(document.getElementById("f-count-min").value) || 0;
+  var cntMax     = parseInt(document.getElementById("f-count-max").value) || 0;
+  var pcb        = document.getElementById("f-pcb").value;
+  var contactMin = parseInt(document.getElementById("f-contact-min").value) || 0;
+  var contactMax = parseInt(document.getElementById("f-contact-max").value) || 0;
+  var yearMin    = parseInt(document.getElementById("f-year-min").value) || 0;
+  var yearMax    = parseInt(document.getElementById("f-year-max").value) || 0;
+
+  filteredData = COMPANIES.filter(function(c) {
+    if (search && !(c.name_normalized.toLowerCase().includes(search) || c.domain.toLowerCase().includes(search))) return false;
+    if (country  && c.country_iso3 !== country) return false;
+    if (industry && c.industry !== industry) return false;
+    if (keyword  && c.keyword !== keyword) return false;
+    if (tag) {
+      var found = (c.product_tags || []).some(function(t){ return t.toLowerCase().includes(tag); });
+      if (!found) return false;
+    }
+    if (size && c.employee_count_band !== size) return false;
+    if (amtMin > 0 && c.import_amount_usd < amtMin) return false;
+    if (amtMax > 0 && c.import_amount_usd > amtMax) return false;
+    var freq = parseInt((c.import_frequency || "0").split("次")[0]) || 0;
+    if (cntMin > 0 && freq < cntMin) return false;
+    if (cntMax > 0 && freq > cntMax) return false;
+    if (pcb && c.has_china_pcb_supplier !== pcb) return false;
+    if (contactMin > 0 && c.contact_count < contactMin) return false;
+    if (contactMax > 0 && c.contact_count > contactMax) return false;
+    if (yearMin > 0 && c.established_year && c.established_year < yearMin) return false;
+    if (yearMax > 0 && c.established_year && c.established_year > yearMax) return false;
+    return true;
+  });
+
+  currentPage = 1;
+  renderTable();
+}
+
+function resetFilters() {
+  ["f-search","f-tag","f-amount-min","f-amount-max","f-count-min","f-count-max","f-contact-min","f-contact-max","f-year-min","f-year-max"].forEach(function(id){
+    document.getElementById(id).value = "";
+  });
+  ["f-country","f-industry","f-keyword","f-size","f-pcb"].forEach(function(id){
+    document.getElementById(id).value = "";
+  });
+  filteredData = COMPANIES.slice();
+  currentPage = 1;
+  renderTable();
+}
+
+/* ============================
+   Drawer
+   ============================ */
+function openDrawer(id) {
+  var c = COMPANIES.find(function(x){ return x.id === id; });
+  if (!c) return;
+
+  document.getElementById("drawer-title").textContent = c.name_normalized;
+
+  var html = "";
+
+  /* Section 1 - 基础信息 */
+  html += '<div>';
+  html += '<div class="drawer-section-title"><span class="w-1 h-4 bg-blue-500 rounded-full inline-block"></span>基础信息</div>';
+  html += '<div class="grid grid-cols-2 gap-x-8 gap-y-4">';
+  html += drawerField("公司名称", '<span class="font-medium">' + c.name_normalized + '</span>');
+  html += drawerField("国家/地区", c.country_flag + ' ' + (COUNTRY_CN[c.country_iso3] || c.country_iso3));
+  html += drawerField("公司官网", '<a href="' + c.website + '" target="_blank" class="text-blue-500 hover:underline font-mono text-sm">' + c.domain + '</a>');
+  html += drawerField("细分行业", c.industry);
+  html += drawerField("成立年份", c.established_year ? c.established_year + " 年" : "—");
+  html += drawerField("注册资本", formatUSD(c.reg_capital_usd));
+  html += drawerField("营收估计", c.revenue_estimate || '<span class="text-slate-400">—</span>');
+  html += '</div>';
+  // 社媒账号
+  var socialHtml = '';
+  if (c.linkedin) socialHtml += '<a href="' + c.linkedin + '" target="_blank" class="text-blue-500 hover:underline text-sm mr-4">LinkedIn</a>';
+  if (c.youtube)  socialHtml += '<a href="' + c.youtube  + '" target="_blank" class="text-red-500 hover:underline text-sm mr-4">YouTube</a>';
+  if (c.other_social) socialHtml += '<a href="' + c.other_social + '" target="_blank" class="text-slate-500 hover:underline text-sm mr-4">其他</a>';
+  if (!socialHtml) socialHtml = '<span class="text-slate-400 text-sm">—</span>';
+  html += '<div class="mt-3"><div class="detail-label">社媒账号</div><div class="mt-1">' + socialHtml + '</div></div>';
+  html += '</div>';
+
+  /* Section 2 - 规模与贸易 */
+  html += '<div>';
+  html += '<div class="drawer-section-title"><span class="w-1 h-4 bg-purple-500 rounded-full inline-block"></span>规模与贸易</div>';
+  html += '<div class="grid grid-cols-2 gap-x-8 gap-y-4">';
+  html += drawerField("员工规模", getBandTag(c.employee_count_band) + ' <span class="text-sm text-slate-600 ml-1.5">' + (c.employee_count_raw || '—') + '</span>');
+  html += drawerField("近3年进口额", '<span class="font-mono font-medium text-slate-800">' + formatUSD(c.import_amount_usd) + '</span>');
+  html += drawerField("近3年出口额", '<span class="font-mono font-medium text-slate-800">' + formatUSD(c.export_amount_usd) + '</span>');
+  html += drawerField("进口频次", c.import_frequency || "—");
+  html += drawerField("出口频次", c.export_frequency || "—");
+  html += '</div></div>';
+
+  /* Section 3 - 产品与供应链 */
+  html += '<div>';
+  html += '<div class="drawer-section-title"><span class="w-1 h-4 bg-green-500 rounded-full inline-block"></span>产品与供应链</div>';
+  html += '<div class="space-y-4">';
+  html += '<div><div class="detail-label">产品标签</div><div class="mt-1">' +
+    (c.product_tags || []).map(function(t){ return '<span class="chip tag-blue">' + t + '</span>'; }).join("") +
+  '</div></div>';
+  html += '<div class="grid grid-cols-2 gap-x-8">';
+  html += drawerField("工厂性质", getFactoryTag(c.factory_type) + '<span class="text-xs text-slate-400 ml-1.5">（LLM 推断）</span>');
+  html += '<div><div class="detail-label">中国供应商</div><div class="detail-value mt-1">' + getPCBDrawer(c.has_china_pcb_supplier) + '</div></div>';
+  html += '</div>';
+  // 潜在需求
+  var needsHtml = (c.potential_needs || []).map(function(n) {
+    return '<li class="text-sm text-slate-700 leading-relaxed">' + n + '</li>';
+  }).join('') || '<li class="text-sm text-slate-400">—</li>';
+  html += '<div><div class="detail-label">潜在需求</div><ul class="mt-1 list-disc list-inside space-y-0.5">' + needsHtml + '</ul></div>';
+  // 推荐产品
+  var recHtml = (c.recommended_products || []).map(function(p) {
+    return '<span class="chip tag-green">' + p + '</span>';
+  }).join('') || '<span class="text-slate-400 text-sm">—</span>';
+  html += '<div><div class="detail-label">推荐产品</div><div class="mt-1">' + recHtml + '</div></div>';
+  html += '</div></div>';
+
+  /* Section 4 - 数据与评分 */
+  html += '<div>';
+  html += '<div class="drawer-section-title"><span class="w-1 h-4 bg-orange-500 rounded-full inline-block"></span>数据与评分</div>';
+  html += '<div class="grid grid-cols-2 gap-x-8 gap-y-4">';
+  html += '<div><div class="detail-label">数据来源</div><div class="mt-1">' +
+    c.sources.map(function(s){ return '<span class="chip tag-blue">' + s + '</span>'; }).join("") +
+  '</div></div>';
+  html += drawerField("联系人数", c.contact_count + " 人");
+  html += drawerField("入库时间", c.created_at);
+  html += drawerField("最后更新", c.updated_at);
+  html += '</div></div>';
+
+  /* Section 5 - 关联联系人 */
+  html += '<div>';
+  html += '<div class="drawer-section-title"><span class="w-1 h-4 bg-red-400 rounded-full inline-block"></span>关联联系人</div>';
+  html += '<div class="rounded-lg border border-slate-100 overflow-hidden">';
+  html += '<table>';
+  html += '<thead><tr><th>姓名</th><th>职位</th><th>邮箱</th><th>电话</th><th>来源</th></tr></thead>';
+  html += '<tbody>';
+  (c.contacts || []).forEach(function(ct) {
+    html += '<tr>' +
+      '<td class="font-medium text-slate-800">' + ct.name + '</td>' +
+      '<td>' + getContactLevelTag(ct.level) + ' <span class="text-sm text-slate-600 ml-1">' + ct.title + '</span></td>' +
+      '<td><a href="mailto:' + ct.email + '" class="text-blue-500 hover:underline font-mono text-sm">' + ct.email + '</a></td>' +
+      '<td class="font-mono text-sm text-slate-600">' + (ct.phone || "—") + '</td>' +
+      '<td><span class="tag tag-blue">腾道</span></td>' +
+    '</tr>';
+  });
+  html += '</tbody></table>';
+  html += '</div></div>';
+
+  document.getElementById("drawer-body").innerHTML = html;
+  document.getElementById("drawer-overlay").classList.add("open");
+  document.getElementById("drawer-panel").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function drawerField(label, value) {
+  return '<div><div class="detail-label">' + label + '</div><div class="detail-value mt-0.5">' + value + '</div></div>';
+}
+
+function getPCBDrawer(val) {
+  if (val === "yes")     return '<span class="text-green-600 font-medium text-base">✓ 有</span>';
+  if (val === "no")      return '<span class="text-red-500 font-medium text-base">✗ 无</span>';
+  return '<span class="text-slate-400 text-base">？ 未知</span>';
+}
+
+function closeDrawer() {
+  document.getElementById("drawer-overlay").classList.remove("open");
+  document.getElementById("drawer-panel").classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+/* ============================
+   ESC 关闭
+   ============================ */
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") closeDrawer();
+});
+
+/* ============================
+   初始化
+   ============================ */
+filteredData = COMPANIES.slice();
+renderTable();
+</script>
+</body>
+</html>

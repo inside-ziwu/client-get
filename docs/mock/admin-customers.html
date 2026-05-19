@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>客户管理</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .badge-normal { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .badge-invalid { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .badge-warmup { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+  .label-required::before { content: '*'; color: #ff4d4f; margin-right: 2px; }
+  .tab { padding: 12px 16px; cursor: pointer; border-bottom: 2px solid transparent; font-size: 14px; }
+  .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 500; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 12px 16px; font-size: 14px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; }
+  tr:hover td { background: #fafafa; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500"><span>客户运营</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">客户管理</span></div>
+  <div class="text-sm text-slate-500">admin@platform · 退出</div>
+</header>
+
+<main class="ml-56 p-6">
+
+  <div class="flex items-center justify-between mb-4">
+    <button class="btn btn-primary" onclick="showCreate()">+ 新建客户</button>
+  </div>
+
+  <!-- 筛选区 -->
+  <div class="bg-white rounded-md p-4 mb-4 flex gap-3 items-center shadow-sm">
+    <input class="input flex-1" placeholder="按客户名称 / Slug 搜索...">
+    <select class="input">
+      <option>全部行业</option>
+      <option>PCB</option>
+    </select>
+    <select class="input">
+      <option>全部状态</option>
+      <option>正常</option>
+      <option>失效</option>
+    </select>
+    <button class="btn btn-default">搜索</button>
+    <button class="btn btn-default">重置</button>
+  </div>
+
+  <!-- 客户表 -->
+  <div class="bg-white rounded-md shadow-sm overflow-hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>客户名称</th>
+          <th>Slug</th>
+          <th>行业</th>
+          <th>状态</th>
+          <th>创建时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>西安 PCB 外贸厂</td>
+          <td class="text-slate-500 font-mono text-xs">t-019dc236</td>
+          <td>PCB</td>
+          <td><span class="badge-normal">正常</span></td>
+          <td>2026-04-12 09:23</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showDetail()">查看</a>
+            <a class="text-amber-600 cursor-pointer ml-3">禁用</a>
+          </td>
+        </tr>
+        <tr>
+          <td>深圳电路板</td>
+          <td class="text-slate-500 font-mono text-xs">t-019dc238</td>
+          <td>PCB</td>
+          <td><span class="badge-normal">正常</span></td>
+          <td>2026-04-15 14:08</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showDetail()">查看</a>
+            <a class="text-amber-600 cursor-pointer ml-3">禁用</a>
+          </td>
+        </tr>
+        <tr>
+          <td>广州电子元件</td>
+          <td class="text-slate-500 font-mono text-xs">t-019d8e12</td>
+          <td>PCB</td>
+          <td><span class="badge-invalid">失效</span></td>
+          <td>2025-12-01 11:00</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showDetail()">查看</a>
+            <a class="text-emerald-600 cursor-pointer ml-3">启用</a>
+          </td>
+        </tr>
+        <tr>
+          <td>东莞 PCB 工厂</td>
+          <td class="text-slate-500 font-mono text-xs">t-019aa321</td>
+          <td>PCB</td>
+          <td><span class="badge-invalid">失效</span></td>
+          <td>2025-08-22 16:40</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showDetail()">查看</a>
+            <a class="text-emerald-600 cursor-pointer ml-3">启用</a>
+          </td>
+        </tr>
+        <tr>
+          <td>苏州电路</td>
+          <td class="text-slate-500 font-mono text-xs">t-019ab099</td>
+          <td>PCB</td>
+          <td><span class="badge-invalid">失效</span></td>
+          <td>2025-09-05 10:30</td>
+          <td>
+            <a class="text-blue-600 cursor-pointer" onclick="showDetail()">查看</a>
+            <a class="text-emerald-600 cursor-pointer ml-3">启用</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="px-4 py-3 text-sm text-slate-500 border-t border-slate-100 flex justify-between items-center">
+      <span>共 5 条 · 正常 2 / 失效 3</span>
+      <div class="flex gap-2 items-center">
+        <button class="btn btn-default text-xs">上一页</button>
+        <span class="text-xs">1 / 1</span>
+        <button class="btn btn-default text-xs">下一页</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+
+<!-- ============ 新建客户 Modal ============ -->
+<div id="create-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg w-[480px] max-h-[90vh] overflow-y-auto">
+    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+      <h2 class="text-base font-medium">新建客户</h2>
+      <button onclick="hideCreate()" class="text-slate-400 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label label-required">客户名称</label>
+        <input class="input w-full" placeholder="如：西安 PCB 外贸厂">
+      </div>
+      <div>
+        <label class="label label-required">行业</label>
+        <select class="input w-full">
+          <option>PCB</option>
+        </select>
+      </div>
+      <hr class="border-slate-200">
+      <div class="text-sm font-medium text-slate-700">管理员账号</div>
+      <div>
+        <label class="label label-required">管理员邮箱</label>
+        <input class="input w-full" placeholder="admin@example.com">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-required">管理员姓名</label>
+          <input class="input w-full">
+        </div>
+        <div>
+          <label class="label label-required">管理员密码</label>
+          <input class="input w-full" type="password">
+        </div>
+      </div>
+      <p class="text-xs text-slate-500">账号信息由运营线下交给客户。</p>
+    </div>
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideCreate()">取消</button>
+      <button class="btn btn-primary">创建</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ 详情 Drawer（4 Tab） ============ -->
+<div id="detail-drawer" class="hidden fixed inset-0 z-40">
+  <div class="absolute inset-0 bg-black/30" onclick="hideDetail()"></div>
+  <div class="absolute inset-y-0 right-0 w-[860px] bg-white shadow-xl flex flex-col">
+    <!-- Drawer Header -->
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <div class="text-base font-medium">西安 PCB 外贸厂</div>
+        <div class="text-xs text-slate-500 font-mono">t-019dc236</div>
+      </div>
+      <div class="flex gap-2 items-center">
+        <span class="badge-normal">正常</span>
+        <button class="btn btn-danger text-xs">禁用</button>
+        <button onclick="hideDetail()" class="text-slate-400 text-xl ml-2">×</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="px-6 border-b border-slate-200 flex">
+      <div class="tab active" onclick="showTab('a', this)">基本信息</div>
+      <div class="tab" onclick="showTab('b', this)">域名管理</div>
+      <div class="tab" onclick="showTab('c', this)">团队成员</div>
+      <div class="tab" onclick="showTab('d', this)">AI 配置</div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="flex-1 overflow-y-auto p-6">
+
+      <!-- Tab A 基本信息 -->
+      <div id="tab-a" class="space-y-3">
+        <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <div><span class="text-slate-500">状态：</span><span class="badge-normal">正常</span></div>
+          <div><span class="text-slate-500">行业：</span>PCB</div>
+          <div><span class="text-slate-500">创建时间：</span>2026-04-12 09:23</div>
+          <div><span class="text-slate-500">最后修改：</span>2026-05-06 10:12</div>
+          <div class="col-span-2"><span class="text-slate-500">登录入口：</span><a class="text-blue-600">https://t-019dc236.xinanpcb.com</a></div>
+        </div>
+      </div>
+
+      <!-- Tab B 域名管理 -->
+      <div id="tab-b" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="text-sm text-slate-600">已配置 <strong>2</strong> 个发件域名</div>
+          <button class="btn btn-primary text-xs" onclick="showAddDomain()">+ 添加域名</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>域名</th>
+              <th>预热档位</th>
+              <th>备注</th>
+              <th>添加时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-mono">marketing.xianpcb.com</td>
+              <td><span class="badge-warmup">Day 24 · 2500 / 天</span></td>
+              <td>主营销域名</td>
+              <td>2026-04-12 10:00</td>
+              <td>
+                <a class="text-blue-600 cursor-pointer" onclick="showEditDomain()">编辑</a>
+                <a class="text-red-500 cursor-pointer ml-2">删除</a>
+              </td>
+            </tr>
+            <tr>
+              <td class="font-mono">news.xianpcb.com</td>
+              <td><span class="badge-warmup">Day 16 · 1000 / 天</span></td>
+              <td>资讯邮件域名</td>
+              <td>2026-04-20 15:30</td>
+              <td>
+                <a class="text-blue-600 cursor-pointer" onclick="showEditDomain()">编辑</a>
+                <a class="text-red-500 cursor-pointer ml-2">删除</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab C 团队成员 -->
+      <div id="tab-c" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="text-sm text-slate-600">共 <strong>3</strong> 个成员</div>
+          <button class="btn btn-primary text-xs" onclick="showAddUser()">+ 添加用户</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>邮箱</th><th>姓名</th><th>角色</th><th>状态</th><th>创建时间</th><th>操作</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>boss@xianpcb.com</td><td>张老板</td><td>管理员</td>
+              <td><span class="badge-normal">启用</span></td><td>2026-04-12</td>
+              <td><button class="text-blue-600 text-xs" onclick="showResetPwd()">重置密码</button></td>
+            </tr>
+            <tr>
+              <td>sales@xianpcb.com</td><td>李销售</td><td>操作员</td>
+              <td><span class="badge-normal">启用</span></td><td>2026-04-13</td>
+              <td><button class="text-blue-600 text-xs" onclick="showResetPwd()">重置密码</button></td>
+            </tr>
+            <tr>
+              <td>view@xianpcb.com</td><td>王观察</td><td>观察员</td>
+              <td><span class="badge-invalid">禁用</span></td><td>2026-04-20</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Tab D AI 配置 -->
+      <div id="tab-d" class="hidden space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="text-sm font-medium">OpenRouter API 配置</div>
+          <button class="btn btn-primary text-xs" onclick="showOpenRouter()">配置 / 修改</button>
+        </div>
+        <div class="bg-slate-50 rounded-md p-4 grid grid-cols-2 gap-y-3 gap-x-8 text-sm">
+          <div><span class="text-slate-500">状态：</span><span class="badge-normal">启用</span></div>
+          <div><span class="text-slate-500">平台密钥：</span><code class="font-mono text-xs">sk-or-***...***xy7z</code></div>
+          <div><span class="text-slate-500">余额：</span>$ 47.23</div>
+          <div><span class="text-slate-500">余额更新：</span>2026-05-06 10:12</div>
+          <div><span class="text-slate-500">最后修改人：</span>admin@platform</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ 添加域名 Modal ============ -->
+<div id="add-domain-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+  <div class="bg-white rounded-lg w-[440px]">
+    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+      <h2 class="text-base font-medium">添加发件域名</h2>
+      <button onclick="hideAddDomain()" class="text-slate-400 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label label-required">域名</label>
+        <input class="input w-full" placeholder="如：marketing.xianpcb.com">
+      </div>
+      <div>
+        <label class="label label-required">预热档位</label>
+        <select class="input w-full">
+          <option selected>Day 1 · 5 / 天</option>
+          <option>Day 5 · 50 / 天</option>
+          <option>Day 10 · 200 / 天</option>
+          <option>Day 15 · 1000 / 天</option>
+          <option>Day 20+ · 2500 / 天</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">备注</label>
+        <input class="input w-full" placeholder="选填，如：主营销域名">
+      </div>
+    </div>
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideAddDomain()">取消</button>
+      <button class="btn btn-primary">添加</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ 编辑域名 Modal ============ -->
+<div id="edit-domain-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+  <div class="bg-white rounded-lg w-[440px]">
+    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+      <h2 class="text-base font-medium">编辑发件域名</h2>
+      <button onclick="hideEditDomain()" class="text-slate-400 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label">域名</label>
+        <input class="input w-full bg-slate-50" value="marketing.xianpcb.com" disabled>
+      </div>
+      <div>
+        <label class="label label-required">预热档位</label>
+        <select class="input w-full">
+          <option>Day 1 · 5 / 天</option>
+          <option>Day 5 · 50 / 天</option>
+          <option>Day 10 · 200 / 天</option>
+          <option>Day 15 · 1000 / 天</option>
+          <option selected>Day 20+ · 2500 / 天</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">备注</label>
+        <input class="input w-full" value="主营销域名">
+      </div>
+    </div>
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideEditDomain()">取消</button>
+      <button class="btn btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ 添加用户 Modal ============ -->
+<div id="add-user-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+  <div class="bg-white rounded-lg w-[480px]">
+    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+      <h2 class="text-base font-medium">添加用户</h2>
+      <button onclick="hideAddUser()" class="text-slate-400 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label label-required">邮箱</label>
+        <input class="input w-full">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-required">姓名</label>
+          <input class="input w-full">
+        </div>
+        <div>
+          <label class="label label-required">密码</label>
+          <input class="input w-full" type="password">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="label label-required">角色</label>
+          <select class="input w-full">
+            <option>管理员</option>
+            <option>操作员</option>
+            <option>观察员</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">状态</label>
+          <select class="input w-full">
+            <option>启用</option>
+            <option>禁用</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideAddUser()">取消</button>
+      <button class="btn btn-primary">添加</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ 重置密码 Modal ============ -->
+<div id="reset-pwd-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+  <div class="bg-white rounded-lg w-[400px]">
+    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+      <h2 class="text-base font-medium">重置密码</h2>
+      <button onclick="hideResetPwd()" class="text-slate-400 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label label-required">新密码（至少 6 位）</label>
+        <input class="input w-full" type="password">
+      </div>
+      <p class="text-xs text-slate-500">用户下次登录需用新密码。</p>
+    </div>
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideResetPwd()">取消</button>
+      <button class="btn btn-primary">确认重置</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============ OpenRouter 配置 Modal ============ -->
+<div id="openrouter-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+  <div class="bg-white rounded-lg w-[480px]">
+    <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+      <h2 class="text-base font-medium">配置 OpenRouter API key</h2>
+      <button onclick="hideOpenRouter()" class="text-slate-400 text-xl">×</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="label label-required">API Key</label>
+        <input class="input w-full" placeholder="sk-or-...">
+        <p class="text-xs text-slate-500 mt-2">Key 加密存储，UI 仅显示掩码。</p>
+      </div>
+    </div>
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="hideOpenRouter()">取消</button>
+      <button class="btn btn-primary">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+function showCreate() { document.getElementById('create-modal').classList.remove('hidden'); }
+function hideCreate() { document.getElementById('create-modal').classList.add('hidden'); }
+function showDetail() { document.getElementById('detail-drawer').classList.remove('hidden'); }
+function hideDetail() { document.getElementById('detail-drawer').classList.add('hidden'); }
+function showAddDomain() { document.getElementById('add-domain-modal').classList.remove('hidden'); }
+function hideAddDomain() { document.getElementById('add-domain-modal').classList.add('hidden'); }
+function showEditDomain() { document.getElementById('edit-domain-modal').classList.remove('hidden'); }
+function hideEditDomain() { document.getElementById('edit-domain-modal').classList.add('hidden'); }
+function showAddUser() { document.getElementById('add-user-modal').classList.remove('hidden'); }
+function hideAddUser() { document.getElementById('add-user-modal').classList.add('hidden'); }
+function showResetPwd() { document.getElementById('reset-pwd-modal').classList.remove('hidden'); }
+function hideResetPwd() { document.getElementById('reset-pwd-modal').classList.add('hidden'); }
+function showOpenRouter() { document.getElementById('openrouter-modal').classList.remove('hidden'); }
+function hideOpenRouter() { document.getElementById('openrouter-modal').classList.add('hidden'); }
+function showTab(name, el) {
+  ['a','b','c','d'].forEach(n => document.getElementById('tab-'+n).classList.add('hidden'));
+  document.getElementById('tab-'+name).classList.remove('hidden');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

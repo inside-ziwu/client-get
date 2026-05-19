@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI 配置</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+  .label-required::before { content: '*'; color: #ff4d4f; margin-right: 2px; }
+
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 12px 16px; font-size: 14px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  tr:last-child td { border-bottom: none; }
+
+  .tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+  .tag-purple { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+  .tag-blue   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .tag-gray   { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+
+  .switch { display: inline-flex; align-items: center; cursor: pointer; }
+  .switch-track { width: 40px; height: 22px; border-radius: 11px; transition: background 0.2s; position: relative; }
+  .switch-on  .switch-track { background: #1677ff; }
+  .switch-off .switch-track { background: #d9d9d9; }
+  .switch-thumb { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .switch-on  .switch-thumb { left: 20px; }
+  .switch-off .switch-thumb { left: 2px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal-box { background: white; border-radius: 8px; width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+
+  select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; cursor: pointer; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ===== 侧边导航 ===== -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<!-- ===== Header ===== -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500">
+    <span>系统</span><span class="mx-2">/</span><span class="text-slate-800 font-medium">AI 配置</span>
+  </div>
+  <div class="text-sm text-slate-500">admin@platform · 退出</div>
+</header>
+
+<!-- ===== 主内容 ===== -->
+<main class="ml-56 p-6">
+
+  <!-- Section 1：模型管理 -->
+  <div class="bg-white rounded-md shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-base font-semibold text-slate-800">模型管理</h2>
+      <button class="btn btn-primary" onclick="openCreate()">+ 添加模型</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>显示名称</th>
+          <th>模型</th>
+          <th>Model ID</th>
+          <th>启用</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="model-tbody">
+        <!-- JS 渲染 -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Section 2：场景默认模型 -->
+  <div class="bg-white rounded-md shadow-sm overflow-hidden mt-5">
+    <div class="px-6 py-4 border-b border-slate-100">
+      <h2 class="text-base font-semibold text-slate-800">场景默认模型</h2>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>场景</th>
+          <th>当前默认模型</th>
+        </tr>
+      </thead>
+      <tbody id="scene-tbody">
+        <!-- JS 渲染 -->
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+
+<!-- ===== 添加/编辑 Modal ===== -->
+<div id="model-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <!-- 标题栏 -->
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h2 id="modal-title" class="text-base font-medium text-slate-800">新建模型</h2>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+    </div>
+
+    <!-- 表单 -->
+    <div class="px-6 py-5 space-y-4">
+      <div>
+        <label class="label label-required">显示名称</label>
+        <input id="f-display-name" class="input" placeholder="如：DeepSeek Chat" />
+      </div>
+      <div>
+        <label class="label label-required">模型</label>
+        <input id="f-provider" class="input" placeholder="如：deepseek" />
+      </div>
+      <div>
+        <label class="label label-required">Model ID</label>
+        <input id="f-model-id" class="input" placeholder="如：deepseek/deepseek-chat" />
+      </div>
+      <div class="flex items-center gap-3 pt-1">
+        <label class="label" style="margin-bottom:0;">启用</label>
+        <div id="f-switch" class="switch switch-on" onclick="toggleModalSwitch()">
+          <div class="switch-track"><div class="switch-thumb"></div></div>
+        </div>
+        <span id="f-switch-label" class="text-sm text-slate-500">已启用</span>
+      </div>
+    </div>
+
+    <!-- 底部按钮 -->
+    <div class="px-6 py-3 border-t border-slate-200 flex justify-end gap-2">
+      <button class="btn btn-default" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="confirmModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ===== 数据 ===== */
+var nextId = 5;
+
+var models = [
+  { id: 1, displayName: 'DeepSeek Chat',   provider: 'deepseek', modelId: 'deepseek/deepseek-chat',   active: true  },
+  { id: 2, displayName: 'DeepSeek Reasoner', provider: 'deepseek', modelId: 'deepseek/deepseek-r1',    active: true  },
+  { id: 3, displayName: 'GPT-4o',          provider: 'openai',   modelId: 'openai/gpt-4o',            active: false },
+  { id: 4, displayName: 'Gemini 2.5 Pro',  provider: 'google',   modelId: 'google/gemini-2.5-pro',    active: true  },
+];
+
+var scenes = [
+  { key: 'scoring',      label: '客户评分', modelId: 1 },
+  { key: 'email_gen',    label: '邮件生成', modelId: 1 },
+  { key: 'intel',        label: '情报摘要', modelId: 4 },
+  { key: 'analysis',     label: '数据分析', modelId: 1 },
+  { key: 'general',      label: '通用',     modelId: 1 },
+];
+
+/* 当前编辑的模型 id（null 表示新建） */
+var editingId = null;
+
+/* ===== Provider → tag 颜色 ===== */
+var PROVIDER_TAG = {
+  deepseek: 'tag-purple',
+  openai:   'tag-blue',
+  google:   'tag-blue',
+};
+function providerTagClass(p) {
+  return PROVIDER_TAG[p] || 'tag-gray';
+}
+
+/* ===== 渲染模型表格 ===== */
+function renderModels() {
+  var tbody = document.getElementById('model-tbody');
+  if (!models.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-400 py-8">暂无模型</td></tr>';
+    return;
+  }
+  tbody.innerHTML = models.map(function(m) {
+    var switchCls = m.active ? 'switch-on' : 'switch-off';
+    var tagCls    = providerTagClass(m.provider);
+    return '<tr>' +
+      '<td class="font-semibold text-slate-800">' + escHtml(m.displayName) + '</td>' +
+      '<td><span class="tag ' + tagCls + '">' + escHtml(m.provider) + '</span></td>' +
+      '<td><code class="font-mono bg-slate-100 px-1 rounded text-xs text-slate-700">' + escHtml(m.modelId) + '</code></td>' +
+      '<td>' +
+        '<div class="switch ' + switchCls + '" onclick="toggleModelActive(' + m.id + ')">' +
+          '<div class="switch-track"><div class="switch-thumb"></div></div>' +
+        '</div>' +
+      '</td>' +
+      '<td>' +
+        '<a class="text-blue-600 cursor-pointer hover:underline" onclick="openEdit(' + m.id + ')">编辑</a>' +
+        '<span class="text-slate-200 mx-2">|</span>' +
+        '<a class="text-red-500 cursor-pointer hover:underline" onclick="deleteModel(' + m.id + ')">删除</a>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ===== 渲染场景表格 ===== */
+function renderScenes() {
+  var tbody = document.getElementById('scene-tbody');
+  tbody.innerHTML = scenes.map(function(s) {
+    var opts = models.map(function(m) {
+      var sel = (m.id === s.modelId) ? ' selected' : '';
+      return '<option value="' + m.id + '"' + sel + '>' + escHtml(m.displayName) + '</option>';
+    }).join('');
+    return '<tr>' +
+      '<td class="text-slate-700">' + escHtml(s.label) + '</td>' +
+      '<td style="min-width:220px;">' +
+        '<select class="input" style="max-width:260px;" onchange="updateSceneModel(\'' + s.key + '\', +this.value)">' +
+          opts +
+        '</select>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function updateSceneModel(key, modelId) {
+  var scene = scenes.find(function(s) { return s.key === key; });
+  if (scene) scene.modelId = modelId;
+}
+
+/* ===== Modal 控制 ===== */
+function openCreate() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = '新建模型';
+  document.getElementById('f-display-name').value = '';
+  document.getElementById('f-provider').value = '';
+  document.getElementById('f-model-id').value = '';
+  setSwitchState('f-switch', true);
+  document.getElementById('model-modal').classList.remove('hidden');
+}
+
+function openEdit(id) {
+  var m = models.find(function(x) { return x.id === id; });
+  if (!m) return;
+  editingId = id;
+  document.getElementById('modal-title').textContent = '编辑模型';
+  document.getElementById('f-display-name').value = m.displayName;
+  document.getElementById('f-provider').value = m.provider;
+  document.getElementById('f-model-id').value = m.modelId;
+  setSwitchState('f-switch', m.active);
+  document.getElementById('model-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('model-modal').classList.add('hidden');
+}
+
+function confirmModal() {
+  var displayName = document.getElementById('f-display-name').value.trim();
+  var provider    = document.getElementById('f-provider').value.trim();
+  var modelId     = document.getElementById('f-model-id').value.trim();
+  var active      = document.getElementById('f-switch').classList.contains('switch-on');
+
+  if (!displayName || !provider || !modelId) {
+    alert('请填写显示名称、模型 和 Model ID');
+    return;
+  }
+
+  if (editingId === null) {
+    /* 新建 */
+    models.push({ id: nextId++, displayName: displayName, provider: provider, modelId: modelId, active: active });
+  } else {
+    /* 编辑 */
+    var m = models.find(function(x) { return x.id === editingId; });
+    if (m) {
+      m.displayName = displayName;
+      m.provider    = provider;
+      m.modelId     = modelId;
+      m.active      = active;
+    }
+  }
+
+  closeModal();
+  renderModels();
+  renderScenes();
+}
+
+/* ===== 删除 ===== */
+function deleteModel(id) {
+  if (!confirm('确认删除此模型？已配置此模型的场景将自动回退到首个可用模型。')) return;
+  models = models.filter(function(m) { return m.id !== id; });
+  /* 场景回退 */
+  var fallbackId = models.length ? models[0].id : null;
+  scenes.forEach(function(s) {
+    if (!models.find(function(m) { return m.id === s.modelId; })) {
+      s.modelId = fallbackId;
+    }
+  });
+  renderModels();
+  renderScenes();
+}
+
+/* ===== 切换启用 ===== */
+function toggleModelActive(id) {
+  var m = models.find(function(x) { return x.id === id; });
+  if (m) m.active = !m.active;
+  renderModels();
+}
+
+/* ===== Switch 辅助 ===== */
+function setSwitchState(elId, active) {
+  var el = document.getElementById(elId);
+  el.classList.toggle('switch-on', active);
+  el.classList.toggle('switch-off', !active);
+  var label = document.getElementById(elId + '-label');
+  if (label) label.textContent = active ? '已启用' : '已禁用';
+}
+
+function toggleModalSwitch() {
+  var el = document.getElementById('f-switch');
+  var nowOn = el.classList.contains('switch-on');
+  setSwitchState('f-switch', !nowOn);
+}
+
+/* ===== 工具 ===== */
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ===== Escape 键关闭 Modal ===== */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+/* ===== 初始渲染 ===== */
+renderModels();
+renderScenes();
+</script>
+</body>
+</html>

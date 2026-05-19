@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>邮件模板</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+
+  .btn { padding: 6px 16px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #1677ff; color: white; border: 1px solid #1677ff; }
+  .btn-primary:hover { background: #4096ff; }
+  .btn-default { background: white; color: #000000d9; border: 1px solid #d9d9d9; }
+  .btn-default:hover { border-color: #1677ff; color: #1677ff; }
+  .btn-danger { background: white; color: #ff4d4f; border: 1px solid #ff4d4f; }
+  .btn-danger:hover { background: #fff1f0; }
+
+  .input { padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; outline: none; width: 100%; box-sizing: border-box; }
+  .input:focus { border-color: #1677ff; box-shadow: 0 0 0 2px rgba(22,119,255,0.1); }
+  .label { display: block; font-size: 14px; color: #000000d9; margin-bottom: 4px; }
+  .label-required::before { content: '*'; color: #ff4d4f; margin-right: 2px; }
+
+  textarea.input { resize: vertical; }
+
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #fafafa; text-align: left; padding: 12px 16px; font-size: 14px; font-weight: 500; color: #000000d9; border-bottom: 1px solid #f0f0f0; }
+  td { padding: 12px 16px; font-size: 14px; border-bottom: 1px solid #f0f0f0; color: #374151; }
+  tr:hover td { background: #fafafa; }
+
+  .tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+  .tag-blue   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .tag-gray   { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+  .tag-green  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+  .tag-purple { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+
+  .switch { display: inline-flex; align-items: center; cursor: pointer; }
+  .switch-track { width: 40px; height: 22px; border-radius: 11px; transition: background 0.2s; position: relative; }
+  .switch-on  .switch-track { background: #1677ff; }
+  .switch-off .switch-track { background: #d9d9d9; }
+  .switch-thumb { width: 18px; height: 18px; background: white; border-radius: 50%; position: absolute; top: 2px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .switch-on  .switch-thumb { left: 20px; }
+  .switch-off .switch-thumb { left: 2px; }
+
+  /* Drawer */
+  .drawer { position: fixed; inset: 0; z-index: 40; }
+  .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
+  .drawer-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 760px;
+    background: white;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+    display: flex;
+    flex-direction: column;
+  }
+  .drawer-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .drawer-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Editor Tabs */
+  .tab-bar { display: flex; border-bottom: 1px solid #f0f0f0; margin-bottom: 12px; }
+  .tab-item {
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: #64748b;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+  .tab-item.active { border-bottom-color: #1677ff; color: #1677ff; font-weight: 500; }
+  .tab-item:hover:not(.active) { color: #374151; }
+
+  /* Variable chips */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid #d9d9d9;
+    background: #f8fafc;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .chip:hover { border-color: #93c5fd; background: #eff6ff; }
+  .chip.selected { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal-box { background: white; border-radius: 8px; width: 860px; max-height: 92vh; display: flex; flex-direction: column; }
+  .modal-header { padding: 16px 24px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+
+  .link-btn { background: none; border: none; font-size: 13px; cursor: pointer; padding: 0; }
+  .link-edit   { color: #1677ff; }
+  .link-edit:hover { color: #4096ff; }
+  .link-delete { color: #ff4d4f; margin-left: 12px; }
+  .link-delete:hover { color: #ff7875; }
+
+  .close-btn { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 20px; line-height: 1; padding: 0; }
+  .close-btn:hover { color: #475569; }
+
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+
+  .section-label { font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 8px; display: block; }
+  .chips-area { display: flex; flex-wrap: wrap; gap: 6px; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+
+<!-- ===== 侧边导航 ===== -->
+<aside class="fixed left-0 top-0 bottom-0 w-56 bg-white border-r border-slate-200 overflow-y-auto z-30">
+  <div class="px-5 py-4 border-b border-slate-200">
+    <div class="font-semibold text-base text-slate-800">ClientGet</div>
+    <div class="text-xs text-slate-500 mt-0.5">平台运营后台</div>
+  </div>
+  <nav class="py-3 text-sm">
+    <div class="px-5 py-1.5 text-xs text-slate-400 uppercase tracking-wider">客户</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户管理</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">采集</div>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">数据源</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">关键词</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">同行公司</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">腾道数据</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">客户数据</a>
+    <div class="px-5 py-1.5 mt-2 text-xs text-slate-400 uppercase tracking-wider">营销</div>
+    <a class="flex items-center px-5 py-2 bg-blue-50 text-blue-600 border-r-2 border-blue-600 font-medium cursor-pointer">邮件模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">评分模板</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">联系人规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">预热规则</a>
+    <a class="flex items-center px-5 py-2 text-slate-700 hover:bg-slate-50 cursor-pointer">AI 配置</a>
+  </nav>
+</aside>
+
+<!-- ===== 顶部导航 ===== -->
+<header class="ml-56 bg-white border-b border-slate-200 px-6 h-14 flex items-center justify-between sticky top-0 z-20">
+  <div class="text-sm text-slate-500">
+    <span>营销</span>
+    <span class="mx-2">/</span>
+    <span class="text-slate-800 font-medium">邮件模板</span>
+  </div>
+  <div class="text-sm text-slate-500">admin@platform · <span class="cursor-pointer hover:text-slate-700">退出</span></div>
+</header>
+
+<!-- ===== 主内容 ===== -->
+<main class="ml-56 p-6">
+  <div class="flex items-center justify-between mb-4">
+    <button class="btn btn-primary" onclick="openDrawer(null)">+ 新建模板</button>
+  </div>
+
+  <div class="bg-white rounded-md shadow-sm overflow-hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>名称</th>
+          <th>分类</th>
+          <th style="min-width:200px;">主题</th>
+          <th>编辑器</th>
+          <th>状态</th>
+          <th>更新时间</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="font-medium text-slate-800">PCB 首次触达模板</td>
+          <td><span class="tag tag-blue">首次触达</span></td>
+          <td style="max-width:240px;" class="text-slate-600 truncate overflow-hidden whitespace-nowrap">
+            We noticed your company imports PCB components…
+          </td>
+          <td><span class="tag tag-purple">可视化</span></td>
+          <td><span class="tag tag-green">启用</span></td>
+          <td class="text-slate-500">2026-05-01</td>
+          <td>
+            <button class="link-btn link-edit" onclick="openDrawer('pcb-first')">编辑</button>
+            <button class="link-btn link-delete" onclick="confirmDelete('PCB 首次触达模板')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">PCB 跟进模板</td>
+          <td><span class="tag tag-blue">跟进</span></td>
+          <td style="max-width:240px;" class="text-slate-600 truncate overflow-hidden whitespace-nowrap">
+            Following up on our previous message about…
+          </td>
+          <td><span class="tag tag-gray">HTML</span></td>
+          <td><span class="tag tag-green">启用</span></td>
+          <td class="text-slate-500">2026-04-28</td>
+          <td>
+            <button class="link-btn link-edit" onclick="openDrawer('pcb-follow')">编辑</button>
+            <button class="link-btn link-delete" onclick="confirmDelete('PCB 跟进模板')">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="font-medium text-slate-800">节日问候模板</td>
+          <td><span class="tag tag-blue">节日问候</span></td>
+          <td style="max-width:240px;" class="text-slate-600 truncate overflow-hidden whitespace-nowrap">
+            Happy New Year from XAPCB — your trusted PCB…
+          </td>
+          <td><span class="tag tag-purple">可视化</span></td>
+          <td><span class="tag tag-gray">停用</span></td>
+          <td class="text-slate-500">2026-03-15</td>
+          <td>
+            <button class="link-btn link-edit" onclick="openDrawer('holiday')">编辑</button>
+            <button class="link-btn link-delete" onclick="confirmDelete('节日问候模板')">删除</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<!-- ===== 新建/编辑 Drawer ===== -->
+<div id="drawer" class="drawer" style="display:none;" onclick="handleOverlayClick(event)">
+  <div class="overlay"></div>
+  <div class="drawer-panel" onclick="event.stopPropagation()">
+    <!-- 头部 -->
+    <div class="drawer-header">
+      <span id="drawerTitle" class="text-base font-semibold text-slate-800">新建邮件模板</span>
+      <button class="close-btn" onclick="closeDrawer()">×</button>
+    </div>
+
+    <!-- 主体 -->
+    <div class="drawer-body">
+
+      <!-- 名称 -->
+      <div class="field-group">
+        <label class="label label-required">名称</label>
+        <input class="input" type="text" id="fieldName" placeholder="模板名称" />
+      </div>
+
+      <!-- 行业 -->
+      <div class="field-group">
+        <label class="label">行业</label>
+        <input class="input" type="text" id="fieldIndustry" placeholder="PCB / 通用" />
+      </div>
+
+      <!-- 分类 -->
+      <div class="field-group">
+        <label class="label label-required">分类</label>
+        <input class="input" type="text" id="fieldCategory" placeholder="如：首次触达 / 跟进 / 节日问候" />
+      </div>
+
+      <!-- 主题 -->
+      <div class="field-group">
+        <label class="label label-required">主题</label>
+        <input class="input" type="text" id="fieldSubject" placeholder="邮件主题，支持 {{变量}}" />
+      </div>
+
+      <!-- 模板变量 -->
+      <div class="field-group">
+        <label class="label">模板变量</label>
+        <div class="text-xs text-slate-400 mb-2">点击选中后可在邮件正文中引用对应 {{变量名}}</div>
+        <div class="chips-area" id="variableChips">
+          <!-- 变量 chip 由 JS 生成 -->
+        </div>
+      </div>
+
+      <!-- 编辑器 -->
+      <div class="field-group">
+        <label class="label label-required">邮件正文</label>
+        <div class="tab-bar">
+          <div class="tab-item active" id="tabVisual" onclick="switchTab('visual')">可视化编辑器</div>
+          <div class="tab-item" id="tabHtml" onclick="switchTab('html')">HTML 源码</div>
+        </div>
+        <!-- 可视化模式 -->
+        <div id="panelVisual" class="rounded-md border border-slate-200 bg-slate-100 h-64 flex items-center justify-center">
+          <div class="text-center text-slate-400 text-sm select-none">
+            <div class="mb-1 text-lg">⬛</div>
+            此处为 GrapeJS 可视化编辑器（实际集成后渲染）
+          </div>
+        </div>
+        <!-- HTML 源码模式 -->
+        <div id="panelHtml" style="display:none;">
+          <textarea class="input font-mono text-xs" rows="16" id="fieldHtml"
+            placeholder="&lt;p&gt;Hello {{contact_name}},&lt;/p&gt;&#10;&lt;p&gt;We noticed your company &lt;strong&gt;{{company_name}}&lt;/strong&gt; imports PCB components.&lt;/p&gt;&#10;&lt;p&gt;Best regards,&lt;br&gt;{{sender_name}}&lt;/p&gt;"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- 启用 -->
+      <div class="field-group">
+        <label class="label">状态</label>
+        <div class="flex items-center gap-3">
+          <div id="statusSwitch" class="switch switch-on" onclick="toggleSwitch()">
+            <div class="switch-track">
+              <div class="switch-thumb"></div>
+            </div>
+          </div>
+          <span id="statusLabel" class="text-sm text-slate-600">启用</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 底部 -->
+    <div class="drawer-footer">
+      <button class="btn btn-default" onclick="closeDrawer()">取消</button>
+      <button class="btn btn-default" onclick="openPreview()">预览</button>
+      <button class="btn btn-primary" onclick="saveTemplate()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 预览 Modal ===== -->
+<div id="previewModal" class="modal-overlay" style="display:none;" onclick="handleModalOverlayClick(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="text-base font-semibold text-slate-800">邮件预览</span>
+      <button class="close-btn" onclick="closePreview()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="text-xs text-slate-400 mb-3">以下为模板渲染预览，变量将以示例值替换展示。</div>
+      <div class="rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center" style="height:640px;">
+        <iframe id="previewFrame" style="display:none; width:100%; height:100%; border:none; border-radius:6px;"></iframe>
+        <div id="previewPlaceholder" class="text-center text-slate-400 text-sm select-none">
+          <div class="text-4xl mb-3">📧</div>
+          邮件预览区域（实际渲染时填充 HTML）
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closePreview()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 脚本 ===== -->
+<script>
+  // ---- 变量定义 ----
+  const VARIABLES = [
+    { key: 'company_name',    label: '联系人公司' },
+    { key: 'contact_name',   label: '联系人姓名' },
+    { key: 'contact_email',  label: '联系人邮箱' },
+    { key: 'contact_title',  label: '联系人职位' },
+    { key: 'sender_name',    label: '发件人姓名' },
+    { key: 'sender_company', label: '发件人公司' },
+    { key: 'sender_title',   label: '发件人职位' },
+    { key: 'sender_email',   label: '发件人邮箱' },
+    { key: 'product_name',   label: '产品名称' },
+    { key: 'website',        label: '官网链接' },
+    { key: 'unsubscribe_link', label: '退订链接' },
+  ];
+
+  // 示例数据（用于编辑回填）
+  const SAMPLE_DATA = {
+    'pcb-first': {
+      name: 'PCB 首次触达模板',
+      industry: 'PCB',
+      category: '首次触达',
+      subject: 'We noticed your company imports PCB components',
+      html: '<p>Hello {{contact_name}},</p>\n<p>We noticed your company <strong>{{company_name}}</strong> imports PCB components and thought you might be interested in our quality offerings.</p>\n<p>Best regards,<br>{{sender_name}}<br>{{sender_company}}</p>',
+      enabled: true,
+      selectedVars: ['company_name', 'contact_name', 'sender_name', 'sender_company'],
+    },
+    'pcb-follow': {
+      name: 'PCB 跟进模板',
+      industry: 'PCB',
+      category: '跟进',
+      subject: 'Following up on our previous message about PCB sourcing',
+      html: '<p>Hello {{contact_name}},</p>\n<p>Following up on our previous message about sourcing PCB components for {{company_name}}.</p>\n<p>Would you be available for a brief call this week?</p>\n<p>Best,<br>{{sender_name}}</p>',
+      enabled: true,
+      selectedVars: ['contact_name', 'company_name', 'sender_name'],
+    },
+    'holiday': {
+      name: '节日问候模板',
+      industry: '通用',
+      category: '节日问候',
+      subject: 'Happy New Year from XAPCB — your trusted PCB partner',
+      html: '<p>Dear {{contact_name}},</p>\n<p>Happy New Year from the team at {{sender_company}}!</p>\n<p>Wishing you and {{company_name}} a prosperous year ahead.</p>\n<p>Warm regards,<br>{{sender_name}}</p>',
+      enabled: false,
+      selectedVars: ['contact_name', 'company_name', 'sender_company', 'sender_name'],
+    },
+  };
+
+  let currentTab = 'visual';
+  let selectedVars = new Set();
+  let switchEnabled = true;
+
+  // ---- 渲染变量 chips ----
+  function renderChips() {
+    const container = document.getElementById('variableChips');
+    container.innerHTML = '';
+    VARIABLES.forEach(v => {
+      const chip = document.createElement('span');
+      chip.className = 'chip' + (selectedVars.has(v.key) ? ' selected' : '');
+      chip.textContent = `{{${v.key}}} ${v.label}`;
+      chip.title = `插入变量: {{${v.key}}}`;
+      chip.onclick = () => toggleChip(v.key, chip);
+      container.appendChild(chip);
+    });
+  }
+
+  function toggleChip(key, el) {
+    if (selectedVars.has(key)) {
+      selectedVars.delete(key);
+      el.classList.remove('selected');
+    } else {
+      selectedVars.add(key);
+      el.classList.add('selected');
+    }
+  }
+
+  // ---- 编辑器 Tab 切换 ----
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabVisual').classList.toggle('active', tab === 'visual');
+    document.getElementById('tabHtml').classList.toggle('active', tab === 'html');
+    document.getElementById('panelVisual').style.display = tab === 'visual' ? '' : 'none';
+    document.getElementById('panelHtml').style.display   = tab === 'html'   ? '' : 'none';
+  }
+
+  // ---- Switch 状态 ----
+  function toggleSwitch() {
+    switchEnabled = !switchEnabled;
+    const sw = document.getElementById('statusSwitch');
+    sw.className = 'switch ' + (switchEnabled ? 'switch-on' : 'switch-off');
+    document.getElementById('statusLabel').textContent = switchEnabled ? '启用' : '停用';
+  }
+
+  function setSwitchState(val) {
+    switchEnabled = val;
+    const sw = document.getElementById('statusSwitch');
+    sw.className = 'switch ' + (val ? 'switch-on' : 'switch-off');
+    document.getElementById('statusLabel').textContent = val ? '启用' : '停用';
+  }
+
+  // ---- Drawer ----
+  function openDrawer(id) {
+    selectedVars = new Set();
+    setSwitchState(true);
+    switchTab('visual');
+
+    if (id && SAMPLE_DATA[id]) {
+      const d = SAMPLE_DATA[id];
+      document.getElementById('drawerTitle').textContent = '编辑邮件模板';
+      document.getElementById('fieldName').value     = d.name;
+      document.getElementById('fieldIndustry').value = d.industry;
+      document.getElementById('fieldCategory').value = d.category;
+      document.getElementById('fieldSubject').value  = d.subject;
+      document.getElementById('fieldHtml').value     = d.html;
+      d.selectedVars.forEach(k => selectedVars.add(k));
+      setSwitchState(d.enabled);
+    } else {
+      document.getElementById('drawerTitle').textContent = '新建邮件模板';
+      document.getElementById('fieldName').value     = '';
+      document.getElementById('fieldIndustry').value = '';
+      document.getElementById('fieldCategory').value = '';
+      document.getElementById('fieldSubject').value  = '';
+      document.getElementById('fieldHtml').value     = '';
+    }
+
+    renderChips();
+    document.getElementById('drawer').style.display = '';
+  }
+
+  function closeDrawer() {
+    document.getElementById('drawer').style.display = 'none';
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target.classList.contains('overlay')) closeDrawer();
+  }
+
+  // ---- 保存（演示） ----
+  function saveTemplate() {
+    const name = document.getElementById('fieldName').value.trim();
+    const category = document.getElementById('fieldCategory').value.trim();
+    const subject = document.getElementById('fieldSubject').value.trim();
+    if (!name || !category || !subject) {
+      alert('请填写所有必填项（名称、分类、主题）。');
+      return;
+    }
+    closeDrawer();
+    alert('模板已保存（演示）：' + name);
+  }
+
+  // ---- 删除确认（演示） ----
+  function confirmDelete(name) {
+    if (confirm(`确定删除模板「${name}」？此操作不可撤销。`)) {
+      alert('已删除（演示）：' + name);
+    }
+  }
+
+  // ---- 预览 Modal ----
+  function openPreview() {
+    const html = document.getElementById('fieldHtml').value;
+    const frame = document.getElementById('previewFrame');
+    const placeholder = document.getElementById('previewPlaceholder');
+
+    if (html.trim()) {
+      // 简单变量替换示例值用于预览
+      const sampleValues = {
+        company_name: 'Acme Electronics Co.',
+        contact_name: 'John Smith',
+        contact_email: 'john@acme.com',
+        contact_title: 'Procurement Manager',
+        sender_name: 'Li Wei',
+        sender_company: 'XAPCB',
+        sender_title: 'Sales Director',
+        sender_email: 'liwei@xapcb.com',
+        product_name: 'PCB Assembly',
+        website: 'https://xapcb.com',
+        unsubscribe_link: 'https://xapcb.com/unsubscribe',
+      };
+      let rendered = html;
+      Object.entries(sampleValues).forEach(([k, v]) => {
+        rendered = rendered.replace(new RegExp('{{' + k + '}}', 'g'), v);
+      });
+      const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,"PingFang SC",sans-serif;padding:24px;line-height:1.6;color:#1e293b;max-width:600px;margin:0 auto;}</style></head><body>${rendered}</body></html>`;
+      frame.srcdoc = fullHtml;
+      frame.style.display = '';
+      placeholder.style.display = 'none';
+    } else {
+      frame.style.display = 'none';
+      placeholder.style.display = '';
+    }
+
+    document.getElementById('previewModal').style.display = '';
+  }
+
+  function closePreview() {
+    document.getElementById('previewModal').style.display = 'none';
+  }
+
+  function handleModalOverlayClick(e) {
+    if (e.target === document.getElementById('previewModal')) closePreview();
+  }
+</script>
+
+</body>
+</html>
