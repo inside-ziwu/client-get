@@ -539,6 +539,10 @@ class TenantQueryService:
                 WHERE wcc.sys_company_id = (
                     SELECT sys_company_id FROM waimaotong_clean_companies WHERE id = :company_id
                 )
+                OR wcc.id IN (
+                    SELECT clean_contact_id FROM tenant_contacts
+                    WHERE tenant_id = :tenant_id AND clean_company_id = :company_id
+                )
                 ORDER BY wcc.created_at ASC
                 """
             ),
