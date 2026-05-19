@@ -6,6 +6,7 @@ export interface SendingPlanStep {
   step_order?: number;
   step_number?: number;
   template_id: string;
+  template_name?: string;
   delay_days: number;
   condition_type?: string;
   condition?: string;
@@ -18,7 +19,7 @@ export interface SendingPlanRecipient {
   company_name?: string;
   email?: string;
   enrollment_status?: string;
-  current_step: number;
+  current_step?: number;
 }
 
 export interface SendingPlan {
@@ -54,6 +55,12 @@ export function sendingPlansApi(client: AxiosInstance) {
       client.patch<ApiResponse<SendingPlan>>(`/api/v1/sending-plans/${id}`, data),
     delete: (id: string) =>
       client.delete(`/api/v1/sending-plans/${id}`),
+    completeCreate: (data: {
+      plan: Partial<SendingPlan>;
+      steps: Partial<SendingPlanStep>[];
+      lock_recipients?: boolean;
+    }) =>
+      client.post<ApiResponse<SendingPlan>>('/api/v1/sending-plans/complete-create', data),
 
     // Steps
     listSteps: (planId: string) =>

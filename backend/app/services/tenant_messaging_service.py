@@ -706,12 +706,14 @@ class TenantMessagingService:
                 """
                 SELECT pr.id, pr.tenant_company_id, pr.tenant_contact_id, pr.source_type, pr.source_ref, pr.locked_at,
                        pr.appended_after_start, pr.excluded_at, pr.excluded_reason, cc.company_name AS company_name,
-                       shc.email AS contact_email, shc.name AS contact_name
+                       shc.email AS contact_email, shc.name AS contact_name,
+                       se.status AS enrollment_status, se.current_step AS current_step
                 FROM sending_plan_recipients pr
                 JOIN tenant_companies tc ON tc.id = pr.tenant_company_id
                 JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                 JOIN tenant_contacts tc2 ON tc2.id = pr.tenant_contact_id
                 LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tc2.clean_contact_id
+                LEFT JOIN sequence_enrollments se ON se.plan_id = pr.plan_id AND se.tenant_contact_id = pr.tenant_contact_id
                 WHERE pr.tenant_id = :tenant_id AND pr.plan_id = :plan_id
                 ORDER BY pr.locked_at ASC
                 """
@@ -732,6 +734,8 @@ class TenantMessagingService:
                 "company_name": row["company_name"],
                 "contact_name": row["contact_name"],
                 "contact_email": row["contact_email"],
+                "enrollment_status": row["enrollment_status"],
+                "current_step": row["current_step"],
             }
             for row in result.mappings().all()
         ]
@@ -872,9 +876,11 @@ class TenantMessagingService:
         result = await conn.execute(
             text(
                 """
-                SELECT id, step_number, template_id, delay_days, condition_type, use_ai_personalization, ai_instructions, created_at, updated_at
-                FROM sequence_steps
-                WHERE tenant_id = :tenant_id AND plan_id = :plan_id
+                SELECT ss.id, ss.step_number, ss.template_id, ss.delay_days, ss.condition_type, ss.use_ai_personalization, ss.ai_instructions, ss.created_at, ss.updated_at,
+                       et.name AS template_name
+                FROM sequence_steps ss
+                LEFT JOIN email_templates et ON et.id = ss.template_id
+                WHERE ss.tenant_id = :tenant_id AND ss.plan_id = :plan_id
                 ORDER BY step_number ASC
                 """
             ),
@@ -891,6 +897,7 @@ class TenantMessagingService:
                 "ai_instructions": row["ai_instructions"],
                 "created_at": row["created_at"].isoformat(),
                 "updated_at": row["updated_at"].isoformat(),
+                "template_name": row["template_name"],
             }
             for row in result.mappings().all()
         ]
@@ -1011,6 +1018,7 @@ class TenantMessagingService:
         *,
         limit: int = 100,
         cursor: str | None = None,
+        plan_id: str | None = None,
     ) -> dict:
         params = {"tenant_id": tenant_id, "limit": limit + 1}
         cursor_clause = ""
@@ -1019,6 +1027,10 @@ class TenantMessagingService:
             params["cursor_created_at"] = cursor_data["created_at"]
             params["cursor_id"] = cursor_data["id"]
             cursor_clause = "AND (e.created_at, e.id) < (:cursor_created_at, CAST(:cursor_id AS uuid))"
+        plan_clause = ""
+        if plan_id:
+            params["plan_id"] = plan_id
+            plan_clause = "AND e.plan_id = CAST(:plan_id AS uuid)"
         result = await conn.execute(
             text(
                 f"""
@@ -1030,6 +1042,7 @@ class TenantMessagingService:
                 LEFT JOIN email_templates et ON et.id = e.template_id
                 WHERE e.tenant_id = :tenant_id
                   {cursor_clause}
+                  {plan_clause}
                 ORDER BY e.created_at DESC, e.id DESC
                 LIMIT :limit
                 """
@@ -1037,15 +1050,21 @@ class TenantMessagingService:
             params,
         )
         rows = result.mappings().all()
+        count_params: dict = {"tenant_id": tenant_id}
+        count_plan_clause = ""
+        if plan_id:
+            count_params["plan_id"] = plan_id
+            count_plan_clause = "AND plan_id = CAST(:plan_id AS uuid)"
         total_result = await conn.execute(
             text(
-                """
+                f"""
                 SELECT count(*)
                 FROM emails
                 WHERE tenant_id = :tenant_id
+                  {count_plan_clause}
                 """
             ),
-            {"tenant_id": tenant_id},
+            count_params,
         )
         total = total_result.scalar_one()
         has_more = len(rows) > limit

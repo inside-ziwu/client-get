@@ -23,7 +23,7 @@ export function emailsApi(client: AxiosInstance) {
       client.get<PaginatedResponse<Record<string, unknown>>>('/api/v1/emails/stats/by-step'),
     trend: (filters?: MonitorFilters) =>
       client.get<PaginatedResponse<EmailTrend>>('/api/v1/emails/stats/trend', { params: filters }),
-    list: (params?: { cursor?: string; limit?: number }) =>
+    list: (params?: { cursor?: string; limit?: number; plan_id?: string }) =>
       client.get<PaginatedResponse<Record<string, unknown>>>('/api/v1/emails', { params }),
     aiAnalysis: (data: AiAnalysisRequest) =>
       client.post<ApiResponse<AiAnalysisResult>>('/api/v1/emails/ai-analysis', data),

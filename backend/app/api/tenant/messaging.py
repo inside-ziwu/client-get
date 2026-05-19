@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.core.responses import paginated_response, success_response
 from app.security.dependencies import TenantAuthContext, get_current_tenant_user, require_tenant_roles
@@ -387,9 +387,10 @@ async def get_email_stats_trend(context: TenantAuthContext = Depends(get_current
 async def list_emails(
     limit: int = 100,
     cursor: str | None = None,
+    plan_id: str | None = Query(None),
     context: TenantAuthContext = Depends(get_current_tenant_user),
 ) -> dict:
-    page = await service.list_emails(context.connection, context.tenant_id, limit=limit, cursor=cursor)
+    page = await service.list_emails(context.connection, context.tenant_id, limit=limit, cursor=cursor, plan_id=plan_id)
     return paginated_response(
         page["items"],
         cursor=page["next_cursor"],
