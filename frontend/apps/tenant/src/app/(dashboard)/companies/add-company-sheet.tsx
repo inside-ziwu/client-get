@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -12,7 +12,7 @@ import {
   Textarea,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
-import { countryZh } from '@/components/company-filters';
+import { COUNTRY_ZH } from '@/components/company-filters';
 
 const EMPLOYEE_SIZE_OPTIONS = [
   '1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5000+',
@@ -57,14 +57,9 @@ export default function AddCompanySheet({
   const [contacts, setContacts] = useState<Contact[]>([{ ...EMPTY_CONTACT }]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const filtersQuery = useQuery({
-    queryKey: ['tenant', 'companies', 'filters'],
-    queryFn: async () => (await tenantApi.companies.filters()).data.data,
-  });
-  const countryOpts = (filtersQuery.data?.countries ?? []).map((v: string) => ({
-    label: countryZh(v),
-    value: v,
-  }));
+  const countryOpts = Object.entries(COUNTRY_ZH)
+    .filter(([k]) => k !== '未公开')
+    .map(([value, label]) => ({ label, value }));
 
   const mutation = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
