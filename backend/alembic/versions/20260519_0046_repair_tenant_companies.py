@@ -41,7 +41,7 @@ def upgrade() -> None:
         JOIN waimaotong_clean_companies wc
             ON wc.domain IS NOT NULL
             AND wc.domain != ''
-            AND wc.domain = regexp_replace(cc.website, '^https?://(www\.)?', '')
+            AND wc.domain = regexp_replace(cc.website, '^https?://(www\\.)?', '')
         WHERE cc.website IS NOT NULL AND cc.website != ''
         ORDER BY cc.id, wc.id;
     """)
@@ -108,7 +108,8 @@ def upgrade() -> None:
                      product_tags, source_id)
                 VALUES
                     (r.name, r.country_iso3, r.website, r.industry_desc, r.employee_num,
-                     to_jsonb(COALESCE(r.product_tags, '{}'::text[])), 'recovered')
+                     to_jsonb(COALESCE(r.product_tags, '{}'::text[])),
+                     'recovered-' || r.cc_id::text)
                 RETURNING id INTO new_wmt_id;
 
                 INSERT INTO _cc_wmt_map (cc_id, wmt_id) VALUES (r.cc_id, new_wmt_id);
