@@ -47,7 +47,7 @@ class TenantOpsService:
 
         r1 = await conn.execute(text(f"""
             SELECT
-              array_remove(array_agg(DISTINCT wc.country_iso3), NULL) AS countries,
+              array_remove(array_agg(DISTINCT COALESCE(NULLIF(wc.country_iso3, ''), wc.country)), NULL) AS countries,
               array_remove(array_agg(DISTINCT tc.business_status), NULL) AS business_statuses,
               array_remove(array_agg(DISTINCT tc.data_status), NULL) AS data_statuses
             {base_join}

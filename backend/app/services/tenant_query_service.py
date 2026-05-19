@@ -209,11 +209,11 @@ class TenantQueryService:
             params["data_status"] = data_status
 
         if country_iso3:
-            where_clauses.append("wc.country_iso3 = :country_iso3")
+            where_clauses.append("COALESCE(NULLIF(wc.country_iso3, ''), wc.country) = :country_iso3")
             params["country_iso3"] = country_iso3
         if countries:
             placeholders = ", ".join(f":country_{i}" for i in range(len(countries)))
-            where_clauses.append(f"wc.country_iso3 IN ({placeholders})")
+            where_clauses.append(f"COALESCE(NULLIF(wc.country_iso3, ''), wc.country) IN ({placeholders})")
             for i, c in enumerate(countries):
                 params[f"country_{i}"] = c
 
@@ -312,7 +312,7 @@ class TenantQueryService:
                   wc.id,
                   tc.id AS tc_id,
                   wc.company_name,
-                  wc.country_iso3,
+                  COALESCE(NULLIF(wc.country_iso3, ''), wc.country) AS country_iso3,
                   wc.website,
                   wc.domain,
                   wc.industry,
@@ -396,7 +396,7 @@ class TenantQueryService:
                   wc.id,
                   wc.company_name,
                   wc.english_name,
-                  wc.country_iso3,
+                  COALESCE(NULLIF(wc.country_iso3, ''), wc.country) AS country_iso3,
                   wc.website,
                   wc.domain,
                   wc.founded_year,
