@@ -12,7 +12,16 @@ import {
   Textarea,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
-import { COUNTRY_ZH } from '@/components/company-filters';
+
+const COUNTRY_ISO3_ZH: Record<string, string> = {
+  CHN: '中国', HKG: '中国香港', MAC: '中国澳门', TWN: '中国台湾',
+  USA: '美国', GBR: '英国', FRA: '法国', DEU: '德国',
+  JPN: '日本', KOR: '韩国', IND: '印度', AUS: '澳大利亚',
+  CAN: '加拿大', SGP: '新加坡', MYS: '马来西亚', THA: '泰国',
+  VNM: '越南', PHL: '菲律宾', BGD: '孟加拉国', MEX: '墨西哥',
+  KWT: '科威特', ABW: '阿鲁巴', BGR: '保加利亚', CZE: '捷克',
+  LUX: '卢森堡',
+};
 
 const EMPLOYEE_SIZE_OPTIONS = [
   '1-10', '11-50', '51-200', '201-500', '501-1000', '1001-5000', '5000+',
@@ -57,8 +66,7 @@ export default function AddCompanySheet({
   const [contacts, setContacts] = useState<Contact[]>([{ ...EMPTY_CONTACT }]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const countryOpts = Object.entries(COUNTRY_ZH)
-    .filter(([k]) => k !== '未公开')
+  const countryOpts = Object.entries(COUNTRY_ISO3_ZH)
     .map(([value, label]) => ({ label, value }));
 
   const mutation = useMutation({
