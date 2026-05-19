@@ -70,6 +70,7 @@ export interface CompanyListFilters {
   founded_year_to?: number;
   min_score?: number;
   max_score?: number;
+  group_id?: string;
   page?: number;
   page_size?: number;
 }
