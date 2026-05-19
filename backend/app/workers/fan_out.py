@@ -1,4 +1,5 @@
 """FanOutWorker — 关键词 fan-out：将已有 clean_companies 推送到新订阅租户的视图中。
+# TODO: 后续 keyword pipeline 改造时切换到 wmt 表（D8）
 
 UC-11 场景：
     当租户新增关键词订阅时，该关键词可能已被其他租户采集过。

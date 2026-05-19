@@ -20,8 +20,8 @@ def pcb_supplier_presence_clause(value: str | None, alias: str = "cc") -> str | 
     return None
 
 
-def employee_count_lower_expr(alias: str = "cc") -> str:
-    field = f"{alias}.employee_num"
+def employee_count_lower_expr(alias: str = "cc", column: str = "employee_num") -> str:
+    field = f"{alias}.{column}"
     return f"""
 CASE
   WHEN {field} IS NULL OR btrim({field}) = '' THEN NULL
@@ -31,8 +31,8 @@ END
 """
 
 
-def employee_count_upper_expr(alias: str = "cc") -> str:
-    field = f"{alias}.employee_num"
+def employee_count_upper_expr(alias: str = "cc", column: str = "employee_num") -> str:
+    field = f"{alias}.{column}"
     return f"""
 CASE
   WHEN {field} IS NULL OR btrim({field}) = '' THEN NULL
@@ -52,12 +52,13 @@ def append_employee_count_range(
     employee_count_min: int | None,
     employee_count_max: int | None,
     alias: str = "cc",
+    column: str = "employee_num",
 ) -> None:
     if employee_count_min is None and employee_count_max is None:
         return
 
-    lower_expr = employee_count_lower_expr(alias)
-    upper_expr = employee_count_upper_expr(alias)
+    lower_expr = employee_count_lower_expr(alias, column)
+    upper_expr = employee_count_upper_expr(alias, column)
     where_parts.append(f"({lower_expr}) IS NOT NULL")
     if employee_count_min is not None:
         where_parts.append(f"(({upper_expr}) IS NULL OR ({upper_expr}) >= :employee_count_min)")

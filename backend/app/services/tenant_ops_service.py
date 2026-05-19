@@ -42,11 +42,11 @@ class TenantOpsService:
             text(
                 """
                 SELECT
-                  array_remove(array_agg(DISTINCT cc.country_iso3), NULL) AS countries,
+                  array_remove(array_agg(DISTINCT wc.country_iso3), NULL) AS countries,
                   array_remove(array_agg(DISTINCT tc.business_status), NULL) AS business_statuses,
                   array_remove(array_agg(DISTINCT tc.data_status), NULL) AS data_statuses
                 FROM tenant_companies tc
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
                   AND tc.visibility_status = 'visible'
                 """
@@ -64,9 +64,9 @@ class TenantOpsService:
         result = await conn.execute(
             text(
                 """
-                SELECT tc.id, cc.name, cc.country_iso3 AS country, cc.website AS domain, tc.business_status, tc.data_status, tc.model_score, tc.score
+                SELECT tc.id, wc.company_name AS name, wc.country_iso3 AS country, wc.domain, tc.business_status, tc.data_status, tc.model_score, tc.score
                 FROM tenant_companies tc
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
                   AND tc.visibility_status = 'visible'
                 ORDER BY tc.created_at DESC
@@ -98,32 +98,66 @@ class TenantOpsService:
     ) -> dict:
         website = payload.get("website")
         domain = self._normalize_domain(website or payload.get("domain"))
+        company_name = payload["name"]
         country_iso3 = self._normalize_country_iso3(payload.get("country"))
-        cc_insert = await conn.execute(
-            text(
-                """
-                INSERT INTO clean_companies
-                  (name_normalized, name, country_iso3, website, industry_desc, product_tags, industry_tags)
-                VALUES
-                  (normalize_company_name(:name), :name, :country_iso3, :website, :industry,
-                   CAST(:product_tags AS text[]), CAST(:industry_tags AS text[]))
-                ON CONFLICT (name_normalized, country_iso3) DO UPDATE
-                  SET name = EXCLUDED.name,
-                      website = COALESCE(EXCLUDED.website, clean_companies.website),
-                      updated_at = now()
-                RETURNING id
-                """
-            ),
-            {
-                "name": payload["name"],
-                "country_iso3": country_iso3,
-                "website": website or (f"https://{domain}" if domain else None),
-                "industry": payload.get("industry"),
-                "product_tags": payload.get("product_tags") or payload.get("tags") or [],
-                "industry_tags": payload.get("industry_tags") or [],
-            },
+
+        await conn.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:lock_key))"),
+            {"lock_key": (domain or "") + company_name + country_iso3},
         )
-        actual_clean_company_id = cc_insert.scalar_one()
+
+        existing = None
+        if domain:
+            existing = await conn.execute(
+                text(
+                    """
+                    SELECT id FROM waimaotong_clean_companies
+                    WHERE domain = :domain AND domain IS NOT NULL AND domain != ''
+                    LIMIT 1
+                    """
+                ),
+                {"domain": domain},
+            )
+            existing = existing.scalar_one_or_none()
+
+        if existing is None:
+            row = await conn.execute(
+                text(
+                    """
+                    SELECT id FROM waimaotong_clean_companies
+                    WHERE company_name = :company_name AND country_iso3 = :country_iso3
+                    LIMIT 1
+                    """
+                ),
+                {"company_name": company_name, "country_iso3": country_iso3},
+            )
+            existing = row.scalar_one_or_none()
+
+        if existing is not None:
+            actual_clean_company_id = existing
+        else:
+            cc_insert = await conn.execute(
+                text(
+                    """
+                    INSERT INTO waimaotong_clean_companies
+                      (company_name, english_name, country_iso3, domain, website, industry, product_tags)
+                    VALUES
+                      (:company_name, :english_name, :country_iso3, :domain, :website, :industry,
+                       CAST(:product_tags AS text[]))
+                    RETURNING id
+                    """
+                ),
+                {
+                    "company_name": company_name,
+                    "english_name": payload.get("english_name"),
+                    "country_iso3": country_iso3,
+                    "domain": domain,
+                    "website": website or (f"https://{domain}" if domain else None),
+                    "industry": payload.get("industry"),
+                    "product_tags": payload.get("product_tags") or payload.get("tags") or [],
+                },
+            )
+            actual_clean_company_id = cc_insert.scalar_one()
         data_status = "ready" if payload.get("contact_email") or payload.get("contacts") else "missing_contacts"
         tc_insert = await conn.execute(
             text(
@@ -206,17 +240,17 @@ class TenantOpsService:
                   tc.tags,
                   tc.created_at,
                   tc.updated_at,
-                  cc.id AS clean_company_id,
-                  cc.name,
-                  cc.name AS name_en,
-                  cc.country_iso3 AS country,
-                  cc.website AS domain,
-                  cc.industry_desc AS industry,
-                  cc.industry_tags,
-                  cc.product_tags AS product_keywords,
+                  wc.id AS clean_company_id,
+                  wc.company_name,
+                  wc.english_name,
+                  wc.country_iso3 AS country,
+                  wc.domain,
+                  wc.industry,
+                  wc.sub_industry,
+                  wc.product_tags AS product_keywords,
                   NULL::numeric AS data_completeness
                 FROM tenant_companies tc
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
                   AND tc.id = CAST(CAST(:company_id AS text) AS bigint)
                   AND tc.visibility_status = 'visible'
@@ -232,12 +266,12 @@ class TenantOpsService:
             "id": str(row["id"]),
             "tenant_id": str(row["tenant_id"]),
             "clean_company_id": str(row["clean_company_id"]),
-            "name": row["name"],
-            "name_en": row["name_en"],
+            "name": row["company_name"],
+            "name_en": row["english_name"],
             "country": row["country"],
             "domain": row["domain"],
             "industry": row["industry"],
-            "industry_tags": row["industry_tags"],
+            "industry_tags": [row["sub_industry"]] if row["sub_industry"] else [],
             "product_keywords": row["product_keywords"],
             "data_completeness": self._decimal_to_float(row["data_completeness"]),
             "business_status": row["business_status"],
@@ -297,9 +331,9 @@ class TenantOpsService:
             text(
                 """
                 SELECT tc.id, tc.clean_company_id, tc.contact_status, tc.is_sendable, tc.created_at,
-                       cc.id AS clean_contact_id, cc.name, cc.email, cc.phone, cc.position
+                       wcc.id AS clean_contact_id, wcc.name, wcc.email, wcc.phone, wcc.position
                 FROM tenant_contacts tc
-                LEFT JOIN clean_contacts cc ON cc.id = tc.clean_contact_id
+                LEFT JOIN waimaotong_clean_contacts wcc ON wcc.id = tc.clean_contact_id
                 JOIN tenant_companies tco
                   ON tco.tenant_id = tc.tenant_id
                  AND tco.clean_company_id = tc.clean_company_id
@@ -559,12 +593,12 @@ class TenantOpsService:
             text(
                 """
                 SELECT gm.id, gm.group_id, gm.tenant_company_id, gm.tenant_contact_id, gm.added_by, gm.created_at,
-                       cc.name AS company_name, shc.email AS contact_email, shc.name AS contact_name
+                       wc.company_name AS company_name, wcc.email AS contact_email, wcc.name AS contact_name
                 FROM group_members gm
                 JOIN tenant_companies tc ON tc.id = gm.tenant_company_id
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 LEFT JOIN tenant_contacts tco ON tco.id = gm.tenant_contact_id
-                LEFT JOIN clean_contacts shc ON shc.id = tco.clean_contact_id
+                LEFT JOIN waimaotong_clean_contacts wcc ON wcc.id = tco.clean_contact_id
                 WHERE gm.tenant_id = :tenant_id
                   AND gm.group_id = :group_id
                   AND tc.visibility_status = 'visible'
@@ -940,33 +974,54 @@ class TenantOpsService:
             ]
         for index, contact in enumerate(contacts):
             company_result = await conn.execute(
-                text("SELECT clean_company_id FROM tenant_companies WHERE id = :tenant_company_id"),
+                text(
+                    """
+                    SELECT tc.clean_company_id, wc.sys_company_id
+                    FROM tenant_companies tc
+                    JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
+                    WHERE tc.id = :tenant_company_id
+                    """
+                ),
                 {"tenant_company_id": tenant_company_id},
             )
             company_row = company_result.mappings().one()
-            clean_contact_id = (
-                await conn.execute(
+
+            email = contact.get("email") or None
+            if email:
+                existing = await conn.execute(
                     text(
                         """
-                        INSERT INTO clean_contacts
-                          (clean_company_id, name, email, position)
+                        SELECT id FROM waimaotong_clean_contacts
+                        WHERE sys_company_id = :sys_company_id AND email = :email
+                        LIMIT 1
+                        """
+                    ),
+                    {"sys_company_id": company_row["sys_company_id"], "email": email},
+                )
+                clean_contact_id = existing.scalar_one_or_none()
+            else:
+                clean_contact_id = None
+
+            if clean_contact_id is None:
+                insert_result = await conn.execute(
+                    text(
+                        """
+                        INSERT INTO waimaotong_clean_contacts
+                          (sys_company_id, name, email, position)
                         VALUES
-                          (:clean_company_id, :name, :email, :position)
-                        ON CONFLICT (clean_company_id, email) WHERE email IS NOT NULL DO UPDATE
-                        SET name = COALESCE(EXCLUDED.name, clean_contacts.name),
-                            position = COALESCE(EXCLUDED.position, clean_contacts.position),
-                            updated_at = now()
+                          (:sys_company_id, :name, :email, :position)
                         RETURNING id
                         """
                     ),
                     {
-                        "clean_company_id": company_row["clean_company_id"],
+                        "sys_company_id": company_row["sys_company_id"],
                         "name": contact.get("name"),
-                        "email": contact.get("email") or None,
+                        "email": email,
                         "position": contact.get("title"),
                     },
                 )
-            ).scalar_one()
+                clean_contact_id = insert_result.scalar_one()
+
             await conn.execute(
                 text(
                     """

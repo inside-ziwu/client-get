@@ -102,14 +102,14 @@ class TenantHardDeleteService:
                 SELECT
                   tc.id AS tenant_company_id,
                   tc.clean_company_id,
-                  cc.name,
-                  cc.name_normalized,
+                  cc.company_name AS name,
+                  cc.company_name AS name_normalized,
                   cc.country_iso3,
                   cc.website
                 FROM tenant_companies tc
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
-                  AND lower(cc.name) = :company_name
+                  AND lower(cc.company_name) = :company_name
                 ORDER BY tc.id
                 """
             ),

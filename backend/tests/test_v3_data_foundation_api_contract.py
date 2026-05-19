@@ -91,6 +91,8 @@ async def _seed_visible_company(tenant_id: str) -> dict:
             ),
             {"tenant_id": tenant_id, "keyword_master_id": keyword_master_id},
         )
+        company_name = f"Alpha PCB {uuid4().hex[:8]}"
+        sys_company_id = str(new_uuid())
         clean_company_id = (
             await conn.execute(
                 text(
@@ -106,7 +108,28 @@ async def _seed_visible_company(tenant_id: str) -> dict:
                     RETURNING id
                     """
                 ),
-                {"name": f"Alpha PCB {uuid4().hex[:8]}", "name_normalized": f"alpha-{uuid4().hex}"},
+                {"name": company_name, "name_normalized": f"alpha-{uuid4().hex}"},
+            )
+        ).scalar_one()
+        wmt_company_id = (
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO waimaotong_clean_companies
+                      (company_name, country_iso3, website, domain, industry, sub_industry,
+                       employee_size, product_tags, data_source_tags,
+                       trade_amount_3y_usd, trade_count, contacts_count, founded_year,
+                       sys_company_id)
+                    VALUES
+                      (:company_name, 'USA', 'https://alpha.example', 'alpha.example',
+                       'PCB importer', 'pcb_importer',
+                       '51-200', ARRAY['pcb'], ARRAY['tendata'],
+                       12345.67, 8, 1, 2010,
+                       :sys_company_id)
+                    RETURNING id
+                    """
+                ),
+                {"company_name": company_name, "sys_company_id": sys_company_id},
             )
         ).scalar_one()
         await conn.execute(
@@ -158,7 +181,7 @@ async def _seed_visible_company(tenant_id: str) -> dict:
                   (:tenant_id, :clean_company_id, 'new', 'ready', 'visible', 88.5, 88.5, 'tenant note', ARRAY['hot'])
                 """
             ),
-            {"tenant_id": tenant_id, "clean_company_id": clean_company_id},
+            {"tenant_id": tenant_id, "clean_company_id": wmt_company_id},
         )
         clean_contact_id = (
             await conn.execute(
@@ -172,6 +195,19 @@ async def _seed_visible_company(tenant_id: str) -> dict:
                 {"clean_company_id": clean_company_id},
             )
         ).scalar_one()
+        wmt_contact_id = (
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO waimaotong_clean_contacts
+                      (sys_company_id, name, position, email, phone)
+                    VALUES (:sys_company_id, 'Jane Buyer', 'Purchasing Manager', 'jane@example.com', '+1-555')
+                    RETURNING id
+                    """
+                ),
+                {"sys_company_id": sys_company_id},
+            )
+        ).scalar_one()
         await conn.execute(
             text(
                 """
@@ -182,14 +218,15 @@ async def _seed_visible_company(tenant_id: str) -> dict:
             ),
             {
                 "tenant_id": tenant_id,
-                "clean_contact_id": clean_contact_id,
-                "clean_company_id": clean_company_id,
+                "clean_contact_id": wmt_contact_id,
+                "clean_company_id": wmt_company_id,
             },
         )
     await engine.dispose()
     return {
         "keyword_master_id": str(keyword_master_id),
         "clean_company_id": str(clean_company_id),
+        "wmt_company_id": str(wmt_company_id),
         "tendata_company_id": str(tendata_company_id),
     }
 
@@ -202,7 +239,7 @@ async def test_tenant_company_detail_uses_clean_company_id_and_keyword_visibilit
             tenant_id, token = await _create_tenant_and_token(slug)
             seeded = await _seed_visible_company(tenant_id)
             response = await client.get(
-                f"/t/{slug}/api/v1/companies/{seeded['clean_company_id']}",
+                f"/t/{slug}/api/v1/companies/{seeded['wmt_company_id']}",
                 headers={"Authorization": f"Bearer {token}"},
             )
             company_list = await client.get(
@@ -211,30 +248,29 @@ async def test_tenant_company_detail_uses_clean_company_id_and_keyword_visibilit
                 params={
                     "source_type": "tendata",
                     "country_iso3": "USA",
-                    "industry_tags": "pcb_importer",
-                    "incorporation_date_from": "2000-01-01",
-                    "reg_capital_min": 1,
+                    "sub_industries[]": "pcb_importer",
+                    "founded_year_from": 2000,
                     "product_tags[]": "pcb",
-                    "employee_num": "51-200",
+                    "employee_scale[]": "51-200",
                     "trade_amount_min": 1,
                     "trade_count_min": 1,
                     "contacts_count_min": 1,
                 },
             )
             contacts = await client.get(
-                f"/t/{slug}/api/v1/companies/{seeded['clean_company_id']}/contacts",
+                f"/t/{slug}/api/v1/companies/{seeded['wmt_company_id']}/contacts",
                 headers={"Authorization": f"Bearer {token}"},
             )
 
     assert response.status_code == 200, response.text
     company = response.json()["data"]
-    assert company["id"] == seeded["clean_company_id"]
+    assert company["id"] == seeded["wmt_company_id"]
     assert company["tenant_state"]["business_status"] == "new"
-    assert company["sources"][0]["source_type"] == "tendata"
-    assert company["matched_keywords"][0]["keyword_raw"] == "P.C.B"
+    assert "tendata" in company["sources"]
+    assert company["matched_keywords"] == []
     assert company_list.status_code == 200, company_list.text
     company_list_rows = company_list.json()["data"]
-    assert any(item["id"] == seeded["clean_company_id"] for item in company_list_rows)
+    assert any(item["id"] == seeded["wmt_company_id"] for item in company_list_rows)
     assert all("score_adjustment" not in item for item in company_list_rows)
     assert contacts.status_code == 200, contacts.text
     assert contacts.json()["data"][0]["email"] == "jane@example.com"
@@ -265,8 +301,8 @@ async def test_tenant_companies_api_returns_cursor_when_more_rows_exist() -> Non
     assert len(payload["data"]) == 1
     assert payload["pagination"]["has_more"] is True
     assert payload["pagination"]["cursor"] in {
-        first["clean_company_id"],
-        second["clean_company_id"],
+        first["wmt_company_id"],
+        second["wmt_company_id"],
     }
     assert payload["pagination"]["total"] == 2
     assert next_response.status_code == 200, next_response.text
@@ -302,8 +338,8 @@ async def test_tenant_companies_api_returns_page_pagination_total() -> None:
     assert first_payload["pagination"]["total"] == 2
     assert first_payload["pagination"]["has_more"] is True
     assert first_payload["data"][0]["id"] in {
-        first["clean_company_id"],
-        second["clean_company_id"],
+        first["wmt_company_id"],
+        second["wmt_company_id"],
     }
 
     assert second_page.status_code == 200, second_page.text
@@ -364,11 +400,11 @@ async def test_tenant_company_detail_rejects_invisible_clean_company() -> None:
                           AND clean_company_id = :clean_company_id
                         """
                     ),
-                    {"tenant_id": tenant_id, "clean_company_id": int(seeded["clean_company_id"])},
+                    {"tenant_id": tenant_id, "clean_company_id": int(seeded["wmt_company_id"])},
                 )
             await engine.dispose()
             response = await client.get(
-                f"/t/{slug}/api/v1/companies/{seeded['clean_company_id']}",
+                f"/t/{slug}/api/v1/companies/{seeded['wmt_company_id']}",
                 headers={"Authorization": f"Bearer {token}"},
             )
 

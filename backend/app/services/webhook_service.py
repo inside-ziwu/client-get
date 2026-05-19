@@ -126,7 +126,7 @@ class WebhookService:
                     SET business_status = 'contacted',
                         updated_at = now()
                     FROM tenant_contacts tco
-                    JOIN clean_contacts cc ON cc.id = tco.clean_contact_id
+                    JOIN waimaotong_clean_contacts cc ON cc.id = tco.clean_contact_id
                     WHERE tc.tenant_id = :tenant_id
                       AND tc.clean_company_id = tco.clean_company_id
                       AND tc.business_status = 'in_plan'

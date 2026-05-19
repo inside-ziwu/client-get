@@ -4,10 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.services.company_filter_sql import (
-    append_employee_count_range,
-    pcb_supplier_presence_clause,
-)
+from app.services.company_filter_sql import append_employee_count_range
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 
 
@@ -178,7 +175,6 @@ class TenantQueryService:
         cursor: str | None = None,
         offset: int | None = None,
     ) -> tuple[list[dict], int]:
-        # 构建动态 WHERE 子句。V3 列表从 clean 客户出发，tenant_companies 只做租户私有状态覆盖。
         where_clauses = [
             "tc.tenant_id = :tenant_id",
             "tc.visibility_status = 'visible'",
@@ -187,12 +183,10 @@ class TenantQueryService:
         if offset is not None:
             params["offset"] = offset
 
-        # 关键词搜索（公司名或域名）
         if keyword:
-            where_clauses.append("(cc.name ILIKE :keyword OR cc.website ILIKE :keyword)")
+            where_clauses.append("(wc.company_name ILIKE :keyword OR wc.domain ILIKE :keyword OR wc.website ILIKE :keyword)")
             params["keyword"] = f"%{keyword}%"
 
-        # 最低/最高分
         if min_score is not None:
             where_clauses.append("tc.score >= :min_score")
             params["min_score"] = min_score
@@ -213,104 +207,65 @@ class TenantQueryService:
             where_clauses.append("tc.data_status = :data_status")
             params["data_status"] = data_status
 
-        # 国家多选（OR）
         if country_iso3:
-            where_clauses.append("cc.country_iso3 = :country_iso3")
+            where_clauses.append("wc.country_iso3 = :country_iso3")
             params["country_iso3"] = country_iso3
         if countries:
             placeholders = ", ".join(f":country_{i}" for i in range(len(countries)))
-            where_clauses.append(f"cc.country_iso3 IN ({placeholders})")
+            where_clauses.append(f"wc.country_iso3 IN ({placeholders})")
             for i, c in enumerate(countries):
                 params[f"country_{i}"] = c
 
-        # 子行业多选（OR）—— clean_companies.industry_tags 是 text[]
         if industry_tags:
-            where_clauses.append("cc.industry_tags && :industry_tags")
+            where_clauses.append("(wc.industry = ANY(:industry_tags) OR wc.sub_industry = ANY(:industry_tags))")
             params["industry_tags"] = industry_tags
         if sub_industries:
-            where_clauses.append("cc.industry_tags && :sub_industries")
+            where_clauses.append("(wc.industry = ANY(:sub_industries) OR wc.sub_industry = ANY(:sub_industries))")
             params["sub_industries"] = sub_industries
 
-        # 产品标签多选（OR）—— clean_companies.product_tags 是 text[]
         if product_tags:
-            where_clauses.append("cc.product_tags && :product_tags")
+            where_clauses.append("wc.product_tags && :product_tags")
             params["product_tags"] = product_tags
 
-        if incorporation_date_from:
-            where_clauses.append("cc.incorporation_date >= :incorporation_date_from")
-            params["incorporation_date_from"] = self._parse_filter_date(incorporation_date_from)
-        if incorporation_date_to:
-            where_clauses.append("cc.incorporation_date <= :incorporation_date_to")
-            params["incorporation_date_to"] = self._parse_filter_date(incorporation_date_to)
-        if reg_capital_min is not None:
-            where_clauses.append("cc.reg_capital >= :reg_capital_min")
-            params["reg_capital_min"] = reg_capital_min
-        if reg_capital_max is not None:
-            where_clauses.append("cc.reg_capital <= :reg_capital_max")
-            params["reg_capital_max"] = reg_capital_max
-        if employee_num:
-            where_clauses.append("cc.employee_num = :employee_num")
-            params["employee_num"] = employee_num
         if trade_amount_min is not None:
-            where_clauses.append("cc.trade_amount_3y_usd >= :trade_amount_min")
+            where_clauses.append("wc.trade_amount_3y_usd >= :trade_amount_min")
             params["trade_amount_min"] = trade_amount_min
         if trade_amount_max is not None:
-            where_clauses.append("cc.trade_amount_3y_usd <= :trade_amount_max")
+            where_clauses.append("wc.trade_amount_3y_usd <= :trade_amount_max")
             params["trade_amount_max"] = trade_amount_max
         if trade_count_min is not None:
-            where_clauses.append("cc.trade_count >= :trade_count_min")
+            where_clauses.append("wc.trade_count >= :trade_count_min")
             params["trade_count_min"] = trade_count_min
         if trade_count_max is not None:
-            where_clauses.append("cc.trade_count <= :trade_count_max")
+            where_clauses.append("wc.trade_count <= :trade_count_max")
             params["trade_count_max"] = trade_count_max
 
-        # 来源多选（OR）—— V3 走 clean_company_sources.source_type
         if source_type:
-            where_clauses.append(
-                """
-                EXISTS (
-                  SELECT 1
-                  FROM clean_company_sources ccs_filter
-                  WHERE ccs_filter.clean_company_id = cc.id
-                    AND ccs_filter.source_type = :source_type
-                )
-                """
-            )
+            where_clauses.append("wc.data_source_tags && ARRAY[:source_type]::text[]")
             params["source_type"] = source_type
         if sources:
-            where_clauses.append(
-                """
-                EXISTS (
-                  SELECT 1
-                  FROM clean_company_sources ccs_filter
-                  WHERE ccs_filter.clean_company_id = cc.id
-                    AND ccs_filter.source_type = ANY(:sources)
-                )
-                """
-            )
+            where_clauses.append("wc.data_source_tags && :sources")
             params["sources"] = sources
 
         effective_contact_count_min = contact_count_min if contact_count_min is not None else contacts_count_min
         effective_contact_count_max = contact_count_max if contact_count_max is not None else contacts_count_max
         if effective_contact_count_min is not None:
-            where_clauses.append("cc.contacts_count >= :contact_count_min")
+            where_clauses.append("wc.contacts_count >= :contact_count_min")
             params["contact_count_min"] = effective_contact_count_min
         if effective_contact_count_max is not None:
-            where_clauses.append("cc.contacts_count <= :contact_count_max")
+            where_clauses.append("wc.contacts_count <= :contact_count_max")
             params["contact_count_max"] = effective_contact_count_max
 
-        # 成立时间范围（cc.incorporation_date 是 date 类型）
         if founded_year_from is not None:
-            where_clauses.append("EXTRACT(YEAR FROM cc.incorporation_date) >= :founded_year_from")
+            where_clauses.append("wc.founded_year >= :founded_year_from")
             params["founded_year_from"] = founded_year_from
         if founded_year_to is not None:
-            where_clauses.append("EXTRACT(YEAR FROM cc.incorporation_date) <= :founded_year_to")
+            where_clauses.append("wc.founded_year <= :founded_year_to")
             params["founded_year_to"] = founded_year_to
 
-        # 规模档位多选（OR）
         if employee_scales:
             placeholders = ", ".join(f":emp_scale_{i}" for i in range(len(employee_scales)))
-            where_clauses.append(f"cc.employee_num IN ({placeholders})")
+            where_clauses.append(f"wc.employee_size IN ({placeholders})")
             for i, s in enumerate(employee_scales):
                 params[f"emp_scale_{i}"] = s
 
@@ -319,15 +274,12 @@ class TenantQueryService:
             params,
             employee_count_min=employee_count_min,
             employee_count_max=employee_count_max,
+            alias="wc",
+            column="employee_size",
         )
 
-        pcb_clause = pcb_supplier_presence_clause(pcb_supplier_presence)
-        if pcb_clause:
-            where_clauses.append(pcb_clause)
-
-        # 游标分页。cursor 使用 clean company id，并保持新数据在前的排序语义。
         if cursor:
-            where_clauses.append("cc.id < :cursor")
+            where_clauses.append("wc.id < :cursor")
             params["cursor"] = self._parse_clean_company_id(cursor)
 
         where_sql = " AND ".join(where_clauses)
@@ -336,9 +288,9 @@ class TenantQueryService:
             text(
                 f"""
                 SELECT COUNT(*) AS total
-                FROM clean_companies cc
+                FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
-                  ON tc.clean_company_id = cc.id
+                  ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 WHERE {where_sql}
                 """
@@ -352,33 +304,34 @@ class TenantQueryService:
             text(
                 f"""
                 SELECT
-                  cc.id,
-                  cc.name,
-                  cc.name_normalized,
-                  cc.country_iso3,
-                  cc.website,
-                  cc.industry_desc,
-                  cc.industry_tags,
-                  cc.employee_num,
-                  cc.contacts_count,
-                  cc.product_tags,
+                  wc.id,
+                  wc.company_name,
+                  wc.country_iso3,
+                  wc.website,
+                  wc.domain,
+                  wc.industry,
+                  wc.sub_industry,
+                  wc.employee_size,
+                  wc.contacts_count,
+                  wc.product_tags,
+                  wc.grade,
+                  wc.score AS wmt_score,
+                  wc.english_name,
+                  wc.founded_year,
                   tc.business_status,
                   tc.data_status,
                   tc.model_score,
                   tc.score,
                   tc.note,
                   tc.tags,
-                  cc.created_at,
-                  cc.updated_at
-                FROM clean_companies cc
+                  wc.created_at,
+                  wc.updated_at
+                FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
-                  ON tc.clean_company_id = cc.id
+                  ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 WHERE {where_sql}
-                GROUP BY
-                  cc.id, tc.business_status, tc.data_status, tc.model_score,
-                  tc.score, tc.note, tc.tags
-                ORDER BY cc.id DESC
+                ORDER BY wc.id DESC
                 LIMIT :limit
                 {offset_sql}
                 """
@@ -388,23 +341,27 @@ class TenantQueryService:
         rows = [
             {
                 "id": str(row["id"]),
-                "name": row["name"],
-                "name_normalized": row["name_normalized"],
+                "name": row["company_name"],
+                "name_en": row["english_name"],
                 "country_iso3": row["country_iso3"],
                 "website": row["website"],
-                "industry_desc": row["industry_desc"],
-                "industry_tags": list(row["industry_tags"] or []),
-                "employee_num": row["employee_num"],
+                "domain": row["domain"],
+                "industry_desc": row["industry"],
+                "industry_tags": [row["sub_industry"]] if row["sub_industry"] else [],
+                "employee_num": row["employee_size"],
                 "contacts_count": row["contacts_count"],
                 "product_tags": list(row["product_tags"]) if row["product_tags"] else [],
+                "grade": row["grade"],
+                "wmt_score": float(row["wmt_score"]) if row["wmt_score"] is not None else None,
+                "founded_year": row["founded_year"],
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
                 "model_score": float(row["model_score"]) if row["model_score"] is not None else None,
                 "score": float(row["score"]) if row["score"] is not None else None,
                 "note": row["note"],
                 "tags": list(row["tags"] or []),
-                "created_at": row["created_at"].isoformat(),
-                "updated_at": row["updated_at"].isoformat(),
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
             }
             for row in result.mappings().all()
         ]
@@ -416,24 +373,27 @@ class TenantQueryService:
             text(
                 """
                 SELECT
-                  cc.id,
-                  cc.name,
-                  cc.name_normalized,
-                  cc.country_iso3,
-                  cc.website,
-                  cc.tax_no,
-                  cc.incorporation_date,
-                  cc.reg_capital,
-                  cc.employee_num,
-                  cc.industry_desc,
-                  cc.industry_tags,
-                  cc.product_tags,
-                  cc.pcb_suppliers,
-                  cc.trade_amount_3y_usd,
-                  cc.trade_count,
-                  cc.contacts_count,
-                  cc.created_at,
-                  cc.updated_at,
+                  wc.id,
+                  wc.company_name,
+                  wc.english_name,
+                  wc.country_iso3,
+                  wc.website,
+                  wc.domain,
+                  wc.founded_year,
+                  wc.employee_size,
+                  wc.industry,
+                  wc.sub_industry,
+                  wc.product_tags,
+                  wc.grade,
+                  wc.score AS wmt_score,
+                  wc.trade_amount_3y_usd,
+                  wc.trade_count,
+                  wc.contacts_count,
+                  wc.data_source_tags,
+                  wc.full_address,
+                  wc.description,
+                  wc.created_at,
+                  wc.updated_at,
                   tc.business_status,
                   tc.data_status,
                   tc.model_score,
@@ -443,15 +403,12 @@ class TenantQueryService:
                   tc.visibility_status,
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at
-                FROM clean_companies cc
+                FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
-                  ON tc.clean_company_id = cc.id
+                  ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
-                WHERE cc.id = :clean_company_id
+                WHERE wc.id = :clean_company_id
                   AND tc.visibility_status = 'visible'
-                GROUP BY
-                  cc.id, tc.business_status, tc.data_status, tc.model_score, tc.score,
-                  tc.note, tc.tags, tc.visibility_status, tc.created_at, tc.updated_at
                 LIMIT 1
                 """
             ),
@@ -461,27 +418,27 @@ class TenantQueryService:
         if row is None:
             raise AppError(code="NOT_FOUND", message="公司不存在", status_code=404)
 
-        sources = await self._company_sources(conn, company_id)
-        matched_keywords = await self._matched_tenant_keywords(conn, tenant_id, company_id)
         return {
             "id": str(row["id"]),
-            "name": row["name"],
-            "name_normalized": row["name_normalized"],
+            "name": row["company_name"],
+            "name_en": row["english_name"],
             "country_iso3": row["country_iso3"],
             "website": row["website"],
-            "tax_no": row["tax_no"],
-            "incorporation_date": row["incorporation_date"].isoformat() if row["incorporation_date"] else None,
-            "reg_capital": float(row["reg_capital"]) if row["reg_capital"] is not None else None,
-            "employee_num": row["employee_num"],
-            "industry_desc": row["industry_desc"],
-            "industry_tags": list(row["industry_tags"] or []),
+            "domain": row["domain"],
+            "founded_year": row["founded_year"],
+            "employee_num": row["employee_size"],
+            "industry_desc": row["industry"],
+            "industry_tags": [row["sub_industry"]] if row["sub_industry"] else [],
             "product_tags": list(row["product_tags"] or []),
-            "pcb_suppliers": list(row["pcb_suppliers"] or []),
+            "grade": row["grade"],
+            "wmt_score": float(row["wmt_score"]) if row["wmt_score"] is not None else None,
             "trade_amount_3y_usd": float(row["trade_amount_3y_usd"]) if row["trade_amount_3y_usd"] is not None else None,
             "trade_count": row["trade_count"],
             "contacts_count": row["contacts_count"],
-            "sources": sources,
-            "matched_keywords": matched_keywords,
+            "full_address": row["full_address"],
+            "description": row["description"],
+            "sources": list(row["data_source_tags"] or []),
+            "matched_keywords": [],
             "tenant_state": {
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
@@ -492,8 +449,8 @@ class TenantQueryService:
                 "created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
                 "updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
             },
-            "created_at": row["created_at"].isoformat(),
-            "updated_at": row["updated_at"].isoformat(),
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
         }
 
     async def v3_company_contacts(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str) -> list[dict]:
@@ -503,100 +460,55 @@ class TenantQueryService:
             text(
                 """
                 SELECT
-                  cc.id,
-                  cc.name,
-                  cc.position,
-                  cc.email,
-                  cc.phone,
-                  cc.created_at,
-                  cc.updated_at,
+                  wcc.id,
+                  wcc.name,
+                  wcc.position,
+                  wcc.department,
+                  wcc.email,
+                  wcc.phone,
+                  wcc.mobile,
+                  wcc.email_status,
+                  wcc.linkedin,
+                  wcc.whatsapp,
+                  wcc.confidence,
+                  wcc.created_at,
+                  wcc.updated_at,
                   tc.contact_status,
                   tc.is_sendable,
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at
-                FROM clean_contacts cc
+                FROM waimaotong_clean_contacts wcc
                 LEFT JOIN tenant_contacts tc
-                  ON tc.clean_contact_id = cc.id
+                  ON tc.clean_contact_id = wcc.id
                  AND tc.tenant_id = :tenant_id
-                WHERE cc.clean_company_id = :clean_company_id
-                ORDER BY cc.created_at ASC
+                WHERE wcc.sys_company_id = (
+                    SELECT sys_company_id FROM waimaotong_clean_companies WHERE id = :company_id
+                )
+                ORDER BY wcc.created_at ASC
                 """
             ),
-            {"tenant_id": tenant_id, "clean_company_id": company_id},
+            {"tenant_id": tenant_id, "company_id": company_id},
         )
         return [
             {
                 "id": str(row["id"]),
                 "name": row["name"],
                 "position": row["position"],
+                "department": row["department"],
                 "email": str(row["email"]) if row["email"] is not None else None,
-                "phone": row["phone"],
+                "phone": row["phone"] or row["mobile"],
+                "email_status": row["email_status"],
+                "linkedin": row["linkedin"],
+                "whatsapp": row["whatsapp"],
+                "confidence": row["confidence"],
                 "tenant_contact_state": {
                     "contact_status": row["contact_status"],
                     "is_sendable": row["is_sendable"],
                     "created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
                     "updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
                 },
-                "created_at": row["created_at"].isoformat(),
-                "updated_at": row["updated_at"].isoformat(),
-            }
-            for row in result.mappings().all()
-        ]
-
-    async def _company_sources(self, conn: AsyncConnection, clean_company_id: str | int) -> list[dict]:
-        company_id = self._parse_clean_company_id(clean_company_id)
-        result = await conn.execute(
-            text(
-                """
-                SELECT id, source_type, source_company_id, source_key, created_at
-                FROM clean_company_sources
-                WHERE clean_company_id = :clean_company_id
-                ORDER BY created_at ASC
-                """
-            ),
-            {"clean_company_id": company_id},
-        )
-        return [
-            {
-                "id": str(row["id"]),
-                "source_type": row["source_type"],
-                "source_company_id": str(row["source_company_id"]),
-                "source_key": row["source_key"],
-                "created_at": row["created_at"].isoformat(),
-            }
-            for row in result.mappings().all()
-        ]
-
-    async def _matched_tenant_keywords(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str | int) -> list[dict]:
-        company_id = self._parse_clean_company_id(clean_company_id)
-        result = await conn.execute(
-            text(
-                """
-                SELECT
-                  tk.id AS tenant_keyword_id,
-                  tk.keyword_raw,
-                  km.id AS keyword_master_id,
-                  km.keyword,
-                  km.keyword_normalized
-                FROM clean_company_keywords cck
-                JOIN keyword_master km ON km.id = cck.keyword_master_id
-                JOIN tenant_keyword tk
-                  ON tk.keyword_master_id = km.id
-                 AND tk.tenant_id = :tenant_id
-                 AND tk.status = 'active'
-                WHERE cck.clean_company_id = :clean_company_id
-                ORDER BY tk.created_at ASC, tk.id ASC
-                """
-            ),
-            {"tenant_id": tenant_id, "clean_company_id": company_id},
-        )
-        return [
-            {
-                "tenant_keyword_id": str(row["tenant_keyword_id"]),
-                "keyword_raw": row["keyword_raw"],
-                "keyword_master_id": str(row["keyword_master_id"]),
-                "keyword": row["keyword"],
-                "keyword_normalized": row["keyword_normalized"],
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
             }
             for row in result.mappings().all()
         ]
@@ -621,7 +533,6 @@ class TenantQueryService:
         contact_count_max: int | None = None,
         founded_year_from: int | None = None,
         founded_year_to: int | None = None,
-        pcb_supplier_presence: str | None = None,
         limit: int = 50,
     ) -> list[dict]:
         where_clauses = [
@@ -632,65 +543,55 @@ class TenantQueryService:
 
         if keyword:
             where_clauses.append(
-                "(cc.name ILIKE :keyword OR cc.name_normalized ILIKE :keyword OR cc.website ILIKE :keyword)"
+                "(wc.company_name ILIKE :keyword OR wc.domain ILIKE :keyword OR wc.website ILIKE :keyword)"
             )
             params["keyword"] = f"%{keyword}%"
         if countries:
-            where_clauses.append("cc.country_iso3 = ANY(:countries)")
+            where_clauses.append("wc.country_iso3 = ANY(:countries)")
             params["countries"] = countries
         if sub_industries:
             where_clauses.append(
-                "(cc.industry_desc = ANY(:sub_industries) OR cc.industry_tags && :sub_industries)"
+                "(wc.industry = ANY(:sub_industries) OR wc.sub_industry = ANY(:sub_industries))"
             )
             params["sub_industries"] = sub_industries
         if product_tags:
-            where_clauses.append("cc.product_tags && :product_tags")
+            where_clauses.append("wc.product_tags && :product_tags")
             params["product_tags"] = product_tags
         if sources:
-            where_clauses.append(
-                """
-                EXISTS (
-                  SELECT 1
-                  FROM clean_company_sources ccs_filter
-                  WHERE ccs_filter.clean_company_id = cc.id
-                    AND ccs_filter.source_type = ANY(:sources)
-                )
-                """
-            )
+            where_clauses.append("wc.data_source_tags && :sources")
             params["sources"] = sources
         append_employee_count_range(
             where_clauses,
             params,
             employee_count_min=employee_count_min,
             employee_count_max=employee_count_max,
+            alias="wc",
+            column="employee_size",
         )
         if trade_amount_min is not None:
-            where_clauses.append("cc.trade_amount_3y_usd >= :trade_amount_min")
+            where_clauses.append("wc.trade_amount_3y_usd >= :trade_amount_min")
             params["trade_amount_min"] = trade_amount_min
         if trade_amount_max is not None:
-            where_clauses.append("cc.trade_amount_3y_usd <= :trade_amount_max")
+            where_clauses.append("wc.trade_amount_3y_usd <= :trade_amount_max")
             params["trade_amount_max"] = trade_amount_max
         if trade_count_min is not None:
-            where_clauses.append("cc.trade_count >= :trade_count_min")
+            where_clauses.append("wc.trade_count >= :trade_count_min")
             params["trade_count_min"] = trade_count_min
         if trade_count_max is not None:
-            where_clauses.append("cc.trade_count <= :trade_count_max")
+            where_clauses.append("wc.trade_count <= :trade_count_max")
             params["trade_count_max"] = trade_count_max
         if contact_count_min is not None:
-            where_clauses.append("cc.contacts_count >= :contact_count_min")
+            where_clauses.append("wc.contacts_count >= :contact_count_min")
             params["contact_count_min"] = contact_count_min
         if contact_count_max is not None:
-            where_clauses.append("cc.contacts_count <= :contact_count_max")
+            where_clauses.append("wc.contacts_count <= :contact_count_max")
             params["contact_count_max"] = contact_count_max
         if founded_year_from is not None:
-            where_clauses.append("EXTRACT(YEAR FROM cc.incorporation_date) >= :founded_year_from")
+            where_clauses.append("wc.founded_year >= :founded_year_from")
             params["founded_year_from"] = founded_year_from
         if founded_year_to is not None:
-            where_clauses.append("EXTRACT(YEAR FROM cc.incorporation_date) <= :founded_year_to")
+            where_clauses.append("wc.founded_year <= :founded_year_to")
             params["founded_year_to"] = founded_year_to
-        pcb_clause = pcb_supplier_presence_clause(pcb_supplier_presence)
-        if pcb_clause:
-            where_clauses.append(pcb_clause)
 
         where_sql = " AND ".join(where_clauses)
         result = await conn.execute(
@@ -698,15 +599,15 @@ class TenantQueryService:
                 f"""
                 SELECT
                   tc.id,
-                  cc.name,
-                  cc.country_iso3,
+                  wc.company_name,
+                  wc.country_iso3,
                   tc.score,
                   tc.model_score,
                   tc.business_status,
                   tc.data_status,
                   tc.created_at
                 FROM tenant_companies tc
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 WHERE {where_sql}
                 ORDER BY
                   tc.score DESC NULLS LAST,
@@ -719,7 +620,7 @@ class TenantQueryService:
         return [
             {
                 "id": str(row["id"]),
-                "name": row["name"],
+                "name": row["company_name"],
                 "country_iso3": row["country_iso3"],
                 "score": float(row["score"]) if row["score"] is not None else None,
                 "model_score": float(row["model_score"]) if row["model_score"] is not None else None,

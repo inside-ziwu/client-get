@@ -705,13 +705,13 @@ class TenantMessagingService:
             text(
                 """
                 SELECT pr.id, pr.tenant_company_id, pr.tenant_contact_id, pr.source_type, pr.source_ref, pr.locked_at,
-                       pr.appended_after_start, pr.excluded_at, pr.excluded_reason, cc.name AS company_name,
+                       pr.appended_after_start, pr.excluded_at, pr.excluded_reason, cc.company_name AS company_name,
                        shc.email AS contact_email, shc.name AS contact_name
                 FROM sending_plan_recipients pr
                 JOIN tenant_companies tc ON tc.id = pr.tenant_company_id
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                 JOIN tenant_contacts tc2 ON tc2.id = pr.tenant_contact_id
-                LEFT JOIN clean_contacts shc ON shc.id = tc2.clean_contact_id
+                LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tc2.clean_contact_id
                 WHERE pr.tenant_id = :tenant_id AND pr.plan_id = :plan_id
                 ORDER BY pr.locked_at ASC
                 """
@@ -1258,16 +1258,16 @@ class TenantMessagingService:
                 SELECT e.id AS enrollment_id, e.plan_id, e.plan_recipient_id, e.tenant_id, e.tenant_contact_id, e.current_step,
                        e.next_step_due_at, p.domain_id, p.sender_name, p.sender_email, s.id AS step_id, s.step_number,
                        s.template_id, s.condition_type, s.delay_days,
-                       pr.tenant_company_id, cc.name AS company_name, shc.name AS contact_name, shc.email AS to_email,
+                       pr.tenant_company_id, cc.company_name AS company_name, shc.name AS contact_name, shc.email AS to_email,
                        t.subject, t.body_html, t.body_text
                 FROM sequence_enrollments e
                 JOIN sending_plans p ON p.id = e.plan_id
                 JOIN sequence_steps s ON s.plan_id = e.plan_id AND s.step_number = e.current_step
                 JOIN sending_plan_recipients pr ON pr.id = e.plan_recipient_id
                 JOIN tenant_companies tc ON tc.id = pr.tenant_company_id
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                 JOIN tenant_contacts tco ON tco.id = e.tenant_contact_id
-                LEFT JOIN clean_contacts shc ON shc.id = tco.clean_contact_id
+                LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                 JOIN email_templates t ON t.id = s.template_id
                 WHERE e.status = 'active'
                   AND e.next_step_due_at <= now()
@@ -1803,14 +1803,14 @@ class TenantMessagingService:
             text(
                 """
                 SELECT gm.tenant_company_id, COALESCE(gm.tenant_contact_id, tc_default.id) AS tenant_contact_id,
-                       gm.group_id AS source_ref, cc.name AS company_name, cc.website AS company_domain,
+                       gm.group_id AS source_ref, cc.company_name AS company_name, cc.website AS company_domain,
                        shc.name AS contact_name, shc.email AS contact_email, tc.contact_status,
                        tco.data_status, (shc.email IS NOT NULL) AS is_valid_email
                 FROM group_members gm
                 JOIN tenant_companies tco ON tco.id = gm.tenant_company_id
-                JOIN clean_companies cc ON cc.id = tco.clean_company_id
+                JOIN waimaotong_clean_companies cc ON cc.id = tco.clean_company_id
                 LEFT JOIN tenant_contacts tc ON tc.id = gm.tenant_contact_id
-                LEFT JOIN clean_contacts shc ON shc.id = tc.clean_contact_id
+                LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tc.clean_contact_id
                 LEFT JOIN LATERAL (
                   SELECT id
                   FROM tenant_contacts
@@ -1837,15 +1837,15 @@ class TenantMessagingService:
                 text(
                     """
                     SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
-                           cc.name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
+                           cc.company_name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
                            shc.email AS contact_email, tco.contact_status, tc.data_status,
                            (shc.email IS NOT NULL) AS is_valid_email
                     FROM tenant_contacts tco
                     JOIN tenant_companies tc
                       ON tc.clean_company_id = tco.clean_company_id
                      AND tc.tenant_id = tco.tenant_id
-                    JOIN clean_companies cc ON cc.id = tc.clean_company_id
-                    LEFT JOIN clean_contacts shc ON shc.id = tco.clean_contact_id
+                    JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
+                    LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                     WHERE tco.tenant_id = :tenant_id
                       AND tco.id = :contact_id
                       AND tc.visibility_status = 'visible'
@@ -1861,15 +1861,15 @@ class TenantMessagingService:
                 text(
                     """
                     SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
-                           cc.name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
+                           cc.company_name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
                            shc.email AS contact_email, tco.contact_status, tc.data_status,
                            (shc.email IS NOT NULL) AS is_valid_email
                     FROM tenant_companies tc
-                    JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                    JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                     JOIN tenant_contacts tco
                       ON tco.clean_company_id = tc.clean_company_id
                      AND tco.tenant_id = tc.tenant_id
-                    LEFT JOIN clean_contacts shc ON shc.id = tco.clean_contact_id
+                    LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                     WHERE tc.tenant_id = :tenant_id
                       AND tc.id = CAST(CAST(:company_id AS text) AS bigint)
                       AND tc.visibility_status = 'visible'
@@ -1889,16 +1889,16 @@ class TenantMessagingService:
             text(
                 """
                 SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
-                       cc.name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
+                       cc.company_name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
                        shc.email AS contact_email, tco.contact_status, tc.data_status,
                        (shc.email IS NOT NULL) AS is_valid_email,
                        tc.score, tc.business_status, cc.country_iso3 AS country
                 FROM tenant_companies tc
-                JOIN clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                 JOIN tenant_contacts tco
                   ON tco.clean_company_id = tc.clean_company_id
                  AND tco.tenant_id = tc.tenant_id
-                LEFT JOIN clean_contacts shc ON shc.id = tco.clean_contact_id
+                LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                 WHERE tc.tenant_id = :tenant_id
                   AND tc.visibility_status = 'visible'
                   AND (CAST(:business_status AS text) IS NULL OR tc.business_status = :business_status)
