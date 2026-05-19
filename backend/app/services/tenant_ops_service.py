@@ -172,11 +172,11 @@ class TenantOpsService:
                     """
                     INSERT INTO waimaotong_clean_companies
                       (company_name, english_name, country_iso3, domain, website, industry, product_tags,
-                       phone, employee_size, founded_year, full_address, description)
+                       phone, employee_size, founded_year, full_address, description, source_id)
                     VALUES
                       (:company_name, :english_name, :country_iso3, :domain, :website, :industry,
                        CAST(:product_tags AS jsonb),
-                       :phone, :employee_size, :founded_year, :full_address, :description)
+                       :phone, :employee_size, :founded_year, :full_address, :description, :source_id)
                     RETURNING id
                     """
                 ),
@@ -193,6 +193,7 @@ class TenantOpsService:
                     "founded_year": founded_year,
                     "full_address": payload.get("full_address"),
                     "description": payload.get("description"),
+                    "source_id": "manual",
                 },
             )
             actual_clean_company_id = cc_insert.scalar_one()
