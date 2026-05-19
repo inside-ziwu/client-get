@@ -39,7 +39,29 @@ def upgrade() -> None:
             DROP CONSTRAINT IF EXISTS tenant_companies_clean_company_id_fkey;
     """)
 
-    # 3. tenant_companies: 基于 name+country 匹配 wmt 表重建关联
+    # 3. 先删除会产生 UNIQUE(tenant_id, clean_company_id) 冲突的重复行
+    #    多个 clean_companies 可能映射到同一个 wmt 公司（name+country 相同），
+    #    保留 score 最高的那条，其余级联删除。
+    conn.exec_driver_sql("""
+        WITH mapping AS (
+            SELECT
+                tc.id AS tc_id,
+                tc.tenant_id,
+                wc.id AS new_cid,
+                ROW_NUMBER() OVER (
+                    PARTITION BY tc.tenant_id, wc.id
+                    ORDER BY tc.score DESC NULLS LAST, tc.id
+                ) AS rn
+            FROM tenant_companies tc
+            JOIN clean_companies cc ON cc.id = tc.clean_company_id
+            JOIN waimaotong_clean_companies wc
+                ON wc.company_name = cc.name AND wc.country_iso3 = cc.country_iso3
+        )
+        DELETE FROM tenant_companies
+        WHERE id IN (SELECT tc_id FROM mapping WHERE rn > 1);
+    """)
+
+    # 4. tenant_companies: 基于 name+country 匹配 wmt 表重建关联
     conn.exec_driver_sql("""
         UPDATE tenant_companies tc
         SET clean_company_id = wc.id
@@ -49,7 +71,7 @@ def upgrade() -> None:
         WHERE tc.clean_company_id = cc.id;
     """)
 
-    # 4. 删除未匹配的 tenant_companies 记录（D10：不做安全网）
+    # 5. 删除未匹配的 tenant_companies 记录（D10：不做安全网）
     conn.exec_driver_sql("""
         DELETE FROM tenant_companies
         WHERE clean_company_id NOT IN (
@@ -57,19 +79,19 @@ def upgrade() -> None:
         );
     """)
 
-    # 5. tenant_contacts: 全表清空（D11：不做逐条匹配）
+    # 6. tenant_contacts: 全表清空（D11：不做逐条匹配）
     conn.exec_driver_sql("""
         DELETE FROM tenant_contacts;
     """)
 
-    # 6. tenant_contacts: 删除旧 FK
+    # 7. tenant_contacts: 删除旧 FK
     conn.exec_driver_sql("""
         ALTER TABLE tenant_contacts
             DROP CONSTRAINT IF EXISTS tenant_contacts_clean_contact_id_fkey,
             DROP CONSTRAINT IF EXISTS tenant_contacts_clean_company_id_fkey;
     """)
 
-    # 7. tenant_companies 新索引（不加 FK 约束）
+    # 8. tenant_companies 新索引（不加 FK 约束）
     conn.exec_driver_sql("""
         CREATE INDEX IF NOT EXISTS idx_tenant_companies_clean_company_id
             ON tenant_companies (clean_company_id);
