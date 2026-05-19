@@ -116,12 +116,12 @@ export default function CuratedCustomersPage() {
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
 
   return (
-    <div className="tenant-page space-y-4">
+    <div className="tenant-page h-[calc(100vh-theme(spacing.14)-3rem)]">
       <PageHeader title="优选客户" description="按群组管理和查看优选客户公司" />
 
-      <div className="flex gap-4">
+      <div className="flex min-h-0 flex-1 gap-4">
         {/* 左侧群组面板 */}
-        <Card className="w-60 shrink-0 self-start">
+        <Card className="w-60 shrink-0 overflow-y-auto">
           <CardContent className="p-3">
             <Button size="sm" className="mb-3 w-full" onClick={() => setGroupForm({ open: true, editGroup: null })}>
               <Plus className="mr-1 h-3.5 w-3.5" />新建群组
@@ -162,7 +162,7 @@ export default function CuratedCustomersPage() {
         </Card>
 
         {/* 右侧公司列表 */}
-        <div className="min-w-0 flex-1 space-y-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
           {!selectedGroup ? (
             <Card>
               <CardContent className="py-20 text-center text-sm text-muted-foreground">
@@ -201,11 +201,11 @@ export default function CuratedCustomersPage() {
               />
 
               {/* 表格 */}
-              <Card>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
+              <Card className="flex min-h-0 flex-1 flex-col">
+                <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+                  <div className="min-h-0 flex-1 overflow-auto">
                     <table className="w-full min-w-[1400px] text-sm">
-                      <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
+                      <thead className="sticky top-0 border-b bg-muted/70 text-left text-xs text-muted-foreground">
                         <tr>
                           {['公司名', '国家', '域名', '行业', '员工规模', '成立', '电话', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
                             <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
@@ -256,8 +256,8 @@ export default function CuratedCustomersPage() {
                     </table>
                   </div>
 
-                  {/* 分页 */}
-                  <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
+                  {/* 分页 — 固定在底部 */}
+                  <div className="shrink-0 flex items-center justify-between border-t px-4 py-3 text-sm">
                     <div className="flex items-center gap-3 text-muted-foreground">
                       <span>共 {total} 条</span>
                       <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
