@@ -38,26 +38,51 @@ class TenantOpsService:
         }
 
     async def companies_filters(self, conn: AsyncConnection, tenant_id: str) -> dict:
-        result = await conn.execute(
-            text(
-                """
-                SELECT
-                  array_remove(array_agg(DISTINCT wc.country_iso3), NULL) AS countries,
-                  array_remove(array_agg(DISTINCT tc.business_status), NULL) AS business_statuses,
-                  array_remove(array_agg(DISTINCT tc.data_status), NULL) AS data_statuses
-                FROM tenant_companies tc
-                JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
-                WHERE tc.tenant_id = :tenant_id
-                  AND tc.visibility_status = 'visible'
-                """
-            ),
-            {"tenant_id": tenant_id},
-        )
-        row = result.mappings().one()
+        params = {"tenant_id": tenant_id}
+        base_join = """
+            FROM tenant_companies tc
+            JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
+            WHERE tc.tenant_id = :tenant_id AND tc.visibility_status = 'visible'
+        """
+
+        r1 = await conn.execute(text(f"""
+            SELECT
+              array_remove(array_agg(DISTINCT wc.country_iso3), NULL) AS countries,
+              array_remove(array_agg(DISTINCT tc.business_status), NULL) AS business_statuses,
+              array_remove(array_agg(DISTINCT tc.data_status), NULL) AS data_statuses
+            {base_join}
+        """), params)
+        row1 = r1.mappings().one()
+
+        r2 = await conn.execute(text(f"""
+            SELECT array_remove(array_agg(DISTINCT wc.sub_industry), NULL) AS sub_industries
+            {base_join} AND wc.sub_industry IS NOT NULL
+        """), params)
+        row2 = r2.mappings().one()
+
+        r3 = await conn.execute(text("""
+            SELECT array_remove(array_agg(DISTINCT tag), NULL) AS product_tags
+            FROM tenant_companies tc
+            JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
+            CROSS JOIN unnest(wc.product_tags) AS tag
+            WHERE tc.tenant_id = :tenant_id AND tc.visibility_status = 'visible'
+              AND wc.product_tags IS NOT NULL
+        """), params)
+        row3 = r3.mappings().one()
+
+        r4 = await conn.execute(text(f"""
+            SELECT array_remove(array_agg(DISTINCT wc.grade), NULL) AS grades
+            {base_join} AND wc.grade IS NOT NULL
+        """), params)
+        row4 = r4.mappings().one()
+
         return {
-            "countries": list(row["countries"] or []),
-            "business_statuses": list(row["business_statuses"] or []),
-            "data_statuses": list(row["data_statuses"] or []),
+            "countries": sorted(row1["countries"] or []),
+            "business_statuses": list(row1["business_statuses"] or []),
+            "data_statuses": list(row1["data_statuses"] or []),
+            "sub_industries": sorted(row2["sub_industries"] or []),
+            "product_tags": sorted(row3["product_tags"] or []),
+            "grades": sorted(row4["grades"] or []),
         }
 
     async def export_companies(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
@@ -377,6 +402,11 @@ class TenantOpsService:
         if business_status is not None:
             self._validate_business_status(business_status)
 
+        score_adjustment = payload.get("score_adjustment")
+        if score_adjustment is not None:
+            if not isinstance(score_adjustment, int) or not (-20 <= score_adjustment <= 20):
+                raise AppError(code="VALIDATION_ERROR", message="score_adjustment 须为 -20 ~ +20 的整数", status_code=422)
+
         before = await self.get_prospect(conn, tenant_id, prospect_id)
         await conn.execute(
             text(
@@ -385,6 +415,7 @@ class TenantOpsService:
                 SET note = COALESCE(:note, note),
                     tags = CAST(:tags AS text[]),
                     business_status = COALESCE(:business_status, business_status),
+                    score_adjustment = COALESCE(:score_adjustment, score_adjustment),
                     updated_at = now()
                 WHERE tenant_id = :tenant_id AND id = CAST(CAST(:prospect_id AS text) AS bigint)
                 """
@@ -395,6 +426,7 @@ class TenantOpsService:
                 "note": payload.get("note"),
                 "tags": payload.get("tags", before["tags"]),
                 "business_status": business_status,
+                "score_adjustment": score_adjustment,
             },
         )
         after = await self.get_prospect(conn, tenant_id, prospect_id)

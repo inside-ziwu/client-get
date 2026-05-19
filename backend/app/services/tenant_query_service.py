@@ -171,6 +171,7 @@ class TenantQueryService:
         pcb_supplier_presence: str | None = None,
         min_score: float | None = None,
         max_score: float | None = None,
+        grade: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
         offset: int | None = None,
@@ -263,6 +264,10 @@ class TenantQueryService:
             where_clauses.append("wc.founded_year <= :founded_year_to")
             params["founded_year_to"] = founded_year_to
 
+        if grade:
+            where_clauses.append("wc.grade = :grade")
+            params["grade"] = grade
+
         if employee_scales:
             placeholders = ", ".join(f":emp_scale_{i}" for i in range(len(employee_scales)))
             where_clauses.append(f"wc.employee_size IN ({placeholders})")
@@ -305,6 +310,7 @@ class TenantQueryService:
                 f"""
                 SELECT
                   wc.id,
+                  tc.id AS tc_id,
                   wc.company_name,
                   wc.country_iso3,
                   wc.website,
@@ -318,6 +324,12 @@ class TenantQueryService:
                   wc.score AS wmt_score,
                   wc.english_name,
                   wc.founded_year,
+                  wc.phone,
+                  wc.trade_amount_3y_usd,
+                  wc.trade_count,
+                  wc.description,
+                  wc.data_source_tags,
+                  wc.company_size,
                   tc.business_status,
                   tc.data_status,
                   tc.model_score,
@@ -341,6 +353,7 @@ class TenantQueryService:
         rows = [
             {
                 "id": str(row["id"]),
+                "tc_id": str(row["tc_id"]),
                 "name": row["company_name"],
                 "name_en": row["english_name"],
                 "country_iso3": row["country_iso3"],
@@ -348,12 +361,19 @@ class TenantQueryService:
                 "domain": row["domain"],
                 "industry_desc": row["industry"],
                 "industry_tags": [row["sub_industry"]] if row["sub_industry"] else [],
+                "sub_industry": row["sub_industry"],
                 "employee_num": row["employee_size"],
                 "contacts_count": row["contacts_count"],
                 "product_tags": list(row["product_tags"]) if row["product_tags"] else [],
                 "grade": row["grade"],
                 "wmt_score": float(row["wmt_score"]) if row["wmt_score"] is not None else None,
                 "founded_year": row["founded_year"],
+                "phone": row["phone"],
+                "trade_amount_3y_usd": float(row["trade_amount_3y_usd"]) if row["trade_amount_3y_usd"] is not None else None,
+                "trade_count": row["trade_count"],
+                "description": row["description"],
+                "data_source_tags": list(row["data_source_tags"] or []),
+                "company_size": row["company_size"],
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
                 "model_score": float(row["model_score"]) if row["model_score"] is not None else None,
@@ -392,14 +412,28 @@ class TenantQueryService:
                   wc.data_source_tags,
                   wc.full_address,
                   wc.description,
+                  wc.phone,
+                  wc.company_size,
+                  wc.score_details,
+                  wc.company_type_analysis,
+                  wc.email_priority,
+                  wc.sales_approach,
+                  wc.match_reasons,
+                  wc.potential_needs,
+                  wc.recommended_products,
+                  wc.risk_factors,
+                  wc.main_business,
+                  wc.trade_summary,
                   wc.created_at,
                   wc.updated_at,
+                  tc.id AS tc_id,
                   tc.business_status,
                   tc.data_status,
                   tc.model_score,
                   tc.score,
                   tc.note,
                   tc.tags,
+                  tc.score_adjustment,
                   tc.visibility_status,
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at
@@ -420,6 +454,7 @@ class TenantQueryService:
 
         return {
             "id": str(row["id"]),
+            "tc_id": str(row["tc_id"]),
             "name": row["company_name"],
             "name_en": row["english_name"],
             "country_iso3": row["country_iso3"],
@@ -428,6 +463,7 @@ class TenantQueryService:
             "founded_year": row["founded_year"],
             "employee_num": row["employee_size"],
             "industry_desc": row["industry"],
+            "sub_industry": row["sub_industry"],
             "industry_tags": [row["sub_industry"]] if row["sub_industry"] else [],
             "product_tags": list(row["product_tags"] or []),
             "grade": row["grade"],
@@ -435,22 +471,33 @@ class TenantQueryService:
             "trade_amount_3y_usd": float(row["trade_amount_3y_usd"]) if row["trade_amount_3y_usd"] is not None else None,
             "trade_count": row["trade_count"],
             "contacts_count": row["contacts_count"],
+            "phone": row["phone"],
+            "company_size": row["company_size"],
             "full_address": row["full_address"],
             "description": row["description"],
             "sources": list(row["data_source_tags"] or []),
             "matched_keywords": [],
-            "tenant_state": {
-                "business_status": row["business_status"],
-                "data_status": row["data_status"],
-                "model_score": float(row["model_score"]) if row["model_score"] is not None else None,
-                "score": float(row["score"]) if row["score"] is not None else None,
-                "note": row["note"],
-                "tags": list(row["tags"] or []),
-                "created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
-                "updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
-            },
+            "business_status": row["business_status"],
+            "data_status": row["data_status"],
+            "model_score": float(row["model_score"]) if row["model_score"] is not None else None,
+            "score": float(row["score"]) if row["score"] is not None else None,
+            "note": row["note"],
+            "tags": list(row["tags"] or []),
+            "score_adjustment": row["score_adjustment"],
+            "score_details": row["score_details"],
+            "company_type_analysis": row["company_type_analysis"],
+            "email_priority": row["email_priority"],
+            "sales_approach": row["sales_approach"],
+            "match_reasons": row["match_reasons"],
+            "potential_needs": row["potential_needs"],
+            "recommended_products": row["recommended_products"],
+            "risk_factors": row["risk_factors"],
+            "main_business": row["main_business"],
+            "trade_summary": row["trade_summary"],
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
             "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+            "tenant_created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
+            "tenant_updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
         }
 
     async def v3_company_contacts(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str) -> list[dict]:
