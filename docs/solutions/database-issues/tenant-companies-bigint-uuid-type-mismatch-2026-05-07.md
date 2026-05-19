@@ -170,3 +170,4 @@ WHERE c.column_name LIKE '%tenant_company_id%'
 - **T-DF-31**（Slice 1.B）：计划迁移，将 `tenant_companies.id` 修复回 `uuid`，并重建相关外键约束
 - **`_control/v3/slices/slice-0-dev-runtime-baseline.md` §2.3.1**：本 bug 的实测发现记录（2026-05-07），含影响范围与修复时机
 - **`_control/inputs/database/README.md`**：数据库设计目标，`schema.sql` 中 `tenant_companies.id uuid PRIMARY KEY` 是签字确认的目标状态
+- **`docs/solutions/database-issues/alembic-non-cascade-fk-chain-blocks-tenant-delete-2026-05-19.md`**：同为 `tenant_companies` Alembic 迁移 FK 链路问题——非 CASCADE FK 预清理模式（DELETE 时 RESTRICT FK 阻塞级联）

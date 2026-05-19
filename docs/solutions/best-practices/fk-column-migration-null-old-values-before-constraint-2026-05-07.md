@@ -220,3 +220,4 @@ def downgrade() -> None:
 
 - 同项目另一 Alembic + PostgreSQL FK 迁移风险文档（类型漂移场景，`DROP TABLE CASCADE` 引起）：`docs/solutions/database-issues/tenant-companies-bigint-uuid-type-mismatch-2026-05-07.md`
 - Slice 1.B-ext 签字文档：`_control/v3/slices/slice-1b-ext-contacts-migration.md`
+- 非 CASCADE FK 预清理模式（批量 DELETE 前需显式清理 RESTRICT 子表）：`docs/solutions/database-issues/alembic-non-cascade-fk-chain-blocks-tenant-delete-2026-05-19.md`
