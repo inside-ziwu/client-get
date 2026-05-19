@@ -1108,6 +1108,23 @@ class TenantOpsService:
                     "clean_company_id": company_row["clean_company_id"],
                 },
             )
+        if contacts:
+            await conn.execute(
+                text(
+                    """
+                    UPDATE waimaotong_clean_companies
+                    SET contacts_count = (
+                      SELECT count(*) FROM waimaotong_clean_contacts
+                      WHERE sys_company_id = :sys_company_id AND email IS NOT NULL
+                    )
+                    WHERE id = :wcc_id
+                    """
+                ),
+                {
+                    "sys_company_id": company_row["sys_company_id"],
+                    "wcc_id": company_row["clean_company_id"],
+                },
+            )
 
     async def _select_default_contact_id(self, conn: AsyncConnection, tenant_id: str, company_id: str) -> str | None:
         result = await conn.execute(
