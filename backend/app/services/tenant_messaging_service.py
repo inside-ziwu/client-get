@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.services.audit_service import AuditService
+from app.services.tenant_contact_utils import ensure_contacts_from_wmt
 from app.services.ai_usage_log_service import AiUsageLogService
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 from app.utils.html_sanitizer import sanitize_html, sanitize_plain_text, sanitize_subject
@@ -742,33 +743,37 @@ class TenantMessagingService:
 
     async def lock_plan_recipients(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str) -> dict:
         candidates = await self.preview_plan_recipients(conn, tenant_id=tenant_id, plan_id=plan_id)
+        eligible = [c for c in candidates if not c["excluded_reason"] and c["tenant_contact_id"]]
         inserted = 0
-        for candidate in candidates:
-            if candidate["excluded_reason"]:
-                continue
-            await conn.execute(
+        if eligible:
+            result = await conn.execute(
                 text(
                     """
                     INSERT INTO sending_plan_recipients
                       (id, tenant_id, plan_id, tenant_company_id, tenant_contact_id, source_type, source_ref,
                        locked_at, appended_after_start, excluded_at, excluded_reason)
-                    VALUES
-                      (:id, :tenant_id, :plan_id, :tenant_company_id, :tenant_contact_id, :source_type, :source_ref,
-                       now(), false, NULL, NULL)
+                    SELECT t.id, t.tenant_id, t.plan_id, t.company_id, t.contact_id,
+                           t.source_type, t.source_ref, now(), false, NULL, NULL
+                    FROM unnest(
+                      :ids::uuid[], :tenant_ids::uuid[], :plan_ids::uuid[],
+                      :company_ids::bigint[], :contact_ids::bigint[],
+                      :source_types::text[], :source_refs::text[]
+                    ) AS t(id, tenant_id, plan_id, company_id, contact_id, source_type, source_ref)
                     ON CONFLICT (plan_id, tenant_contact_id) DO NOTHING
+                    RETURNING sending_plan_recipients.id
                     """
                 ),
                 {
-                    "id": str(new_uuid()),
-                    "tenant_id": tenant_id,
-                    "plan_id": plan_id,
-                    "tenant_company_id": int(candidate["tenant_company_id"]),
-                    "tenant_contact_id": int(candidate["tenant_contact_id"]),
-                    "source_type": candidate["source_type"],
-                    "source_ref": candidate["source_ref"],
+                    "ids": [str(new_uuid()) for _ in eligible],
+                    "tenant_ids": [tenant_id] * len(eligible),
+                    "plan_ids": [plan_id] * len(eligible),
+                    "company_ids": [int(c["tenant_company_id"]) for c in eligible],
+                    "contact_ids": [int(c["tenant_contact_id"]) for c in eligible],
+                    "source_types": [c["source_type"] for c in eligible],
+                    "source_refs": [c["source_ref"] for c in eligible],
                 },
             )
-            inserted += 1
+            inserted = len(result.fetchall())
         total = (
             await conn.execute(
                 text("SELECT count(*) FROM sending_plan_recipients WHERE tenant_id = :tenant_id AND plan_id = :plan_id"),
@@ -1654,6 +1659,8 @@ class TenantMessagingService:
                 excluded_reason = "blacklisted"
             elif row["contact_status"] in {"unsubscribed", "bounced"}:
                 excluded_reason = row["contact_status"]
+            elif not row.get("is_sendable", True):
+                excluded_reason = "not_sendable"
             elif row["data_status"] != "ready":
                 excluded_reason = "incomplete"
             elif not row["contact_email"] or row["is_valid_email"] is False:
@@ -1661,7 +1668,7 @@ class TenantMessagingService:
             candidates.append(
                 {
                     "tenant_company_id": str(row["tenant_company_id"]),
-                    "tenant_contact_id": str(row["tenant_contact_id"]),
+                    "tenant_contact_id": str(row["tenant_contact_id"]) if row["tenant_contact_id"] else None,
                     "company_name": row["company_name"],
                     "company_domain": row["company_domain"],
                     "contact_name": row["contact_name"],
@@ -1818,29 +1825,39 @@ class TenantMessagingService:
     async def _recipients_from_group(self, conn: AsyncConnection, tenant_id: str, config: dict) -> list[dict]:
         if not config.get("group_id"):
             return []
-        result = await conn.execute(
+        gm_result = await conn.execute(
             text(
                 """
-                SELECT gm.tenant_company_id, COALESCE(gm.tenant_contact_id, tc_default.id) AS tenant_contact_id,
-                       gm.group_id AS source_ref, cc.company_name AS company_name, cc.website AS company_domain,
-                       shc.name AS contact_name, shc.email AS contact_email, tc.contact_status,
-                       tco.data_status, (shc.email IS NOT NULL) AS is_valid_email
+                SELECT DISTINCT gm.tenant_company_id
                 FROM group_members gm
                 JOIN tenant_companies tco ON tco.id = gm.tenant_company_id
-                JOIN waimaotong_clean_companies cc ON cc.id = tco.clean_company_id
-                LEFT JOIN tenant_contacts tc ON tc.id = gm.tenant_contact_id
-                LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tc.clean_contact_id
-                LEFT JOIN LATERAL (
-                  SELECT id
-                  FROM tenant_contacts
-                  WHERE tenant_id = :tenant_id
-                    AND clean_company_id = tco.clean_company_id
-                  ORDER BY created_at ASC
-                  LIMIT 1
-                ) tc_default ON TRUE
                 WHERE gm.tenant_id = :tenant_id
                   AND gm.group_id = :group_id
                   AND tco.visibility_status = 'visible'
+                """
+            ),
+            {"tenant_id": tenant_id, "group_id": config["group_id"]},
+        )
+        for row in gm_result:
+            await ensure_contacts_from_wmt(conn, tenant_id, int(row["tenant_company_id"]))
+        result = await conn.execute(
+            text(
+                """
+                SELECT gm.tenant_company_id, tc.id AS tenant_contact_id,
+                       gm.group_id AS source_ref, cc.company_name, cc.website AS company_domain,
+                       shc.name AS contact_name, shc.email AS contact_email,
+                       tc.contact_status, tc.is_sendable, tco.data_status,
+                       (shc.email IS NOT NULL) AS is_valid_email
+                FROM group_members gm
+                JOIN tenant_companies tco ON tco.id = gm.tenant_company_id
+                JOIN tenant_contacts tc ON tc.tenant_id = gm.tenant_id
+                  AND tc.clean_company_id = tco.clean_company_id
+                JOIN waimaotong_clean_companies cc ON cc.id = tco.clean_company_id
+                JOIN waimaotong_clean_contacts shc ON shc.id = tc.clean_contact_id
+                WHERE gm.tenant_id = :tenant_id
+                  AND gm.group_id = :group_id
+                  AND tco.visibility_status = 'visible'
+                  AND shc.email IS NOT NULL
                 """
             ),
             {"tenant_id": tenant_id, "group_id": config["group_id"]},
@@ -1856,8 +1873,8 @@ class TenantMessagingService:
                 text(
                     """
                     SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
-                           cc.company_name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
-                           shc.email AS contact_email, tco.contact_status, tc.data_status,
+                           cc.company_name, cc.website AS company_domain, shc.name AS contact_name,
+                           shc.email AS contact_email, tco.contact_status, tco.is_sendable, tc.data_status,
                            (shc.email IS NOT NULL) AS is_valid_email
                     FROM tenant_contacts tco
                     JOIN tenant_companies tc
@@ -1875,67 +1892,78 @@ class TenantMessagingService:
             row = result.mappings().first()
             if row:
                 rows.append(row)
-        for company_id in company_ids:
+        if company_ids:
+            for cid in company_ids:
+                await ensure_contacts_from_wmt(conn, tenant_id, int(cid))
             result = await conn.execute(
                 text(
                     """
                     SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
-                           cc.company_name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
-                           shc.email AS contact_email, tco.contact_status, tc.data_status,
+                           cc.company_name, cc.website AS company_domain,
+                           shc.name AS contact_name, shc.email AS contact_email,
+                           tco.contact_status, tco.is_sendable, tc.data_status,
                            (shc.email IS NOT NULL) AS is_valid_email
                     FROM tenant_companies tc
                     JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
-                    JOIN tenant_contacts tco
-                      ON tco.clean_company_id = tc.clean_company_id
-                     AND tco.tenant_id = tc.tenant_id
-                    LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
+                    JOIN tenant_contacts tco ON tco.clean_company_id = tc.clean_company_id
+                      AND tco.tenant_id = tc.tenant_id
+                    JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                     WHERE tc.tenant_id = :tenant_id
-                      AND tc.id = CAST(CAST(:company_id AS text) AS bigint)
+                      AND tc.id = ANY(:company_ids)
                       AND tc.visibility_status = 'visible'
-                    ORDER BY tco.created_at ASC
-                    LIMIT 1
+                      AND shc.email IS NOT NULL
                     """
                 ),
-                {"tenant_id": tenant_id, "company_id": company_id},
+                {"tenant_id": tenant_id, "company_ids": [int(cid) for cid in company_ids]},
             )
-            row = result.mappings().first()
-            if row:
-                rows.append(row)
+            rows.extend(result.mappings().all())
         return rows
 
     async def _recipients_from_filter(self, conn: AsyncConnection, tenant_id: str, config: dict) -> list[dict]:
-        result = await conn.execute(
+        params = {
+            "tenant_id": tenant_id,
+            "business_status": config.get("business_status"),
+            "country": config.get("country"),
+        }
+        company_result = await conn.execute(
             text(
                 """
-                SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
-                       cc.company_name AS company_name, cc.website AS company_domain, shc.name AS contact_name,
-                       shc.email AS contact_email, tco.contact_status, tc.data_status,
-                       (shc.email IS NOT NULL) AS is_valid_email,
-                       tc.score, tc.business_status, cc.country_iso3 AS country
+                SELECT tc.id AS tenant_company_id
                 FROM tenant_companies tc
                 JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
-                JOIN tenant_contacts tco
-                  ON tco.clean_company_id = tc.clean_company_id
-                 AND tco.tenant_id = tc.tenant_id
-                LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                 WHERE tc.tenant_id = :tenant_id
                   AND tc.visibility_status = 'visible'
                   AND (CAST(:business_status AS text) IS NULL OR tc.business_status = :business_status)
                   AND (CAST(:country AS text) IS NULL OR cc.country_iso3 = :country)
-                ORDER BY tco.created_at ASC, tc.created_at DESC
                 """
             ),
-            {
-                "tenant_id": tenant_id,
-                "business_status": config.get("business_status"),
-                "country": config.get("country"),
-            },
+            params,
         )
-        rows = result.mappings().all()
-        selected = {}
-        for row in rows:
-            selected.setdefault(str(row["tenant_company_id"]), row)
-        return list(selected.values())
+        for row in company_result:
+            await ensure_contacts_from_wmt(conn, tenant_id, int(row["tenant_company_id"]))
+        result = await conn.execute(
+            text(
+                """
+                SELECT tc.id AS tenant_company_id, tco.id AS tenant_contact_id, NULL AS source_ref,
+                       cc.company_name, cc.website AS company_domain,
+                       shc.name AS contact_name, shc.email AS contact_email,
+                       tco.contact_status, tco.is_sendable, tc.data_status,
+                       (shc.email IS NOT NULL) AS is_valid_email
+                FROM tenant_companies tc
+                JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
+                JOIN tenant_contacts tco ON tco.clean_company_id = tc.clean_company_id
+                  AND tco.tenant_id = tc.tenant_id
+                JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
+                WHERE tc.tenant_id = :tenant_id
+                  AND tc.visibility_status = 'visible'
+                  AND shc.email IS NOT NULL
+                  AND (CAST(:business_status AS text) IS NULL OR tc.business_status = :business_status)
+                  AND (CAST(:country AS text) IS NULL OR cc.country_iso3 = :country)
+                """
+            ),
+            params,
+        )
+        return result.mappings().all()
 
     async def _load_blacklist(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
         result = await conn.execute(

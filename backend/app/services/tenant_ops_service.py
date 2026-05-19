@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.services.audit_service import AuditService
+from app.services.tenant_contact_utils import ensure_contacts_from_wmt
 
 
 class TenantOpsService:
@@ -638,13 +639,34 @@ class TenantOpsService:
         result = await conn.execute(
             text(
                 """
-                SELECT gm.id, gm.group_id, gm.tenant_company_id, gm.tenant_contact_id, gm.added_by, gm.created_at,
-                       wc.company_name AS company_name, wcc.email AS contact_email, wcc.name AS contact_name
+                SELECT gm.id, gm.group_id, gm.tenant_company_id,
+                       COALESCE(tco.id, tc_default.id) AS tenant_contact_id,
+                       gm.added_by, gm.created_at,
+                       wc.company_name AS company_name,
+                       COALESCE(wcc.name, wcc_default.name) AS contact_name,
+                       COALESCE(wcc.email, wcc_default.email) AS contact_email,
+                       (SELECT COUNT(*)
+                        FROM tenant_contacts tc_count
+                        JOIN waimaotong_clean_contacts shc_count ON shc_count.id = tc_count.clean_contact_id
+                        WHERE tc_count.tenant_id = gm.tenant_id
+                          AND tc_count.clean_company_id = tc.clean_company_id
+                          AND shc_count.email IS NOT NULL
+                       ) AS contacts_count
                 FROM group_members gm
                 JOIN tenant_companies tc ON tc.id = gm.tenant_company_id
                 JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 LEFT JOIN tenant_contacts tco ON tco.id = gm.tenant_contact_id
                 LEFT JOIN waimaotong_clean_contacts wcc ON wcc.id = tco.clean_contact_id
+                LEFT JOIN LATERAL (
+                  SELECT tc_d.id, tc_d.clean_contact_id
+                  FROM tenant_contacts tc_d
+                  WHERE tc_d.tenant_id = :tenant_id
+                    AND tc_d.clean_company_id = tc.clean_company_id
+                  ORDER BY tc_d.created_at ASC
+                  LIMIT 1
+                ) tc_default ON gm.tenant_contact_id IS NULL
+                LEFT JOIN waimaotong_clean_contacts wcc_default
+                  ON wcc_default.id = tc_default.clean_contact_id
                 WHERE gm.tenant_id = :tenant_id
                   AND gm.group_id = :group_id
                   AND tc.visibility_status = 'visible'
@@ -663,6 +685,7 @@ class TenantOpsService:
                 "company_name": row["company_name"],
                 "contact_name": row["contact_name"],
                 "contact_email": row["contact_email"],
+                "contacts_count": row["contacts_count"],
                 "created_at": row["created_at"].isoformat(),
             }
             for row in result.mappings().all()
@@ -682,6 +705,7 @@ class TenantOpsService:
         added = 0
         for company_id in payload.get("tenant_company_ids", []):
             await self._assert_visible_tenant_company(conn, tenant_id, company_id)
+            await ensure_contacts_from_wmt(conn, tenant_id, int(company_id))
             contact_id = overrides.get(company_id) or await self._select_default_contact_id(conn, tenant_id, company_id)
             await conn.execute(
                 text(
