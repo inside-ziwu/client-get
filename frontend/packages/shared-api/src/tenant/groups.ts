@@ -26,7 +26,7 @@ export function groupsApi(client: AxiosInstance) {
       client.get<PaginatedResponse<Record<string, unknown>>>(`/api/v1/groups/${id}/members`),
     batchAddMembers: (id: string, tenantCompanyIds: string[]) =>
       client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-add`, { tenant_company_ids: tenantCompanyIds }),
-    batchRemoveMembers: (id: string, memberIds: string[]) =>
-      client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-remove`, { member_ids: memberIds }),
+    batchRemoveMembers: (id: string, tenantCompanyIds: string[]) =>
+      client.post<ApiResponse<BatchOperationResult>>(`/api/v1/groups/${id}/members/batch-remove`, { tenant_company_ids: tenantCompanyIds }),
   };
 }
