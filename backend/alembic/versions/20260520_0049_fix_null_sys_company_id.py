@@ -23,10 +23,10 @@ depends_on = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    # 1. 为 sys_company_id IS NULL 的公司补设值（用 source_id，保证唯一）
+    # 1. 为 sys_company_id IS NULL 的公司补设 UUID
     r1 = conn.exec_driver_sql("""
         UPDATE waimaotong_clean_companies
-        SET sys_company_id = COALESCE(source_id, 'gen-' || id::text)
+        SET sys_company_id = gen_random_uuid()
         WHERE sys_company_id IS NULL
     """)
     print(f"[0049] 补设 sys_company_id: {r1.rowcount} 家公司")
