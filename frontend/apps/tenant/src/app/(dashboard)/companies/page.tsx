@@ -176,18 +176,21 @@ export default function CompaniesPage() {
                 onChange={(v) => setFilters((f) => ({ ...f, countries: v }))}
                 options={countryOpts}
                 placeholder="国家"
+                allowCreate={false}
               />
               <MultiSelect
                 value={filters.sub_industries}
                 onChange={(v) => setFilters((f) => ({ ...f, sub_industries: v }))}
                 options={subIndustryOpts}
                 placeholder="细分行业"
+                allowCreate={false}
               />
               <MultiSelect
                 value={filters.product_tags}
                 onChange={(v) => setFilters((f) => ({ ...f, product_tags: v }))}
                 options={productTagOpts}
                 placeholder="产品标签"
+                allowCreate={false}
               />
               <Select
                 value={filters.grade || 'all'}
