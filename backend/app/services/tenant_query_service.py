@@ -172,6 +172,7 @@ class TenantQueryService:
         min_score: float | None = None,
         max_score: float | None = None,
         grade: str | None = None,
+        group_id: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
         offset: int | None = None,
@@ -287,6 +288,11 @@ class TenantQueryService:
             where_clauses.append("wc.id < :cursor")
             params["cursor"] = self._parse_clean_company_id(cursor)
 
+        group_join_sql = ""
+        if group_id:
+            group_join_sql = "JOIN group_members gm ON gm.tenant_company_id = tc.id AND gm.group_id = :group_id"
+            params["group_id"] = group_id
+
         where_sql = " AND ".join(where_clauses)
 
         total_result = await conn.execute(
@@ -297,6 +303,7 @@ class TenantQueryService:
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
+                {group_join_sql}
                 WHERE {where_sql}
                 """
             ),
@@ -342,6 +349,7 @@ class TenantQueryService:
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
+                {group_join_sql}
                 WHERE {where_sql}
                 ORDER BY wc.id DESC
                 LIMIT :limit
