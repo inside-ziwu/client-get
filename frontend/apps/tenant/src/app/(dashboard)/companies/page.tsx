@@ -15,6 +15,7 @@ import {
 import { tenantApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { PageHeader } from '@/components/pages/page-kit';
+import AddCompanySheet from './add-company-sheet';
 import CompanyDetail from './company-detail';
 import CompanyFilters, { type FilterValues, EMPTY_FILTERS, buildParams, countryZh } from '@/components/company-filters';
 
@@ -44,6 +45,7 @@ export default function CompaniesPage() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [groupTarget, setGroupTarget] = useState<{ tcIds: string[]; label: string } | null>(null);
   const [blacklistTarget, setBlacklistTarget] = useState<{ tcId: string; name: string } | null>(null);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
 
   const filtersQuery = useQuery({
     queryKey: ['tenant', 'companies', 'filters'],
@@ -100,7 +102,7 @@ export default function CompaniesPage() {
 
   return (
     <div className="tenant-page space-y-4">
-      <PageHeader title="公司列表" description="筛选、查看和处理租户公司数据" />
+      <PageHeader title="公司列表" description="筛选、查看和处理租户公司数据" action={<Button onClick={() => setAddSheetOpen(true)}>新增公司</Button>} />
 
       {/* 筛选面板 */}
       <CompanyFilters
@@ -263,6 +265,9 @@ export default function CompaniesPage() {
         onClose={() => setBlacklistTarget(null)}
         onSuccess={invalidateList}
       />
+
+      {/* 新增公司 Sheet */}
+      <AddCompanySheet open={addSheetOpen} onOpenChange={setAddSheetOpen} onSuccess={invalidateList} />
     </div>
   );
 }

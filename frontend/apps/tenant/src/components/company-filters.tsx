@@ -48,6 +48,13 @@ export const COUNTRY_ZH: Record<string, string> = {
   'Vietnam': '越南', 'Philippines': '菲律宾', 'Bangladesh': '孟加拉国', 'Mexico': '墨西哥',
   'Kuwait': '科威特', 'Aruba': '阿鲁巴', 'Bulgaria': '保加利亚', 'Czech Republic': '捷克',
   'Luxembourg': '卢森堡', '未公开': '未公开',
+  CHN: '中国', HKG: '中国香港', MAC: '中国澳门', TWN: '中国台湾',
+  USA: '美国', GBR: '英国', FRA: '法国', DEU: '德国',
+  JPN: '日本', KOR: '韩国', IND: '印度', AUS: '澳大利亚',
+  CAN: '加拿大', SGP: '新加坡', MYS: '马来西亚', THA: '泰国',
+  VNM: '越南', PHL: '菲律宾', BGD: '孟加拉国', MEX: '墨西哥',
+  KWT: '科威特', ABW: '阿鲁巴', BGR: '保加利亚', CZE: '捷克',
+  LUX: '卢森堡', UNK: '未知',
 };
 
 export function countryZh(v: string | null | undefined) {
