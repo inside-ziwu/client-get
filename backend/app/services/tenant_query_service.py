@@ -527,7 +527,6 @@ class TenantQueryService:
                   wcc.whatsapp,
                   wcc.confidence,
                   wcc.created_at,
-                  wcc.updated_at,
                   tc.contact_status,
                   tc.is_sendable,
                   tc.created_at AS tenant_created_at,
@@ -567,7 +566,7 @@ class TenantQueryService:
                     "updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
                 },
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
-                "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+                "updated_at": None,
             }
             for row in result.mappings().all()
         ]
