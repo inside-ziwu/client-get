@@ -109,7 +109,7 @@ export default function StepRecipients({ recipientConfig, lockRecipients, onChan
                       <TableRow key={i}>
                         <TableCell>{(m.company_name as string) ?? '-'}</TableCell>
                         <TableCell>{(m.contact_name as string) ?? '-'}</TableCell>
-                        <TableCell>{(m.email as string) ?? '-'}</TableCell>
+                        <TableCell>{(m.contact_email as string) ?? '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
