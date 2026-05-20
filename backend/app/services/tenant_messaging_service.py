@@ -1838,7 +1838,7 @@ class TenantMessagingService:
             ),
             {"tenant_id": tenant_id, "group_id": config["group_id"]},
         )
-        for row in gm_result:
+        for row in gm_result.mappings():
             await ensure_contacts_from_wmt(conn, tenant_id, int(row["tenant_company_id"]))
         result = await conn.execute(
             text(
