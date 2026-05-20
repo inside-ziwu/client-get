@@ -755,9 +755,9 @@ class TenantMessagingService:
                     SELECT t.id, t.tenant_id, t.plan_id, t.company_id, t.contact_id,
                            t.source_type, t.source_ref, now(), false, NULL, NULL
                     FROM unnest(
-                      :ids::uuid[], :tenant_ids::uuid[], :plan_ids::uuid[],
-                      :company_ids::bigint[], :contact_ids::bigint[],
-                      :source_types::text[], :source_refs::text[]
+                      CAST(:ids AS uuid[]), CAST(:tenant_ids AS uuid[]), CAST(:plan_ids AS uuid[]),
+                      CAST(:company_ids AS bigint[]), CAST(:contact_ids AS bigint[]),
+                      CAST(:source_types AS text[]), CAST(:source_refs AS text[])
                     ) AS t(id, tenant_id, plan_id, company_id, contact_id, source_type, source_ref)
                     ON CONFLICT (plan_id, tenant_contact_id) DO NOTHING
                     RETURNING sending_plan_recipients.id
