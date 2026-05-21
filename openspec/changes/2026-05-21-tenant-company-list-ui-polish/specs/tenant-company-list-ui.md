@@ -17,11 +17,11 @@ tenant 公司列表及其复用的公司选择列表 SHALL 向租户端用户展
 - **WHEN** 租户访问公司列表
 - **THEN** 页面 SHALL 显示 `美国`
 
-#### Scenario: 未知国家值使用中文兜底
+#### Scenario: 未识别国家值保留原始值
 - **GIVEN** 公司数据中的国家值无法识别
 - **WHEN** 租户访问公司列表
-- **THEN** 页面 SHALL 显示中文兜底文案
-- **AND** 页面 SHOULD NOT 直接把原始代码暴露给租户端用户
+- **THEN** 页面 SHALL 保留原始值
+- **AND** 后续实现 SHOULD 通过补充映射表优先解决该漏项，而不是用笼统兜底文案掩盖数据
 
 ### Requirement: tenant 公司列表 MUST 移除电话列
 
