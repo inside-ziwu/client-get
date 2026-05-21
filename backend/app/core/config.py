@@ -83,6 +83,11 @@ class Settings(BaseSettings):
         default=30,
         alias="COLLECTION_HEARTBEAT_INTERVAL_SECONDS",
     )
+    wmt_lineage_repair_enabled: bool = Field(default=True, alias="WMT_LINEAGE_REPAIR_ENABLED")
+    wmt_lineage_repair_interval_seconds: int = Field(
+        default=300,
+        alias="WMT_LINEAGE_REPAIR_INTERVAL_SECONDS",
+    )
 
     @field_validator("debug", mode="before")
     @classmethod
