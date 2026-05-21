@@ -47,19 +47,38 @@ export const COUNTRY_ZH: Record<string, string> = {
   'Canada': '加拿大', 'Singapore': '新加坡', 'Malaysia': '马来西亚', 'Thailand': '泰国',
   'Vietnam': '越南', 'Philippines': '菲律宾', 'Bangladesh': '孟加拉国', 'Mexico': '墨西哥',
   'Kuwait': '科威特', 'Aruba': '阿鲁巴', 'Bulgaria': '保加利亚', 'Czech Republic': '捷克',
-  'Luxembourg': '卢森堡', '未公开': '未公开',
+  'Luxembourg': '卢森堡', 'Turkey': '土耳其', 'Russia': '俄罗斯', 'Russian Federation': '俄罗斯',
+  'Indonesia': '印度尼西亚', 'Pakistan': '巴基斯坦', 'Sri Lanka': '斯里兰卡',
+  'United Arab Emirates': '阿联酋', 'Saudi Arabia': '沙特阿拉伯', 'Israel': '以色列',
+  'Netherlands': '荷兰', 'Belgium': '比利时', 'Italy': '意大利', 'Spain': '西班牙',
+  'Switzerland': '瑞士', 'Sweden': '瑞典', 'Norway': '挪威', 'Denmark': '丹麦',
+  'Finland': '芬兰', 'Poland': '波兰', 'Austria': '奥地利', 'Ireland': '爱尔兰',
+  'Portugal': '葡萄牙', 'Greece': '希腊', 'Romania': '罗马尼亚', 'Hungary': '匈牙利',
+  'South Africa': '南非', 'Brazil': '巴西', 'Argentina': '阿根廷', 'Chile': '智利',
+  'Colombia': '哥伦比亚', 'Peru': '秘鲁', 'New Zealand': '新西兰', '未公开': '未公开',
   CHN: '中国', HKG: '中国香港', MAC: '中国澳门', TWN: '中国台湾',
   USA: '美国', GBR: '英国', FRA: '法国', DEU: '德国',
   JPN: '日本', KOR: '韩国', IND: '印度', AUS: '澳大利亚',
   CAN: '加拿大', SGP: '新加坡', MYS: '马来西亚', THA: '泰国',
   VNM: '越南', PHL: '菲律宾', BGD: '孟加拉国', MEX: '墨西哥',
   KWT: '科威特', ABW: '阿鲁巴', BGR: '保加利亚', CZE: '捷克',
-  LUX: '卢森堡', UNK: '未知',
+  LUX: '卢森堡', TUR: '土耳其', RUS: '俄罗斯', IDN: '印度尼西亚',
+  PAK: '巴基斯坦', LKA: '斯里兰卡', ARE: '阿联酋', SAU: '沙特阿拉伯',
+  ISR: '以色列', NLD: '荷兰', BEL: '比利时', ITA: '意大利', ESP: '西班牙',
+  CHE: '瑞士', SWE: '瑞典', NOR: '挪威', DNK: '丹麦', FIN: '芬兰',
+  POL: '波兰', AUT: '奥地利', IRL: '爱尔兰', PRT: '葡萄牙', GRC: '希腊',
+  ROU: '罗马尼亚', HUN: '匈牙利', ZAF: '南非', BRA: '巴西',
+  ARG: '阿根廷', CHL: '智利', COL: '哥伦比亚', PER: '秘鲁',
+  NZL: '新西兰', UNK: '未知国家',
 };
 
 export function countryZh(v: string | null | undefined) {
   if (!v) return '-';
-  return COUNTRY_ZH[v] ?? v;
+  const value = v.trim();
+  if (!value) return '-';
+  if (COUNTRY_ZH[value]) return COUNTRY_ZH[value];
+  if (/[\u4e00-\u9fa5]/.test(value)) return value;
+  return '未知国家';
 }
 
 export function buildParams(f: FilterValues, page: number, pageSize: number): CompanyListFilters {
