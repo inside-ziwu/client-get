@@ -13,6 +13,10 @@
 - [ ] 2.3 修复悬空旧关联：对只能 JOIN 旧 `clean_companies`、不能 JOIN wmt 的 visible `tenant_companies` 做隐藏或按用户确认策略处理
 - [ ] 2.4 保持 `(tenant_id, clean_company_id)` 幂等，重复 fan-out 不产生重复记录
 - [ ] 2.5 为关键 JOIN 补必要索引：`waimaotong_raw_companies.sys_company_id`、`waimaotong_raw_companies.source_competitor`、`lixiaoyun_api_clean_companies.entname_eng` 如缺失则补
+- [x] 2.6 新增定时 repair worker：每轮执行 keyword lineage 回写、active keyword fan-out、stale visible relation 隐藏
+- [x] 2.7 repair worker 使用 PostgreSQL advisory lock，避免多实例并发执行
+- [x] 2.8 应用启动时按配置启用后台 repair 循环，默认允许几分钟内自愈；测试/本地可关闭
+- [x] 2.9 新增 Alembic 修复 `waimaotong_clean_companies.keyword_master_ids`：NULL 改 `{}`，并设 `NOT NULL DEFAULT '{}'`
 
 ## 3. 测试覆盖
 
@@ -21,6 +25,8 @@
 - [ ] 3.3 增加 unresolved 测试：无法精确匹配 clean/raw 时不写 tenant_companies，并输出诊断
 - [ ] 3.4 增加旧 fan-out 防回归测试：fan-out 后 `tenant_companies.clean_company_id` 必须能 JOIN wmt 表
 - [ ] 3.5 增加 tenant 列表契约测试：列表只返回当前租户 active 关键词匹配的 wmt 公司
+- [x] 3.6 增加 repair 自愈测试：WMT id 重建导致旧 relation stale 后，repair 隐藏旧关系并写入当前 WMT id
+- [x] 3.7 增加 repair 幂等测试：连续运行两次不重复写 tenant_companies，不反复更新无变化数据
 
 ## 4. 本地验证
 

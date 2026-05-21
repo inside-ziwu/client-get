@@ -103,6 +103,28 @@ JOIN lixiaoyun_api_clean_companies lx
 
 优先推荐改造为 wmt lineage fan-out，减少重复入口。
 
+### D7: 后续 WMT 重建由定时 repair 自愈
+
+线上 `waimaotong_clean_companies` 可能由外部流程直接重建或批量更新，系统不能假设该表的 bigint `id` 长期稳定。接受短暂空窗：WMT 写入后最多几分钟内由后台 repair 修复。
+
+后台 repair 每轮执行：
+
+1. 规范化 `waimaotong_clean_companies.keyword_master_ids`：将 NULL 视为空数组，并补齐列默认值/NOT NULL 约束。
+2. 按 D2/D3 回写当前 WMT 公司血缘。
+3. 按 active `tenant_keyword` 写入当前 WMT id 到 `tenant_companies`。
+4. 隐藏 stale visible 关系：`tenant_companies.clean_company_id` 已无法 JOIN 当前 `waimaotong_clean_companies.id` 的记录。
+5. 输出本轮统计：血缘回写数、fan-out 新增/恢复数、stale 隐藏数、unresolved 数。
+
+repair 必须幂等，可重复执行；多实例部署时使用 PostgreSQL advisory lock 避免并发重建互相踩踏。
+
+### D8: 轻量稳定键防御
+
+本 change 不大改 `tenant_companies` 主模型，不新增第二套关系表。防御重点放在：
+
+- repair 用 `waimaotong_clean_companies.sys_company_id` 串回 WMT raw，再通过 `source_competitor` 找关键词血缘。
+- 诊断 stale relation 时明确区分“当前 WMT id 不存在”与“有当前 WMT 但无关键词血缘”。
+- 后续若要彻底消除 `id` 过期问题，再单独评估给 `tenant_companies` 增加稳定键字段（如 `wmt_sys_company_id`）。
+
 ## Risks / Trade-offs
 
 - **Risk: source_competitor 名称不稳定** -> 使用精确规范化匹配，未命中进入 unresolved 清单，不自动模糊写入。
@@ -113,18 +135,17 @@ JOIN lixiaoyun_api_clean_companies lx
 
 ## Migration Plan
 
-1. 增加 wmt lineage 查询/生成逻辑和 dry-run。
-2. 增加测试覆盖 clean 主路径、raw fallback、unresolved 诊断、旧 fan-out 不再写旧 id。
-3. 本地验证 dry-run 数量应接近当前线上观测：
-   - wmt clean 总数 506。
-   - clean 主路径约 481。
-   - raw fallback 约 16。
-   - unresolved 约 9。
-4. 用户显式授权后，对生产库执行 dry-run。
-5. 用户确认 dry-run 输出后，执行生产补全与 tenant_companies 修复。
-6. 重启/部署后验证 tenant 列表：
-   - `t-019dc236` 预计约 317 条。
-   - `t-019dc238` 预计约 497 条，若 Kinwong 补齐则更多。
+1. 增加 wmt lineage repair worker：支持单轮执行和后台循环。
+2. 增加 Alembic 修复：`keyword_master_ids` NULL → `{}`，并设为 `NOT NULL DEFAULT '{}'`。
+3. 增加测试覆盖 clean 主路径、raw fallback、unresolved 诊断、旧/stale relation 隐藏、重复 repair 幂等。
+4. 本地或线上快照验证：
+   - repair 前 API 等价 JOIN 为 0。
+   - repair 后 active 租户 JOIN 非 0，且只包含当前 active keyword 匹配的 WMT 公司。
+5. 用户显式授权后，对生产库执行 dry-run。
+6. 用户确认 dry-run 输出后，执行 write 模式或部署后台 repair。
+7. 重启/部署后验证 tenant 列表：
+   - `t-019dc236` 预计约 319 条。
+   - `t-019dc238` 预计约 507 条。
 
 Rollback:
 

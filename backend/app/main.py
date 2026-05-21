@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -21,6 +22,7 @@ from app.core.request_context import RequestContextMiddleware
 from app.core.responses import success_response
 from app.db.partitions import ensure_partitions
 from app.db.pools import close_engines, get_engine, initialize_engines
+from app.workers.wmt_lineage_repair import run_wmt_lineage_repair_loop
 
 
 @asynccontextmanager
@@ -28,8 +30,28 @@ async def lifespan(_: FastAPI):
     settings = get_settings()
     configure_logging(settings.debug)
     initialize_engines(settings)
-    await ensure_partitions(get_engine())
-    yield
+    engine = get_engine()
+    await ensure_partitions(engine)
+    repair_stop_event: asyncio.Event | None = None
+    repair_task: asyncio.Task | None = None
+    if settings.wmt_lineage_repair_enabled:
+        repair_stop_event = asyncio.Event()
+        repair_task = asyncio.create_task(
+            run_wmt_lineage_repair_loop(
+                engine,
+                interval_seconds=settings.wmt_lineage_repair_interval_seconds,
+                stop_event=repair_stop_event,
+            )
+        )
+    try:
+        yield
+    finally:
+        if repair_stop_event is not None:
+            repair_stop_event.set()
+        if repair_task is not None:
+            repair_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await repair_task
     await close_engines()
 
 
