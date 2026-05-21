@@ -204,33 +204,32 @@ export default function CuratedCustomersPage() {
               <Card className="flex min-h-0 flex-1 flex-col">
                 <CardContent className="flex min-h-0 flex-1 flex-col p-0">
                   <div className="min-h-0 flex-1 overflow-auto">
-                    <table className="w-full min-w-[1400px] text-sm">
-                      <thead className="sticky top-0 border-b bg-muted/70 text-left text-xs text-muted-foreground">
+                    <table className="w-full min-w-[1240px] text-sm">
+                      <thead className="sticky top-0 z-10 border-b bg-muted/90 text-left text-xs text-muted-foreground shadow-sm">
                         <tr>
-                          {['公司名', '国家', '域名', '行业', '员工规模', '成立', '电话', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
+                          {['公司名', '国家', '域名', '行业', '员工规模', '成立', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
                             <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {items.length === 0 && (
-                          <tr><td colSpan={13} className="py-12 text-center text-muted-foreground">
+                          <tr><td colSpan={12} className="py-12 text-center text-muted-foreground">
                             {listQuery.isLoading ? '加载中...' : '群组内暂无公司'}
                           </td></tr>
                         )}
                         {items.map((row) => (
-                          <tr key={row.id} className="border-b hover:bg-muted/40">
-                            <td className="max-w-[180px] truncate px-3 py-2">
+                          <tr key={row.id} className="border-b transition-colors hover:bg-muted/45">
+                            <td className="max-w-[220px] truncate px-3 py-2">
                               <button className="text-left font-medium text-primary hover:underline" onClick={() => setDetailId(row.id)}>
                                 {dash(row.name)}
                               </button>
                             </td>
-                            <td className="px-3 py-2">{countryZh(row.country_iso3)}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{countryZh(row.country_iso3)}</td>
                             <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
                             <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
-                            <td className="px-3 py-2">{dash(row.employee_num)}</td>
-                            <td className="px-3 py-2">{dash(row.founded_year)}</td>
-                            <td className="px-3 py-2">{dash(row.phone)}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{dash(row.employee_num)}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{dash(row.founded_year)}</td>
                             <td className="px-3 py-2">
                               {row.grade ? (
                                 <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[row.grade] ?? ''}`}>
@@ -240,9 +239,9 @@ export default function CuratedCustomersPage() {
                             </td>
                             <td className="px-3 py-2">{row.wmt_score != null ? row.wmt_score : '-'}</td>
                             <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
-                            <td className="px-3 py-2">{row.contacts_count ?? '-'}</td>
+                            <td className="whitespace-nowrap px-3 py-2">{row.contacts_count ?? '-'}</td>
                             <td className="whitespace-nowrap px-3 py-2">
-                              <div className="flex items-center gap-1">
+                              <div className="flex min-w-[72px] items-center gap-2">
                                 <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setDetailId(row.id)}>详情</Button>
                                 <Button variant="link" size="sm" className="h-auto p-0 text-destructive" onClick={() => {
                                   setRemoveTarget({ tcId: row.tc_id, name: row.name });
