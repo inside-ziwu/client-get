@@ -6,7 +6,7 @@ tenant 端公司列表当前仍暴露部分英文/代码化字段，截图中可
 
 ## What Changes
 
-- tenant 公司列表国家展示统一中文化：常见国家名、ISO3 代码都映射为中文；未知值不直接裸露代码，优先显示“未知国家”。
+- tenant 公司列表国家展示统一中文化：常见国家名、ISO2/ISO3 代码都尽量映射为中文；未识别值保留原始值，便于继续发现漏项并补充映射。
 - 公司列表表格移除“电话”列和对应单元格，减少横向滚动压力。
 - 公司列表页面做轻量设计优化：保留现有筛选、批量操作、分页、详情 Drawer、加入群组、拉黑能力，优化表格视觉层级、行高、粘性表头/关键列、操作按钮呈现。
 - 同步检查复用公司表格的优选客户页，避免已抽取/复用的国家中文化能力继续漏出代码。
@@ -39,7 +39,7 @@ tenant 端公司列表当前仍暴露部分英文/代码化字段，截图中可
 | 层 | 影响范围 | 说明 |
 |----|---------|------|
 | 前端页面 | `frontend/apps/tenant/src/app/(dashboard)/companies/page.tsx` | 移除电话列，优化表格布局和操作区 |
-| 前端共享组件 | `frontend/apps/tenant/src/components/company-filters.tsx` | 扩展国家中文映射与兜底展示 |
+| 前端共享组件 | `frontend/apps/tenant/src/components/company-filters.tsx` | 扩展国家中文映射与 ISO 代码识别 |
 | 前端页面 | `frontend/apps/tenant/src/app/(dashboard)/curated-customers/page.tsx` | 复用国家中文化，检查是否需要移除同类电话列 |
 | 验证 | tenant 前端 lint/build 或针对性类型检查 + 浏览器截图 | 确认页面无明显视觉问题 |
 
