@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: tenant 公司列表 SHALL 只展示匹配租户关键词的 wmt 公司
 tenant 公司列表 SHALL 以 `waimaotong_clean_companies` 为唯一公司数据源，并且只展示已通过 wmt 血缘匹配当前租户 active 关键词的公司。
