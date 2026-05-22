@@ -2,7 +2,7 @@
 
 import type { PlatformEmailTemplate } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Code2, Edit2, Eye, FileText, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Code2, Edit2, Eye, FileText, Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -24,7 +24,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
 import { Switch } from '@shared/ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shared/ui';
 import { Textarea } from '@shared/ui';
-import { GrapesEmailEditor, type GrapesEmailEditorHandle } from '@/components/grapes-email-editor';
+import { GrapesEmailEditor, type GrapesEmailEditorHandle } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
@@ -173,20 +173,6 @@ export function EmailTemplatesPage() {
     }
   };
 
-  const [syncing, setSyncing] = useState<string | null>(null);
-
-  const syncTemplate = async (template: PlatformEmailTemplate) => {
-    setSyncing(template.id);
-    try {
-      const response = await adminApi.emailTemplates.sync(template.id);
-      const result = response.data.data;
-      toast.success(`同步完成：${result.created.length} 个租户新增，${result.skipped.length} 个已跳过`);
-    } catch {
-      toast.error('同步邮件模板失败');
-    } finally {
-      setSyncing(null);
-    }
-  };
 
   return (
     <div className="admin-page">
@@ -238,17 +224,6 @@ export function EmailTemplatesPage() {
                         <Button variant="ghost" size="icon" aria-label="编辑模板" onClick={() => void openEdit(item)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        {item.is_active && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="同步到租户"
-                            disabled={syncing === item.id}
-                            onClick={() => void syncTemplate(item)}
-                          >
-                            <RefreshCw className={`h-4 w-4${syncing === item.id ? ' animate-spin' : ''}`} />
-                          </Button>
-                        )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" aria-label="删除模板">

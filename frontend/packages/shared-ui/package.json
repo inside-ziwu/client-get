@@ -32,7 +32,9 @@
     "react-day-picker": "^9.4.0",
     "react-hook-form": "^7.54.0",
     "tailwind-merge": "^2.5.5",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "grapesjs": "^0.22.15",
+    "grapesjs-preset-newsletter": "^1.0.2"
   },
   "peerDependencies": {
     "react": "^19.0.0",
