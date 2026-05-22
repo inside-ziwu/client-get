@@ -249,53 +249,51 @@ export function EmailTemplatesPage() {
             <SheetDescription>编辑邮件模板内容</SheetDescription>
           </div>
           <form className="space-y-5 p-5" onSubmit={save}>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>模板名称</Label>
-                <Input value={form.name} onChange={(event) => setForm((c) => ({ ...c, name: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>行业</Label>
-                <Input value={form.industry} onChange={(event) => setForm((c) => ({ ...c, industry: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>主题</Label>
-                <Input value={form.subject} onChange={(event) => setForm((c) => ({ ...c, subject: event.target.value }))} />
+            <div className="space-y-2">
+              <Label>模板名称</Label>
+              <Input value={form.name} onChange={(event) => setForm((c) => ({ ...c, name: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>行业</Label>
+              <Input value={form.industry} onChange={(event) => setForm((c) => ({ ...c, industry: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>邮件主题</Label>
+              <Input value={form.subject} onChange={(event) => setForm((c) => ({ ...c, subject: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>变量（点击插入）</Label>
+              <Textarea
+                className="min-h-24 font-mono text-xs"
+                value={form.variables_text}
+                onChange={(event) => setForm((c) => ({ ...c, variables_text: event.target.value }))}
+              />
+              <div className="flex flex-wrap gap-1">
+                {parseVariables(form.variables_text).map((variable) => (
+                  <Badge key={variable.name} variant="outline" className="cursor-pointer" onClick={() => editorRef.current?.insertVariable(`{{${variable.name}}}`)}>
+                    {`{{${variable.name}}}`} {variable.label}
+                  </Badge>
+                ))}
               </div>
             </div>
-            <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label>变量</Label>
-                  <Textarea
-                    className="min-h-36 font-mono text-xs"
-                    value={form.variables_text}
-                    onChange={(event) => setForm((c) => ({ ...c, variables_text: event.target.value }))}
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {parseVariables(form.variables_text).map((variable) => (
-                      <Badge key={variable.name} variant="outline">{`{{ ${variable.name} }}`}</Badge>
-                    ))}
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />
-                  启用模板
-                </label>
-                <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
-                  <Eye className="h-4 w-4" />
-                  预览
-                </Button>
-              </div>
-              <EmailRichEditor
-                ref={editorRef}
-                key={editorKey}
-                initialContent={form.body_html}
-                onUpdate={(html, text) => {
-                  setBodyHtml(html);
-                  setBodyText(text);
-                }}
-              />
+            <EmailRichEditor
+              ref={editorRef}
+              key={editorKey}
+              initialContent={form.body_html}
+              onUpdate={(html, text) => {
+                setBodyHtml(html);
+                setBodyText(text);
+              }}
+            />
+            <div className="flex items-center justify-between border-t pt-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />
+                启用模板
+              </label>
+              <Button type="button" variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
+                <Eye className="h-4 w-4" />
+                预览
+              </Button>
             </div>
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
