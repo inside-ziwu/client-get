@@ -35,13 +35,38 @@
 - 数据库：Alembic 入口 [`backend/alembic/`](backend/alembic/)；迁移文件以 [`backend/alembic/versions/`](backend/alembic/versions/) 实际内容为准
 - 部署脚本：后端 [`backend/scripts/push-backend.sh`](backend/scripts/push-backend.sh)，前端 [`frontend/deploy/push-admin.sh`](frontend/deploy/push-admin.sh) / [`frontend/deploy/push-tenant.sh`](frontend/deploy/push-tenant.sh)
 
-## 6. 数据库环境
+## 6. 环境与部署
+
+### 环境变量
 
 - 各端在自己根目录维护 `.env`，互不干扰：
   - `backend/.env` — `CLIENTGET_DEV_DATABASE_URL`（Neon）+ `CLIENTGET_PROD_DATABASE_URL`（Sealos）
   - `frontend/apps/tenant/.env` — `NEXT_PUBLIC_API_BASE_URL`
   - `frontend/apps/admin/.env` — `NEXT_PUBLIC_ADMIN_API_BASE_URL`
 - `.env` 值由用户手动维护，不得自动修改。
+- 开发环境和生产环境完全隔离，没有"切换"动作。
+
+### 开发环境
+
+- 数据库：Neon 云数据库（`CLIENTGET_DEV_DATABASE_URL`）
+- 后端：本地 `uvicorn`
+- 前端：本地 `next dev`
+
+### 生产环境
+
+- 数据库：Sealos PostgreSQL（环境变量由 Sealos 控制台注入容器）
+- 后端 + 前端：均为 Sealos 容器，镜像托管在阿里云 ACR
+
+### 部署流程（开发验证通过后）
+
+1. 代码推送到 GitHub
+2. 在 GitHub Actions 手动触发 `workflow_dispatch`（选择 service：admin / tenant / backend）
+3. GitHub Actions 在 amd64 runner 上构建 Docker 镜像并推送到阿里云 ACR
+4. 在 Sealos 控制台更新对应服务的镜像 tag
+
+- 本地 `push-*.sh` 脚本仅用于本地调试验证，不用于正式发布（本机 ARM 交叉编译 amd64 很慢）。
+- 前端 API 地址在构建时通过 `--build-arg` 注入（`https://api.xinanpcb.com`），不走 `.env`。
+- 后端镜像启动时 `/start.sh` 自动执行 `alembic upgrade head`。
 - 同步生产快照属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
 
 ## Skill routing
