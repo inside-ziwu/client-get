@@ -7,8 +7,10 @@ interface AuthState {
   token: string | null;
   payload: JWTPayload | null;
   hasHydrated: boolean;
+  mustChangePwd: boolean;
   setHasHydrated: (hasHydrated: boolean) => void;
   setToken: (token: string) => void;
+  setMustChangePwd: (v: boolean) => void;
   logout: () => void;
   isExpired: () => boolean;
 }
@@ -19,9 +21,11 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       payload: null,
       hasHydrated: false,
+      mustChangePwd: false,
       setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setToken: (token) => set({ token, payload: jwtDecode<JWTPayload>(token), hasHydrated: true }),
-      logout: () => set({ token: null, payload: null }),
+      setMustChangePwd: (v) => set({ mustChangePwd: v }),
+      logout: () => set({ token: null, payload: null, mustChangePwd: false }),
       isExpired: () => {
         const p = get().payload;
         return !p || p.exp * 1000 < Date.now();

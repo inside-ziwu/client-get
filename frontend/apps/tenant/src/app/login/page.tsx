@@ -14,6 +14,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const slug = searchParams.get('slug')?.trim() || null;
   const setToken = useAuthStore((state) => state.setToken);
+  const setMustChangePwd = useAuthStore((state) => state.setMustChangePwd);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,8 +41,15 @@ function LoginForm() {
         timeout: 15_000,
       });
       const me = meResponse.data.data;
+      setMustChangePwd(me.must_change_pwd);
       toast.success('登录成功');
-      router.replace(me.must_change_pwd || me.needs_onboarding ? '/onboarding' : '/');
+      if (me.must_change_pwd) {
+        router.replace('/force-change-password');
+      } else if (me.needs_onboarding) {
+        router.replace('/onboarding');
+      } else {
+        router.replace('/');
+      }
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const diagnostic = {
