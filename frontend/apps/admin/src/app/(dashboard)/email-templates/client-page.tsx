@@ -253,6 +253,10 @@ export function EmailTemplatesPage() {
               <Label>模板名称</Label>
               <Input value={form.name} onChange={(event) => setForm((c) => ({ ...c, name: event.target.value }))} />
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />
+              启用模板
+            </label>
             <div className="space-y-2">
               <Label>行业</Label>
               <Input value={form.industry} onChange={(event) => setForm((c) => ({ ...c, industry: event.target.value }))} />
@@ -263,11 +267,6 @@ export function EmailTemplatesPage() {
             </div>
             <div className="space-y-2">
               <Label>变量（点击插入）</Label>
-              <Textarea
-                className="min-h-24 font-mono text-xs"
-                value={form.variables_text}
-                onChange={(event) => setForm((c) => ({ ...c, variables_text: event.target.value }))}
-              />
               <div className="flex flex-wrap gap-1">
                 {parseVariables(form.variables_text).map((variable) => (
                   <Badge key={variable.name} variant="outline" className="cursor-pointer" onClick={() => editorRef.current?.insertVariable(`{{${variable.name}}}`)}>
@@ -275,6 +274,11 @@ export function EmailTemplatesPage() {
                   </Badge>
                 ))}
               </div>
+              <Textarea
+                className="min-h-24 font-mono text-xs"
+                value={form.variables_text}
+                onChange={(event) => setForm((c) => ({ ...c, variables_text: event.target.value }))}
+              />
             </div>
             <EmailRichEditor
               ref={editorRef}
@@ -285,23 +289,19 @@ export function EmailTemplatesPage() {
                 setBodyText(text);
               }}
             />
-            <div className="flex items-center justify-between border-t pt-4">
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />
-                启用模板
-              </label>
-              <Button type="button" variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
+            <div className="flex justify-between border-t pt-4">
+              <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
                 <Eye className="h-4 w-4" />
                 预览
               </Button>
-            </div>
-            <div className="flex justify-end gap-2 border-t pt-4">
-              <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
-                取消
-              </Button>
-              <Button type="submit" disabled={saving}>
-                保存
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  保存
+                </Button>
+              </div>
             </div>
           </form>
         </SheetContent>
