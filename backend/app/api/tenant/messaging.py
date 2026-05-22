@@ -8,6 +8,27 @@ router = APIRouter(tags=["tenant-messaging"])
 service = TenantMessagingService()
 
 
+@router.get("/platform-templates")
+async def list_platform_templates(context: TenantAuthContext = Depends(get_current_tenant_user)) -> dict:
+    items = await service.list_platform_templates(context.connection, context.tenant_id)
+    return paginated_response(items, total=len(items))
+
+
+@router.post("/platform-templates/{template_id}/copy")
+async def copy_platform_template(
+    template_id: str,
+    context: TenantAuthContext = Depends(require_tenant_roles("admin", "operator")),
+) -> dict:
+    return success_response(
+        await service.copy_platform_template(
+            context.connection,
+            tenant_id=context.tenant_id,
+            template_id=template_id,
+            user_id=context.user_id,
+        )
+    )
+
+
 @router.get("/email-templates")
 async def list_email_templates(context: TenantAuthContext = Depends(get_current_tenant_user)) -> dict:
     items = await service.list_email_templates(context.connection, context.tenant_id)
