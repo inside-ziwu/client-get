@@ -12,9 +12,8 @@ import type { ApiResponse, CurrentUser, LoginResponse } from '@shared/types';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialSlug = searchParams.get('slug') ?? '';
+  const slug = searchParams.get('slug')?.trim() || null;
   const setToken = useAuthStore((state) => state.setToken);
-  const [slug, setSlug] = useState(initialSlug);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,18 +21,13 @@ function LoginForm() {
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const submittedSlug = String(formData.get('slug') ?? '').trim();
     const submittedEmail = String(formData.get('email') ?? '').trim();
     const submittedPassword = String(formData.get('password') ?? '');
-    if (!submittedSlug) {
-      toast.error('请输入租户标识');
-      return;
-    }
     setLoading(true);
     try {
       const baseURL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
-      const response = await axios.post<ApiResponse<LoginResponse>>(`${baseURL}/t/${submittedSlug}/api/v1/auth/login`, {
-        slug: submittedSlug,
+      const response = await axios.post<ApiResponse<LoginResponse>>(`${baseURL}/t/${slug}/api/v1/auth/login`, {
+        slug,
         email: submittedEmail,
         password: submittedPassword,
       }, {
@@ -41,7 +35,7 @@ function LoginForm() {
       });
       const token = response.data.data.access_token;
       setToken(token);
-      const meResponse = await axios.get<ApiResponse<CurrentUser>>(`${baseURL}/t/${submittedSlug}/api/v1/auth/me`, {
+      const meResponse = await axios.get<ApiResponse<CurrentUser>>(`${baseURL}/t/${slug}/api/v1/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 15_000,
       });
@@ -67,6 +61,21 @@ function LoginForm() {
     }
   };
 
+  if (!slug) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center text-xl">无法访问</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-muted-foreground">请通过正确的链接访问登录页面</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md">
@@ -75,10 +84,6 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={onSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="slug">租户标识</Label>
-              <Input id="slug" name="slug" value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="xinanpcb" />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="email">邮箱</Label>
               <Input id="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoFocus />
