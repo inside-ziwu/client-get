@@ -155,10 +155,11 @@ docker build -f Dockerfile.tenant --build-arg NEXT_PUBLIC_API_BASE_URL=https://a
 
 ## 9. 数据库环境
 
-- 环境变量统一在根目录 `.env` 维护，两个字段：
-  - `CLIENTGET_DEV_DATABASE_URL` — 开发环境（Neon 云数据库）
-  - `CLIENTGET_PROD_DATABASE_URL` — 生产环境（Sealos PostgreSQL）
-- 切换环境只需修改后端读取的连接串；`.env` 值由用户手动维护，不得自动修改。
+- 各端在自己根目录维护 `.env`，互不干扰：
+  - `backend/.env` — `CLIENTGET_DEV_DATABASE_URL`（Neon）+ `CLIENTGET_PROD_DATABASE_URL`（Sealos）
+  - `frontend/apps/tenant/.env` — `NEXT_PUBLIC_API_BASE_URL`
+  - `frontend/apps/admin/.env` — `NEXT_PUBLIC_ADMIN_API_BASE_URL`
+- `.env` 值由用户手动维护，不得自动修改。
 - 正式推送镜像、同步线上快照、上线操作都属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
 
 ## 10. 线上 PostgreSQL / Alembic 操作经验

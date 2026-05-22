@@ -37,10 +37,11 @@
 
 ## 6. 数据库环境
 
-- 环境变量统一在根目录 `.env` 维护，两个字段：
-  - `CLIENTGET_DEV_DATABASE_URL` — 开发环境（Neon 云数据库）
-  - `CLIENTGET_PROD_DATABASE_URL` — 生产环境（Sealos PostgreSQL）
-- 切换环境只需修改后端读取的连接串；`.env` 值由用户手动维护，不得自动修改。
+- 各端在自己根目录维护 `.env`，互不干扰：
+  - `backend/.env` — `CLIENTGET_DEV_DATABASE_URL`（Neon）+ `CLIENTGET_PROD_DATABASE_URL`（Sealos）
+  - `frontend/apps/tenant/.env` — `NEXT_PUBLIC_API_BASE_URL`
+  - `frontend/apps/admin/.env` — `NEXT_PUBLIC_ADMIN_API_BASE_URL`
+- `.env` 值由用户手动维护，不得自动修改。
 - 同步生产快照属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
 
 ## Skill routing
