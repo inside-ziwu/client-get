@@ -157,7 +157,7 @@ class TenantMessagingService:
                 "source_type": payload.get("source_type", "custom"),
                 "platform_template_id": payload.get("platform_template_id"),
                 "name": payload["name"],
-                "category": payload["category"],
+                "category": payload.get("category", "cold_outreach"),
                 "subject": content["subject"],
                 "body_html": content["body_html"],
                 "body_text": content["body_text"],

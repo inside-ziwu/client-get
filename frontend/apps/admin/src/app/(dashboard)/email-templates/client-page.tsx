@@ -2,7 +2,7 @@
 
 import type { PlatformEmailTemplate } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Code2, Edit2, Eye, FileText, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Eye, Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -22,9 +22,7 @@ import { Input } from '@shared/ui';
 import { Label } from '@shared/ui';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
 import { Switch } from '@shared/ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shared/ui';
-import { Textarea } from '@shared/ui';
-import { GrapesEmailEditor, type GrapesEmailEditorHandle } from '@shared/ui';
+import { EmailRichEditor, type EmailRichEditorHandle } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
@@ -32,10 +30,8 @@ type TemplateForm = {
   industry: string;
   name: string;
   subject: string;
-  category: string;
   variables_text: string;
   body_html: string;
-  body_design?: unknown;
   is_active: boolean;
 };
 
@@ -43,10 +39,8 @@ const EMPTY_FORM: TemplateForm = {
   industry: '',
   name: '',
   subject: '',
-  category: 'default',
-  variables_text: 'company_name:公司名称\ncontact_name:联系人姓名',
-  body_html: '<p>你好，{{ contact_name }}</p>',
-  body_design: undefined,
+  variables_text: 'company_name:公司名称\ncontact_name:联系人姓名\ncontact_email:联系人邮箱\nsender_name:发件人姓名',
+  body_html: '<p>你好，{{contact_name}}</p>',
   is_active: true,
 };
 
@@ -71,22 +65,22 @@ function templateToForm(template: PlatformEmailTemplate): TemplateForm {
     industry: template.industry ?? '',
     name: template.name,
     subject: template.subject,
-    category: template.category,
     variables_text: variablesToText(template.variables),
     body_html: template.body_html,
-    body_design: template.body_design,
     is_active: template.is_active,
   };
 }
 
 export function EmailTemplatesPage() {
-  const editorRef = useRef<GrapesEmailEditorHandle | null>(null);
+  const editorRef = useRef<EmailRichEditorHandle | null>(null);
   const [items, setItems] = useState<PlatformEmailTemplate[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editing, setEditing] = useState<PlatformEmailTemplate | null>(null);
   const [form, setForm] = useState<TemplateForm>(EMPTY_FORM);
-  const [mode, setMode] = useState<'visual' | 'html'>('html');
+  const [editorKey, setEditorKey] = useState(0);
+  const [bodyHtml, setBodyHtml] = useState('');
+  const [_bodyText, setBodyText] = useState('');
   const [saving, setSaving] = useState(false);
   const query = useQuery({
     queryKey: ['admin', 'email-templates'],
@@ -109,7 +103,7 @@ export function EmailTemplatesPage() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setMode('html');
+    setEditorKey((k) => k + 1);
     setDrawerOpen(true);
   };
 
@@ -119,7 +113,7 @@ export function EmailTemplatesPage() {
       const detail = response.data.data;
       setEditing(detail);
       setForm(templateToForm(detail));
-      setMode('html');
+      setEditorKey((k) => k + 1);
       setDrawerOpen(true);
     } catch {
       toast.error('加载模板详情失败');
@@ -134,16 +128,13 @@ export function EmailTemplatesPage() {
     }
     setSaving(true);
     try {
-      const body_html = mode === 'visual' ? (editorRef.current?.getHtml() ?? form.body_html) : form.body_html;
-      const body_design = mode === 'visual' ? editorRef.current?.getDesign() : form.body_design;
       const payload = {
         industry: form.industry.trim() || undefined,
         name: form.name.trim(),
         subject: form.subject.trim(),
-        category: form.category.trim() || 'default',
         variables: parseVariables(form.variables_text),
-        body_html,
-        body_design,
+        body_html: bodyHtml,
+        body_design: null,
         is_active: form.is_active,
       };
 
@@ -254,86 +245,57 @@ export function EmailTemplatesPage() {
         <SheetContent className="max-w-5xl overflow-y-auto p-0 sm:w-[980px]">
           <div className="border-b px-5 py-4">
             <SheetTitle>{editing ? '编辑邮件模板' : '新增邮件模板'}</SheetTitle>
-            <SheetDescription>可视化模式会保存 GrapesJS body_design，HTML 模式直接保存 body_html。</SheetDescription>
+            <SheetDescription>编辑邮件模板内容</SheetDescription>
           </div>
           <form className="space-y-5 p-5" onSubmit={save}>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>模板名称</Label>
-                <Input value={form.name} onChange={(event) => setForm((c) => ({ ...c, name: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>行业</Label>
-                <Input value={form.industry} onChange={(event) => setForm((c) => ({ ...c, industry: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>主题</Label>
-                <Input value={form.subject} onChange={(event) => setForm((c) => ({ ...c, subject: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>分类</Label>
-                <Input value={form.category} onChange={(event) => setForm((c) => ({ ...c, category: event.target.value }))} />
+            <div className="space-y-2">
+              <Label>模板名称</Label>
+              <Input value={form.name} onChange={(event) => setForm((c) => ({ ...c, name: event.target.value }))} />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />
+              启用模板
+            </label>
+            <div className="space-y-2">
+              <Label>行业</Label>
+              <Input value={form.industry} onChange={(event) => setForm((c) => ({ ...c, industry: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>邮件主题</Label>
+              <Input value={form.subject} onChange={(event) => setForm((c) => ({ ...c, subject: event.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>变量（点击插入）</Label>
+              <div className="flex flex-wrap gap-1">
+                {parseVariables(form.variables_text).map((variable) => (
+                  <Badge key={variable.name} variant="outline" className="cursor-pointer" onClick={() => editorRef.current?.insertVariable(`{{${variable.name}}}`)}>
+                    {`{{${variable.name}}}`} {variable.label}
+                  </Badge>
+                ))}
               </div>
             </div>
-            <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label>变量</Label>
-                  <Textarea
-                    className="min-h-36 font-mono text-xs"
-                    value={form.variables_text}
-                    onChange={(event) => setForm((c) => ({ ...c, variables_text: event.target.value }))}
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {parseVariables(form.variables_text).map((variable) => (
-                      <Badge key={variable.name} variant="outline">{`{{ ${variable.name} }}`}</Badge>
-                    ))}
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />
-                  启用模板
-                </label>
-                <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
-                  <Eye className="h-4 w-4" />
-                  预览
+            <EmailRichEditor
+              ref={editorRef}
+              key={editorKey}
+              initialContent={form.body_html}
+              onUpdate={(html, text) => {
+                setBodyHtml(html);
+                setBodyText(text);
+              }}
+            />
+            <div className="flex justify-between border-t pt-4">
+              <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
+                <Eye className="h-4 w-4" />
+                预览
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
+                  取消
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  保存
                 </Button>
               </div>
-              <Tabs value={mode} onValueChange={(value) => setMode(value as 'visual' | 'html')}>
-                <TabsList>
-                  <TabsTrigger value="html">
-                    <Code2 className="mr-2 h-4 w-4" />
-                    HTML 模式
-                  </TabsTrigger>
-                  <TabsTrigger value="visual">
-                    <FileText className="mr-2 h-4 w-4" />
-                    可视化模式
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="html">
-                  <Textarea
-                    className="min-h-[520px] font-mono text-xs"
-                    value={form.body_html}
-                    onChange={(event) => setForm((c) => ({ ...c, body_html: event.target.value }))}
-                  />
-                </TabsContent>
-                <TabsContent value="visual">
-                  <GrapesEmailEditor
-                    ref={editorRef}
-                    html={form.body_html}
-                    design={form.body_design}
-                    onReady={() => toast.success('GrapesJS 编辑器已加载')}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
-            <div className="flex justify-end gap-2 border-t pt-4">
-              <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
-                取消
-              </Button>
-              <Button type="submit" disabled={saving}>
-                保存
-              </Button>
             </div>
           </form>
         </SheetContent>

@@ -19,11 +19,6 @@ import {
   DialogTitle,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -34,17 +29,10 @@ import {
   TabsTrigger,
   Textarea,
 } from '@shared/ui';
-import { GrapesEmailEditor, type GrapesEmailEditorHandle } from '@shared/ui';
+import { EmailRichEditor, type EmailRichEditorHandle } from '@shared/ui';
 import type { EmailTemplate, PlatformTemplateListItem } from '@shared/api/src/tenant/email-templates';
 import { tenantApi } from '@/lib/api';
 import { DataTable, PageHeader } from '@/components/pages/page-kit';
-
-const CATEGORIES = [
-  { value: 'cold_outreach', label: '开发信' },
-  { value: 'follow_up', label: '跟进' },
-  { value: 'promotion', label: '推广' },
-  { value: 'festival', label: '节日' },
-];
 
 const VARIABLES = [
   { name: 'company_name', label: '公司名称' },
@@ -56,31 +44,29 @@ const VARIABLES = [
 
 type TemplateForm = {
   name: string;
-  category: string;
   subject: string;
   body_html: string;
   body_text: string;
-  body_design: unknown;
 };
 
 const EMPTY_FORM: TemplateForm = {
   name: '',
-  category: 'cold_outreach',
   subject: '',
   body_html: '<p>你好 {{contact_name}}，</p>',
   body_text: '',
-  body_design: null,
 };
 
 export default function TemplatesPage() {
   const queryClient = useQueryClient();
-  const editorRef = useRef<GrapesEmailEditorHandle | null>(null);
+  const editorRef = useRef<EmailRichEditorHandle | null>(null);
   const [activeTab, setActiveTab] = useState('my-templates');
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<TemplateForm>(EMPTY_FORM);
-  const [editorMode, setEditorMode] = useState<'visual' | 'html' | 'text'>('html');
+  const [editorKey, setEditorKey] = useState(0);
+  const [bodyHtml, setBodyHtml] = useState('');
+  const [bodyText, setBodyText] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -88,7 +74,7 @@ export default function TemplatesPage() {
   const [previewSubject, setPreviewSubject] = useState('');
 
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiForm, setAiForm] = useState({ name: '', category: 'cold_outreach', company_name: '', prompt: '', subject: '' });
+  const [aiForm, setAiForm] = useState({ name: '', company_name: '', prompt: '', subject: '' });
   const [aiLoading, setAiLoading] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<EmailTemplate | null>(null);
@@ -136,7 +122,7 @@ export default function TemplatesPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(EMPTY_FORM);
-    setEditorMode('html');
+    setEditorKey((k) => k + 1);
     setDrawerOpen(true);
   };
 
@@ -147,28 +133,15 @@ export default function TemplatesPage() {
       setEditingId(detail.id);
       setForm({
         name: detail.name,
-        category: detail.category ?? 'cold_outreach',
         subject: detail.subject,
         body_html: detail.body_html ?? '',
         body_text: detail.body_text ?? '',
-        body_design: detail.body_design ?? null,
       });
-      setEditorMode(detail.body_design ? 'visual' : 'html');
+      setEditorKey((k) => k + 1);
       setDrawerOpen(true);
     } catch {
       toast.error('加载模板详情失败');
     }
-  };
-
-  const handleEditorModeChange = (newMode: string) => {
-    if (editorMode === 'visual' && editorRef.current) {
-      setForm((prev) => ({
-        ...prev,
-        body_html: editorRef.current?.getHtml() ?? prev.body_html,
-        body_design: editorRef.current?.getDesign() ?? prev.body_design,
-      }));
-    }
-    setEditorMode(newMode as 'visual' | 'html' | 'text');
   };
 
   const saveTemplate = async (e: FormEvent) => {
@@ -179,16 +152,12 @@ export default function TemplatesPage() {
     }
     setSaving(true);
     try {
-      const body_html = editorMode === 'visual' ? (editorRef.current?.getHtml() ?? form.body_html) : form.body_html;
-      const body_design = editorMode === 'visual' ? (editorRef.current?.getDesign() ?? null) : null;
       const payload = {
         name: form.name.trim(),
-        category: form.category,
         subject: form.subject.trim(),
-        body_html,
-        body_text: editorMode === 'text' ? form.body_text : undefined,
-        body_design,
-        variables: VARIABLES.filter((v) => body_html.includes(`{{${v.name}}}`)),
+        body_html: bodyHtml,
+        body_text: bodyText,
+        body_design: null,
       };
 
       if (editingId) {
@@ -237,7 +206,6 @@ export default function TemplatesPage() {
     try {
       const resp = await tenantApi.emailTemplates.aiGenerate({
         name: aiForm.name || undefined,
-        category: aiForm.category,
         company_name: aiForm.company_name,
         prompt: aiForm.prompt,
         subject: aiForm.subject || undefined,
@@ -247,13 +215,11 @@ export default function TemplatesPage() {
       setEditingId(null);
       setForm({
         name: generated.name ?? aiForm.name ?? '',
-        category: generated.category ?? aiForm.category,
         subject: generated.subject ?? '',
         body_html: generated.body_html ?? '',
         body_text: '',
-        body_design: null,
       });
-      setEditorMode('html');
+      setEditorKey((k) => k + 1);
       setDrawerOpen(true);
       toast.success('AI 已生成模板，请检查并保存');
     } catch {
@@ -263,9 +229,8 @@ export default function TemplatesPage() {
     }
   };
 
-  const copyVariable = (name: string) => {
-    void navigator.clipboard.writeText(`{{${name}}}`);
-    toast.success(`已复制 {{${name}}}`);
+  const handleVariableClick = (name: string) => {
+    editorRef.current?.insertVariable(`{{${name}}}`);
   };
 
   return (
@@ -299,7 +264,6 @@ export default function TemplatesPage() {
             emptyText="暂无平台模板"
             columns={[
               { key: 'name', title: '名称', render: (row) => <span className="font-medium">{row.name}</span> },
-              { key: 'category', title: '分类', render: (row) => <Badge variant="outline">{row.category ?? '-'}</Badge> },
               { key: 'subject', title: '主题', render: (row) => <span className="max-w-[260px] truncate">{row.subject}</span> },
               {
                 key: 'updated',
@@ -336,7 +300,6 @@ export default function TemplatesPage() {
             emptyText="暂无模板，从平台模板库复制或新建一个"
             columns={[
               { key: 'name', title: '名称', render: (row) => <span className="font-medium">{row.name}</span> },
-              { key: 'category', title: '分类', render: (row) => <Badge variant="outline">{row.category ?? '-'}</Badge> },
               { key: 'subject', title: '主题', render: (row) => <span className="max-w-[260px] truncate">{row.subject}</span> },
               {
                 key: 'source',
@@ -389,64 +352,36 @@ export default function TemplatesPage() {
         <SheetContent className="max-w-4xl overflow-y-auto p-0 sm:w-[760px]">
           <div className="border-b px-5 py-4">
             <SheetTitle>{editingId ? '编辑邮件模板' : '新建邮件模板'}</SheetTitle>
-            <SheetDescription>填写模板信息并选择编辑模式</SheetDescription>
+            <SheetDescription>填写模板信息</SheetDescription>
           </div>
           <form className="space-y-5 p-5" onSubmit={saveTemplate}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>模板名称</Label>
-                <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>分类</Label>
-                <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>模板名称</Label>
+              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
             </div>
             <div className="space-y-2">
               <Label>邮件主题</Label>
               <Input value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} required />
             </div>
             <div className="space-y-2">
-              <Label>变量（点击复制）</Label>
+              <Label>变量（点击插入）</Label>
               <div className="flex flex-wrap gap-1">
                 {VARIABLES.map((v) => (
-                  <Badge key={v.name} variant="outline" className="cursor-pointer" onClick={() => copyVariable(v.name)}>
+                  <Badge key={v.name} variant="outline" className="cursor-pointer" onClick={() => handleVariableClick(v.name)}>
                     {`{{${v.name}}}`} {v.label}
                   </Badge>
                 ))}
               </div>
             </div>
-            <Tabs value={editorMode} onValueChange={handleEditorModeChange}>
-              <TabsList>
-                <TabsTrigger value="visual">可视化</TabsTrigger>
-                <TabsTrigger value="html">HTML</TabsTrigger>
-                <TabsTrigger value="text">纯文本</TabsTrigger>
-              </TabsList>
-              <TabsContent value="visual">
-                <GrapesEmailEditor ref={editorRef} html={form.body_html} design={form.body_design} />
-              </TabsContent>
-              <TabsContent value="html">
-                <Textarea
-                  className="min-h-[400px] font-mono text-xs"
-                  value={form.body_html}
-                  onChange={(e) => setForm((p) => ({ ...p, body_html: e.target.value }))}
-                />
-              </TabsContent>
-              <TabsContent value="text">
-                <Textarea
-                  className="min-h-[400px] font-mono text-xs"
-                  value={form.body_text}
-                  onChange={(e) => setForm((p) => ({ ...p, body_text: e.target.value }))}
-                />
-              </TabsContent>
-            </Tabs>
+            <EmailRichEditor
+              ref={editorRef}
+              key={editorKey}
+              initialContent={form.body_html}
+              onUpdate={(html, text) => {
+                setBodyHtml(html);
+                setBodyText(text);
+              }}
+            />
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>取消</Button>
               <Button type="submit" disabled={saving}>保存</Button>
@@ -475,17 +410,6 @@ export default function TemplatesPage() {
             <div className="space-y-2">
               <Label>模板名称（可选）</Label>
               <Input value={aiForm.name} onChange={(e) => setAiForm((p) => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>分类</Label>
-              <Select value={aiForm.category} onValueChange={(v) => setAiForm((p) => ({ ...p, category: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label>公司名称</Label>
