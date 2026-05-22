@@ -11,10 +11,23 @@ export interface EmailTemplate {
   subject: string;
   body_html: string;
   body_text?: string;
+  body_design?: unknown;
   source_type: string;
+  platform_template_id?: string;
   category?: string;
-  variables: Array<string | { name: string; label?: string }>;
+  variables: Array<{ name: string; label?: string }>;
   is_ai_generated?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlatformTemplateListItem {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  subject: string;
+  variables?: Array<{ name: string; label?: string }>;
   created_at: string;
   updated_at: string;
 }
@@ -37,5 +50,11 @@ export function emailTemplatesApi(client: AxiosInstance) {
       client.get<ApiResponse<Pick<EmailTemplate, 'id' | 'subject' | 'body_html' | 'body_text'>>>(`/api/v1/email-templates/${id}/preview`),
     aiGenerate: (data: AiGenerateTemplateRequest) =>
       client.post<ApiResponse<EmailTemplate>>('/api/v1/email-templates/ai-generate', data),
+    platformTemplates: {
+      list: () =>
+        client.get<PaginatedResponse<PlatformTemplateListItem>>('/api/v1/platform-templates'),
+      copy: (templateId: string) =>
+        client.post<ApiResponse<EmailTemplate>>(`/api/v1/platform-templates/${templateId}/copy`),
+    },
   };
 }

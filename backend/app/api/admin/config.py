@@ -319,20 +319,6 @@ async def get_platform_email_template_preview(
     return success_response(await service.get_platform_email_template_preview(context.connection, template_id))
 
 
-@router.post("/email-templates/{template_id}/sync")
-async def sync_platform_email_template(
-    template_id: str,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    return success_response(
-        await service.sync_platform_email_template(
-            context.connection,
-            template_id=template_id,
-            platform_user_id=context.platform_user_id,
-        )
-    )
-
-
 @router.get("/warmup-rules")
 async def list_warmup_rules(context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
     items = await service.list_warmup_rules(context.connection)

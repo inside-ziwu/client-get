@@ -47,6 +47,89 @@ class TenantMessagingService:
             for row in result.mappings().all()
         ]
 
+    async def list_platform_templates(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
+        industry_result = await conn.execute(
+            text("SELECT industry FROM tenants WHERE id = :tenant_id"),
+            {"tenant_id": tenant_id},
+        )
+        tenant_row = industry_result.mappings().first()
+        if tenant_row is None:
+            raise AppError(code="NOT_FOUND", message="租户不存在", status_code=404)
+        industry = tenant_row["industry"]
+
+        result = await conn.execute(
+            text(
+                """
+                SELECT id, name, description, category, subject, variables, created_at, updated_at
+                FROM platform_email_templates
+                WHERE industry = :industry AND is_active = true
+                ORDER BY updated_at DESC
+                """
+            ),
+            {"industry": industry},
+        )
+        return [
+            {
+                "id": str(row["id"]),
+                "name": row["name"],
+                "description": row["description"],
+                "category": row["category"],
+                "subject": row["subject"],
+                "variables": row["variables"],
+                "created_at": row["created_at"].isoformat(),
+                "updated_at": row["updated_at"].isoformat(),
+            }
+            for row in result.mappings().all()
+        ]
+
+    async def copy_platform_template(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_id: str,
+        template_id: str,
+        user_id: str,
+    ) -> dict:
+        industry_result = await conn.execute(
+            text("SELECT industry FROM tenants WHERE id = :tenant_id"),
+            {"tenant_id": tenant_id},
+        )
+        tenant_row = industry_result.mappings().first()
+        if tenant_row is None:
+            raise AppError(code="NOT_FOUND", message="租户不存在", status_code=404)
+        industry = tenant_row["industry"]
+
+        result = await conn.execute(
+            text(
+                """
+                SELECT id, name, description, category, subject, body_html, body_text, body_design, variables
+                FROM platform_email_templates
+                WHERE id = :template_id AND is_active = true AND industry = :industry
+                """
+            ),
+            {"template_id": template_id, "industry": industry},
+        )
+        platform_tpl = result.mappings().first()
+        if platform_tpl is None:
+            raise AppError(code="NOT_FOUND", message="平台模板不存在或不可用", status_code=404)
+
+        return await self.create_email_template(
+            conn,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            payload={
+                "name": platform_tpl["name"],
+                "category": platform_tpl["category"],
+                "subject": platform_tpl["subject"],
+                "body_html": platform_tpl["body_html"],
+                "body_text": platform_tpl["body_text"],
+                "body_design": platform_tpl["body_design"],
+                "variables": platform_tpl["variables"],
+                "source_type": "platform_copy",
+                "platform_template_id": str(platform_tpl["id"]),
+            },
+        )
+
     async def create_email_template(
         self,
         conn: AsyncConnection,
@@ -62,10 +145,10 @@ class TenantMessagingService:
                 """
                 INSERT INTO email_templates
                   (id, tenant_id, source_type, platform_template_id, name, category, subject, body_html, body_text,
-                   variables, is_ai_generated, ai_prompt)
+                   variables, is_ai_generated, ai_prompt, body_design)
                 VALUES
                   (:id, :tenant_id, :source_type, :platform_template_id, :name, :category, :subject, :body_html, :body_text,
-                   CAST(:variables AS jsonb), :is_ai_generated, :ai_prompt)
+                   CAST(:variables AS jsonb), :is_ai_generated, :ai_prompt, CAST(:body_design AS jsonb))
                 """
             ),
             {
@@ -81,6 +164,7 @@ class TenantMessagingService:
                 "variables": self._to_json(payload.get("variables", [])),
                 "is_ai_generated": payload.get("is_ai_generated", False),
                 "ai_prompt": payload.get("ai_prompt"),
+                "body_design": self._to_json(payload.get("body_design")),
             },
         )
         template = await self.get_email_template(conn, tenant_id, template_id)
@@ -159,7 +243,7 @@ class TenantMessagingService:
             text(
                 """
                 SELECT id, name, category, source_type, platform_template_id, subject, body_html, body_text,
-                       variables, is_ai_generated, ai_prompt, created_at, updated_at
+                       variables, is_ai_generated, ai_prompt, body_design, created_at, updated_at
                 FROM email_templates
                 WHERE tenant_id = :tenant_id AND id = :template_id AND deleted_at IS NULL
                 """
@@ -193,6 +277,7 @@ class TenantMessagingService:
                     body_text = COALESCE(:body_text, body_text),
                     variables = CAST(:variables AS jsonb),
                     ai_prompt = COALESCE(:ai_prompt, ai_prompt),
+                    body_design = CAST(:body_design AS jsonb),
                     updated_at = now()
                 WHERE tenant_id = :tenant_id AND id = :template_id
                 """
@@ -207,6 +292,7 @@ class TenantMessagingService:
                 "body_text": content["body_text"],
                 "variables": self._to_json(payload.get("variables", before["variables"])),
                 "ai_prompt": payload.get("ai_prompt"),
+                "body_design": self._to_json(payload.get("body_design")),
             },
         )
         after = await self.get_email_template(conn, tenant_id, template_id)
@@ -274,6 +360,7 @@ class TenantMessagingService:
                 "source_type": "custom",
                 "is_ai_generated": template["is_ai_generated"],
                 "ai_prompt": template["ai_prompt"],
+                "body_design": template["body_design"],
             },
         )
 
@@ -2127,6 +2214,7 @@ class TenantMessagingService:
             "variables": row["variables"],
             "is_ai_generated": row["is_ai_generated"],
             "ai_prompt": row["ai_prompt"],
+            "body_design": row["body_design"],
             "created_at": row["created_at"].isoformat(),
             "updated_at": row["updated_at"].isoformat(),
         }
