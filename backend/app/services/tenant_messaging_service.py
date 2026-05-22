@@ -62,10 +62,10 @@ class TenantMessagingService:
                 """
                 INSERT INTO email_templates
                   (id, tenant_id, source_type, platform_template_id, name, category, subject, body_html, body_text,
-                   variables, is_ai_generated, ai_prompt)
+                   variables, is_ai_generated, ai_prompt, body_design)
                 VALUES
                   (:id, :tenant_id, :source_type, :platform_template_id, :name, :category, :subject, :body_html, :body_text,
-                   CAST(:variables AS jsonb), :is_ai_generated, :ai_prompt)
+                   CAST(:variables AS jsonb), :is_ai_generated, :ai_prompt, CAST(:body_design AS jsonb))
                 """
             ),
             {
@@ -81,6 +81,7 @@ class TenantMessagingService:
                 "variables": self._to_json(payload.get("variables", [])),
                 "is_ai_generated": payload.get("is_ai_generated", False),
                 "ai_prompt": payload.get("ai_prompt"),
+                "body_design": self._to_json(payload.get("body_design")),
             },
         )
         template = await self.get_email_template(conn, tenant_id, template_id)
@@ -159,7 +160,7 @@ class TenantMessagingService:
             text(
                 """
                 SELECT id, name, category, source_type, platform_template_id, subject, body_html, body_text,
-                       variables, is_ai_generated, ai_prompt, created_at, updated_at
+                       variables, is_ai_generated, ai_prompt, body_design, created_at, updated_at
                 FROM email_templates
                 WHERE tenant_id = :tenant_id AND id = :template_id AND deleted_at IS NULL
                 """
@@ -193,6 +194,7 @@ class TenantMessagingService:
                     body_text = COALESCE(:body_text, body_text),
                     variables = CAST(:variables AS jsonb),
                     ai_prompt = COALESCE(:ai_prompt, ai_prompt),
+                    body_design = CAST(:body_design AS jsonb),
                     updated_at = now()
                 WHERE tenant_id = :tenant_id AND id = :template_id
                 """
@@ -207,6 +209,7 @@ class TenantMessagingService:
                 "body_text": content["body_text"],
                 "variables": self._to_json(payload.get("variables", before["variables"])),
                 "ai_prompt": payload.get("ai_prompt"),
+                "body_design": self._to_json(payload.get("body_design")),
             },
         )
         after = await self.get_email_template(conn, tenant_id, template_id)
@@ -274,6 +277,7 @@ class TenantMessagingService:
                 "source_type": "custom",
                 "is_ai_generated": template["is_ai_generated"],
                 "ai_prompt": template["ai_prompt"],
+                "body_design": template["body_design"],
             },
         )
 
@@ -2127,6 +2131,7 @@ class TenantMessagingService:
             "variables": row["variables"],
             "is_ai_generated": row["is_ai_generated"],
             "ai_prompt": row["ai_prompt"],
+            "body_design": row["body_design"],
             "created_at": row["created_at"].isoformat(),
             "updated_at": row["updated_at"].isoformat(),
         }
