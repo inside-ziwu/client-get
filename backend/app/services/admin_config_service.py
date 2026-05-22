@@ -556,7 +556,7 @@ class AdminConfigService:
                 "industry": payload["industry"],
                 "name": payload["name"],
                 "description": payload.get("description"),
-                "category": payload["category"],
+                "category": payload.get("category", "default"),
                 "subject": content["subject"],
                 "body_html": content["body_html"],
                 "body_text": content["body_text"],
