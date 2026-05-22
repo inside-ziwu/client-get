@@ -8,10 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
 from app.core.ids import new_uuid
-from app.services.audit_service import AuditService
-from app.services.tenant_contact_utils import ensure_contacts_from_wmt
 from app.services.ai_usage_log_service import AiUsageLogService
+from app.services.audit_service import AuditService
 from app.services.tenant_ai_provider_service import TenantAiProviderService
+from app.services.tenant_contact_utils import ensure_contacts_from_wmt
+from app.utils.email_text import text_from_html
 from app.utils.html_sanitizer import sanitize_html, sanitize_plain_text, sanitize_subject
 
 
@@ -20,6 +21,11 @@ class TenantMessagingService:
         self.audit = AuditService()
         self.ai_provider = TenantAiProviderService()
         self.usage_logs = AiUsageLogService()
+
+    def _body_text_with_fallback(self, body_text: str | None, body_html: str | None) -> str:
+        if body_text and body_text.strip():
+            return body_text
+        return text_from_html(body_html)
 
     async def list_email_templates(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
         result = await conn.execute(
@@ -1438,6 +1444,7 @@ class TenantMessagingService:
                 {"company_name": row["company_name"], "contact_name": row["contact_name"], "sender_name": row["sender_name"]},
             )
             body_html = sanitize_html(body_html) or ""
+            body_text = self._body_text_with_fallback(body_text, body_html)
             body_text = sanitize_plain_text(body_text)
             subject = sanitize_subject(subject) or ""
             await conn.execute(
