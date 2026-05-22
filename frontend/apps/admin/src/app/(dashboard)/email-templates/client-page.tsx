@@ -22,7 +22,6 @@ import { Input } from '@shared/ui';
 import { Label } from '@shared/ui';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
 import { Switch } from '@shared/ui';
-import { Textarea } from '@shared/ui';
 import { EmailRichEditor, type EmailRichEditorHandle } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -274,11 +273,6 @@ export function EmailTemplatesPage() {
                   </Badge>
                 ))}
               </div>
-              <Textarea
-                className="min-h-24 font-mono text-xs"
-                value={form.variables_text}
-                onChange={(event) => setForm((c) => ({ ...c, variables_text: event.target.value }))}
-              />
             </div>
             <EmailRichEditor
               ref={editorRef}
