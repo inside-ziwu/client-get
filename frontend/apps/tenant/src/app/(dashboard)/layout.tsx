@@ -11,6 +11,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
   const payload = useAuthStore((state) => state.payload);
   const isExpired = useAuthStore((state) => state.isExpired);
   const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const mustChangePwd = useAuthStore((state) => state.mustChangePwd);
 
   // logout() 会清空 payload，但 useEffect 在清空后才触发，
   // 用 ref 缓存最后已知的 slug 避免丢失
@@ -22,10 +23,14 @@ function RequireAuth({ children }: { children: ReactNode }) {
     if (!token || isExpired()) {
       const slug = lastSlugRef.current;
       router.replace(slug ? `/login?slug=${slug}` : '/login');
+      return;
     }
-  }, [hasHydrated, token, isExpired, router]);
+    if (mustChangePwd) {
+      router.replace('/force-change-password');
+    }
+  }, [hasHydrated, token, isExpired, mustChangePwd, router]);
 
-  if (!hasHydrated || !token || isExpired()) return null;
+  if (!hasHydrated || !token || isExpired() || mustChangePwd) return null;
   return <>{children}</>;
 }
 
