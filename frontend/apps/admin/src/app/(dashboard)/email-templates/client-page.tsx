@@ -2,7 +2,7 @@
 
 import type { PlatformEmailTemplate } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Code2, Edit2, Eye, FileText, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Eye, Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -22,9 +22,8 @@ import { Input } from '@shared/ui';
 import { Label } from '@shared/ui';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
 import { Switch } from '@shared/ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@shared/ui';
 import { Textarea } from '@shared/ui';
-import { GrapesEmailEditor, type GrapesEmailEditorHandle } from '@shared/ui';
+import { EmailRichEditor, type EmailRichEditorHandle } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
@@ -35,7 +34,6 @@ type TemplateForm = {
   category: string;
   variables_text: string;
   body_html: string;
-  body_design?: unknown;
   is_active: boolean;
 };
 
@@ -45,8 +43,7 @@ const EMPTY_FORM: TemplateForm = {
   subject: '',
   category: 'default',
   variables_text: 'company_name:公司名称\ncontact_name:联系人姓名',
-  body_html: '<p>你好，{{ contact_name }}</p>',
-  body_design: undefined,
+  body_html: '<p>你好，{{contact_name}}</p>',
   is_active: true,
 };
 
@@ -74,19 +71,20 @@ function templateToForm(template: PlatformEmailTemplate): TemplateForm {
     category: template.category,
     variables_text: variablesToText(template.variables),
     body_html: template.body_html,
-    body_design: template.body_design,
     is_active: template.is_active,
   };
 }
 
 export function EmailTemplatesPage() {
-  const editorRef = useRef<GrapesEmailEditorHandle | null>(null);
+  const editorRef = useRef<EmailRichEditorHandle | null>(null);
   const [items, setItems] = useState<PlatformEmailTemplate[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editing, setEditing] = useState<PlatformEmailTemplate | null>(null);
   const [form, setForm] = useState<TemplateForm>(EMPTY_FORM);
-  const [mode, setMode] = useState<'visual' | 'html'>('html');
+  const [editorKey, setEditorKey] = useState(0);
+  const [bodyHtml, setBodyHtml] = useState('');
+  const [_bodyText, setBodyText] = useState('');
   const [saving, setSaving] = useState(false);
   const query = useQuery({
     queryKey: ['admin', 'email-templates'],
@@ -109,7 +107,7 @@ export function EmailTemplatesPage() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setMode('html');
+    setEditorKey((k) => k + 1);
     setDrawerOpen(true);
   };
 
@@ -119,7 +117,7 @@ export function EmailTemplatesPage() {
       const detail = response.data.data;
       setEditing(detail);
       setForm(templateToForm(detail));
-      setMode('html');
+      setEditorKey((k) => k + 1);
       setDrawerOpen(true);
     } catch {
       toast.error('加载模板详情失败');
@@ -134,16 +132,14 @@ export function EmailTemplatesPage() {
     }
     setSaving(true);
     try {
-      const body_html = mode === 'visual' ? (editorRef.current?.getHtml() ?? form.body_html) : form.body_html;
-      const body_design = mode === 'visual' ? editorRef.current?.getDesign() : form.body_design;
       const payload = {
         industry: form.industry.trim() || undefined,
         name: form.name.trim(),
         subject: form.subject.trim(),
         category: form.category.trim() || 'default',
         variables: parseVariables(form.variables_text),
-        body_html,
-        body_design,
+        body_html: bodyHtml,
+        body_design: null,
         is_active: form.is_active,
       };
 
@@ -254,7 +250,7 @@ export function EmailTemplatesPage() {
         <SheetContent className="max-w-5xl overflow-y-auto p-0 sm:w-[980px]">
           <div className="border-b px-5 py-4">
             <SheetTitle>{editing ? '编辑邮件模板' : '新增邮件模板'}</SheetTitle>
-            <SheetDescription>可视化模式会保存 GrapesJS body_design，HTML 模式直接保存 body_html。</SheetDescription>
+            <SheetDescription>编辑邮件模板内容</SheetDescription>
           </div>
           <form className="space-y-5 p-5" onSubmit={save}>
             <div className="grid gap-3 md:grid-cols-2">
@@ -299,33 +295,15 @@ export function EmailTemplatesPage() {
                   预览
                 </Button>
               </div>
-              <Tabs value={mode} onValueChange={(value) => setMode(value as 'visual' | 'html')}>
-                <TabsList>
-                  <TabsTrigger value="html">
-                    <Code2 className="mr-2 h-4 w-4" />
-                    HTML 模式
-                  </TabsTrigger>
-                  <TabsTrigger value="visual">
-                    <FileText className="mr-2 h-4 w-4" />
-                    可视化模式
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="html">
-                  <Textarea
-                    className="min-h-[520px] font-mono text-xs"
-                    value={form.body_html}
-                    onChange={(event) => setForm((c) => ({ ...c, body_html: event.target.value }))}
-                  />
-                </TabsContent>
-                <TabsContent value="visual">
-                  <GrapesEmailEditor
-                    ref={editorRef}
-                    html={form.body_html}
-                    design={form.body_design}
-                    onReady={() => toast.success('GrapesJS 编辑器已加载')}
-                  />
-                </TabsContent>
-              </Tabs>
+              <EmailRichEditor
+                ref={editorRef}
+                key={editorKey}
+                initialContent={form.body_html}
+                onUpdate={(html, text) => {
+                  setBodyHtml(html);
+                  setBodyText(text);
+                }}
+              />
             </div>
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
