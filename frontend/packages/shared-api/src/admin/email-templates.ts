@@ -15,6 +15,15 @@ export interface PlatformEmailTemplate {
   updated_at: string;
 }
 
+export interface SyncEmailTemplateResult {
+  template_id: string;
+  template_name: string;
+  industry: string;
+  total_tenants: number;
+  created: string[];
+  skipped: string[];
+}
+
 export function emailTemplatesApi(client: AxiosInstance) {
   return {
     list: () =>
@@ -27,5 +36,7 @@ export function emailTemplatesApi(client: AxiosInstance) {
       client.put<ApiResponse<PlatformEmailTemplate>>(`/api/v1/email-templates/${id}`, data),
     delete: (id: string) =>
       client.delete(`/api/v1/email-templates/${id}`),
+    sync: (id: string) =>
+      client.post<ApiResponse<SyncEmailTemplateResult>>(`/api/v1/email-templates/${id}/sync`),
   };
 }
