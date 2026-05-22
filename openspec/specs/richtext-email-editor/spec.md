@@ -15,18 +15,24 @@ Admin 端和 Tenant 端邮件模板编辑器 MUST 使用 shared-ui 的 TipTap �
 - **THEN** 不存在"可视化"、"HTML"、"纯文本"等 Tab 切换项
 
 ### Requirement: 编辑器 SHALL 输出 body_html 和 body_text
-保存模板时，编辑器 MUST 将富文本内容转换为简单 HTML 存入 `body_html`，同时提取纯文本存入 `body_text`。`body_design` MUST 传 null。
+保存模板时，Admin 端和 Tenant 端的富文本编辑器 MUST 将富文本内容转换为简单 HTML 存入 `body_html`，同时提取纯文本存入 `body_text`。`body_design` MUST 传 null。
 
 #### Scenario: 保存富文本模板
-- **WHEN** 用户在富文本编辑器中输入"你好 **张三**"并点击保存
-- **THEN** `body_html` 包含 `<p>你好 <strong>张三</strong></p>`
-- **AND** `body_text` 包含 `你好 张三`
-- **AND** `body_design` 为 null
+- **WHEN** 用户在 Admin 端或 Tenant 端富文本编辑器中输入"你好 **张三**"并点击保存
+- **THEN** create/update payload 的 `body_html` 包含 `<p>你好 <strong>张三</strong></p>`
+- **AND** create/update payload 的 `body_text` 包含 `你好 张三`
+- **AND** create/update payload 的 `body_design` 为 null
 
 #### Scenario: 保存空内容模板
-- **WHEN** 用户清空编辑器内容并点击保存
-- **THEN** `body_html` 为空字符串或最小空段落
-- **AND** `body_text` 为空字符串
+- **WHEN** 用户在 Admin 端或 Tenant 端清空编辑器内容并点击保存
+- **THEN** create/update payload 的 `body_html` 为空字符串或最小空段落
+- **AND** create/update payload 的 `body_text` 为空字符串
+- **AND** create/update payload 的 `body_design` 为 null
+
+#### Scenario: Admin 端保存平台模板时提交 body_text
+- **WHEN** 平台管理员在 Admin 端创建或更新平台邮件模板
+- **THEN** 请求 payload MUST 包含富文本编辑器当前输出的 `body_text`
+- **AND** 后端 MUST 将该字段作为平台模板的纯文本内容保存
 
 ### Requirement: 变量 SHALL 在光标位置插入
 用户点击变量 Badge 时，MUST 将变量占位符插入到富文本编辑器当前光标位置。
@@ -63,4 +69,3 @@ shared-ui 中的 `grapes-email-editor.tsx` MUST 删除，`grapesjs` 和 `grapesj
 #### Scenario: Admin 和 Tenant 均使用 TipTap
 - **WHEN** Admin 端或 Tenant 端打开邮件模板编辑页面
 - **THEN** 使用 shared-ui 的 TipTap 编辑器组件
-
