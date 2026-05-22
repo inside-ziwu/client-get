@@ -80,7 +80,7 @@ export function EmailTemplatesPage() {
   const [form, setForm] = useState<TemplateForm>(EMPTY_FORM);
   const [editorKey, setEditorKey] = useState(0);
   const [bodyHtml, setBodyHtml] = useState('');
-  const [_bodyText, setBodyText] = useState('');
+  const [bodyText, setBodyText] = useState('');
   const [saving, setSaving] = useState(false);
   const query = useQuery({
     queryKey: ['admin', 'email-templates'],
@@ -134,6 +134,7 @@ export function EmailTemplatesPage() {
         subject: form.subject.trim(),
         variables: parseVariables(form.variables_text),
         body_html: bodyHtml,
+        body_text: bodyText,
         body_design: null,
         is_active: form.is_active,
       };
