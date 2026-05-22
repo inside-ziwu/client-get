@@ -42,7 +42,7 @@ const EMPTY_FORM: TemplateForm = {
   name: '',
   subject: '',
   category: 'default',
-  variables_text: 'company_name:公司名称\ncontact_name:联系人姓名',
+  variables_text: 'company_name:公司名称\ncontact_name:联系人姓名\ncontact_email:联系人邮箱\nsender_name:发件人姓名',
   body_html: '<p>你好，{{contact_name}}</p>',
   is_active: true,
 };

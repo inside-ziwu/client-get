@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Bold, Italic, ListOrdered, List } from 'lucide-react';
 import { Button } from './button';
 
 export interface EmailRichEditorHandle {
@@ -50,38 +51,38 @@ export const EmailRichEditor = forwardRef<
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon"
+          className={`h-8 w-8 ${editor.isActive('bold') ? 'bg-accent' : ''}`}
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={editor.isActive('bold') ? 'bg-accent' : ''}
         >
-          B
+          <Bold className="h-4 w-4" />
         </Button>
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon"
+          className={`h-8 w-8 ${editor.isActive('italic') ? 'bg-accent' : ''}`}
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={editor.isActive('italic') ? 'bg-accent' : ''}
         >
-          I
+          <Italic className="h-4 w-4" />
         </Button>
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon"
+          className={`h-8 w-8 ${editor.isActive('orderedList') ? 'bg-accent' : ''}`}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={editor.isActive('orderedList') ? 'bg-accent' : ''}
         >
-          OL
+          <ListOrdered className="h-4 w-4" />
         </Button>
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon"
+          className={`h-8 w-8 ${editor.isActive('bulletList') ? 'bg-accent' : ''}`}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={editor.isActive('bulletList') ? 'bg-accent' : ''}
         >
-          UL
+          <List className="h-4 w-4" />
         </Button>
       </div>
       <EditorContent
