@@ -153,22 +153,19 @@ cd /Users/lay/Documents/Github/client_get/frontend
 docker build -f Dockerfile.tenant --build-arg NEXT_PUBLIC_API_BASE_URL=https://api.xinanpcb.com -t clientget-tenant:local .
 ```
 
-## 9. 本地数据库与线上快照同步
+## 9. 数据库环境
 
+- 环境变量统一在根目录 `.env` 维护，两个字段：
+  - `CLIENTGET_DEV_DATABASE_URL` — 开发环境（Neon 云数据库）
+  - `CLIENTGET_PROD_DATABASE_URL` — 生产环境（Sealos PostgreSQL）
+- 切换环境只需修改后端读取的连接串；`.env` 值由用户手动维护，不得自动修改。
 - 正式推送镜像、同步线上快照、上线操作都属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
-- 本地开发库：`clientget`
-- 每次需要用线上同数据测试前，在后端目录运行：
-
-  ```bash
-  cd backend
-  ./scripts/sync_prod_db_to_local.sh
-  ```
 
 ## 10. 线上 PostgreSQL / Alembic 操作经验
 
 - Sealos 外部 PostgreSQL 连接串若只给到主机和端口，必须显式补业务库名 `/clientget`；不补库名会连到默认 `postgres` 库，那里通常没有 `alembic_version`。
 - PostgreSQL 的 `psycopg` / SQLAlchemy 连接串不要带 `?directConnection=true`；这是 Mongo 风格参数，`psycopg` 会报 `invalid connection option "directConnection"`。
-- 线上手动 Alembic 迁移使用同步驱动连接串：
+- 线上手动 Alembic 迁移使用生产连接串（需补 `+psycopg` 驱动前缀）：
 
   ```bash
   cd backend

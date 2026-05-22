@@ -35,16 +35,13 @@
 - 数据库：Alembic 入口 [`backend/alembic/`](backend/alembic/)；迁移文件以 [`backend/alembic/versions/`](backend/alembic/versions/) 实际内容为准
 - 部署脚本：后端 [`backend/scripts/push-backend.sh`](backend/scripts/push-backend.sh)，前端 [`frontend/deploy/push-admin.sh`](frontend/deploy/push-admin.sh) / [`frontend/deploy/push-tenant.sh`](frontend/deploy/push-tenant.sh)
 
-## 6. 本地数据库与线上快照同步
+## 6. 数据库环境
 
-- 同步线上快照属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
-- 本地开发库：`clientget`
-- 每次需要用线上同数据测试前，在后端目录运行：
-
-  ```bash
-  cd backend
-  ./scripts/sync_prod_db_to_local.sh
-  ```
+- 环境变量统一在根目录 `.env` 维护，两个字段：
+  - `CLIENTGET_DEV_DATABASE_URL` — 开发环境（Neon 云数据库）
+  - `CLIENTGET_PROD_DATABASE_URL` — 生产环境（Sealos PostgreSQL）
+- 切换环境只需修改后端读取的连接串；`.env` 值由用户手动维护，不得自动修改。
+- 同步生产快照属于外部副作用，必须由用户明确触发，不得因普通实施任务自动执行。
 
 ## Skill routing
 

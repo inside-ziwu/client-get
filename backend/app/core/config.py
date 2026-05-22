@@ -1,7 +1,12 @@
-from functools import lru_cache
+from __future__ import annotations
 
-from pydantic import Field, field_validator
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_ROOT_ENV = Path(__file__).resolve().parents[3] / ".env"
 
 LOCAL_DEV_ORIGINS = (
     "http://localhost:3000",
@@ -17,7 +22,7 @@ LOCAL_DEV_ORIGINS = (
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_ROOT_ENV), ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
@@ -34,22 +39,21 @@ class Settings(BaseSettings):
     admin_email: str = Field(default="admin@example.com", alias="ADMIN_EMAIL")
     admin_password: str = Field(default="change-me-now", alias="ADMIN_PASSWORD")
 
-    database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/clientget",
-        alias="DATABASE_URL",
-    )
-    sync_database_url: str = Field(
-        default="postgresql+psycopg://postgres:postgres@localhost:5432/clientget",
-        alias="SYNC_DATABASE_URL",
-    )
-    test_database_url: str | None = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/clientget_test",
-        alias="TEST_DATABASE_URL",
-    )
-    test_sync_database_url: str | None = Field(
-        default="postgresql+psycopg://postgres:postgres@localhost:5432/clientget_test",
-        alias="TEST_SYNC_DATABASE_URL",
-    )
+    clientget_dev_database_url: str = Field(default="", alias="CLIENTGET_DEV_DATABASE_URL")
+
+    database_url: str = Field(default="", alias="DATABASE_URL")
+    sync_database_url: str = Field(default="", alias="SYNC_DATABASE_URL")
+    test_database_url: str | None = Field(default=None, alias="TEST_DATABASE_URL")
+    test_sync_database_url: str | None = Field(default=None, alias="TEST_SYNC_DATABASE_URL")
+
+    @model_validator(mode="after")
+    def _derive_db_urls(self) -> Settings:
+        if self.database_url or not self.clientget_dev_database_url:
+            return self
+        clean = self.clientget_dev_database_url.split("://", 1)[-1]
+        self.database_url = f"postgresql+asyncpg://{clean}"
+        self.sync_database_url = f"postgresql+psycopg://{clean}"
+        return self
 
     allowed_origins_raw: str = Field(
         default="http://localhost:3000,http://localhost:3001,https://client-get-admin.vercel.app,https://client-get-tenant.vercel.app",
