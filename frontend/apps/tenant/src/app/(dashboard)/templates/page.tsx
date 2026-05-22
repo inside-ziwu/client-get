@@ -19,11 +19,6 @@ import {
   DialogTitle,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -39,13 +34,6 @@ import type { EmailTemplate, PlatformTemplateListItem } from '@shared/api/src/te
 import { tenantApi } from '@/lib/api';
 import { DataTable, PageHeader } from '@/components/pages/page-kit';
 
-const CATEGORIES = [
-  { value: 'cold_outreach', label: '开发信' },
-  { value: 'follow_up', label: '跟进' },
-  { value: 'promotion', label: '推广' },
-  { value: 'festival', label: '节日' },
-];
-
 const VARIABLES = [
   { name: 'company_name', label: '公司名称' },
   { name: 'contact_name', label: '联系人姓名' },
@@ -56,7 +44,6 @@ const VARIABLES = [
 
 type TemplateForm = {
   name: string;
-  category: string;
   subject: string;
   body_html: string;
   body_text: string;
@@ -64,7 +51,6 @@ type TemplateForm = {
 
 const EMPTY_FORM: TemplateForm = {
   name: '',
-  category: 'cold_outreach',
   subject: '',
   body_html: '<p>你好 {{contact_name}}，</p>',
   body_text: '',
@@ -88,7 +74,7 @@ export default function TemplatesPage() {
   const [previewSubject, setPreviewSubject] = useState('');
 
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiForm, setAiForm] = useState({ name: '', category: 'cold_outreach', company_name: '', prompt: '', subject: '' });
+  const [aiForm, setAiForm] = useState({ name: '', company_name: '', prompt: '', subject: '' });
   const [aiLoading, setAiLoading] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<EmailTemplate | null>(null);
@@ -147,7 +133,6 @@ export default function TemplatesPage() {
       setEditingId(detail.id);
       setForm({
         name: detail.name,
-        category: detail.category ?? 'cold_outreach',
         subject: detail.subject,
         body_html: detail.body_html ?? '',
         body_text: detail.body_text ?? '',
@@ -169,7 +154,6 @@ export default function TemplatesPage() {
     try {
       const payload = {
         name: form.name.trim(),
-        category: form.category,
         subject: form.subject.trim(),
         body_html: bodyHtml,
         body_text: bodyText,
@@ -222,7 +206,6 @@ export default function TemplatesPage() {
     try {
       const resp = await tenantApi.emailTemplates.aiGenerate({
         name: aiForm.name || undefined,
-        category: aiForm.category,
         company_name: aiForm.company_name,
         prompt: aiForm.prompt,
         subject: aiForm.subject || undefined,
@@ -232,7 +215,6 @@ export default function TemplatesPage() {
       setEditingId(null);
       setForm({
         name: generated.name ?? aiForm.name ?? '',
-        category: generated.category ?? aiForm.category,
         subject: generated.subject ?? '',
         body_html: generated.body_html ?? '',
         body_text: '',
@@ -282,7 +264,6 @@ export default function TemplatesPage() {
             emptyText="暂无平台模板"
             columns={[
               { key: 'name', title: '名称', render: (row) => <span className="font-medium">{row.name}</span> },
-              { key: 'category', title: '分类', render: (row) => <Badge variant="outline">{row.category ?? '-'}</Badge> },
               { key: 'subject', title: '主题', render: (row) => <span className="max-w-[260px] truncate">{row.subject}</span> },
               {
                 key: 'updated',
@@ -319,7 +300,6 @@ export default function TemplatesPage() {
             emptyText="暂无模板，从平台模板库复制或新建一个"
             columns={[
               { key: 'name', title: '名称', render: (row) => <span className="font-medium">{row.name}</span> },
-              { key: 'category', title: '分类', render: (row) => <Badge variant="outline">{row.category ?? '-'}</Badge> },
               { key: 'subject', title: '主题', render: (row) => <span className="max-w-[260px] truncate">{row.subject}</span> },
               {
                 key: 'source',
@@ -375,22 +355,9 @@ export default function TemplatesPage() {
             <SheetDescription>填写模板信息</SheetDescription>
           </div>
           <form className="space-y-5 p-5" onSubmit={saveTemplate}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>模板名称</Label>
-                <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
-              </div>
-              <div className="space-y-2">
-                <Label>分类</Label>
-                <Select value={form.category} onValueChange={(v) => setForm((p) => ({ ...p, category: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>模板名称</Label>
+              <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required />
             </div>
             <div className="space-y-2">
               <Label>邮件主题</Label>
@@ -443,17 +410,6 @@ export default function TemplatesPage() {
             <div className="space-y-2">
               <Label>模板名称（可选）</Label>
               <Input value={aiForm.name} onChange={(e) => setAiForm((p) => ({ ...p, name: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>分类</Label>
-              <Select value={aiForm.category} onValueChange={(v) => setAiForm((p) => ({ ...p, category: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label>公司名称</Label>

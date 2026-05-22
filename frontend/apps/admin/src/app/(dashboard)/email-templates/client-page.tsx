@@ -31,7 +31,6 @@ type TemplateForm = {
   industry: string;
   name: string;
   subject: string;
-  category: string;
   variables_text: string;
   body_html: string;
   is_active: boolean;
@@ -41,7 +40,6 @@ const EMPTY_FORM: TemplateForm = {
   industry: '',
   name: '',
   subject: '',
-  category: 'default',
   variables_text: 'company_name:公司名称\ncontact_name:联系人姓名\ncontact_email:联系人邮箱\nsender_name:发件人姓名',
   body_html: '<p>你好，{{contact_name}}</p>',
   is_active: true,
@@ -68,7 +66,6 @@ function templateToForm(template: PlatformEmailTemplate): TemplateForm {
     industry: template.industry ?? '',
     name: template.name,
     subject: template.subject,
-    category: template.category,
     variables_text: variablesToText(template.variables),
     body_html: template.body_html,
     is_active: template.is_active,
@@ -136,7 +133,6 @@ export function EmailTemplatesPage() {
         industry: form.industry.trim() || undefined,
         name: form.name.trim(),
         subject: form.subject.trim(),
-        category: form.category.trim() || 'default',
         variables: parseVariables(form.variables_text),
         body_html: bodyHtml,
         body_design: null,
@@ -265,10 +261,6 @@ export function EmailTemplatesPage() {
               <div className="space-y-2">
                 <Label>主题</Label>
                 <Input value={form.subject} onChange={(event) => setForm((c) => ({ ...c, subject: event.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>分类</Label>
-                <Input value={form.category} onChange={(event) => setForm((c) => ({ ...c, category: event.target.value }))} />
               </div>
             </div>
             <div className="grid gap-4 xl:grid-cols-[280px_1fr]">
