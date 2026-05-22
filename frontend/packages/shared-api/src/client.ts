@@ -33,8 +33,9 @@ export function createApiClient(appType: AppType, options: ApiClientOptions = {}
     (res) => res,
     (error) => {
       if (error.response?.status === 401) {
+        const slug = useAuthStore.getState().payload?.slug;
         useAuthStore.getState().logout();
-        window.location.href = '/login';
+        window.location.href = slug ? `/login?slug=${slug}` : '/login';
       }
       return Promise.reject(error);
     },
