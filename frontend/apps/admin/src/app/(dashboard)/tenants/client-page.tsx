@@ -596,7 +596,7 @@ export function TenantsPage() {
       </Dialog>
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="w-full overflow-y-auto p-0 sm:max-w-5xl">
+        <SheetContent className="w-full overflow-y-auto p-0 sm:max-w-6xl">
           <div className="border-b px-6 py-5 pr-12">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
