@@ -3,7 +3,7 @@
 import type { Tenant, TenantDomain, TenantTeamUser, WarmupRules } from '@shared/api';
 import type { AiProviderConfig } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Copy, Edit2, MoreHorizontal, Plus, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { CheckCircle2, Copy, Edit2, Plus, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -19,7 +19,6 @@ import { Badge } from '@shared/ui';
 import { Button } from '@shared/ui';
 import { Card, CardContent } from '@shared/ui';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@shared/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@shared/ui';
 import { Input } from '@shared/ui';
 import { Label } from '@shared/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
@@ -732,23 +731,16 @@ export function TenantsPage() {
                         <td className="px-4 py-3">档位 {domain.warmup_level ?? '-'}</td>
                         <td className="px-4 py-3">{domain.daily_limit ?? '-'}</td>
                         <td className="px-4 py-3">{domain.total_sent ?? 0}</td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => void verifyDomain(domain)}>
-                                <ShieldCheck className="mr-2 h-4 w-4" />验证域名
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => startEditDomain(domain)}>
-                                <Edit2 className="mr-2 h-4 w-4" />编辑
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingDomain(domain); setDeleteDomainError(''); }}>
-                                <Trash2 className="mr-2 h-4 w-4" />删除
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        <td className="px-4 py-3 text-right space-x-1">
+                          <Button variant="ghost" size="sm" onClick={() => void verifyDomain(domain)}>
+                            <ShieldCheck className="mr-1 h-4 w-4" />验证
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => startEditDomain(domain)}>
+                            <Edit2 className="mr-1 h-4 w-4" />编辑
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => { setDeletingDomain(domain); setDeleteDomainError(''); }}>
+                            <Trash2 className="mr-1 h-4 w-4" />删除
+                          </Button>
                         </td>
                       </tr>
                     ))}
