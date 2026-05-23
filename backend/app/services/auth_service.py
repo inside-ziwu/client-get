@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
 from app.db.pools import get_engine
-from app.security.jwt import create_access_token
+from app.security.jwt import create_access_token, create_refresh_token
 from app.security.passwords import hash_password, verify_password
 
 
@@ -13,7 +13,7 @@ class AuthService:
     lock_minutes = 15
     max_failed_attempts = 5
 
-    async def platform_login(self, conn: AsyncConnection, email: str, password: str) -> str:
+    async def platform_login(self, conn: AsyncConnection, email: str, password: str) -> tuple[str, str]:
         result = await conn.execute(
             text(
                 """
@@ -32,13 +32,12 @@ class AuthService:
             await self._record_failed_platform_login(conn, str(user["id"]), user["failed_login_count"])
             raise AppError(code="INVALID_CREDENTIALS", message="邮箱或密码错误", status_code=401)
         await self._record_platform_login_success(conn, str(user["id"]))
-        return create_access_token(
-            {
-                "sub": str(user["id"]),
-                "kind": "platform",
-                "roles": ["platform_admin"],
-            }
-        )
+        claims = {
+            "sub": str(user["id"]),
+            "kind": "platform",
+            "roles": ["platform_admin"],
+        }
+        return create_access_token(claims), create_refresh_token(claims)
 
     async def tenant_login(self, conn: AsyncConnection, slug: str, email: str, password: str) -> str:
         result = await conn.execute(
