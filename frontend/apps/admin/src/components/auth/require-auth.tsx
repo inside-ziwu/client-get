@@ -7,14 +7,15 @@ import { type ReactNode, useEffect } from 'react';
 export function RequireAuth({ children }: { children: ReactNode }) {
   const router = useRouter();
   const token = useAuthStore((state) => state.token);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
 
   useEffect(() => {
-    if (!token) {
+    if (hasHydrated && !token) {
       router.replace('/login');
     }
-  }, [token, router]);
+  }, [hasHydrated, token, router]);
 
-  if (!token) {
+  if (!hasHydrated || !token) {
     return null;
   }
 
