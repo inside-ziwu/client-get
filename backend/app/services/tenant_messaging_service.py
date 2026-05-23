@@ -2012,7 +2012,6 @@ class TenantMessagingService:
                 JOIN tenant_companies tco ON tco.id = gm.tenant_company_id
                 WHERE gm.tenant_id = :tenant_id
                   AND gm.group_id = :group_id
-                  AND tco.visibility_status = 'visible'
                 """
             ),
             {"tenant_id": tenant_id, "group_id": config["group_id"]},
@@ -2035,7 +2034,6 @@ class TenantMessagingService:
                 JOIN waimaotong_clean_contacts shc ON shc.id = tc.clean_contact_id
                 WHERE gm.tenant_id = :tenant_id
                   AND gm.group_id = :group_id
-                  AND tco.visibility_status = 'visible'
                   AND shc.email IS NOT NULL
                 """
             ),
