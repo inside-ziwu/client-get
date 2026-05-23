@@ -18,6 +18,34 @@ def create_access_token(claims: dict[str, Any]) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def create_refresh_token(claims: dict[str, Any]) -> str:
+    settings = get_settings()
+    now = datetime.now(timezone.utc)
+    payload = {
+        **claims,
+        "type": "refresh",
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(days=settings.refresh_token_expire_days)).timestamp()),
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_refresh_token(token: str) -> dict[str, Any]:
+    settings = get_settings()
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.jwt_algorithm],
+            options={"verify_aud": False},
+        )
+    except JWTError as exc:
+        raise AppError(code="UNAUTHORIZED", message="无效或过期的刷新令牌", status_code=401) from exc
+    if payload.get("type") != "refresh":
+        raise AppError(code="UNAUTHORIZED", message="无效的令牌类型", status_code=401)
+    return payload
+
+
 def decode_access_token(token: str) -> dict[str, Any]:
     settings = get_settings()
     try:

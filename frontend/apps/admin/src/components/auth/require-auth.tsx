@@ -7,13 +7,17 @@ import { type ReactNode, useEffect } from 'react';
 export function RequireAuth({ children }: { children: ReactNode }) {
   const router = useRouter();
   const token = useAuthStore((state) => state.token);
-  const isExpired = useAuthStore((state) => state.isExpired);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
 
   useEffect(() => {
-    if (!token || isExpired()) {
+    if (hasHydrated && !token) {
       router.replace('/login');
     }
-  }, [token, isExpired, router]);
+  }, [hasHydrated, token, router]);
+
+  if (!hasHydrated || !token) {
+    return null;
+  }
 
   return <>{children}</>;
 }

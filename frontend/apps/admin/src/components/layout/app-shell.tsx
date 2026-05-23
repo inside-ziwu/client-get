@@ -25,6 +25,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const handleLogout = async () => {
+    const apiBase = process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL ?? '';
+    await fetch(`${apiBase}/admin/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
     await fetch('/api/auth/clear-token', { method: 'POST' });
     logout();
     router.replace('/login');
