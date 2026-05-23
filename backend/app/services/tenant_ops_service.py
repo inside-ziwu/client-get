@@ -25,7 +25,6 @@ class TenantOpsService:
                 SELECT business_status, count(*) AS total
                 FROM tenant_companies
                 WHERE tenant_id = :tenant_id
-                  AND visibility_status = 'visible'
                 GROUP BY business_status
                 """
             ),
@@ -43,7 +42,7 @@ class TenantOpsService:
         base_join = """
             FROM tenant_companies tc
             JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
-            WHERE tc.tenant_id = :tenant_id AND tc.visibility_status = 'visible'
+            WHERE tc.tenant_id = :tenant_id
         """
 
         r1 = await conn.execute(text(f"""
@@ -66,7 +65,7 @@ class TenantOpsService:
             FROM tenant_companies tc
             JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
             CROSS JOIN jsonb_array_elements_text(wc.product_tags) AS tag
-            WHERE tc.tenant_id = :tenant_id AND tc.visibility_status = 'visible'
+            WHERE tc.tenant_id = :tenant_id
               AND wc.product_tags IS NOT NULL AND jsonb_typeof(wc.product_tags) = 'array'
         """), params)
         row3 = r3.mappings().one()
@@ -94,7 +93,6 @@ class TenantOpsService:
                 FROM tenant_companies tc
                 JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
-                  AND tc.visibility_status = 'visible'
                 ORDER BY tc.created_at DESC
                 """
             ),
@@ -205,9 +203,9 @@ class TenantOpsService:
             text(
                 """
                 INSERT INTO tenant_companies
-                  (tenant_id, clean_company_id, business_status, data_status, visibility_status, note, tags)
+                  (tenant_id, clean_company_id, business_status, data_status, note, tags)
                 VALUES
-                  (:tenant_id, :clean_company_id, 'new', :data_status, 'visible', :note, CAST(:tags AS text[]))
+                  (:tenant_id, :clean_company_id, 'new', :data_status, :note, CAST(:tags AS text[]))
                 ON CONFLICT (tenant_id, clean_company_id) DO NOTHING
                 RETURNING id
                 """
@@ -295,7 +293,6 @@ class TenantOpsService:
                 JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
                   AND tc.id = CAST(CAST(:company_id AS text) AS bigint)
-                  AND tc.visibility_status = 'visible'
                 """
             ),
             {"tenant_id": tenant_id, "company_id": company_id},
@@ -671,7 +668,6 @@ class TenantOpsService:
                   ON wcc_default.id = tc_default.clean_contact_id
                 WHERE gm.tenant_id = :tenant_id
                   AND gm.group_id = :group_id
-                  AND tc.visibility_status = 'visible'
                 ORDER BY gm.created_at ASC
                 """
             ),
@@ -706,7 +702,7 @@ class TenantOpsService:
         overrides = payload.get("tenant_contact_overrides", {})
         added = 0
         for company_id in payload.get("tenant_company_ids", []):
-            await self._assert_visible_tenant_company(conn, tenant_id, company_id)
+            await self._assert_tenant_company_exists(conn, tenant_id, company_id)
             await ensure_contacts_from_wmt(conn, tenant_id, int(company_id))
             contact_id = overrides.get(company_id) or await self._select_default_contact_id(conn, tenant_id, company_id)
             await conn.execute(
@@ -717,7 +713,6 @@ class TenantOpsService:
                         updated_at = now()
                     WHERE tenant_id = :tenant_id
                       AND id = :tenant_company_id
-                      AND visibility_status = 'visible';
                     """
                 ),
                 {
@@ -1151,7 +1146,7 @@ class TenantOpsService:
         row = result.mappings().first()
         return str(row["id"]) if row else None
 
-    async def _assert_visible_tenant_company(self, conn: AsyncConnection, tenant_id: str, company_id: str) -> None:
+    async def _assert_tenant_company_exists(self, conn: AsyncConnection, tenant_id: str, company_id: str) -> None:
         result = await conn.execute(
             text(
                 """
@@ -1159,7 +1154,6 @@ class TenantOpsService:
                 FROM tenant_companies
                 WHERE tenant_id = :tenant_id
                   AND id = CAST(CAST(:company_id AS text) AS bigint)
-                  AND visibility_status = 'visible'
                 LIMIT 1
                 """
             ),

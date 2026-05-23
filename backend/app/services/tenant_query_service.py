@@ -29,8 +29,8 @@ class TenantQueryService:
             text(
                 """
                 SELECT
-                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id AND visibility_status = 'visible') AS total_companies,
-                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id AND visibility_status = 'visible' AND score IS NOT NULL) AS scored_companies,
+                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id) AS total_companies,
+                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id AND score IS NOT NULL) AS scored_companies,
                   (SELECT count(*) FROM sending_plans WHERE tenant_id = :tenant_id AND deleted_at IS NULL) AS total_plans,
                   (SELECT count(*) FROM sending_plans WHERE tenant_id = :tenant_id AND status = 'running' AND deleted_at IS NULL) AS running_plans,
                   (SELECT count(*) FROM notifications WHERE tenant_id = :tenant_id AND is_read = false) AS unread_notifications
@@ -179,7 +179,6 @@ class TenantQueryService:
     ) -> tuple[list[dict], int]:
         where_clauses = [
             "tc.tenant_id = :tenant_id",
-            "tc.visibility_status = 'visible'",
         ]
         params: dict = {"tenant_id": tenant_id, "limit": limit}
         if offset is not None:
@@ -442,7 +441,6 @@ class TenantQueryService:
                   tc.note,
                   tc.tags,
                   tc.score_adjustment,
-                  tc.visibility_status,
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at
                 FROM waimaotong_clean_companies wc
@@ -450,7 +448,6 @@ class TenantQueryService:
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 WHERE wc.id = :clean_company_id
-                  AND tc.visibility_status = 'visible'
                 LIMIT 1
                 """
             ),
@@ -595,7 +592,6 @@ class TenantQueryService:
     ) -> list[dict]:
         where_clauses = [
             "tc.tenant_id = :tenant_id",
-            "tc.visibility_status = 'visible'",
         ]
         params: dict = {"tenant_id": tenant_id, "limit": limit}
 

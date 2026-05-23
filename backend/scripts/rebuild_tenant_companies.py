@@ -43,8 +43,7 @@ _SQL_COUNT_CURRENT = text("""
     SELECT
         tc.tenant_id,
         t.slug AS tenant_slug,
-        count(*) AS total,
-        count(*) FILTER (WHERE tc.visibility_status = 'visible') AS visible
+        count(*) AS total
     FROM tenant_companies tc
     JOIN tenants t ON t.id = tc.tenant_id
     GROUP BY tc.tenant_id, t.slug
@@ -53,7 +52,7 @@ _SQL_COUNT_CURRENT = text("""
 
 _SQL_INSERT_FOR_KEYWORD = text("""
     INSERT INTO tenant_companies
-      (tenant_id, clean_company_id, business_status, data_status, visibility_status)
+      (tenant_id, clean_company_id, business_status, data_status)
     SELECT
       :tenant_id,
       wc.id,
@@ -66,8 +65,7 @@ _SQL_INSERT_FOR_KEYWORD = text("""
           AND wc.product_tags IS NULL
         ) THEN 'insufficient_data'
         ELSE 'ready'
-      END,
-      'visible'
+      END
     FROM waimaotong_clean_companies wc
     WHERE wc.keyword_master_ids @> ARRAY[:keyword_master_id]::uuid[]
     ON CONFLICT (tenant_id, clean_company_id) DO NOTHING
@@ -89,7 +87,7 @@ def main() -> None:
         current = conn.execute(_SQL_COUNT_CURRENT).mappings().all()
         print("[当前状态] tenant_companies:")
         for r in current:
-            print(f"  {r['tenant_slug']}: total={r['total']}, visible={r['visible']}")
+            print(f"  {r['tenant_slug']}: total={r['total']}")
 
         # active 关键词
         keywords = conn.execute(_SQL_TENANT_KEYWORDS).mappings().all()
@@ -143,7 +141,7 @@ def main() -> None:
         after = conn.execute(_SQL_COUNT_CURRENT).mappings().all()
         print(f"\n[重建完成] 共写入 {total_inserted} 条")
         for r in after:
-            print(f"  {r['tenant_slug']}: total={r['total']}, visible={r['visible']}")
+            print(f"  {r['tenant_slug']}: total={r['total']}")
 
         wmt_total = conn.execute(text("""
             SELECT count(*) FROM waimaotong_clean_companies WHERE keyword_master_ids != '{}'

@@ -778,7 +778,6 @@ class TenantMessagingService:
                     FROM sending_plan_recipients
                     WHERE plan_id = :plan_id
                   )
-                  AND visibility_status = 'visible'
                 """
             ),
             {"tenant_id": tenant_id, "plan_id": plan_id},
@@ -2061,7 +2060,6 @@ class TenantMessagingService:
                     LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                     WHERE tco.tenant_id = :tenant_id
                       AND tco.id = :contact_id
-                      AND tc.visibility_status = 'visible'
                     """
                 ),
                 {"tenant_id": tenant_id, "contact_id": contact_id},
@@ -2087,7 +2085,6 @@ class TenantMessagingService:
                     JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                     WHERE tc.tenant_id = :tenant_id
                       AND tc.id = ANY(:company_ids)
-                      AND tc.visibility_status = 'visible'
                       AND shc.email IS NOT NULL
                     """
                 ),
@@ -2109,7 +2106,6 @@ class TenantMessagingService:
                 FROM tenant_companies tc
                 JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
                 WHERE tc.tenant_id = :tenant_id
-                  AND tc.visibility_status = 'visible'
                   AND (CAST(:business_status AS text) IS NULL OR tc.business_status = :business_status)
                   AND (CAST(:country AS text) IS NULL OR cc.country_iso3 = :country)
                 """
@@ -2132,7 +2128,6 @@ class TenantMessagingService:
                   AND tco.tenant_id = tc.tenant_id
                 JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                 WHERE tc.tenant_id = :tenant_id
-                  AND tc.visibility_status = 'visible'
                   AND shc.email IS NOT NULL
                   AND (CAST(:business_status AS text) IS NULL OR tc.business_status = :business_status)
                   AND (CAST(:country AS text) IS NULL OR cc.country_iso3 = :country)

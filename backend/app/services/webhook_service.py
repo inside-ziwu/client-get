@@ -130,7 +130,6 @@ class WebhookService:
                     WHERE tc.tenant_id = :tenant_id
                       AND tc.clean_company_id = tco.clean_company_id
                       AND tc.business_status = 'in_plan'
-                      AND tc.visibility_status = 'visible'
                       AND tco.tenant_id = :tenant_id
                       AND (
                         tco.id = :tenant_contact_id
