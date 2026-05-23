@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncConnection
-
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.responses import success_response
 from app.db.pools import get_connection
-from app.schemas.auth import AdminLoginRequest, AdminMeResponse, AuthTokenResponse
+from app.schemas.auth import AdminLoginRequest, AdminMeResponse
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
 from app.security.jwt import create_access_token, decode_refresh_token
 from app.services.auth_service import AuthService
