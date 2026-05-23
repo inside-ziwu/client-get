@@ -61,6 +61,11 @@ export function sendingPlansApi(client: AxiosInstance) {
       lock_recipients?: boolean;
     }) =>
       client.post<ApiResponse<SendingPlan>>('/api/v1/sending-plans/complete-create', data),
+    completeUpdate: (planId: string, data: {
+      plan: Partial<SendingPlan>;
+      steps: Partial<SendingPlanStep>[];
+    }) =>
+      client.post<ApiResponse<SendingPlan>>(`/api/v1/sending-plans/${planId}/complete-update`, data),
 
     // Steps
     listSteps: (planId: string) =>

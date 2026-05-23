@@ -45,9 +45,13 @@ export interface CustomerFilters extends PaginationParams {
   company_grade?: string;
 }
 
-export interface PlanFilters extends PaginationParams {
+export interface PlanFilters {
   status?: string;
   keyword?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  page_size?: number;
 }
 
 export interface MonitorFilters {

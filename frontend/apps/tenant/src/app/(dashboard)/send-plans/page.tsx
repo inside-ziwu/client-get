@@ -8,7 +8,7 @@ import { DataTable, PageHeader } from '@/components/pages/page-kit';
 
 export default function SendPlansPage() {
   const plansQuery = useQuery({
-    queryKey: ['tenant', 'send-plans'],
+    queryKey: ['tenant', 'sendingPlans'],
     queryFn: async () => (await tenantApi.sendingPlans.list({ limit: 50 })).data.data,
   });
 
