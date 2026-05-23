@@ -167,6 +167,15 @@ async def create_sending_plan(
     )
 
 
+@router.get("/sending-plans/preview-recipients")
+async def preview_group_recipients(
+    group_id: str = Query(...),
+    context: TenantAuthContext = Depends(get_current_tenant_user),
+) -> dict:
+    result = await service.preview_recipients_for_group(context.connection, context.tenant_id, group_id)
+    return success_response(result)
+
+
 @router.post("/sending-plans/complete-create")
 async def create_complete_sending_plan(
     payload: dict,

@@ -294,7 +294,7 @@ class TestPreviewRecipientsForGroup:
              "data_status": "ready", "source_type": "group", "source_ref": GROUP_ID},
         ]
 
-        with patch.object(svc, "_validate_group_ownership", new_callable=AsyncMock):
+        with patch.object(svc, "_validate_recipient_config", new_callable=AsyncMock):
             with patch.object(svc, "_build_recipient_candidates", new_callable=AsyncMock, return_value=mock_candidates):
                 result = await svc.preview_recipients_for_group(conn, TENANT_ID, GROUP_ID)
 
@@ -320,7 +320,7 @@ class TestPreviewRecipientsForGroup:
              "data_status": "ready", "source_type": "group", "source_ref": GROUP_ID},
         ]
 
-        with patch.object(svc, "_validate_group_ownership", new_callable=AsyncMock):
+        with patch.object(svc, "_validate_recipient_config", new_callable=AsyncMock):
             with patch.object(svc, "_build_recipient_candidates", new_callable=AsyncMock, return_value=mock_candidates):
                 result = await svc.preview_recipients_for_group(conn, TENANT_ID, GROUP_ID)
 
@@ -335,7 +335,7 @@ class TestPreviewRecipientsForGroup:
         svc = TenantMessagingService()
         conn = AsyncMock()
 
-        with patch.object(svc, "_validate_group_ownership", new_callable=AsyncMock):
+        with patch.object(svc, "_validate_recipient_config", new_callable=AsyncMock):
             with patch.object(svc, "_build_recipient_candidates", new_callable=AsyncMock, return_value=[]):
                 result = await svc.preview_recipients_for_group(conn, TENANT_ID, GROUP_ID)
 
@@ -356,7 +356,7 @@ class TestPreviewGroupValidation:
         conn = AsyncMock()
 
         with patch.object(
-            svc, "_validate_group_ownership", new_callable=AsyncMock,
+            svc, "_validate_recipient_config", new_callable=AsyncMock,
             side_effect=AppError(code="VALIDATION_ERROR", message="收件人分组不存在或不属于当前租户", status_code=422),
         ):
             with pytest.raises(AppError) as exc_info:

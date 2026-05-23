@@ -878,6 +878,45 @@ class TenantMessagingService:
         )
         return candidates
 
+    async def preview_recipients_for_group(self, conn: AsyncConnection, tenant_id: str, group_id: str) -> dict:
+        """按群组预览收件人：按公司分组返回候选人列表和汇总统计"""
+        await self._validate_recipient_config(conn, tenant_id, "group", {"group_id": group_id})
+        candidates = await self._build_recipient_candidates(
+            conn,
+            tenant_id=tenant_id,
+            recipient_source="group",
+            recipient_config={"group_id": group_id},
+        )
+        companies_map: dict[str, dict] = {}
+        for c in candidates:
+            cid = c["tenant_company_id"]
+            if cid not in companies_map:
+                companies_map[cid] = {
+                    "tenant_company_id": cid,
+                    "company_name": c["company_name"],
+                    "recipient_count": 0,
+                    "recipients": [],
+                }
+            entry = {
+                "contact_name": c["contact_name"],
+                "contact_email": c["contact_email"],
+                "level_name": c.get("level_display_name"),
+                "excluded_reason": c["excluded_reason"],
+            }
+            companies_map[cid]["recipients"].append(entry)
+            if c["excluded_reason"] is None:
+                companies_map[cid]["recipient_count"] += 1
+
+        companies = list(companies_map.values())
+        total_recipients = sum(co["recipient_count"] for co in companies)
+        return {
+            "companies": companies,
+            "summary": {
+                "company_count": len(companies),
+                "recipient_count": total_recipients,
+            },
+        }
+
     async def list_plan_recipients(self, conn: AsyncConnection, tenant_id: str, plan_id: str) -> list[dict]:
         result = await conn.execute(
             text(
@@ -1856,6 +1895,7 @@ class TenantMessagingService:
                     "source_type": recipient_source,
                     "source_ref": str(row["source_ref"]) if row["source_ref"] else None,
                     "excluded_reason": excluded_reason,
+                    "level_display_name": row.get("level_display_name"),
                 }
             )
         return candidates
