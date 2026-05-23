@@ -2,16 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SendingPlan } from '@shared/api';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogTitle,
   Button, Card, CardContent,
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   StatusTag, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@shared/ui';
@@ -22,7 +20,7 @@ import { PageHeader } from '@/components/pages/page-kit';
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
 const STATUS_OPTIONS = [
-  { value: '', label: '全部状态' },
+  { value: 'all', label: '全部状态' },
   { value: 'draft', label: '草稿' },
   { value: 'scheduled', label: '已排期' },
   { value: 'running', label: '执行中' },
@@ -37,32 +35,40 @@ export default function SendPlansPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchInput, setSearchInput] = useState('');
-  const [keyword, setKeyword] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  const [appliedFilters, setAppliedFilters] = useState({ status: 'all', keyword: '', dateFrom: '', dateTo: '' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [jumpPage, setJumpPage] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setKeyword(searchInput), 300);
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const applyFilters = () => {
+    setAppliedFilters({ status: statusFilter, keyword: searchInput, dateFrom, dateTo });
+    setPage(1);
+  };
 
-  useEffect(() => { setPage(1); }, [statusFilter, keyword, dateFrom, dateTo]);
+  const resetFilters = () => {
+    setStatusFilter('all');
+    setSearchInput('');
+    setDateFrom('');
+    setDateTo('');
+    setAppliedFilters({ status: 'all', keyword: '', dateFrom: '', dateTo: '' });
+    setPage(1);
+  };
 
   const listQuery = useQuery({
-    queryKey: ['tenant', 'sendingPlans', page, pageSize, statusFilter, keyword, dateFrom, dateTo],
+    queryKey: ['tenant', 'sendingPlans', page, pageSize, appliedFilters],
     queryFn: async () => (await tenantApi.sendingPlans.list({
       page,
       page_size: pageSize,
-      ...(statusFilter && { status: statusFilter }),
-      ...(keyword && { keyword }),
-      ...(dateFrom && { date_from: dateFrom }),
-      ...(dateTo && { date_to: dateTo }),
+      ...(appliedFilters.status !== 'all' && { status: appliedFilters.status }),
+      ...(appliedFilters.keyword && { keyword: appliedFilters.keyword }),
+      ...(appliedFilters.dateFrom && { date_from: appliedFilters.dateFrom }),
+      ...(appliedFilters.dateTo && { date_to: appliedFilters.dateTo }),
     })).data,
   });
 
@@ -80,19 +86,8 @@ export default function SendPlansPage() {
     onError: () => toast.error('删除失败'),
   });
 
-  function getMenuItems(plan: SendingPlan) {
-    const status = plan.status;
-    const items: { label: string; action: () => void; variant?: 'destructive' }[] = [
-      { label: '查看详情', action: () => router.push(`/send-plans/${plan.id}`) },
-    ];
-    if (status === 'draft') {
-      items.push({ label: '编辑', action: () => router.push(`/send-plans/${plan.id}/edit`) });
-      items.push({ label: '删除', action: () => setDeleteTarget({ id: plan.id, name: plan.name }), variant: 'destructive' });
-    } else if (status === 'completed' || status === 'cancelled') {
-      items.push({ label: '删除', action: () => setDeleteTarget({ id: plan.id, name: plan.name }), variant: 'destructive' });
-    }
-    return items;
-  }
+  const canEdit = (status: string) => status === 'draft';
+  const canDelete = (status: string) => ['draft', 'completed', 'cancelled'].includes(status);
 
   return (
     <div className="tenant-page space-y-4">
@@ -134,15 +129,8 @@ export default function SendPlansPage() {
           onChange={(e) => setDateTo(e.target.value)}
         />
 
-        {(statusFilter || keyword || dateFrom || dateTo) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setStatusFilter(''); setSearchInput(''); setDateFrom(''); setDateTo(''); }}
-          >
-            清除筛选
-          </Button>
-        )}
+        <Button size="sm" onClick={applyFilters}>查询</Button>
+        <Button variant="outline" size="sm" onClick={resetFilters}>重置</Button>
       </div>
 
       {/* 表格 */}
@@ -155,7 +143,7 @@ export default function SendPlansPage() {
                 <TableHead>状态</TableHead>
                 <TableHead>收件人数</TableHead>
                 <TableHead>创建时间</TableHead>
-                <TableHead className="w-[60px]">操作</TableHead>
+                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -177,24 +165,21 @@ export default function SendPlansPage() {
                   <TableCell>{plan.total_recipients ?? '-'}</TableCell>
                   <TableCell>{formatDateTime(plan.created_at)}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
+                    <div className="flex items-center gap-2">
+                      <Button variant="link" size="sm" className="h-auto p-0" onClick={() => router.push(`/send-plans/${plan.id}`)}>
+                        详情
+                      </Button>
+                      {canEdit(plan.status) && (
+                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => router.push(`/send-plans/${plan.id}/edit`)}>
+                          编辑
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {getMenuItems(plan).map((item) => (
-                          <DropdownMenuItem
-                            key={item.label}
-                            onClick={item.action}
-                            className={item.variant === 'destructive' ? 'text-destructive' : ''}
-                          >
-                            {item.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      )}
+                      {canDelete(plan.status) && (
+                        <Button variant="link" size="sm" className="h-auto p-0 text-destructive" onClick={() => setDeleteTarget({ id: plan.id, name: plan.name })}>
+                          删除
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

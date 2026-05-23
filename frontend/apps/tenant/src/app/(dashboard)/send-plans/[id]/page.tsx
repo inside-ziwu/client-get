@@ -201,7 +201,7 @@ export default function SendPlanDetailPage() {
         rows={recipientsQuery.data}
         columns={[
           { key: 'company', title: '公司', render: (row) => row.company_name ?? '-' },
-          { key: 'email', title: '邮箱', render: (row) => row.email ?? '-' },
+          { key: 'email', title: '邮箱', render: (row) => row.contact_email ?? '-' },
           { key: 'status', title: '状态', render: (row) => row.enrollment_status ?? '-' },
           { key: 'step', title: '当前步骤', render: (row) => row.current_step ?? '-' },
         ]}

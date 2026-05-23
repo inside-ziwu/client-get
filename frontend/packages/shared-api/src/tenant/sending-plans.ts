@@ -17,7 +17,8 @@ export interface SendingPlanRecipient {
   id: string;
   tenant_company_id?: string;
   company_name?: string;
-  email?: string;
+  contact_email?: string;
+  contact_name?: string;
   enrollment_status?: string;
   current_step?: number;
 }
