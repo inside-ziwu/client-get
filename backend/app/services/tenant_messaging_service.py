@@ -1,6 +1,6 @@
 import base64
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import text
@@ -374,19 +374,77 @@ class TenantMessagingService:
             "body_text": template["body_text"],
         }
 
-    async def list_sending_plans(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
+    async def list_sending_plans(
+        self,
+        conn: AsyncConnection,
+        tenant_id: str,
+        *,
+        status: str | None = None,
+        keyword: str | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
+    ) -> list[dict] | dict:
+        where_clauses = ["tenant_id = :tenant_id", "deleted_at IS NULL"]
+        params: dict = {"tenant_id": tenant_id}
+
+        if status:
+            where_clauses.append("status = :status")
+            params["status"] = status
+
+        if keyword:
+            where_clauses.append("name ILIKE :keyword")
+            params["keyword"] = f"%{keyword}%"
+
+        if date_from:
+            where_clauses.append("created_at >= :date_from")
+            params["date_from"] = date_from
+
+        if date_to:
+            next_day = (date.fromisoformat(date_to) + timedelta(days=1)).isoformat()
+            where_clauses.append("created_at < :date_to")
+            params["date_to"] = next_day
+
+        where_sql = " AND ".join(where_clauses)
+        select_cols = """id, name, description, status, recipient_source, recipient_config, send_strategy,
+                       sender_name, sender_email, domain_id, total_recipients, sent_count, scheduled_at,
+                       started_at, completed_at, created_at, updated_at"""
+
+        if page is not None and page_size is not None:
+            count_result = await conn.execute(
+                text(f"SELECT COUNT(*) FROM sending_plans WHERE {where_sql}"),
+                params,
+            )
+            total = count_result.scalar_one()
+
+            offset = (page - 1) * page_size
+            data_params = {**params, "limit": page_size, "offset": offset}
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT {select_cols}
+                    FROM sending_plans
+                    WHERE {where_sql}
+                    ORDER BY created_at DESC
+                    LIMIT :limit OFFSET :offset
+                    """
+                ),
+                data_params,
+            )
+            items = [self._serialize_plan(row) for row in result.mappings().all()]
+            return {"items": items, "total": total}
+
         result = await conn.execute(
             text(
-                """
-                SELECT id, name, description, status, recipient_source, recipient_config, send_strategy,
-                       sender_name, sender_email, domain_id, total_recipients, sent_count, scheduled_at,
-                       started_at, completed_at, created_at, updated_at
+                f"""
+                SELECT {select_cols}
                 FROM sending_plans
-                WHERE tenant_id = :tenant_id AND deleted_at IS NULL
+                WHERE {where_sql}
                 ORDER BY created_at DESC
                 """
             ),
-            {"tenant_id": tenant_id},
+            params,
         )
         return [self._serialize_plan(row) for row in result.mappings().all()]
 

@@ -128,9 +128,28 @@ async def preview_email_template(
 
 
 @router.get("/sending-plans")
-async def list_sending_plans(context: TenantAuthContext = Depends(get_current_tenant_user)) -> dict:
-    items = await service.list_sending_plans(context.connection, context.tenant_id)
-    return paginated_response(items, total=len(items))
+async def list_sending_plans(
+    context: TenantAuthContext = Depends(get_current_tenant_user),
+    status: str | None = Query(None),
+    keyword: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    page: int | None = Query(None),
+    page_size: int | None = Query(None),
+) -> dict:
+    result = await service.list_sending_plans(
+        context.connection,
+        context.tenant_id,
+        status=status,
+        keyword=keyword,
+        date_from=date_from,
+        date_to=date_to,
+        page=page,
+        page_size=page_size,
+    )
+    if isinstance(result, dict):
+        return paginated_response(result["items"], total=result["total"])
+    return paginated_response(result, total=len(result))
 
 
 @router.post("/sending-plans")
