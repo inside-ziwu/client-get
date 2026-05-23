@@ -11,6 +11,7 @@ export interface TenantDomainInfo {
   bounce_rate?: number | null;
   complaint_rate?: number | null;
   open_rate?: number | null;
+  sender_email?: string | null;
   created_at: string;
   updated_at: string;
 }
