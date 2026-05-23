@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(alias="JWT_SECRET")
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = Field(default=24, alias="JWT_EXPIRE_HOURS")
+    refresh_token_expire_days: int = Field(default=7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
 
     admin_email: str = Field(alias="ADMIN_EMAIL")
     admin_password: str = Field(alias="ADMIN_PASSWORD")
