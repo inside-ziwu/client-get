@@ -12,7 +12,7 @@ on:
           - tenant
           - backend
       tag:
-        description: '镜像 tag（留空则自动生成 YYYY.MM.DD-r1）'
+        description: '镜像 tag（留空则自动递增 YYYY.MM.DD-rN）'
         required: false
         type: string
 
@@ -26,19 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 生成镜像 tag
-        id: meta
-        run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            TAG="${{ inputs.tag }}"
-          else
-            TAG="$(date -u +%Y.%m.%d)-r1"
-          fi
-          IMAGE="${{ env.REGISTRY }}/lay_inside/clientget-${{ inputs.service }}:${TAG}"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
-          echo "▶ 构建目标: ${IMAGE}"
-
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -48,6 +35,25 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: 生成镜像 tag
+        id: meta
+        run: |
+          REPO="${{ env.REGISTRY }}/lay_inside/clientget-${{ inputs.service }}"
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            DATE="$(date -u +%Y.%m.%d)"
+            REV=1
+            while docker manifest inspect "${REPO}:${DATE}-r${REV}" > /dev/null 2>&1; do
+              REV=$((REV + 1))
+            done
+            TAG="${DATE}-r${REV}"
+          fi
+          IMAGE="${REPO}:${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "▶ 构建目标: ${IMAGE}"
 
       - name: 构建并推送镜像
         uses: docker/build-push-action@v6
@@ -69,4 +75,4 @@ jobs:
           echo "✅ 推送完成: ${{ steps.meta.outputs.image }}"
           echo ""
           echo "Sealos 更新镜像 tag 为:"
-          echo "  ${{ steps.meta.outputs.image }}"
+          echo "  ${{ steps.meta.outputs.tag }}"
