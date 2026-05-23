@@ -17,7 +17,7 @@ import {
   Textarea,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
-import type { StepConfig } from './page';
+import type { StepConfig } from '../send-plan-wizard';
 
 const CONDITION_OPTIONS = [
   { value: 'no_reply', label: '未回复' },

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@shared/ui';
 import type { EmailTemplate, Group } from '@shared/api';
-import type { WizardFormData } from './page';
+import type { WizardFormData } from '../send-plan-wizard';
 
 const CONDITION_LABELS: Record<string, string> = {
   always: '始终发送',
