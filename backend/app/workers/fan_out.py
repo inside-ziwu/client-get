@@ -71,7 +71,7 @@ async def run_fan_out_for_tenant_keyword(
     result = await conn.execute(
         text("""
             INSERT INTO tenant_companies
-              (tenant_id, clean_company_id, business_status, data_status, visibility_status)
+              (tenant_id, clean_company_id, business_status, data_status)
             SELECT
               :tenant_id,
               wc.id,
@@ -84,16 +84,14 @@ async def run_fan_out_for_tenant_keyword(
                   AND wc.product_tags IS NULL
                 ) THEN 'insufficient_data'
                 ELSE 'ready'
-              END,
-              'visible'
+              END
             FROM waimaotong_clean_companies wc
             WHERE wc.keyword_master_ids @> ARRAY[:keyword_master_id]::uuid[]
             ORDER BY wc.id
             ON CONFLICT (tenant_id, clean_company_id) DO UPDATE
-            SET visibility_status = 'visible',
-                data_status = EXCLUDED.data_status,
+            SET data_status = EXCLUDED.data_status,
                 updated_at = now()
-            WHERE tenant_companies.visibility_status <> 'visible'
+            WHERE tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
             RETURNING id
         """),
         {"tenant_id": tenant_id, "keyword_master_id": keyword_master_id},
@@ -102,64 +100,3 @@ async def run_fan_out_for_tenant_keyword(
 
     logger.info("fan_out: keyword=%s tenant_id=%s 写入 tenant_companies=%d 条", keyword, tenant_id, inserted)
     return {"inserted": inserted, "tenant_id": tenant_id, "keyword_master_id": keyword_master_id}
-
-
-async def hide_tenant_companies_for_cancelled_keyword(
-    conn,
-    *,
-    tenant_id: str,
-    keyword_master_id: str,
-) -> dict:
-    """隐藏因取消关键词而失去覆盖的公司。保留有其他 active 关键词覆盖的公司。"""
-    affected = await conn.execute(
-        text("""
-            SELECT tc.id AS tenant_company_id, tc.clean_company_id
-            FROM tenant_companies tc
-            JOIN waimaotong_clean_companies wc
-              ON wc.id = tc.clean_company_id
-             AND wc.keyword_master_ids @> ARRAY[:keyword_master_id]::uuid[]
-            WHERE tc.tenant_id = :tenant_id
-              AND tc.visibility_status = 'visible'
-              AND NOT EXISTS (
-                SELECT 1
-                FROM tenant_keyword tk
-                WHERE tk.tenant_id = :tenant_id
-                  AND tk.status = 'active'
-                  AND tk.keyword_master_id != :keyword_master_id
-                  AND wc.keyword_master_ids @> ARRAY[tk.keyword_master_id]::uuid[]
-              )
-        """),
-        {"tenant_id": tenant_id, "keyword_master_id": keyword_master_id},
-    )
-    tenant_company_ids = [row["tenant_company_id"] for row in affected.mappings().all()]
-    if not tenant_company_ids:
-        return {"hidden": 0, "tenant_id": tenant_id, "keyword_master_id": keyword_master_id}
-
-    await conn.execute(
-        text("DELETE FROM group_members WHERE tenant_id = :tenant_id AND tenant_company_id = ANY(:ids)"),
-        {"tenant_id": tenant_id, "ids": tenant_company_ids},
-    )
-    await conn.execute(
-        text("DELETE FROM scoring_jobs WHERE tenant_id = :tenant_id AND tenant_company_id = ANY(:ids) AND status IN ('pending','leased')"),
-        {"tenant_id": tenant_id, "ids": tenant_company_ids},
-    )
-    await conn.execute(
-        text("DELETE FROM company_scores WHERE tenant_id = :tenant_id AND tenant_company_id = ANY(:ids)"),
-        {"tenant_id": tenant_id, "ids": tenant_company_ids},
-    )
-    await conn.execute(
-        text("""
-            UPDATE tenant_companies
-            SET visibility_status = 'hidden',
-                model_score = NULL,
-                score = NULL,
-                note = NULL,
-                tags = '{}',
-                business_status = 'new',
-                updated_at = now()
-            WHERE tenant_id = :tenant_id
-              AND id = ANY(:ids)
-        """),
-        {"tenant_id": tenant_id, "ids": tenant_company_ids},
-    )
-    return {"hidden": len(tenant_company_ids), "tenant_id": tenant_id, "keyword_master_id": keyword_master_id}

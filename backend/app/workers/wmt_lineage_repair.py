@@ -74,7 +74,7 @@ _SQL_BACKFILL_RAW_FALLBACK = text("""
 
 _SQL_FAN_OUT_ACTIVE_KEYWORDS = text("""
     INSERT INTO tenant_companies
-      (tenant_id, clean_company_id, business_status, data_status, visibility_status)
+      (tenant_id, clean_company_id, business_status, data_status)
     SELECT DISTINCT
       tk.tenant_id,
       wc.id,
@@ -87,36 +87,29 @@ _SQL_FAN_OUT_ACTIVE_KEYWORDS = text("""
           AND wc.product_tags IS NULL
         ) THEN 'insufficient_data'
         ELSE 'ready'
-      END,
-      'visible'
+      END
     FROM tenant_keyword tk
     JOIN waimaotong_clean_companies wc
       ON wc.keyword_master_ids @> ARRAY[tk.keyword_master_id]::uuid[]
     WHERE tk.status = 'active'
     ON CONFLICT (tenant_id, clean_company_id) DO UPDATE
-    SET visibility_status = 'visible',
-        data_status = EXCLUDED.data_status,
+    SET data_status = EXCLUDED.data_status,
         updated_at = CASE
-            WHEN tenant_companies.visibility_status IS DISTINCT FROM 'visible'
-              OR tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
+            WHEN tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
             THEN now()
             ELSE tenant_companies.updated_at
         END
-    WHERE tenant_companies.visibility_status IS DISTINCT FROM 'visible'
-       OR tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
+    WHERE tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
     RETURNING id
 """)
 
-_SQL_HIDE_STALE_RELATIONS = text("""
-    UPDATE tenant_companies tc
-    SET visibility_status = 'hidden',
-        updated_at = now()
-    WHERE tc.visibility_status = 'visible'
-      AND NOT EXISTS (
+_SQL_DELETE_STALE_RELATIONS = text("""
+    DELETE FROM tenant_companies tc
+    WHERE NOT EXISTS (
         SELECT 1
         FROM waimaotong_clean_companies wc
         WHERE wc.id = tc.clean_company_id
-      )
+    )
     RETURNING id
 """)
 
@@ -126,11 +119,10 @@ _SQL_UNRESOLVED_COUNT = text("""
     WHERE keyword_master_ids = '{}'
 """)
 
-_SQL_VISIBLE_JOIN_COUNT = text("""
+_SQL_ACTIVE_JOIN_COUNT = text("""
     SELECT count(*)
     FROM tenant_companies tc
     JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
-    WHERE tc.visibility_status = 'visible'
 """)
 
 
@@ -157,9 +149,9 @@ async def run_wmt_lineage_repair_on_connection(conn) -> dict:
     clean_path = await conn.execute(_SQL_BACKFILL_CLEAN_PATH)
     raw_fallback = await conn.execute(_SQL_BACKFILL_RAW_FALLBACK)
     fan_out = await conn.execute(_SQL_FAN_OUT_ACTIVE_KEYWORDS)
-    hidden = await conn.execute(_SQL_HIDE_STALE_RELATIONS)
+    deleted_stale = await conn.execute(_SQL_DELETE_STALE_RELATIONS)
     unresolved = int(await conn.scalar(_SQL_UNRESOLVED_COUNT) or 0)
-    visible_join = int(await conn.scalar(_SQL_VISIBLE_JOIN_COUNT) or 0)
+    active_join = int(await conn.scalar(_SQL_ACTIVE_JOIN_COUNT) or 0)
 
     stats = {
         "skipped": False,
@@ -167,9 +159,9 @@ async def run_wmt_lineage_repair_on_connection(conn) -> dict:
         "clean_path": clean_path.rowcount,
         "raw_fallback": raw_fallback.rowcount,
         "fan_out": len(fan_out.mappings().all()),
-        "hidden_stale": len(hidden.mappings().all()),
+        "deleted_stale": len(deleted_stale.mappings().all()),
         "unresolved": unresolved,
-        "visible_join": visible_join,
+        "active_join": active_join,
     }
     logger.info("wmt_lineage_repair: %s", stats)
     return stats

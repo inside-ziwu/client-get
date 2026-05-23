@@ -11,7 +11,7 @@ from app.services.keyword_service import (
     lookup_keyword_master,
     normalize_keyword,
 )
-from app.workers.fan_out import hide_tenant_companies_for_cancelled_keyword, run_fan_out_for_tenant_keyword
+from app.workers.fan_out import run_fan_out_for_tenant_keyword
 
 
 class TenantSettingsService:
@@ -121,12 +121,6 @@ class TenantSettingsService:
             keyword=keyword,
             keyword_normalized=keyword_normalized,
         )
-        if str(old_keyword_master_id) != str(keyword_master_id):
-            await hide_tenant_companies_for_cancelled_keyword(
-                conn,
-                tenant_id=tenant_id,
-                keyword_master_id=str(old_keyword_master_id),
-            )
         await bind_tenant_keyword(
             conn,
             tenant_id=tenant_id,
@@ -202,11 +196,6 @@ class TenantSettingsService:
                     """
                 ),
                 {"tenant_id": tenant_id, "keyword_master_id": row["keyword_master_id"]},
-            )
-            await hide_tenant_companies_for_cancelled_keyword(
-                conn,
-                tenant_id=tenant_id,
-                keyword_master_id=str(row["keyword_master_id"]),
             )
 
     async def get_scoring_templates(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
