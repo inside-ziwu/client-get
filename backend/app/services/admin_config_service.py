@@ -1414,10 +1414,10 @@ class AdminConfigService:
                 """
                 INSERT INTO domain_warmup_status
                   (id, tenant_id, domain, spf_record, dkim_record, dmarc_record, verification_status,
-                   warmup_rule_id, warmup_level, daily_limit, level_changed_at)
+                   warmup_rule_id, warmup_level, daily_limit, sender_email, level_changed_at)
                 VALUES
                   (:id, :tenant_id, :domain, :spf_record, :dkim_record, :dmarc_record, :verification_status,
-                   :warmup_rule_id, :warmup_level, :daily_limit, now())
+                   :warmup_rule_id, :warmup_level, :daily_limit, :sender_email, now())
                 """
             ),
             {
@@ -1431,6 +1431,7 @@ class AdminConfigService:
                 "warmup_rule_id": rule_id,
                 "warmup_level": warmup_level,
                 "daily_limit": daily_limit,
+                "sender_email": payload.get("sender_email"),
             },
         )
         await conn.execute(
@@ -1462,6 +1463,156 @@ class AdminConfigService:
             new_value=domain,
         )
         return domain
+
+    async def update_tenant_domain(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_id: str,
+        domain_id: str,
+        payload: dict,
+        platform_user_id: str,
+    ) -> dict:
+        before = await self.get_tenant_domain(conn, tenant_id, domain_id)
+        payload.pop("domain", None)
+
+        rule_id = payload.get("warmup_rule_id")
+        warmup_level = payload.get("warmup_level")
+        if rule_id is not None and warmup_level is not None:
+            level_result = await conn.execute(
+                text(
+                    """
+                    SELECT wrl.daily_limit
+                    FROM warmup_rules wr
+                    JOIN warmup_rule_levels wrl ON wrl.rule_id = wr.id
+                    WHERE wr.id = :rule_id
+                      AND wr.is_active = true
+                      AND wrl.level = :warmup_level
+                    """
+                ),
+                {"rule_id": rule_id, "warmup_level": warmup_level},
+            )
+            level_row = level_result.mappings().first()
+            if level_row is None:
+                raise AppError(
+                    code="VALIDATION_ERROR",
+                    message="预热规则或档位已变化，请刷新后重新选择预热档位",
+                    status_code=422,
+                )
+            daily_limit = level_row["daily_limit"]
+            await conn.execute(
+                text(
+                    """
+                    UPDATE domain_warmup_status
+                    SET warmup_rule_id = :warmup_rule_id,
+                        warmup_level = :warmup_level,
+                        daily_limit = :daily_limit,
+                        level_changed_at = now(),
+                        updated_at = now()
+                    WHERE id = :domain_id AND tenant_id = :tenant_id
+                    """
+                ),
+                {
+                    "warmup_rule_id": rule_id,
+                    "warmup_level": warmup_level,
+                    "daily_limit": daily_limit,
+                    "domain_id": domain_id,
+                    "tenant_id": tenant_id,
+                },
+            )
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO domain_warmup_history
+                      (id, tenant_id, warmup_status_id, domain, warmup_level, daily_limit, total_sent, change_type, change_reason)
+                    VALUES
+                      (:id, :tenant_id, :warmup_status_id, :domain, :warmup_level, :daily_limit, 0, 'manual_adjust', 'warmup config updated')
+                    """
+                ),
+                {
+                    "id": str(new_uuid()),
+                    "tenant_id": tenant_id,
+                    "warmup_status_id": domain_id,
+                    "domain": before["domain"],
+                    "warmup_level": warmup_level,
+                    "daily_limit": daily_limit,
+                },
+            )
+
+        if "sender_email" in payload:
+            await conn.execute(
+                text(
+                    """
+                    UPDATE domain_warmup_status
+                    SET sender_email = :sender_email, updated_at = now()
+                    WHERE id = :domain_id AND tenant_id = :tenant_id
+                    """
+                ),
+                {
+                    "sender_email": payload["sender_email"],
+                    "domain_id": domain_id,
+                    "tenant_id": tenant_id,
+                },
+            )
+
+        domain = await self.get_tenant_domain(conn, tenant_id, domain_id)
+        await self.audit.write(
+            conn,
+            action="update",
+            entity_type="tenant_domain",
+            entity_id=domain_id,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            old_value=before,
+            new_value=domain,
+        )
+        return domain
+
+    async def delete_tenant_domain(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_id: str,
+        domain_id: str,
+        platform_user_id: str,
+    ) -> None:
+        domain = await self.get_tenant_domain(conn, tenant_id, domain_id)
+
+        usage_result = await conn.execute(
+            text("SELECT COUNT(*) FROM domain_daily_usage WHERE domain_id = :domain_id"),
+            {"domain_id": domain_id},
+        )
+        if usage_result.scalar_one() > 0:
+            raise AppError(
+                code="CONFLICT",
+                message="该域名存在关联数据，无法删除",
+                status_code=409,
+            )
+
+        plan_result = await conn.execute(
+            text("SELECT COUNT(*) FROM sending_plans WHERE domain_id = :domain_id"),
+            {"domain_id": domain_id},
+        )
+        if plan_result.scalar_one() > 0:
+            raise AppError(
+                code="CONFLICT",
+                message="该域名存在关联数据，无法删除",
+                status_code=409,
+            )
+
+        await conn.execute(
+            text("DELETE FROM domain_warmup_status WHERE id = :domain_id AND tenant_id = :tenant_id"),
+            {"domain_id": domain_id, "tenant_id": tenant_id},
+        )
+        await self.audit.write(
+            conn,
+            action="delete",
+            entity_type="tenant_domain",
+            entity_id=domain_id,
+            tenant_id=tenant_id,
+            platform_user_id=platform_user_id,
+            old_value=domain,
+        )
 
     async def verify_tenant_domain(
         self,
