@@ -33,7 +33,15 @@ export type { Prospect } from './tenant/prospects';
 export type { Group } from './tenant/groups';
 export type { TenantDomainInfo } from './tenant/domains';
 export type { EmailTemplate } from './tenant/email-templates';
-export type { SendingPlan, SendingPlanStep, SendingPlanRecipient } from './tenant/sending-plans';
+export type {
+  SendingPlan,
+  SendingPlanStep,
+  SendingPlanRecipient,
+  PreviewRecipientCompany,
+  PreviewRecipientContact,
+  PreviewRecipientsSummary,
+  PreviewRecipientsResponse,
+} from './tenant/sending-plans';
 export type { TeamUser } from './tenant/team';
 export type { Keyword } from './tenant/keywords';
 export type { TenantScoringTemplate } from './tenant/scoring';

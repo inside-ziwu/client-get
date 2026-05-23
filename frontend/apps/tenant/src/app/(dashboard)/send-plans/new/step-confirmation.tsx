@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from '@shared/ui';
-import type { EmailTemplate, Group } from '@shared/api';
+import type { EmailTemplate, Group, PreviewRecipientsResponse } from '@shared/api';
 import type { WizardFormData } from '../send-plan-wizard';
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -34,6 +34,10 @@ export default function StepConfirmation({ formData }: Props) {
 
   const templateMap = new Map(templates.map((t) => [t.id, t.name]));
   const selectedGroup = groups.find((g) => g.id === formData.plan.recipient_config.group_id);
+  const groupId = formData.plan.recipient_config.group_id;
+  const preview = queryClient.getQueryData<PreviewRecipientsResponse>([
+    'tenant', 'sending-plans', 'preview-recipients', groupId,
+  ]);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -88,7 +92,14 @@ export default function StepConfirmation({ formData }: Props) {
           items={[
             { label: '来源', value: `群组 — "${selectedGroup?.name ?? '-'}"` },
             { label: '锁定收件人', value: formData.lock_recipients ? '是' : '否' },
-            { label: '预估收件人数', value: selectedGroup ? `${selectedGroup.member_count} 人` : '-' },
+            {
+              label: '预估收件人数',
+              value: preview
+                ? `${preview.summary.company_count} 家公司，${preview.summary.recipient_count} 位收件人`
+                : selectedGroup
+                  ? `${selectedGroup.member_count} 家公司`
+                  : '-',
+            },
           ]}
         />
       </div>

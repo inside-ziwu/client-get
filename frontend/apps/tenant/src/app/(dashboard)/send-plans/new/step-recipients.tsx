@@ -1,8 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   Checkbox,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Label,
   Select,
   SelectContent,
@@ -17,6 +22,7 @@ import {
   TableRow,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
+import type { PreviewRecipientCompany } from '@shared/api';
 
 interface Props {
   recipientConfig: Record<string, string>;
@@ -39,14 +45,14 @@ export default function StepRecipients({ recipientConfig, lockRecipients, onChan
 
   const selectedGroupId = recipientConfig.group_id ?? '';
 
-  const membersQuery = useQuery({
-    queryKey: ['tenant', 'groups', selectedGroupId, 'members'],
-    queryFn: async () => (await tenantApi.groups.listMembers(selectedGroupId)).data.data,
+  const previewQuery = useQuery({
+    queryKey: ['tenant', 'sending-plans', 'preview-recipients', selectedGroupId],
+    queryFn: async () => (await tenantApi.sendingPlans.previewGroupRecipients(selectedGroupId)).data.data,
     enabled: !!selectedGroupId,
   });
 
   const groups = groupsQuery.data ?? [];
-  const members = membersQuery.data ?? [];
+  const preview = previewQuery.data;
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -67,7 +73,7 @@ export default function StepRecipients({ recipientConfig, lockRecipients, onChan
           <SelectContent>
             {groups.map((g) => (
               <SelectItem key={g.id} value={g.id}>
-                {g.name}（{g.member_count} 人）
+                {g.name}（{g.member_count} 家公司）
               </SelectItem>
             ))}
           </SelectContent>
@@ -89,37 +95,82 @@ export default function StepRecipients({ recipientConfig, lockRecipients, onChan
       {selectedGroupId && (
         <div className="space-y-2">
           <Label>收件人预览</Label>
-          {membersQuery.isLoading ? (
+          {previewQuery.isLoading ? (
             <p className="text-sm text-muted-foreground">加载中...</p>
-          ) : members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">该群组暂无成员</p>
+          ) : !preview || preview.companies.length === 0 ? (
+            <p className="text-sm text-muted-foreground">该群组暂无有效收件人</p>
           ) : (
             <>
-              <div className="max-h-64 overflow-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>公司</TableHead>
-                      <TableHead>联系人</TableHead>
-                      <TableHead>邮箱</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {members.map((m, i) => (
-                      <TableRow key={i}>
-                        <TableCell>{(m.company_name as string) ?? '-'}</TableCell>
-                        <TableCell>{(m.contact_name as string) ?? '-'}</TableCell>
-                        <TableCell>{(m.contact_email as string) ?? '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="max-h-80 overflow-auto rounded-md border">
+                <CompanyRecipientList companies={preview.companies} />
               </div>
-              <p className="text-sm text-muted-foreground">合计 {members.length} 人</p>
+              <p className="text-sm text-muted-foreground">
+                合计 {preview.summary.company_count} 家公司，{preview.summary.recipient_count} 位收件人
+              </p>
             </>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+function CompanyRecipientList({ companies }: { companies: PreviewRecipientCompany[] }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-8" />
+          <TableHead>公司</TableHead>
+          <TableHead className="text-right">收件人数</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {companies.map((co) => {
+          const isOpen = expanded[co.tenant_company_id] ?? false;
+          const validRecipients = co.recipients.filter((r) => r.excluded_reason === null);
+          return (
+            <Collapsible
+              key={co.tenant_company_id}
+              open={isOpen}
+              onOpenChange={(open) =>
+                setExpanded((prev) => ({ ...prev, [co.tenant_company_id]: open }))
+              }
+              asChild
+            >
+              <>
+                <CollapsibleTrigger asChild>
+                  <TableRow className="cursor-pointer hover:bg-muted/50">
+                    <TableCell className="w-8 px-2">
+                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </TableCell>
+                    <TableCell className="font-medium">{co.company_name}</TableCell>
+                    <TableCell className="text-right">{co.recipient_count} 人</TableCell>
+                  </TableRow>
+                </CollapsibleTrigger>
+                <CollapsibleContent asChild>
+                  <>
+                    {validRecipients.map((r, i) => (
+                      <TableRow key={i} className="bg-muted/30">
+                        <TableCell />
+                        <TableCell className="pl-8 text-sm text-muted-foreground">
+                          {r.contact_name ?? '-'}
+                          {r.level_name && (
+                            <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs">{r.level_name}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">{r.contact_email}</TableCell>
+                      </TableRow>
+                    ))}
+                  </>
+                </CollapsibleContent>
+              </>
+            </Collapsible>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

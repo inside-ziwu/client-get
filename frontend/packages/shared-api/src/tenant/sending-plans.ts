@@ -23,6 +23,30 @@ export interface SendingPlanRecipient {
   current_step?: number;
 }
 
+export interface PreviewRecipientContact {
+  contact_name: string;
+  contact_email: string;
+  level_name: string | null;
+  excluded_reason: string | null;
+}
+
+export interface PreviewRecipientCompany {
+  tenant_company_id: string;
+  company_name: string;
+  recipient_count: number;
+  recipients: PreviewRecipientContact[];
+}
+
+export interface PreviewRecipientsSummary {
+  company_count: number;
+  recipient_count: number;
+}
+
+export interface PreviewRecipientsResponse {
+  companies: PreviewRecipientCompany[];
+  summary: PreviewRecipientsSummary;
+}
+
 export interface SendingPlan {
   id: string;
   name: string;
@@ -67,6 +91,12 @@ export function sendingPlansApi(client: AxiosInstance) {
       steps: Partial<SendingPlanStep>[];
     }) =>
       client.post<ApiResponse<SendingPlan>>(`/api/v1/sending-plans/${planId}/complete-update`, data),
+
+    // 群组收件人预览
+    previewGroupRecipients: (groupId: string) =>
+      client.get<ApiResponse<PreviewRecipientsResponse>>('/api/v1/sending-plans/preview-recipients', {
+        params: { group_id: groupId },
+      }),
 
     // Steps
     listSteps: (planId: string) =>
