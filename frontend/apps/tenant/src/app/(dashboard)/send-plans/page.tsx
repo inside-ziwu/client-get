@@ -1,30 +1,263 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
-import { Button, Progress, StatusTag } from '@shared/ui';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MoreHorizontal } from 'lucide-react';
+import { toast } from 'sonner';
+import type { SendingPlan } from '@shared/api';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogTitle,
+  Button, Card, CardContent,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  StatusTag, Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@shared/ui';
 import { tenantApi } from '@/lib/api';
-import { DataTable, PageHeader } from '@/components/pages/page-kit';
+import { formatDateTime } from '@/lib/format';
+import { PageHeader } from '@/components/pages/page-kit';
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+
+const STATUS_OPTIONS = [
+  { value: '', label: '全部状态' },
+  { value: 'draft', label: '草稿' },
+  { value: 'scheduled', label: '已排期' },
+  { value: 'running', label: '执行中' },
+  { value: 'paused', label: '已暂停' },
+  { value: 'completed', label: '已完成' },
+  { value: 'cancelled', label: '已取消' },
+] as const;
+
+type DeleteTarget = { id: string; name: string } | null;
 
 export default function SendPlansPage() {
-  const plansQuery = useQuery({
-    queryKey: ['tenant', 'sendingPlans'],
-    queryFn: async () => (await tenantApi.sendingPlans.list({ limit: 50 })).data.data,
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const [statusFilter, setStatusFilter] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [jumpPage, setJumpPage] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => { setPage(1); }, [statusFilter, keyword, dateFrom, dateTo]);
+
+  const listQuery = useQuery({
+    queryKey: ['tenant', 'sendingPlans', page, pageSize, statusFilter, keyword, dateFrom, dateTo],
+    queryFn: async () => (await tenantApi.sendingPlans.list({
+      page,
+      page_size: pageSize,
+      ...(statusFilter && { status: statusFilter }),
+      ...(keyword && { keyword }),
+      ...(dateFrom && { date_from: dateFrom }),
+      ...(dateTo && { date_to: dateTo }),
+    })).data,
   });
 
+  const items: SendingPlan[] = listQuery.data?.data ?? [];
+  const total = listQuery.data?.pagination?.total ?? 0;
+  const maxPage = Math.max(1, Math.ceil(total / pageSize));
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => tenantApi.sendingPlans.delete(id),
+    onSuccess: () => {
+      toast.success('计划已删除');
+      setDeleteTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['tenant', 'sendingPlans'] });
+    },
+    onError: () => toast.error('删除失败'),
+  });
+
+  function getMenuItems(plan: SendingPlan) {
+    const status = plan.status;
+    const items: { label: string; action: () => void; variant?: 'destructive' }[] = [
+      { label: '查看详情', action: () => router.push(`/send-plans/${plan.id}`) },
+    ];
+    if (status === 'draft') {
+      items.push({ label: '编辑', action: () => router.push(`/send-plans/${plan.id}/edit`) });
+      items.push({ label: '删除', action: () => setDeleteTarget({ id: plan.id, name: plan.name }), variant: 'destructive' });
+    } else if (status === 'completed' || status === 'cancelled') {
+      items.push({ label: '删除', action: () => setDeleteTarget({ id: plan.id, name: plan.name }), variant: 'destructive' });
+    }
+    return items;
+  }
+
   return (
-    <div className="tenant-page">
-      <PageHeader title="发送计划" description="管理邮件触达计划" action={<Button asChild><Link href="/send-plans/new">新建计划</Link></Button>} />
-      <DataTable
-        rows={plansQuery.data}
-        columns={[
-          { key: 'name', title: '计划', render: (row) => <Link className="font-medium text-primary" href={`/send-plans/${row.id}`}>{row.name}</Link> },
-          { key: 'status', title: '状态', render: (row) => <StatusTag status={row.status as never} /> },
-          { key: 'recipients', title: '收件人', render: (row) => row.total_recipients ?? '-' },
-          { key: 'progress', title: '进度', render: (row) => <div className="min-w-32"><Progress value={row.total_recipients ? ((row.sent_count ?? 0) / row.total_recipients) * 100 : 0} /></div> },
-          { key: 'created', title: '创建时间', render: (row) => row.created_at?.slice(0, 10) ?? '-' },
-        ]}
+    <div className="tenant-page space-y-4">
+      <PageHeader
+        title="发送计划"
+        description="管理邮件触达计划"
+        action={<Button asChild><Link href="/send-plans/new">新建计划</Link></Button>}
       />
+
+      {/* 筛选栏 */}
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="全部状态" /></SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          placeholder="搜索计划名称..."
+          className="w-[200px]"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
+
+        <Input
+          type="date"
+          className="w-[160px]"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+        />
+        <span className="text-muted-foreground">至</span>
+        <Input
+          type="date"
+          className="w-[160px]"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+        />
+
+        {(statusFilter || keyword || dateFrom || dateTo) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setStatusFilter(''); setSearchInput(''); setDateFrom(''); setDateTo(''); }}
+          >
+            清除筛选
+          </Button>
+        )}
+      </div>
+
+      {/* 表格 */}
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>计划名称</TableHead>
+                <TableHead>状态</TableHead>
+                <TableHead>收件人数</TableHead>
+                <TableHead>创建时间</TableHead>
+                <TableHead className="w-[60px]">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                    {listQuery.isLoading ? '加载中...' : '暂无数据'}
+                  </TableCell>
+                </TableRow>
+              )}
+              {items.map((plan) => (
+                <TableRow
+                  key={plan.id}
+                  className="cursor-pointer"
+                  onClick={() => router.push(`/send-plans/${plan.id}`)}
+                >
+                  <TableCell className="font-medium">{plan.name}</TableCell>
+                  <TableCell><StatusTag status={plan.status as never} /></TableCell>
+                  <TableCell>{plan.total_recipients ?? '-'}</TableCell>
+                  <TableCell>{formatDateTime(plan.created_at)}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {getMenuItems(plan).map((item) => (
+                          <DropdownMenuItem
+                            key={item.label}
+                            onClick={item.action}
+                            className={item.variant === 'destructive' ? 'text-destructive' : ''}
+                          >
+                            {item.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* 分页 */}
+          <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <span>共 {total} 条</span>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                <SelectTrigger className="h-8 w-[100px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAGE_SIZE_OPTIONS.map((s) => <SelectItem key={s} value={String(s)}>{s} 条/页</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>上一页</Button>
+              <span>第</span>
+              <Input
+                type="number" className="h-8 w-16 text-center" min={1} max={maxPage}
+                value={jumpPage || page}
+                onChange={(e) => setJumpPage(e.target.value)}
+                onFocus={() => setJumpPage(String(page))}
+                onBlur={() => {
+                  if (jumpPage) setPage(Math.max(1, Math.min(Number(jumpPage) || 1, maxPage)));
+                  setJumpPage('');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setPage(Math.max(1, Math.min(Number(jumpPage) || 1, maxPage)));
+                    setJumpPage('');
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+              <span>/ {maxPage} 页</span>
+              <Button variant="outline" size="sm" disabled={page >= maxPage} onClick={() => setPage((p) => p + 1)}>下一页</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 删除确认弹窗 */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogTitle>确认删除计划？</AlertDialogTitle>
+          <AlertDialogDescription>
+            确定要删除计划「{deleteTarget?.name}」吗？删除后无法恢复。
+          </AlertDialogDescription>
+          <div className="flex justify-end gap-2">
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={(e) => { e.preventDefault(); deleteTarget && deleteMutation.mutate(deleteTarget.id); }}
+            >
+              {deleteMutation.isPending ? '删除中...' : '删除'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
