@@ -1361,7 +1361,7 @@ class AdminConfigService:
                 """
                 SELECT id, tenant_id, domain, verification_status, dns_verified_at, dns_last_checked_at,
                        warmup_rule_id, warmup_level, daily_limit, total_sent, bounce_rate, complaint_rate,
-                       open_rate, level_changed_at, created_at, updated_at
+                       open_rate, level_changed_at, sender_email, created_at, updated_at
                 FROM domain_warmup_status
                 WHERE tenant_id = :tenant_id
                 ORDER BY created_at DESC
@@ -1516,7 +1516,7 @@ class AdminConfigService:
                 """
                 SELECT id, tenant_id, domain, verification_status, dns_verified_at, dns_last_checked_at,
                        warmup_rule_id, warmup_level, daily_limit, total_sent, bounce_rate, complaint_rate,
-                       open_rate, level_changed_at, created_at, updated_at
+                       open_rate, level_changed_at, sender_email, created_at, updated_at
                 FROM domain_warmup_status
                 WHERE tenant_id = :tenant_id AND id = :domain_id
                 """
@@ -1761,6 +1761,7 @@ class AdminConfigService:
             "complaint_rate": self._decimal_to_float(row["complaint_rate"]),
             "open_rate": self._decimal_to_float(row["open_rate"]),
             "level_changed_at": row["level_changed_at"].isoformat() if row["level_changed_at"] else None,
+            "sender_email": row["sender_email"],
             "created_at": row["created_at"].isoformat(),
             "updated_at": row["updated_at"].isoformat(),
         }
