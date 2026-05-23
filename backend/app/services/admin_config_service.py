@@ -1717,9 +1717,8 @@ class AdminConfigService:
         }
 
     def _sanitize_template_content(self, payload: dict) -> dict:
-        # When a body_design (Unlayer JSON) is provided, the body_html is trusted output
-        # from the visual editor — skip sanitization to preserve email-specific HTML
-        # (tables, inline styles, img tags, etc.) that bleach would strip.
+        # body_design 非空时视为可信 HTML，跳过 sanitize 以保留邮件所需的
+        # tables、inline styles、img 等标签。当前富文本模式下 body_design 始终为 null。
         body_html = payload.get("body_html")
         if payload.get("body_design") is None:
             body_html = sanitize_html(body_html)

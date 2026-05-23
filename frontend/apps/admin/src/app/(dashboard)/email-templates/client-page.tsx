@@ -171,7 +171,7 @@ export function EmailTemplatesPage() {
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">邮件模板管理</h1>
-          <p className="admin-page-description">模板 CRUD、变量选择、HTML/可视化模式和预览。</p>
+          <p className="admin-page-description">模板 CRUD、变量选择、富文本编辑和预览。</p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
