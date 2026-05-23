@@ -2020,20 +2020,53 @@ class TenantMessagingService:
         result = await conn.execute(
             text(
                 """
-                SELECT gm.tenant_company_id, tc.id AS tenant_contact_id,
-                       gm.group_id AS source_ref, cc.company_name, cc.website AS company_domain,
-                       shc.name AS contact_name, shc.email AS contact_email,
-                       tc.contact_status, tc.is_sendable, tco.data_status,
-                       (shc.email IS NOT NULL) AS is_valid_email
-                FROM group_members gm
-                JOIN tenant_companies tco ON tco.id = gm.tenant_company_id
-                JOIN tenant_contacts tc ON tc.tenant_id = gm.tenant_id
-                  AND tc.clean_company_id = tco.clean_company_id
-                JOIN waimaotong_clean_companies cc ON cc.id = tco.clean_company_id
-                JOIN waimaotong_clean_contacts shc ON shc.id = tc.clean_contact_id
-                WHERE gm.tenant_id = :tenant_id
-                  AND gm.group_id = :group_id
-                  AND shc.email IS NOT NULL
+                WITH base AS (
+                    SELECT gm.tenant_company_id, tc.id AS tenant_contact_id,
+                           gm.group_id AS source_ref, cc.company_name, cc.website AS company_domain,
+                           shc.name AS contact_name, shc.email AS contact_email,
+                           tc.contact_status, tco.data_status,
+                           COALESCE(pcl.is_sendable, true) AS is_sendable,
+                           pcl.display_name AS level_display_name,
+                           COALESCE(pcl.sort_order, -1) AS level_sort_order,
+                           true AS is_valid_email
+                    FROM group_members gm
+                    JOIN tenant_companies tco ON tco.id = gm.tenant_company_id
+                    JOIN tenant_contacts tc ON tc.tenant_id = gm.tenant_id
+                      AND tc.clean_company_id = tco.clean_company_id
+                    JOIN waimaotong_clean_companies cc ON cc.id = tco.clean_company_id
+                    JOIN waimaotong_clean_contacts shc ON shc.id = tc.clean_contact_id
+                    LEFT JOIN v_tenant_contact_classified vcc ON vcc.contact_id = shc.id
+                    LEFT JOIN position_classification_levels pcl ON pcl.id = vcc.level_id
+                    WHERE gm.tenant_id = :tenant_id
+                      AND gm.group_id = :group_id
+                      AND shc.email IS NOT NULL
+                      AND tc.contact_status NOT IN ('unsubscribed', 'bounced')
+                      AND tco.data_status = 'ready'
+                      AND COALESCE(pcl.is_sendable, true) = true
+                ),
+                deduped AS (
+                    SELECT DISTINCT ON (tenant_company_id, contact_email)
+                           *
+                    FROM base
+                    ORDER BY tenant_company_id, contact_email,
+                             level_sort_order DESC, tenant_contact_id ASC
+                ),
+                ranked AS (
+                    SELECT *,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY tenant_company_id
+                               ORDER BY level_sort_order DESC,
+                                        tenant_contact_id ASC
+                           ) AS rn
+                    FROM deduped
+                )
+                SELECT tenant_company_id, tenant_contact_id, source_ref,
+                       company_name, company_domain, contact_name, contact_email,
+                       contact_status, is_sendable, data_status, is_valid_email,
+                       level_display_name
+                FROM ranked
+                WHERE rn <= 8
+                ORDER BY tenant_company_id, level_sort_order DESC, tenant_contact_id ASC
                 """
             ),
             {"tenant_id": tenant_id, "group_id": config["group_id"]},
