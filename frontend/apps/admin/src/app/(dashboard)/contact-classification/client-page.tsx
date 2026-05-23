@@ -4,7 +4,18 @@ import type { ClassificationCategory, ClassificationLevel } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Send, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { toast } from 'sonner';
+
+function toastApiError(label: string, error: unknown) {
+  if (isAxiosError(error)) {
+    const status = error.response?.status;
+    const msg = error.response?.data?.error?.message || error.message;
+    toast.error(`${label}：${status ?? 'NETWORK'} ${msg}`);
+  } else {
+    toast.error(`${label}：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,7 +102,7 @@ export function ContactClassificationPage() {
   const createLevel = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!levelName.trim() || !levelDisplayName.trim()) {
-      toast.error('请输入 Level 名称和显示名');
+      toast.error('请输入级别名称和显示名');
       return;
     }
     setSaving(true);
@@ -104,10 +115,10 @@ export function ContactClassificationPage() {
       });
       setLevelName('');
       setLevelDisplayName('');
-      toast.success('Level 已创建');
+      toast.success('级别已创建');
       await load();
-    } catch {
-      toast.error('创建 Level 失败');
+    } catch (error) {
+      toastApiError('创建级别失败', error);
     } finally {
       setSaving(false);
     }
@@ -116,27 +127,28 @@ export function ContactClassificationPage() {
   const updateLevelSendable = async (level: ClassificationLevel, is_sendable: boolean) => {
     try {
       await adminApi.contactClassification.updateLevel(level.id, { is_sendable });
-      toast.success('可发送状态已更新');
-      await load();
-    } catch {
-      toast.error('更新 Level 失败');
+    } catch (error) {
+      toastApiError('更新级别失败', error);
+      return;
     }
+    toast.success('可发送状态已更新');
+    await load();
   };
 
   const deleteLevel = async (level: ClassificationLevel) => {
     try {
       await adminApi.contactClassification.deleteLevel(level.id);
-      toast.success('Level 已删除');
+      toast.success('级别已删除');
       await load();
-    } catch {
-      toast.error('删除 Level 失败');
+    } catch (error) {
+      toastApiError('删除级别失败', error);
     }
   };
 
   const createCategory = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedLevel || !categoryName.trim() || !categoryDisplayName.trim()) {
-      toast.error('请选择 Level 并输入 Category');
+      toast.error('请选择级别并输入分类');
       return;
     }
     try {
@@ -148,20 +160,20 @@ export function ContactClassificationPage() {
       });
       setCategoryName('');
       setCategoryDisplayName('');
-      toast.success('Category 已创建');
+      toast.success('分类已创建');
       await load();
-    } catch {
-      toast.error('创建 Category 失败');
+    } catch (error) {
+      toastApiError('创建分类失败', error);
     }
   };
 
   const deleteCategory = async (category: ClassificationCategory) => {
     try {
       await adminApi.contactClassification.deleteCategory(category.id);
-      toast.success('Category 已删除');
+      toast.success('分类已删除');
       await load();
-    } catch {
-      toast.error('删除 Category 失败');
+    } catch (error) {
+      toastApiError('删除分类失败', error);
     }
   };
 
@@ -181,8 +193,8 @@ export function ContactClassificationPage() {
       setKeywordsText('');
       toast.success('关键词已添加');
       await load();
-    } catch {
-      toast.error('添加关键词失败');
+    } catch (error) {
+      toastApiError('添加关键词失败', error);
     }
   };
 
@@ -191,8 +203,8 @@ export function ContactClassificationPage() {
       await adminApi.contactClassification.deleteKeyword(id);
       toast.success('关键词已删除');
       await load();
-    } catch {
-      toast.error('删除关键词失败');
+    } catch (error) {
+      toastApiError('删除关键词失败', error);
     }
   };
 
@@ -204,7 +216,7 @@ export function ContactClassificationPage() {
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">联系人分类规则</h1>
-          <p className="admin-page-description">三列层级 UI：Level → Category → Keywords，并控制是否可发送。</p>
+          <p className="admin-page-description">三列层级 UI：级别 → 分类 → 关键词，并控制是否可发送。</p>
         </div>
       </div>
 
@@ -212,26 +224,33 @@ export function ContactClassificationPage() {
         <Card>
           <CardContent className="space-y-4 p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Level</h2>
+              <h2 className="text-sm font-semibold">级别</h2>
               <Badge variant="outline">{levels.length}</Badge>
             </div>
             <form className="grid gap-2" onSubmit={createLevel}>
-              <Input placeholder="name" value={levelName} onChange={(event) => setLevelName(event.target.value)} />
-              <Input placeholder="display_name" value={levelDisplayName} onChange={(event) => setLevelDisplayName(event.target.value)} />
+              <Input placeholder="名称" value={levelName} onChange={(event) => setLevelName(event.target.value)} />
+              <Input placeholder="显示名" value={levelDisplayName} onChange={(event) => setLevelDisplayName(event.target.value)} />
               <Button type="submit" disabled={saving}>
                 <Plus className="h-4 w-4" />
-                新增 Level
+                新增级别
               </Button>
             </form>
             <div className="space-y-2">
               {levels.map((level) => (
-                <button
+                <div
                   key={level.id}
-                  type="button"
-                  className={`w-full rounded-md border p-3 text-left text-sm ${selectedLevel?.id === level.id ? 'border-primary bg-secondary/60' : 'bg-card hover:bg-muted/60'}`}
+                  role="button"
+                  tabIndex={0}
+                  className={`w-full cursor-pointer rounded-md border p-3 text-left text-sm ${selectedLevel?.id === level.id ? 'border-primary bg-secondary/60' : 'bg-card hover:bg-muted/60'}`}
                   onClick={() => {
                     setSelectedLevelId(level.id);
                     setSelectedCategoryId(firstCategory(level));
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      setSelectedLevelId(level.id);
+                      setSelectedCategoryId(firstCategory(level));
+                    }
                   }}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -248,17 +267,17 @@ export function ContactClassificationPage() {
                         checked={level.is_sendable}
                         onCheckedChange={(checked) => void updateLevelSendable(level, checked === true)}
                       />
-                      is_sendable
+                      可发送
                     </label>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="删除 Level" onClick={(event) => event.stopPropagation()}>
+                        <Button variant="ghost" size="icon" aria-label="删除级别" onClick={(event) => event.stopPropagation()}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
-                        <AlertDialogTitle>确认删除该 Level？</AlertDialogTitle>
-                        <AlertDialogDescription>关联 Category 和 Keywords 会受后端约束影响。</AlertDialogDescription>
+                        <AlertDialogTitle>确认删除该级别？</AlertDialogTitle>
+                        <AlertDialogDescription>关联的分类和关键词会受后端约束影响。</AlertDialogDescription>
                         <div className="flex justify-end gap-2">
                           <AlertDialogCancel>取消</AlertDialogCancel>
                           <AlertDialogAction onClick={() => void deleteLevel(level)}>删除</AlertDialogAction>
@@ -266,7 +285,7 @@ export function ContactClassificationPage() {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </CardContent>
@@ -275,15 +294,15 @@ export function ContactClassificationPage() {
         <Card>
           <CardContent className="space-y-4 p-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Category</h2>
+              <h2 className="text-sm font-semibold">分类</h2>
               <Badge variant="outline">{categories.length}</Badge>
             </div>
             <form className="grid gap-2" onSubmit={createCategory}>
-              <Input placeholder="name" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} />
-              <Input placeholder="display_name" value={categoryDisplayName} onChange={(event) => setCategoryDisplayName(event.target.value)} />
+              <Input placeholder="名称" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} />
+              <Input placeholder="显示名" value={categoryDisplayName} onChange={(event) => setCategoryDisplayName(event.target.value)} />
               <Button type="submit" disabled={!selectedLevel}>
                 <Plus className="h-4 w-4" />
-                新增 Category
+                新增分类
               </Button>
             </form>
             <div className="space-y-2">
@@ -298,7 +317,7 @@ export function ContactClassificationPage() {
                   </button>
                   <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                     <span>{(category.keyword_ids?.length ?? category.keywords?.length ?? 0)} 个关键词</span>
-                    <Button variant="ghost" size="icon" aria-label="删除 Category" onClick={() => void deleteCategory(category)}>
+                    <Button variant="ghost" size="icon" aria-label="删除分类" onClick={() => void deleteCategory(category)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -311,9 +330,9 @@ export function ContactClassificationPage() {
         <Card>
           <CardContent className="space-y-4 p-4">
             <div>
-              <h2 className="text-sm font-semibold">Keywords</h2>
+              <h2 className="text-sm font-semibold">关键词</h2>
               <p className="text-sm text-muted-foreground">
-                {selectedCategory ? `${selectedLevel?.display_name ?? ''} / ${selectedCategory.display_name}` : '请选择 Category'}
+                {selectedCategory ? `${selectedLevel?.display_name ?? ''} / ${selectedCategory.display_name}` : '请选择分类'}
               </p>
             </div>
             <form className="space-y-2" onSubmit={addKeywords}>
