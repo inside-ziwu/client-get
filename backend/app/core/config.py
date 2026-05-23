@@ -48,8 +48,12 @@ class Settings(BaseSettings):
         if self.database_url or not self.clientget_dev_database_url:
             return self
         clean = self.clientget_dev_database_url.split("://", 1)[-1]
-        self.database_url = f"postgresql+asyncpg://{clean}"
+        # psycopg 直接使用原始参数
         self.sync_database_url = f"postgresql+psycopg://{clean}"
+        # asyncpg 不认识 sslmode/channel_binding，需转换为 ssl=require
+        base = clean.split("?")[0]
+        use_ssl = "sslmode=require" in self.clientget_dev_database_url
+        self.database_url = f"postgresql+asyncpg://{base}{'?ssl=require' if use_ssl else ''}"
         return self
 
     allowed_origins_raw: str = Field(
