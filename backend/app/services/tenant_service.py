@@ -356,7 +356,7 @@ class TenantService:
         result = await conn.execute(
             text(
                 """
-                SELECT id, name, category, subject, body_html, body_text, body_design, variables
+                SELECT id, name, category, subject, body_html, body_text, variables
                 FROM platform_email_templates
                 WHERE industry = :industry AND is_active = true
                 """
@@ -368,9 +368,9 @@ class TenantService:
                 text(
                     """
                     INSERT INTO email_templates
-                      (id, tenant_id, source_type, platform_template_id, name, category, subject, body_html, body_text, body_design, variables)
+                      (id, tenant_id, source_type, platform_template_id, name, category, subject, body_html, body_text, variables)
                     VALUES
-                      (:id, :tenant_id, 'platform_copy', :platform_template_id, :name, :category, :subject, :body_html, :body_text, CAST(:body_design AS jsonb), CAST(:variables AS jsonb))
+                      (:id, :tenant_id, 'platform_copy', :platform_template_id, :name, :category, :subject, :body_html, :body_text, CAST(:variables AS jsonb))
                     """
                 ),
                 {
@@ -382,7 +382,6 @@ class TenantService:
                     "subject": row["subject"],
                     "body_html": row["body_html"],
                     "body_text": row["body_text"],
-                    "body_design": self._to_json(row["body_design"]) if row["body_design"] is not None else None,
                     "variables": self._to_json(row["variables"]),
                 },
             )

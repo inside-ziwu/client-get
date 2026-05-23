@@ -524,7 +524,7 @@ class AdminConfigService:
         result = await conn.execute(
             text(
                 """
-                SELECT id, industry, name, description, category, subject, body_html, body_text, body_design, variables, is_active, created_at, updated_at
+                SELECT id, industry, name, description, category, subject, body_html, body_text, variables, is_active, created_at, updated_at
                 FROM platform_email_templates
                 ORDER BY updated_at DESC
                 """
@@ -545,10 +545,10 @@ class AdminConfigService:
             text(
                 """
                 INSERT INTO platform_email_templates
-                  (id, industry, name, description, category, subject, body_html, body_text, body_design, variables, is_active)
+                  (id, industry, name, description, category, subject, body_html, body_text, variables, is_active)
                 VALUES
                   (:id, :industry, :name, :description, :category, :subject, :body_html, :body_text,
-                   CAST(:body_design AS jsonb), CAST(:variables AS jsonb), :is_active)
+                   CAST(:variables AS jsonb), :is_active)
                 """
             ),
             {
@@ -560,7 +560,6 @@ class AdminConfigService:
                 "subject": content["subject"],
                 "body_html": content["body_html"],
                 "body_text": content["body_text"],
-                "body_design": self._to_json(payload.get("body_design")) if payload.get("body_design") is not None else None,
                 "variables": self._to_json(payload.get("variables", [])),
                 "is_active": payload.get("is_active", True),
             },
@@ -580,7 +579,7 @@ class AdminConfigService:
         result = await conn.execute(
             text(
                 """
-                SELECT id, industry, name, description, category, subject, body_html, body_text, body_design, variables, is_active, created_at, updated_at
+                SELECT id, industry, name, description, category, subject, body_html, body_text, variables, is_active, created_at, updated_at
                 FROM platform_email_templates
                 WHERE id = :template_id
                 """
@@ -602,7 +601,6 @@ class AdminConfigService:
     ) -> dict:
         before = await self.get_platform_email_template(conn, template_id)
         content = self._sanitize_template_content(payload)
-        body_design = payload.get("body_design")
         await conn.execute(
             text(
                 """
@@ -614,7 +612,6 @@ class AdminConfigService:
                     subject = COALESCE(:subject, subject),
                     body_html = COALESCE(:body_html, body_html),
                     body_text = COALESCE(:body_text, body_text),
-                    body_design = CASE WHEN :body_design_provided THEN CAST(:body_design AS jsonb) ELSE body_design END,
                     variables = CAST(:variables AS jsonb),
                     is_active = COALESCE(:is_active, is_active),
                     updated_at = now()
@@ -630,8 +627,6 @@ class AdminConfigService:
                 "subject": content["subject"],
                 "body_html": content["body_html"],
                 "body_text": content["body_text"],
-                "body_design": self._to_json(body_design) if body_design is not None else None,
-                "body_design_provided": body_design is not None,
                 "variables": self._to_json(payload.get("variables", before["variables"])),
                 "is_active": payload.get("is_active"),
             },
@@ -1709,7 +1704,6 @@ class AdminConfigService:
             "subject": row["subject"],
             "body_html": row["body_html"],
             "body_text": row["body_text"],
-            "body_design": row["body_design"],
             "variables": row["variables"],
             "is_active": row["is_active"],
             "created_at": row["created_at"].isoformat(),
@@ -1717,14 +1711,9 @@ class AdminConfigService:
         }
 
     def _sanitize_template_content(self, payload: dict) -> dict:
-        # body_design 非空时视为可信 HTML，跳过 sanitize 以保留邮件所需的
-        # tables、inline styles、img 等标签。当前富文本模式下 body_design 始终为 null。
-        body_html = payload.get("body_html")
-        if payload.get("body_design") is None:
-            body_html = sanitize_html(body_html)
         return {
             "subject": sanitize_subject(payload.get("subject")),
-            "body_html": body_html,
+            "body_html": sanitize_html(payload.get("body_html")),
             "body_text": sanitize_plain_text(payload.get("body_text")),
         }
 

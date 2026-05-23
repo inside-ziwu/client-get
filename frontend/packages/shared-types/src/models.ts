@@ -260,7 +260,6 @@ export interface EmailTemplate {
   subject: string;
   body_html: string;
   body_text?: string;
-  body_design?: unknown;
   variables?: TemplateVariable[];
   is_ai_generated: boolean;
   ai_prompt?: string;
@@ -278,7 +277,6 @@ export interface PlatformEmailTemplate {
   subject: string;
   body_html: string;
   body_text?: string;
-  body_design?: unknown;
   variables?: TemplateVariable[];
   is_active: boolean;
   created_at: string;

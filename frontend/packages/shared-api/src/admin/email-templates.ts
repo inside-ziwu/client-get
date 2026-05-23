@@ -7,7 +7,6 @@ export interface PlatformEmailTemplate {
   name: string;
   subject: string;
   body_html: string;
-  body_design?: unknown;
   category: string;
   variables: Array<{ name: string; label: string }>;
   is_active: boolean;

@@ -135,7 +135,6 @@ export function EmailTemplatesPage() {
         variables: parseVariables(form.variables_text),
         body_html: bodyHtml,
         body_text: bodyText,
-        body_design: null,
         is_active: form.is_active,
       };
 

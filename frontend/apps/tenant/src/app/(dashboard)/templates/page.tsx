@@ -157,7 +157,6 @@ export default function TemplatesPage() {
         subject: form.subject.trim(),
         body_html: bodyHtml,
         body_text: bodyText,
-        body_design: null,
       };
 
       if (editingId) {

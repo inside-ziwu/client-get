@@ -11,7 +11,6 @@ export interface EmailTemplate {
   subject: string;
   body_html: string;
   body_text?: string;
-  body_design?: unknown;
   source_type: string;
   platform_template_id?: string;
   category?: string;
