@@ -22,46 +22,18 @@ class EngageLabClient:
         self.transport = transport
 
     def _build_auth_header(self) -> str:
-        """
-        构建认证头值。
-
-        优先使用 HTTP Basic Auth（ENGAGELAB_API_USER + ENGAGELAB_CREDENTIAL）：
-        - 格式：Basic base64(api_user:credential)
-        - 参考：aoqi-ai/sysdev-ft-marketing 实现方式
-
-        向后兼容：若未配置 Basic Auth 凭证，则回退到旧 Bearer/自定义 scheme
-        （ENGAGELAB_API_KEY + ENGAGELAB_AUTH_SCHEME）
-        """
-        if self.settings.engagelab_api_user and self.settings.engagelab_credential:
-            # HTTP Basic Auth：base64(api_user:credential)
-            raw = f"{self.settings.engagelab_api_user}:{self.settings.engagelab_credential}"
-            encoded = base64.b64encode(raw.encode()).decode()
-            return f"Basic {encoded}"
-
-        # 向后兼容旧配置（Bearer 或自定义 scheme）
-        api_key = self.settings.engagelab_api_key or ""
-        if self.settings.engagelab_auth_scheme:
-            return f"{self.settings.engagelab_auth_scheme} {api_key}"
-        return api_key
+        """构建 HTTP Basic Auth 认证头：Basic base64(api_user:credential)"""
+        raw = f"{self.settings.engagelab_api_user}:{self.settings.engagelab_credential}"
+        encoded = base64.b64encode(raw.encode()).decode()
+        return f"Basic {encoded}"
 
     def _validate_config(self) -> None:
         """校验必需配置项是否存在"""
         if not self.settings.engagelab_base_url:
             raise EngageLabSendError("未配置 ENGAGELAB_BASE_URL")
-
-        # Basic Auth 模式：检查 api_user + credential
-        if self.settings.engagelab_api_user or self.settings.engagelab_credential:
-            if not (self.settings.engagelab_api_user and self.settings.engagelab_credential):
-                raise EngageLabSendError(
-                    "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置"
-                )
-            return
-
-        # 旧模式：检查 api_key
-        if not self.settings.engagelab_api_key:
+        if not (self.settings.engagelab_api_user and self.settings.engagelab_credential):
             raise EngageLabSendError(
-                "未配置 EngageLab 认证凭证，请配置 "
-                "ENGAGELAB_API_USER+ENGAGELAB_CREDENTIAL 或 ENGAGELAB_API_KEY"
+                "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置"
             )
 
     async def send_email(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -70,7 +42,7 @@ class EngageLabClient:
         auth_value = self._build_auth_header()
         headers = {
             "Content-Type": "application/json",
-            self.settings.engagelab_auth_header: auth_value,
+            "Authorization": auth_value,
         }
 
         request_body = self._build_request_body(payload)
@@ -164,7 +136,6 @@ class EngageLabClient:
         sanitized = text
         for secret in (
             self.settings.engagelab_credential,
-            self.settings.engagelab_api_key,
         ):
             if secret:
                 sanitized = sanitized.replace(secret, "[redacted]")

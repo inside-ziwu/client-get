@@ -29,12 +29,12 @@ class Settings(BaseSettings):
     app_env: str = Field(default="local", alias="APP_ENV")
     debug: bool = Field(default=False, alias="DEBUG")
 
-    jwt_secret: str = Field(default="change-me", alias="JWT_SECRET")
+    jwt_secret: str = Field(alias="JWT_SECRET")
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = Field(default=24, alias="JWT_EXPIRE_HOURS")
 
-    admin_email: str = Field(default="admin@example.com", alias="ADMIN_EMAIL")
-    admin_password: str = Field(default="change-me-now", alias="ADMIN_PASSWORD")
+    admin_email: str = Field(alias="ADMIN_EMAIL")
+    admin_password: str = Field(alias="ADMIN_PASSWORD")
 
     clientget_dev_database_url: str = Field(default="", alias="CLIENTGET_DEV_DATABASE_URL")
 
@@ -53,26 +53,16 @@ class Settings(BaseSettings):
         return self
 
     allowed_origins_raw: str = Field(
-        default="http://localhost:3000,http://localhost:3001,https://client-get-admin.vercel.app,https://client-get-tenant.vercel.app",
+        default="",
         alias="ALLOWED_ORIGINS",
     )
-    data_source_encryption_key: str = Field(
-        default="0123456789abcdef0123456789abcdef",
-        alias="DATA_SOURCE_ENCRYPTION_KEY",
-    )
-    internal_service_secret: str = Field(default="change-me-internal", alias="INTERNAL_SERVICE_SECRET")
-    engagelab_webhook_secret: str = Field(
-        default="change-me-webhook",
-        alias="ENGAGELAB_WEBHOOK_SECRET",
-    )
+    data_source_encryption_key: str = Field(alias="DATA_SOURCE_ENCRYPTION_KEY")
+    internal_service_secret: str = Field(alias="INTERNAL_SERVICE_SECRET")
+    engagelab_webhook_secret: str = Field(alias="ENGAGELAB_WEBHOOK_SECRET")
     engagelab_base_url: str | None = Field(default=None, alias="ENGAGELAB_BASE_URL")
     engagelab_send_path: str = Field(default="/v1/mail/send", alias="ENGAGELAB_SEND_PATH")
-    engagelab_api_key: str | None = Field(default=None, alias="ENGAGELAB_API_KEY")
-    engagelab_auth_header: str = Field(default="Authorization", alias="ENGAGELAB_AUTH_HEADER")
-    engagelab_auth_scheme: str = Field(default="Bearer", alias="ENGAGELAB_AUTH_SCHEME")
     engagelab_timeout_seconds: float = Field(default=10.0, alias="ENGAGELAB_TIMEOUT_SECONDS")
-    # EngageLab HTTP Basic Auth 字段（优先于 engagelab_api_key）
-    # 参考 aoqi-ai/sysdev-ft-marketing：认证方式为 Basic base64(api_user:credential)
+    # EngageLab HTTP Basic Auth：Basic base64(api_user:credential)
     engagelab_api_user: str | None = Field(default=None, alias="ENGAGELAB_API_USER")
     engagelab_credential: str | None = Field(default=None, alias="ENGAGELAB_CREDENTIAL")
     # 注：from_email 不在全局配置；发件地址来自 send_plans.sender_email（各租户自己的暖域名）
