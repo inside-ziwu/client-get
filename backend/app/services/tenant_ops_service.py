@@ -824,7 +824,7 @@ class TenantOpsService:
             text(
                 """
                 SELECT id, domain, verification_status, warmup_level, daily_limit, total_sent,
-                       bounce_rate, complaint_rate, open_rate, created_at, updated_at
+                       bounce_rate, complaint_rate, open_rate, sender_email, created_at, updated_at
                 FROM domain_warmup_status
                 WHERE tenant_id = :tenant_id
                 ORDER BY created_at DESC
@@ -843,6 +843,7 @@ class TenantOpsService:
                 "bounce_rate": self._decimal_to_float(row["bounce_rate"]),
                 "complaint_rate": self._decimal_to_float(row["complaint_rate"]),
                 "open_rate": self._decimal_to_float(row["open_rate"]),
+                "sender_email": row["sender_email"],
                 "created_at": row["created_at"].isoformat(),
                 "updated_at": row["updated_at"].isoformat(),
             }

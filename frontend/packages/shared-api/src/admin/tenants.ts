@@ -29,6 +29,7 @@ export interface TenantDomain {
   warmup_level?: number | null;
   daily_limit?: number | null;
   total_sent?: number | null;
+  sender_email?: string | null;
   created_at: string;
   updated_at?: string;
 }
@@ -63,12 +64,16 @@ export function tenantsApi(client: AxiosInstance) {
     // Domains
     listDomains: (tenantId: string) =>
       client.get<PaginatedResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains`),
-    createDomain: (tenantId: string, data: { domain: string; warmup_rule_id: string; warmup_level: number }) =>
+    createDomain: (tenantId: string, data: { domain: string; warmup_rule_id: string; warmup_level: number; sender_email?: string }) =>
       client.post<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains`, data),
     verifyDomain: (tenantId: string, domainId: string) =>
       client.post<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains/${domainId}/verify`),
     getDomain: (tenantId: string, domainId: string) =>
       client.get<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains/${domainId}`),
+    updateDomain: (tenantId: string, domainId: string, data: Partial<Pick<TenantDomain, 'sender_email' | 'warmup_rule_id' | 'warmup_level'>>) =>
+      client.patch<ApiResponse<TenantDomain>>(`/api/v1/tenants/${tenantId}/domains/${domainId}`, data),
+    deleteDomain: (tenantId: string, domainId: string) =>
+      client.delete(`/api/v1/tenants/${tenantId}/domains/${domainId}`),
 
     // Team
     listTeam: (tenantId: string) =>

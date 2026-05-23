@@ -32,14 +32,14 @@ async def me(context: TenantAuthContext = Depends(get_current_tenant_user)) -> d
     tenant_row = await context.connection.execute(
         text(
             """
-        SELECT needs_onboarding
+        SELECT needs_onboarding, name
         FROM tenants
         WHERE id = :tenant_id
         """
         ),
         {"tenant_id": context.tenant_id},
     )
-    needs_onboarding = tenant_row.scalar_one()
+    row = tenant_row.mappings().first()
     return success_response(
         TenantMeResponse(
             id=context.user_id,
@@ -48,8 +48,9 @@ async def me(context: TenantAuthContext = Depends(get_current_tenant_user)) -> d
             email=context.email,
             name=context.name,
             roles=context.roles,
-            needs_onboarding=needs_onboarding,
+            needs_onboarding=row["needs_onboarding"],
             must_change_pwd=context.must_change_pwd,
+            tenant_name=row["name"],
         ).model_dump()
     )
 

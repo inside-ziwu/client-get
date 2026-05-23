@@ -36,4 +36,5 @@ export interface CurrentUser {
   roles: string[];
   needs_onboarding: boolean;
   must_change_pwd: boolean;
+  tenant_name?: string;
 }

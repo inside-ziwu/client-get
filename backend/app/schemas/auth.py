@@ -39,3 +39,4 @@ class TenantMeResponse(APIModel):
     roles: list[str]
     needs_onboarding: bool
     must_change_pwd: bool
+    tenant_name: str | None = None

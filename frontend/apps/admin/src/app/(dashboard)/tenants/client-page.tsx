@@ -3,7 +3,7 @@
 import type { Tenant, TenantDomain, TenantTeamUser, WarmupRules } from '@shared/api';
 import type { AiProviderConfig } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Copy, Edit2, Plus, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { CheckCircle2, Copy, Edit2, MoreHorizontal, Plus, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -19,6 +19,7 @@ import { Badge } from '@shared/ui';
 import { Button } from '@shared/ui';
 import { Card, CardContent } from '@shared/ui';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@shared/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@shared/ui';
 import { Input } from '@shared/ui';
 import { Label } from '@shared/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
@@ -119,9 +120,16 @@ export function TenantsPage() {
   const [tenantEditForm, setTenantEditForm] = useState<TenantEditForm>(toEditForm(null));
   const [domains, setDomains] = useState<TenantDomain[]>([]);
   const [domainText, setDomainText] = useState('');
+  const [domainSenderEmail, setDomainSenderEmail] = useState('');
   const [warmupRules, setWarmupRules] = useState<WarmupRules | null>(null);
   const [domainWarmupRuleId, setDomainWarmupRuleId] = useState('');
   const [domainWarmupLevel, setDomainWarmupLevel] = useState('');
+  const [editingDomain, setEditingDomain] = useState<TenantDomain | null>(null);
+  const [editDomainForm, setEditDomainForm] = useState({ sender_email: '', warmup_rule_id: '', warmup_level: '' });
+  const [editDomainLoading, setEditDomainLoading] = useState(false);
+  const [deletingDomain, setDeletingDomain] = useState<TenantDomain | null>(null);
+  const [deleteDomainLoading, setDeleteDomainLoading] = useState(false);
+  const [deleteDomainError, setDeleteDomainError] = useState('');
   const [team, setTeam] = useState<TenantTeamUser[]>([]);
   const [teamForm, setTeamForm] = useState(EMPTY_TEAM_FORM);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -278,8 +286,10 @@ export function TenantsPage() {
         domain: domainText.trim(),
         warmup_rule_id: domainWarmupRuleId,
         warmup_level: Number(domainWarmupLevel),
+        sender_email: domainSenderEmail.trim() || undefined,
       });
       setDomainText('');
+      setDomainSenderEmail('');
       toast.success('域名已添加');
       await loadDetail(selected);
     } catch {
@@ -295,6 +305,55 @@ export function TenantsPage() {
       await loadDetail(selected);
     } catch {
       toast.error('验证域名失败');
+    }
+  };
+
+  const startEditDomain = (domain: TenantDomain) => {
+    setEditingDomain(domain);
+    setEditDomainForm({
+      sender_email: domain.sender_email ?? '',
+      warmup_rule_id: domain.warmup_rule_id ?? '',
+      warmup_level: String(domain.warmup_level ?? ''),
+    });
+  };
+
+  const saveEditDomain = async () => {
+    if (!selected || !editingDomain) return;
+    setEditDomainLoading(true);
+    try {
+      await adminApi.tenants.updateDomain(selected.id, editingDomain.id, {
+        sender_email: editDomainForm.sender_email || null,
+        warmup_rule_id: editDomainForm.warmup_rule_id || undefined,
+        warmup_level: editDomainForm.warmup_level ? Number(editDomainForm.warmup_level) : undefined,
+      });
+      toast.success('域名配置已更新');
+      setEditingDomain(null);
+      await loadDetail(selected);
+    } catch {
+      toast.error('更新域名失败');
+    } finally {
+      setEditDomainLoading(false);
+    }
+  };
+
+  const confirmDeleteDomain = async () => {
+    if (!selected || !deletingDomain) return;
+    setDeleteDomainLoading(true);
+    setDeleteDomainError('');
+    try {
+      await adminApi.tenants.deleteDomain(selected.id, deletingDomain.id);
+      toast.success('域名已删除');
+      setDeletingDomain(null);
+      await loadDetail(selected);
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 409) {
+        setDeleteDomainError('该域名存在关联数据，无法删除');
+      } else {
+        toast.error('删除域名失败');
+      }
+    } finally {
+      setDeleteDomainLoading(false);
     }
   };
 
@@ -629,6 +688,10 @@ export function TenantsPage() {
                     <Input placeholder="example.com" value={domainText} onChange={(event) => setDomainText(event.target.value)} />
                   </div>
                   <div className="space-y-2">
+                    <Label>发件邮箱</Label>
+                    <Input placeholder="sales@example.com" value={domainSenderEmail} onChange={(event) => setDomainSenderEmail(event.target.value)} />
+                  </div>
+                  <div className="space-y-2">
                     <Label>预热档位</Label>
                     <Select value={domainWarmupLevel} onValueChange={setDomainWarmupLevel}>
                       <SelectTrigger>
@@ -647,10 +710,10 @@ export function TenantsPage() {
               </form>
 
               <div className="overflow-x-auto rounded-md border bg-card" aria-label="域名列表，可横向滚动查看更多列">
-                <table className="w-full min-w-[760px] text-sm">
+                <table className="w-full min-w-[880px] text-sm">
                   <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
                     <tr>
-                      {['域名', '验证状态', '预热档位', '每日上限', '已发送', '操作'].map((label) => (
+                      {['域名', '发件邮箱', '验证状态', '预热档位', '每日上限', '已发送', '操作'].map((label) => (
                         <th key={label} className="px-4 py-3 font-medium">{label}</th>
                       ))}
                     </tr>
@@ -659,6 +722,7 @@ export function TenantsPage() {
                     {domains.map((domain) => (
                       <tr key={domain.id} className="border-b last:border-0">
                         <td className="px-4 py-3 font-medium">{domain.domain}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{domain.sender_email || '—'}</td>
                         <td className="px-4 py-3">
                           <Badge variant={domain.verification_status === 'verified' ? 'secondary' : 'outline'}>
                             {domain.verification_status === 'verified' && <CheckCircle2 className="mr-1 h-3 w-3" />}
@@ -669,21 +733,106 @@ export function TenantsPage() {
                         <td className="px-4 py-3">{domain.daily_limit ?? '-'}</td>
                         <td className="px-4 py-3">{domain.total_sent ?? 0}</td>
                         <td className="px-4 py-3 text-right">
-                          <Button size="sm" variant="outline" onClick={() => void verifyDomain(domain)}>
-                            <ShieldCheck className="h-4 w-4" />
-                            验证域名
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => void verifyDomain(domain)}>
+                                <ShieldCheck className="mr-2 h-4 w-4" />验证域名
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => startEditDomain(domain)}>
+                                <Edit2 className="mr-2 h-4 w-4" />编辑
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => { setDeletingDomain(domain); setDeleteDomainError(''); }}>
+                                <Trash2 className="mr-2 h-4 w-4" />删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </td>
                       </tr>
                     ))}
                     {domains.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">暂无域名</td>
+                        <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">暂无域名</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {/* 编辑域名弹窗 */}
+              <Dialog open={!!editingDomain} onOpenChange={(open) => { if (!open) setEditingDomain(null); }}>
+                <DialogContent>
+                  <DialogTitle>编辑域名</DialogTitle>
+                  <DialogDescription>编辑 {editingDomain?.domain} 的配置</DialogDescription>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>发件邮箱</Label>
+                      <Input
+                        placeholder="sales@example.com"
+                        value={editDomainForm.sender_email}
+                        onChange={(e) => setEditDomainForm((f) => ({ ...f, sender_email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>预热规则</Label>
+                      <Select
+                        value={editDomainForm.warmup_rule_id}
+                        onValueChange={(v) => setEditDomainForm((f) => ({ ...f, warmup_rule_id: v }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="选择预热规则" /></SelectTrigger>
+                        <SelectContent>
+                          {warmupRulesQuery.data?.data.map((rule) => (
+                            <SelectItem key={rule.id!} value={rule.id!}>{rule.name}</SelectItem>
+                          )) ?? <SelectItem value="" disabled>加载中...</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>预热档位</Label>
+                      <Select
+                        value={editDomainForm.warmup_level}
+                        onValueChange={(v) => setEditDomainForm((f) => ({ ...f, warmup_level: v }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="选择档位" /></SelectTrigger>
+                        <SelectContent>
+                          {activeWarmupLevels.map((level) => (
+                            <SelectItem key={level.level} value={String(level.level)}>
+                              档位 {level.level} · 每日 {level.daily_limit}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button variant="outline" onClick={() => setEditingDomain(null)}>取消</Button>
+                      <Button onClick={() => void saveEditDomain()} disabled={editDomainLoading}>
+                        {editDomainLoading ? '保存中...' : '保存'}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* 删除域名确认弹窗 */}
+              <AlertDialog open={!!deletingDomain} onOpenChange={(open) => { if (!open) { setDeletingDomain(null); setDeleteDomainError(''); } }}>
+                <AlertDialogContent>
+                  <AlertDialogTitle>删除域名</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    确定要删除域名 {deletingDomain?.domain} 吗？此操作不可恢复。
+                  </AlertDialogDescription>
+                  {deleteDomainError && (
+                    <p className="text-sm text-destructive">{deleteDomainError}</p>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <AlertDialogCancel onClick={() => { setDeletingDomain(null); setDeleteDomainError(''); }}>取消</AlertDialogCancel>
+                    <Button variant="destructive" onClick={() => void confirmDeleteDomain()} disabled={deleteDomainLoading}>
+                      {deleteDomainLoading ? '删除中...' : '删除'}
+                    </Button>
+                  </div>
+                </AlertDialogContent>
+              </AlertDialog>
             </TabsContent>
 
             <TabsContent value="team" className="mt-5 space-y-5">

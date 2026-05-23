@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Body, Depends
+from starlette.responses import Response
 
 from app.core.responses import paginated_response, success_response
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
@@ -518,3 +519,36 @@ async def get_tenant_domain(
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(await service.get_tenant_domain(context.connection, tenant_id, domain_id))
+
+
+@router.patch("/tenants/{tenant_id}/domains/{domain_id}")
+async def update_tenant_domain(
+    tenant_id: str,
+    domain_id: str,
+    payload: dict,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
+    return success_response(
+        await service.update_tenant_domain(
+            context.connection,
+            tenant_id=tenant_id,
+            domain_id=domain_id,
+            payload=payload,
+            platform_user_id=context.platform_user_id,
+        )
+    )
+
+
+@router.delete("/tenants/{tenant_id}/domains/{domain_id}")
+async def delete_tenant_domain(
+    tenant_id: str,
+    domain_id: str,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> Response:
+    await service.delete_tenant_domain(
+        context.connection,
+        tenant_id=tenant_id,
+        domain_id=domain_id,
+        platform_user_id=context.platform_user_id,
+    )
+    return Response(status_code=204)
