@@ -182,6 +182,23 @@ async def create_complete_sending_plan(
     )
 
 
+@router.post("/sending-plans/{plan_id}/complete-update")
+async def complete_update_sending_plan(
+    plan_id: str,
+    payload: dict,
+    context: TenantAuthContext = Depends(require_tenant_roles("admin", "operator")),
+) -> dict:
+    return success_response(
+        await service.complete_update_sending_plan(
+            context.connection,
+            tenant_id=context.tenant_id,
+            plan_id=plan_id,
+            user_id=context.user_id,
+            payload=payload,
+        )
+    )
+
+
 @router.get("/sending-plans/{plan_id}")
 async def get_sending_plan(plan_id: str, context: TenantAuthContext = Depends(get_current_tenant_user)) -> dict:
     return success_response(await service.get_sending_plan(context.connection, context.tenant_id, plan_id))

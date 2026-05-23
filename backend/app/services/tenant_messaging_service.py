@@ -532,6 +532,34 @@ class TenantMessagingService:
             await self.lock_plan_recipients(conn, tenant_id=tenant_id, plan_id=plan["id"])
         return await self.get_sending_plan(conn, tenant_id, plan["id"])
 
+    async def complete_update_sending_plan(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_id: str,
+        plan_id: str,
+        user_id: str,
+        payload: dict,
+    ) -> dict:
+        before = await self.get_sending_plan(conn, tenant_id, plan_id)
+        if before["status"] != "draft":
+            raise AppError(code="FORBIDDEN", message="只有草稿状态的计划可以编辑", status_code=403)
+
+        plan_payload = payload.get("plan", {})
+        steps = payload.get("steps", [])
+
+        await self.update_sending_plan(
+            conn, tenant_id=tenant_id, plan_id=plan_id, user_id=user_id, payload=plan_payload
+        )
+
+        old_steps = await self.list_plan_steps(conn, tenant_id, plan_id)
+        for old_step in old_steps:
+            await self.delete_plan_step(conn, tenant_id=tenant_id, plan_id=plan_id, step_id=old_step["id"])
+        for step in steps:
+            await self.create_plan_step(conn, tenant_id=tenant_id, plan_id=plan_id, payload=step)
+
+        return await self.get_sending_plan(conn, tenant_id, plan_id)
+
     async def get_sending_plan(self, conn: AsyncConnection, tenant_id: str, plan_id: str) -> dict:
         result = await conn.execute(
             text(
@@ -562,6 +590,8 @@ class TenantMessagingService:
         payload: dict,
     ) -> dict:
         before = await self.get_sending_plan(conn, tenant_id, plan_id)
+        if before["status"] != "draft":
+            raise AppError(code="FORBIDDEN", message="只有草稿状态的计划可以编辑", status_code=403)
         await conn.execute(
             text(
                 """
@@ -613,6 +643,8 @@ class TenantMessagingService:
         user_id: str,
     ) -> None:
         before = await self.get_sending_plan(conn, tenant_id, plan_id)
+        if before["status"] not in ("draft", "completed", "cancelled"):
+            raise AppError(code="FORBIDDEN", message="该状态下不允许删除计划", status_code=403)
         await conn.execute(
             text(
                 """
