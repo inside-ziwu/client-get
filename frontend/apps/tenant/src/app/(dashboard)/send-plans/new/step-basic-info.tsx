@@ -67,7 +67,10 @@ export default function StepBasicInfo({ data, onChange, errors }: Props) {
 
       <div className="space-y-2">
         <Label>发送域名 *</Label>
-        <Select value={data.domain_id} onValueChange={(v) => update('domain_id', v)}>
+        <Select value={data.domain_id} onValueChange={(v) => {
+          const selected = verifiedDomains.find((d) => d.id === v);
+          onChange({ ...data, domain_id: v, sender_email: selected?.sender_email ?? '' });
+        }}>
           <SelectTrigger>
             <SelectValue placeholder={domainsQuery.isLoading ? '加载中...' : verifiedDomains.length === 0 ? '无已验证域名' : '选择域名'} />
           </SelectTrigger>
