@@ -5,7 +5,12 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { useAuthStore } from '@shared/hooks';
 import type { TeamUser } from '@shared/api/src/tenant/team';
 import { toast } from 'sonner';
-import { Badge, Button, Card, CardContent, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle,
+  Badge, Button, Card, CardContent,
+  Dialog, DialogContent, DialogTitle,
+  Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 import { DataTable, PageHeader } from '@/components/pages/page-kit';
 import { queryKeys } from '@shared/api';
@@ -130,6 +135,129 @@ export default function TeamPage() {
           }},
         ]}
       />
+      <EditMemberDialog
+        target={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.team.all() });
+        }}
+      />
+      <DeleteMemberDialog
+        target={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onSuccess={async () => {
+          await queryClient.invalidateQueries({ queryKey: queryKeys.team.all() });
+        }}
+      />
     </div>
+  );
+}
+
+/* ─── EditMemberDialog ───────────────────────────────────── */
+
+function EditMemberDialog({ target, onClose, onSuccess }: {
+  target: TeamUser | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('operator');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (target) {
+      setEditName(target.name);
+      setEditRole(target.roles?.[0] ?? 'operator');
+      setError('');
+    }
+  }, [target]);
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!target) return;
+      await tenantApi.team.update(target.id, { name: editName, roles: [editRole] });
+    },
+    onSuccess: () => {
+      toast.success('成员已更新');
+      onClose();
+      onSuccess();
+    },
+    onError: () => setError('保存失败，请重试'),
+  });
+
+  return (
+    <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogTitle>编辑成员</DialogTitle>
+        <div className="space-y-3 py-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium">姓名</label>
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">角色</label>
+            <Select value={editRole} onValueChange={setEditRole}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button disabled={!editName.trim() || mutation.isPending} onClick={() => mutation.mutate()}>
+            {mutation.isPending ? '保存中...' : '保存'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── DeleteMemberDialog ─────────────────────────────────── */
+
+function DeleteMemberDialog({ target, onClose, onSuccess }: {
+  target: TeamUser | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!target) return;
+      await tenantApi.team.delete(target.id);
+    },
+    onSuccess: () => {
+      toast.success('成员已删除');
+      onClose();
+      onSuccess();
+    },
+    onError: () => toast.error('删除失败'),
+  });
+
+  return (
+    <AlertDialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogTitle>确认删除成员</AlertDialogTitle>
+        <AlertDialogDescription>
+          确定删除成员「{target?.name ?? ''}」吗？此操作不可撤销。
+        </AlertDialogDescription>
+        <div className="flex justify-end gap-2 pt-2">
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={mutation.isPending}
+            onClick={(e) => { e.preventDefault(); mutation.mutate(); }}
+          >
+            {mutation.isPending ? '删除中...' : '确认删除'}
+          </AlertDialogAction>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
