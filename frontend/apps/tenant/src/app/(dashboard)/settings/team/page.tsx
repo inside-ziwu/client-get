@@ -83,7 +83,7 @@ export default function TeamPage() {
       <PageHeader title="团队管理" description="管理租户成员和角色" />
       <Card>
         <CardContent className="p-5">
-          <form className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto]" onSubmit={onSubmit}>
+          <form className="grid gap-3 md:grid-cols-[1fr_1.5fr_1fr_auto]" onSubmit={onSubmit}>
             <div className="space-y-2">
               <Label htmlFor="member-name">姓名</Label>
               <Input id="member-name" value={name} onChange={(event) => setName(event.target.value)} required />
