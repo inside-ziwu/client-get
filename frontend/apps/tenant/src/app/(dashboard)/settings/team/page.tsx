@@ -6,13 +6,37 @@ import { toast } from 'sonner';
 import { Badge, Button, Card, CardContent, Input, Label } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 import { DataTable, PageHeader } from '@/components/pages/page-kit';
+import { queryKeys } from '@shared/api';
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: '管理员',
+  operator: '运营',
+  readonly: '只读',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  active: '已激活',
+  disabled: '已禁用',
+};
+
+function formatLoginTime(iso: string | null | undefined): string {
+  if (!iso) return '-';
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return '-';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d} ${h}:${min}`;
+}
 
 export default function TeamPage() {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const usersQuery = useQuery({
-    queryKey: ['tenant', 'team'],
+    queryKey: queryKeys.team.list(),
     queryFn: async () => (await tenantApi.team.list()).data.data,
   });
   const createMutation = useMutation({
@@ -21,7 +45,7 @@ export default function TeamPage() {
       toast.success('成员已创建');
       setEmail('');
       setName('');
-      await queryClient.invalidateQueries({ queryKey: ['tenant', 'team'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.team.all() });
     },
   });
 
@@ -55,9 +79,9 @@ export default function TeamPage() {
         columns={[
           { key: 'name', title: '姓名', render: (row) => <span className="font-medium">{row.name}</span> },
           { key: 'email', title: '邮箱', render: (row) => row.email },
-          { key: 'roles', title: '角色', render: (row) => row.roles?.join(', ') || '-' },
-          { key: 'status', title: '状态', render: (row) => <Badge variant={row.status === 'active' ? 'default' : 'secondary'}>{row.status}</Badge> },
-          { key: 'login', title: '最近登录', render: (row) => row.last_login_at?.slice(0, 10) ?? '-' },
+          { key: 'roles', title: '角色', render: (row) => row.roles?.length ? row.roles.map((r) => ROLE_LABELS[r] ?? r).join('、') : '-' },
+          { key: 'status', title: '状态', render: (row) => <Badge variant={row.status === 'active' ? 'default' : 'secondary'}>{STATUS_LABELS[row.status] ?? row.status}</Badge> },
+          { key: 'login', title: '最近登录', render: (row) => formatLoginTime(row.last_login_at) },
         ]}
       />
     </div>
