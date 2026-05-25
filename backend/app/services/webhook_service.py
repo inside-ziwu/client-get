@@ -1,4 +1,10 @@
-"""Webhook 服务：处理 EngageLab 推送事件，回写邮件状态和 D-041 追踪字段"""
+"""Webhook 服务：处理 EngageLab 推送事件，回写邮件状态和 D-041 追踪字段
+
+EngageLab webhook 有两种回调格式：
+  状态回调（投递类）：message_status + status_data（含 email_id）
+  响应回调（行为类）：event + response_data（含 email_id）
+"""
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import text
@@ -7,47 +13,45 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 
+logger = logging.getLogger(__name__)
+
 
 class WebhookService:
     async def process_engagelab_event(self, conn: AsyncConnection, payload: dict) -> dict:
         """
         处理 EngageLab webhook 事件。
 
-        支持的事件类型映射：
-          open / opened       → event_type='opened'
-                                emails.first_opened_at = COALESCE(first_opened_at, now())
-                                emails.open_count += 1
-          bounce / bounced    → event_type='bounced'
-                                emails.soft_bounce = true（当 bounce_type='soft'）
-                                emails.invalid_email = true（当 bounce_type='invalid'/'hard'）
-          spam / complained   → event_type='complained'
-                                emails.report_spam = true
-          unsubscribe / unsubscribed → event_type='unsubscribed'
-                                emails.unsubscribed = true
-          delivered / sent / clicked / replied → 照常处理状态字段
+        EngageLab 两种回调结构：
+          状态回调：message_status="delivered" + status_data={email_id, task_id, ...}
+          响应回调：event="open" + response_data={email_id, task_id, ip, ...}
+
+        email_id 在嵌套的 status_data / response_data 中，用于匹配本地 emails.engagelab_message_id
         """
-        message_id = (
-            payload.get("message_id")
-            or payload.get("engagelab_message_id")
-            or payload.get("mail_id")
-            or payload.get("trans_email_id")
-            or payload.get("email_id")
-        )
-        # EngageLab 状态回调用 message_status，响应回调用 event
+        # 提取事件类型：状态回调用 message_status，响应回调用 event
         raw_event = (
-            payload.get("event")
-            or payload.get("message_status")
+            payload.get("message_status")
+            or payload.get("event")
             or payload.get("event_type")
         )
         event_type = self._normalize_event_type(raw_event)
-        # EngageLab 时间戳：itime（毫秒长整型）或 occurred_at / timestamp
-        occurred_at = payload.get("occurred_at") or payload.get("timestamp") or payload.get("itime")
+
+        # 提取 email_id：优先从嵌套的 status_data / response_data 中取
+        message_id = self._extract_email_id(payload)
+
+        # 时间戳：itime（毫秒长整型）
+        occurred_at = payload.get("itime") or payload.get("occurred_at") or payload.get("timestamp")
         occurred_at_dt = self._parse_timestamp(occurred_at)
-        # EngageLab 不发 event_id，用 message_id + 事件类型 生成唯一标识
+
+        # EngageLab 不发 event_id，用 message_id + 事件类型 + 时间戳 生成唯一标识
         provider_event_id = (
             payload.get("event_id")
             or payload.get("id")
             or f"{message_id}_{raw_event}_{occurred_at}"
+        )
+
+        logger.info(
+            "Webhook 解析: raw_event=%s, event_type=%s, message_id=%s, itime=%s",
+            raw_event, event_type, message_id, occurred_at,
         )
 
         if not message_id or not event_type:
@@ -73,6 +77,7 @@ class WebhookService:
         )
         email = email_result.mappings().first()
         if email is None:
+            logger.warning("Webhook email_not_found: message_id=%s", message_id)
             return {"status": "ignored", "reason": "email_not_found"}
 
         # 写入 email_events（幂等：ON CONFLICT DO NOTHING）
@@ -168,6 +173,38 @@ class WebhookService:
 
         return {"status": "processed", "provider_event_id": provider_event_id}
 
+    def _extract_email_id(self, payload: dict) -> str | None:
+        """
+        从 EngageLab webhook payload 提取 email_id。
+
+        EngageLab 的 email_id 在嵌套结构中：
+          状态回调：status_data.email_id
+          响应回调：response_data.email_id
+        顶层的 message_id 是 webhook 消息标识，不一定等于邮件的 email_id。
+        """
+        # 优先从嵌套数据中提取（EngageLab 文档标准格式）
+        status_data = payload.get("status_data") or {}
+        response_data = payload.get("response_data") or {}
+
+        email_id = (
+            status_data.get("email_id")
+            or response_data.get("email_id")
+            # target 事件的 email_ids 是数组
+            or self._first_from_list(status_data.get("email_ids"))
+            or self._first_from_list(response_data.get("email_ids"))
+            # 兜底：顶层字段
+            or payload.get("message_id")
+            or payload.get("email_id")
+            or payload.get("engagelab_message_id")
+            or payload.get("mail_id")
+        )
+        return str(email_id) if email_id else None
+
+    def _first_from_list(self, value) -> str | None:
+        if isinstance(value, list) and value:
+            return str(value[0])
+        return None
+
     async def _apply_email_updates(
         self,
         conn: AsyncConnection,
@@ -179,15 +216,10 @@ class WebhookService:
         """
         拼装 UPDATE emails SET ... 语句。
 
-        status_updates 包含：
-          - status             — 新状态值
-          - 时间戳字段（sent_at / delivered_at / opened_at / clicked_at / bounced_at）
-          - 回信字段（reply_*）
-
-        D-041 追踪字段（直接在此处写入）：
+        D-041 追踪字段：
           - open 事件：first_opened_at（COALESCE）+ open_count（+1）
-          - bounce 事件：soft_bounce / invalid_email
-          - spam/complained 事件：report_spam
+          - bounce 事件：soft_bounce / invalid_email（根据原始 message_status 区分）
+          - spam 事件：report_spam
           - unsubscribe 事件：unsubscribed
         """
         # 基础状态字段
@@ -205,27 +237,22 @@ class WebhookService:
 
         # D-041 追踪字段处理
         if event_type == "opened":
-            # 首次打开时间：COALESCE（只有第一次打开时记录）
             set_parts.append("first_opened_at = COALESCE(first_opened_at, :occurred_at_open)")
-            # 累计打开次数递增
             set_parts.append("open_count = open_count + 1")
             params["occurred_at_open"] = status_updates.get("opened_at") or payload.get("occurred_at_dt")
 
         elif event_type == "bounced":
             # EngageLab 直接用 message_status 区分：soft_bounce / invalid_email
-            raw_status = (payload.get("message_status") or payload.get("bounce_type") or "").lower()
+            raw_status = (payload.get("message_status") or "").lower()
             if raw_status in {"soft_bounce", "soft", "temporary", "temp"}:
                 set_parts.append("soft_bounce = true")
             else:
-                # hard bounce / invalid_email 归为无效邮箱
                 set_parts.append("invalid_email = true")
 
         elif event_type == "complained":
-            # 举报垃圾邮件
             set_parts.append("report_spam = true")
 
         elif event_type == "unsubscribed":
-            # 退订标志
             set_parts.append("unsubscribed = true")
 
         set_clause = ", ".join(set_parts)
@@ -244,30 +271,29 @@ class WebhookService:
         if value is None:
             return None
         mapping = {
+            # 状态回调 message_status 值
+            "target": "target",
             "sent": "sent",
             "delivered": "delivered",
-            "opened": "opened",
-            "open": "opened",
-            "clicked": "clicked",
-            "click": "clicked",
-            "replied": "replied",
-            "reply": "replied",
-            "route": "replied",
-            "bounced": "bounced",
-            "bounce": "bounced",
-            # EngageLab 直接用 soft_bounce / invalid_email 作为 message_status
             "soft_bounce": "bounced",
             "invalid_email": "bounced",
-            # spam / complained
+            # 响应回调 event 值
+            "open": "opened",
+            "click": "clicked",
+            "unsubscribe": "unsubscribed",
+            "report_spam": "complained",
+            "route": "replied",
+            # 兼容别名
+            "opened": "opened",
+            "clicked": "clicked",
+            "replied": "replied",
+            "reply": "replied",
+            "bounced": "bounced",
+            "bounce": "bounced",
             "complained": "complained",
             "complaint": "complained",
             "spam": "complained",
-            "report_spam": "complained",
-            # unsubscribe 事件
             "unsubscribed": "unsubscribed",
-            "unsubscribe": "unsubscribed",
-            # target 事件（忽略，不影响状态）
-            "target": "target",
         }
         return mapping.get(value.lower())
 
@@ -288,7 +314,7 @@ class WebhookService:
         event_type: str,
         occurred_at: datetime,
         payload: dict,
-        email=None,  # 保留参数兼容旧调用，暂不使用
+        email=None,
     ) -> dict:
         """计算需要更新的状态字段（不含 D-041 追踪字段）"""
         fields: dict = {"status": event_type}
@@ -303,10 +329,12 @@ class WebhookService:
         if event_type in timestamp_field_map:
             fields[timestamp_field_map[event_type]] = occurred_at
         if event_type == "replied":
-            fields["reply_message_id"] = payload.get("reply_message_id")
-            fields["reply_from_email"] = payload.get("reply_from_email")
-            fields["reply_subject"] = payload.get("reply_subject")
-            fields["reply_body_text"] = payload.get("reply_body_text")
+            # route 回调的回复数据在 response_data 中
+            resp = payload.get("response_data") or {}
+            fields["reply_message_id"] = resp.get("email_id") or payload.get("reply_message_id")
+            fields["reply_from_email"] = resp.get("from") or payload.get("reply_from_email")
+            fields["reply_subject"] = resp.get("subject") or payload.get("reply_subject")
+            fields["reply_body_text"] = resp.get("text") or payload.get("reply_body_text")
             fields["reply_received_at"] = occurred_at
         return fields
 

@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import json
 import logging
 
@@ -32,7 +33,7 @@ async def engagelab_webhook(
 ) -> dict:
     settings = get_settings()
 
-    # 读取原始请求体并记录日志（调试阶段）
+    # 读取原始请求体并记录日志
     raw_body = await request.body()
     logger.info("EngageLab webhook 原始请求体: %s", raw_body[:2000].decode("utf-8", errors="replace"))
     logger.info(
@@ -40,13 +41,14 @@ async def engagelab_webhook(
         x_webhook_timestamp, x_webhook_appkey, x_webhook_signature,
     )
 
-    # EngageLab 签名验证：md5(timestamp + appkey + APP_KEY)
+    # EngageLab 签名验证：HmacSHA256(timestamp, APP_KEY)
     if not x_webhook_timestamp or not x_webhook_signature:
         raise AppError(code="FORBIDDEN", message="缺少 webhook 签名头", status_code=403)
 
     app_key = settings.engagelab_webhook_secret
-    raw = f"{x_webhook_timestamp}{x_webhook_appkey or ''}{app_key}"
-    expected = hashlib.md5(raw.encode()).hexdigest()
+    expected = hmac.new(
+        app_key.encode(), x_webhook_timestamp.encode(), hashlib.sha256
+    ).hexdigest()
 
     if expected != x_webhook_signature:
         logger.warning("Webhook 签名校验失败: expected=%s, got=%s", expected, x_webhook_signature)
@@ -72,7 +74,10 @@ async def engagelab_webhook(
             results.append(data)
             logger.info("EngageLab 事件处理成功: %s", data)
         except Exception as e:
-            logger.error("EngageLab 事件处理失败: %s, payload=%s", str(e), json.dumps(event_payload, ensure_ascii=False)[:500])
+            logger.error(
+                "EngageLab 事件处理失败: %s, payload=%s",
+                str(e), json.dumps(event_payload, ensure_ascii=False)[:500],
+            )
             results.append({"status": "error", "error": str(e)})
 
     return success_response({"processed": len(results), "results": results})
