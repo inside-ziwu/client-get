@@ -162,9 +162,8 @@ class WebhookService:
 
         生产实际结构（状态回调）：
           payload["status"]["message_status"] = "sent" / "delivered" / ...
-        文档描述的响应回调（待确认）：
-          payload["event"] = "open" / "click" / ...
-          或 payload["response"]["event"]
+        响应回调（待确认）：
+          payload["event"] 或 payload["response"]["event"]
         """
         # 状态回调：嵌套在 payload.status 中
         status_obj = payload.get("status")
@@ -238,7 +237,6 @@ class WebhookService:
         raw_event: str | None,
     ) -> None:
         """拼装 UPDATE emails SET ... 语句"""
-        # 基础状态字段
         base_fields = {field: value for field, value in status_updates.items() if field != "status"}
         set_parts = ["status = :status"]
         params: dict = {
@@ -258,7 +256,6 @@ class WebhookService:
             params["occurred_at_open"] = status_updates.get("opened_at")
 
         elif event_type == "bounced":
-            # EngageLab 用 message_status 直接区分：soft_bounce vs invalid_email
             raw = (raw_event or "").lower()
             if raw in {"soft_bounce", "soft", "temporary", "temp"}:
                 set_parts.append("soft_bounce = true")
@@ -313,7 +310,6 @@ class WebhookService:
         if isinstance(value, datetime):
             return value
         if isinstance(value, (int, float)):
-            # EngageLab itime：毫秒级时间戳
             ts = value / 1000 if value > 1e12 else value
             return datetime.fromtimestamp(ts, tz=timezone.utc)
         if isinstance(value, str):
@@ -341,7 +337,6 @@ class WebhookService:
         if event_type in timestamp_field_map:
             fields[timestamp_field_map[event_type]] = occurred_at
         if event_type == "replied":
-            # route 回调的回复数据可能在嵌套 response_data 中
             response_obj = payload.get("response") or {}
             rd = response_obj.get("response_data") if isinstance(response_obj, dict) else {}
             rd = rd or payload.get("response_data") or {}
