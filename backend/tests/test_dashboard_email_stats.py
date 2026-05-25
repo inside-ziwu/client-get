@@ -228,3 +228,102 @@ class TestSummaryFieldCompleteness:
         )
 
         assert set(r["summary"].keys()) == EXPECTED_SUMMARY_KEYS
+
+
+# ── 路由层端到端测试 ──────────────────────────────────────────
+
+
+class TestDashboardEmailStatsRoute:
+    @pytest.fixture
+    def app(self):
+        from unittest.mock import patch
+
+        from app.main import create_app
+        from app.security.dependencies import TenantAuthContext, get_current_tenant_user
+
+        application = create_app()
+
+        summary = _make_summary_row(
+            targets=20, sent=15, delivered=12, invalid_email=2,
+            soft_bounce=1, total_opens=30, opens=8, report_spam=1, unsubscribe=1,
+        )
+        daily = _make_daily_rows(
+            (date(2026, 5, 1), 8, 7, 5),
+            (date(2026, 5, 2), 7, 5, 3),
+        )
+        conn = _mock_conn(summary, daily)
+
+        ctx = TenantAuthContext(
+            tenant_id="t-001",
+            tenant_slug="test-tenant",
+            user_id="u-001",
+            email="test@test.com",
+            name="Test",
+            roles=["admin"],
+            must_change_pwd=False,
+            connection=conn,
+        )
+        application.dependency_overrides[get_current_tenant_user] = lambda: ctx
+        yield application
+        application.dependency_overrides.clear()
+
+    @pytest.mark.asyncio
+    async def test_with_date_params(self, app):
+        """带日期参数请求：返回 200，包含 summary 和 daily"""
+        import httpx
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get(
+                "/t/test-tenant/api/v1/dashboard/email-stats",
+                params={"start_date": "2026-05-01", "end_date": "2026-05-02"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "summary" in data
+        assert "daily" in data
+
+        s = data["summary"]
+        assert s["targets"] == 20
+        assert s["sent"] == 15
+        assert s["billing"] == 15
+        assert s["delivered_percent"] == 80.0
+
+        d = data["daily"]
+        assert len(d) == 2
+        assert d[0]["date"] == "2026-05-01"
+
+    @pytest.mark.asyncio
+    async def test_without_date_params(self, app):
+        """不带日期参数：默认近 30 天，返回 200"""
+        import httpx
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get("/t/test-tenant/api/v1/dashboard/email-stats")
+
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "summary" in data
+        assert "daily" in data
+
+    @pytest.mark.asyncio
+    async def test_summary_field_completeness(self, app):
+        """summary 13 个字段全部存在且类型正确"""
+        import httpx
+
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.get(
+                "/t/test-tenant/api/v1/dashboard/email-stats",
+                params={"start_date": "2026-05-01", "end_date": "2026-05-02"},
+            )
+
+        s = resp.json()["data"]["summary"]
+        assert set(s.keys()) == EXPECTED_SUMMARY_KEYS
+        for k in ("targets", "sent", "delivered", "invalid_email", "soft_bounce",
+                   "billing", "total_opens", "opens", "report_spam", "unsubscribe"):
+            assert isinstance(s[k], int), f"{k} 应为 int"
+        for k in ("delivered_percent", "total_open_percent", "open_percent"):
+            assert isinstance(s[k], (int, float)), f"{k} 应为数值"
