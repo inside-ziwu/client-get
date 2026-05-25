@@ -26,7 +26,13 @@ class WebhookService:
                                 emails.unsubscribed = true
           delivered / sent / clicked / replied → 照常处理状态字段
         """
-        message_id = payload.get("message_id") or payload.get("engagelab_message_id")
+        message_id = (
+            payload.get("message_id")
+            or payload.get("engagelab_message_id")
+            or payload.get("mail_id")
+            or payload.get("trans_email_id")
+            or payload.get("email_id")
+        )
         # EngageLab 状态回调用 message_status，响应回调用 event
         raw_event = (
             payload.get("event")
