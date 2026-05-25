@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Edit2, Eye, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Copy, Edit2, Eye, Loader2, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -79,6 +79,11 @@ export default function TemplatesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<EmailTemplate | null>(null);
 
+  const [testEmailDialogOpen, setTestEmailDialogOpen] = useState(false);
+  const [testEmailInput, setTestEmailInput] = useState('');
+  const [testEmailError, setTestEmailError] = useState('');
+  const [pendingTestSendId, setPendingTestSendId] = useState<string | null>(null);
+
   const platformQuery = useQuery({
     queryKey: ['tenant', 'platform-templates'],
     queryFn: async () => (await tenantApi.emailTemplates.platformTemplates.list()).data.data,
@@ -109,6 +114,36 @@ export default function TemplatesPage() {
     onError: () => toast.error('克隆失败'),
   });
 
+  const testSendMutation = useMutation({
+    mutationFn: async (templateId: string) => (await tenantApi.emailTemplates.testSend(templateId)).data.data,
+    onSuccess: (data) => {
+      toast.success(`测试邮件已发送到 ${data.test_email}`);
+    },
+    onError: (err: any) => {
+      const code = err?.response?.data?.error?.code;
+      if (code === 'TEST_EMAIL_NOT_SET') {
+        setPendingTestSendId(testSendMutation.variables ?? null);
+        setTestEmailInput('');
+        setTestEmailError('');
+        setTestEmailDialogOpen(true);
+      } else {
+        toast.error(err?.response?.data?.error?.message ?? '发送测试失败');
+      }
+    },
+  });
+
+  const updateTestEmailMutation = useMutation({
+    mutationFn: async (email: string) => (await tenantApi.auth.updateTestEmail(email)).data.data,
+    onSuccess: () => {
+      setTestEmailDialogOpen(false);
+      if (pendingTestSendId) {
+        testSendMutation.mutate(pendingTestSendId);
+        setPendingTestSendId(null);
+      }
+    },
+    onError: () => toast.error('保存测试邮箱失败'),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => tenantApi.emailTemplates.delete(id),
     onSuccess: async () => {
@@ -118,6 +153,16 @@ export default function TemplatesPage() {
     },
     onError: () => toast.error('删除失败'),
   });
+
+  const handleSaveAndSend = () => {
+    const email = testEmailInput.trim();
+    if (!email || !/^.+@.+\..+$/.test(email)) {
+      setTestEmailError('请输入正确的邮箱地址');
+      return;
+    }
+    setTestEmailError('');
+    updateTestEmailMutation.mutate(email);
+  };
 
   const openCreate = () => {
     setEditingId(null);
@@ -319,7 +364,7 @@ export default function TemplatesPage() {
                 key: 'actions',
                 title: '操作',
                 render: (row) => (
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" aria-label="预览" onClick={() => void openPreview(row.id)}>
                       <Eye className="h-4 w-4" />
                     </Button>
@@ -334,6 +379,20 @@ export default function TemplatesPage() {
                       onClick={() => cloneMutation.mutate(row.id)}
                     >
                       <Copy className="h-4 w-4" />
+                    </Button>
+                    <div className="w-px h-4 bg-border" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="发送测试"
+                      disabled={testSendMutation.isPending}
+                      onClick={() => testSendMutation.mutate(row.id)}
+                    >
+                      {testSendMutation.isPending && testSendMutation.variables === row.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                     <Button variant="ghost" size="icon" aria-label="删除" onClick={() => setDeleteTarget(row)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -435,6 +494,29 @@ export default function TemplatesPage() {
               <Button type="submit" disabled={aiLoading}>{aiLoading ? '生成中...' : '生成'}</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 测试邮箱设置弹窗 */}
+      <Dialog open={testEmailDialogOpen} onOpenChange={setTestEmailDialogOpen}>
+        <DialogContent className="max-w-[420px]">
+          <DialogTitle>设置测试邮箱</DialogTitle>
+          <DialogDescription>请输入测试邮箱地址，后续测试邮件将发送到此地址</DialogDescription>
+          <div className="space-y-2">
+            <Label>测试邮箱</Label>
+            <Input
+              placeholder="your@email.com"
+              value={testEmailInput}
+              onChange={(e) => { setTestEmailInput(e.target.value); setTestEmailError(''); }}
+            />
+            {testEmailError && <p className="text-sm text-destructive">{testEmailError}</p>}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTestEmailDialogOpen(false)}>取消</Button>
+            <Button onClick={handleSaveAndSend} disabled={updateTestEmailMutation.isPending}>
+              {updateTestEmailMutation.isPending ? '保存中...' : '保存并发送'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
