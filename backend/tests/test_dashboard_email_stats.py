@@ -191,7 +191,7 @@ class TestEmailStatsByDateRange:
         args = conn.execute.call_args_list[0]
         params = args[0][1] if len(args[0]) > 1 else args[1].get("parameters", {})
         assert str(params["start_date"]) == "2026-05-10"
-        assert str(params["end_date"]) == "2026-05-20"
+        assert str(params["end_exclusive"]) == "2026-05-21"
 
     @pytest.mark.asyncio
     async def test_tenant_isolation(self):
