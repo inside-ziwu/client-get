@@ -217,3 +217,74 @@ class TestSendTestEmail:
         with pytest.raises(AppError) as exc_info:
             await svc.send_test_email(conn, "t-001", "u-001", "tpl-001")
         assert exc_info.value.status_code == 404
+
+
+# ── U5: 路由 POST /email-templates/{id}/test-send ──
+
+
+class TestTestSendRoute:
+
+    @pytest.mark.asyncio
+    @patch("app.services.tenant_messaging_service.EngageLabClient")
+    async def test_success(self, MockEngageLab, client):
+        mock_el = AsyncMock()
+        mock_el.send_email = AsyncMock(return_value={"engagelab_message_id": "msg-123"})
+        MockEngageLab.return_value = mock_el
+
+        # 需要 mock conn 支持多次查询
+        ctx = _fake_tenant_context()
+        conn = ctx.connection
+
+        async def _execute(stmt, params=None):
+            sql = str(stmt)
+            result = MagicMock()
+            if "test_email FROM users" in sql:
+                result.scalar_one_or_none = MagicMock(return_value="test@example.com")
+            elif "FROM email_templates" in sql:
+                mapping = MagicMock()
+                mapping.__getitem__ = lambda self, key: {
+                    "id": "tpl-001", "subject": "Hello", "body_html": "<p>Hi</p>", "body_text": "Hi",
+                }[key]
+                mapping.get = lambda key, default=None: {
+                    "id": "tpl-001", "subject": "Hello", "body_html": "<p>Hi</p>", "body_text": "Hi",
+                }.get(key, default)
+                result.mappings = MagicMock(return_value=MagicMock(first=MagicMock(return_value=mapping)))
+            elif "FROM domain_warmup_status" in sql:
+                mapping = MagicMock()
+                mapping.__getitem__ = lambda self, key: {"sender_email": "noreply@test.com"}[key]
+                result.mappings = MagicMock(return_value=MagicMock(first=MagicMock(return_value=mapping)))
+            return result
+
+        conn.execute = AsyncMock(side_effect=_execute)
+
+        app_instance = create_app()
+        app_instance.dependency_overrides[get_current_tenant_user] = lambda: ctx
+        transport = ASGITransport(app=app_instance)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            resp = await c.post("/t/test-tenant/api/v1/email-templates/tpl-001/test-send")
+        app_instance.dependency_overrides.clear()
+
+        assert resp.status_code == 200
+        assert resp.json()["data"]["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_no_test_email_returns_422(self, client):
+        ctx = _fake_tenant_context()
+        conn = ctx.connection
+
+        async def _execute(stmt, params=None):
+            result = MagicMock()
+            result.scalar_one_or_none = MagicMock(return_value=None)
+            return result
+
+        conn.execute = AsyncMock(side_effect=_execute)
+
+        app_instance = create_app()
+        app_instance.dependency_overrides[get_current_tenant_user] = lambda: ctx
+        transport = ASGITransport(app=app_instance)
+        async with AsyncClient(transport=transport, base_url="http://test") as c:
+            resp = await c.post("/t/test-tenant/api/v1/email-templates/tpl-001/test-send")
+        app_instance.dependency_overrides.clear()
+
+        assert resp.status_code == 422
+        assert resp.json()["error"]["code"] == "TEST_EMAIL_NOT_SET"
