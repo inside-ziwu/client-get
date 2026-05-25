@@ -36,42 +36,6 @@ class EngageLabClient:
                 "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置"
             )
 
-    async def get_stats_day(
-        self, start_date: str, end_date: str, *, aggregate_by: int = 1
-    ) -> dict | list:
-        """调用 EngageLab Stats API GET /v1/stats_day"""
-        if not (self.settings.engagelab_api_user and self.settings.engagelab_credential):
-            raise EngageLabSendError(
-                "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置"
-            )
-
-        auth_value = self._build_auth_header()
-        params = {
-            "start_date": start_date,
-            "end_date": end_date,
-            "aggregate_by": aggregate_by,
-        }
-
-        async with httpx.AsyncClient(
-            base_url=self.settings.engagelab_stats_base_url,
-            timeout=self.settings.engagelab_timeout_seconds,
-            transport=self.transport,
-        ) as client:
-            response = await client.get(
-                "/v1/stats_day",
-                headers={"Authorization": auth_value},
-                params=params,
-            )
-
-        if response.status_code >= 400:
-            raise EngageLabSendError(
-                f"Stats API 请求失败，status={response.status_code}: "
-                f"{response.text[:500]}"
-            )
-
-        data = response.json()
-        return data.get("result", {})
-
     async def send_email(self, payload: dict[str, Any]) -> dict[str, Any]:
         self._validate_config()
 

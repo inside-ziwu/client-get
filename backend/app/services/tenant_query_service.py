@@ -1,19 +1,14 @@
 import logging
-import time
 from datetime import date, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.integrations.engagelab import EngageLabClient, EngageLabSendError
 from app.services.company_filter_sql import append_employee_count_range
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 
 logger = logging.getLogger(__name__)
-
-_stats_cache: dict[tuple[str, str], tuple[float, dict]] = {}
-_CACHE_TTL = 300
 
 
 class TenantQueryService:
