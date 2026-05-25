@@ -1,7 +1,9 @@
 """EngageLab Stats API 集成测试 — TDD 驱动"""
 
 import base64
-import json
+import time
+from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -153,3 +155,129 @@ class TestGetStatsDay:
 
         expected = "Basic " + base64.b64encode(b"test_user:test_credential").decode()
         assert captured_headers["authorization"] == expected
+
+
+# ── U3: 服务层 ──────────────────────────────────────────────
+
+
+def _mock_client(summary_res=None, daily_res=None, err=None):
+    cl = MagicMock()
+    if err:
+        cl.get_stats_day = AsyncMock(side_effect=err)
+        return cl
+
+    async def get_stats(sd, ed, *, aggregate_by=1):
+        if aggregate_by == 1:
+            return summary_res if summary_res is not None else {}
+        return daily_res if daily_res is not None else []
+
+    cl.get_stats_day = AsyncMock(side_effect=get_stats)
+    return cl
+
+
+class TestEmailStatsByDateRange:
+    @pytest.fixture(autouse=True)
+    def _clear_cache(self):
+        from app.services import tenant_query_service as m
+
+        m._stats_cache.clear()
+        yield
+        m._stats_cache.clear()
+
+    @pytest.mark.asyncio
+    async def test_normal_summary(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client(MOCK_SUMMARY_RESPONSE["result"], MOCK_DAILY_RESPONSE["result"])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            r = await TenantQueryService().email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+        s = r["summary"]
+        assert s["targets"] == 100
+        assert s["delivered"] == 85
+        assert s["billing"] == 90
+        assert isinstance(s["delivered_percent"], float)
+        assert s["delivered_percent"] == 94.4
+
+    @pytest.mark.asyncio
+    async def test_normal_daily(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client(MOCK_SUMMARY_RESPONSE["result"], MOCK_DAILY_RESPONSE["result"])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            r = await TenantQueryService().email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+        d = r["daily"]
+        assert len(d) == 3
+        assert d[0]["date"] == "2026-05-01"
+        assert d[0]["opens"] == 15
+
+    @pytest.mark.asyncio
+    async def test_empty_data(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client({}, [])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            r = await TenantQueryService().email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+        assert r["summary"]["targets"] == 0
+        assert len(r["daily"]) == 3
+        assert r["daily"][0] == {"date": "2026-05-01", "sent": 0, "delivered": 0, "opens": 0}
+
+    @pytest.mark.asyncio
+    async def test_error_degradation(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client(err=EngageLabSendError("x"))
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            r = await TenantQueryService().email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+        assert r["summary"]["targets"] == 0
+        assert r["daily"] == []
+
+    @pytest.mark.asyncio
+    async def test_cache_hit(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client(MOCK_SUMMARY_RESPONSE["result"], MOCK_DAILY_RESPONSE["result"])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            svc = TenantQueryService()
+            await svc.email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+            await svc.email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+        assert mc.get_stats_day.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_cache_expired(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client(MOCK_SUMMARY_RESPONSE["result"], MOCK_DAILY_RESPONSE["result"])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            with patch("app.services.tenant_query_service.time") as mt:
+                mt.monotonic.side_effect = [0.0, 301.0, 301.0]
+                svc = TenantQueryService()
+                await svc.email_stats_by_date_range(
+                    MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+                )
+                await svc.email_stats_by_date_range(
+                    MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+                )
+        assert mc.get_stats_day.call_count == 4
+
+    @pytest.mark.asyncio
+    async def test_billing_mapping(self):
+        from app.services.tenant_query_service import TenantQueryService
+
+        mc = _mock_client({**MOCK_SUMMARY_RESPONSE["result"], "billing_count": 77}, [])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            r = await TenantQueryService().email_stats_by_date_range(
+                MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
+            )
+        assert r["summary"]["billing"] == 77
