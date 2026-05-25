@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
 from app.core.ids import new_uuid
+from app.integrations.engagelab import EngageLabClient
 from app.services.ai_usage_log_service import AiUsageLogService
 from app.services.audit_service import AuditService
 from app.services.tenant_ai_provider_service import TenantAiProviderService
@@ -2457,3 +2458,67 @@ class TenantMessagingService:
 
     def _parse_datetime(self, value: str) -> datetime:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+    async def send_test_email(
+        self, conn: AsyncConnection, tenant_id: str, user_id: str, template_id: str
+    ) -> dict:
+        row = await conn.execute(
+            text("SELECT test_email FROM users WHERE id = :user_id"),
+            {"user_id": user_id},
+        )
+        test_email = row.scalar_one_or_none()
+        if not test_email:
+            raise AppError(code="TEST_EMAIL_NOT_SET", message="请先设置测试邮箱", status_code=422)
+
+        tpl_result = await conn.execute(
+            text(
+                """
+                SELECT id, subject, body_html, body_text
+                FROM email_templates
+                WHERE tenant_id = :tenant_id AND id = :template_id AND deleted_at IS NULL
+                """
+            ),
+            {"tenant_id": tenant_id, "template_id": template_id},
+        )
+        tpl = tpl_result.mappings().first()
+        if tpl is None:
+            raise AppError(code="NOT_FOUND", message="邮件模板不存在", status_code=404)
+
+        domain_result = await conn.execute(
+            text(
+                """
+                SELECT sender_email
+                FROM domain_warmup_status
+                WHERE tenant_id = :tenant_id
+                  AND verification_status = 'verified'
+                  AND sender_email IS NOT NULL
+                ORDER BY created_at ASC
+                LIMIT 1
+                """
+            ),
+            {"tenant_id": tenant_id},
+        )
+        domain_row = domain_result.mappings().first()
+        if domain_row is None:
+            raise AppError(code="NO_SEND_DOMAIN", message="请先配置发送域名", status_code=422)
+
+        # 第 4 条 _render_text 调用路径，变量键与发送路径（line ~1557）保持一致
+        test_vars = {
+            "company_name": "示例公司",
+            "contact_name": "张三",
+            "sender_name": "李四",
+        }
+        subject = self._render_text(tpl["subject"], test_vars)
+        body_html = self._render_text(tpl["body_html"], test_vars)
+        body_text = self._render_text(tpl.get("body_text", "") or "", test_vars)
+
+        client = EngageLabClient()
+        await client.send_email({
+            "from_email": domain_row["sender_email"],
+            "to_email": test_email,
+            "subject": subject,
+            "body_html": body_html,
+            "body_text": body_text,
+        })
+
+        return {"success": True, "test_email": test_email, "message": f"测试邮件已发送到 {test_email}"}

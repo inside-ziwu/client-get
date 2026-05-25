@@ -127,6 +127,15 @@ async def preview_email_template(
     return success_response(await service.preview_email_template(context.connection, context.tenant_id, template_id))
 
 
+@router.post("/email-templates/{template_id}/test-send")
+async def test_send_email(
+    template_id: str,
+    context: TenantAuthContext = Depends(require_tenant_roles("admin", "operator")),
+) -> dict:
+    result = await service.send_test_email(context.connection, context.tenant_id, context.user_id, template_id)
+    return success_response(result)
+
+
 @router.get("/sending-plans")
 async def list_sending_plans(
     context: TenantAuthContext = Depends(get_current_tenant_user),

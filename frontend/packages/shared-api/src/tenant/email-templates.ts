@@ -47,6 +47,8 @@ export function emailTemplatesApi(client: AxiosInstance) {
       client.post<ApiResponse<EmailTemplate>>(`/api/v1/email-templates/${id}/clone`),
     preview: (id: string) =>
       client.get<ApiResponse<Pick<EmailTemplate, 'id' | 'subject' | 'body_html' | 'body_text'>>>(`/api/v1/email-templates/${id}/preview`),
+    testSend: (id: string) =>
+      client.post<ApiResponse<{ success: boolean; test_email: string; message: string }>>(`/api/v1/email-templates/${id}/test-send`),
     aiGenerate: (data: AiGenerateTemplateRequest) =>
       client.post<ApiResponse<EmailTemplate>>('/api/v1/email-templates/ai-generate', data),
     platformTemplates: {

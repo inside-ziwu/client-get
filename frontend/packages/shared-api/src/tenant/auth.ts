@@ -21,5 +21,7 @@ export function authApi(client: AxiosInstance) {
       }),
     me: () =>
       client.get<ApiResponse<CurrentUser>>('/api/v1/auth/me'),
+    updateTestEmail: (testEmail: string) =>
+      client.patch<ApiResponse<{ test_email: string }>>('/api/v1/auth/me/test-email', { test_email: testEmail }),
   };
 }
