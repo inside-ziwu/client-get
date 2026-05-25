@@ -766,74 +766,65 @@ class TenantQueryService:
     async def email_stats_by_date_range(
         self, conn: AsyncConnection, tenant_id: str, start_date: date, end_date: date
     ) -> dict:
-        """仪表盘邮件统计：通过 EngageLab Stats API 获取汇总 + 每日明细"""
-        sd = str(start_date)
-        ed = str(end_date)
-        cache_key = (sd, ed)
+        """仪表盘邮件统计：本地 emails 表聚合查询"""
+        summary_result = await conn.execute(
+            text("""
+                SELECT
+                  COUNT(*) AS targets,
+                  COUNT(*) FILTER (WHERE status NOT IN ('draft','pending','queued')) AS sent,
+                  COUNT(*) FILTER (WHERE status IN ('delivered','opened','clicked','replied')) AS delivered,
+                  COUNT(*) FILTER (WHERE invalid_email = true) AS invalid_email,
+                  COUNT(*) FILTER (WHERE soft_bounce = true) AS soft_bounce,
+                  COALESCE(SUM(open_count), 0) AS total_opens,
+                  COUNT(*) FILTER (WHERE first_opened_at IS NOT NULL) AS opens,
+                  COUNT(*) FILTER (WHERE report_spam = true) AS report_spam,
+                  COUNT(*) FILTER (WHERE unsubscribed = true) AS unsubscribe
+                FROM emails
+                WHERE tenant_id = CAST(:tenant_id AS uuid)
+                  AND created_at >= :start_date
+                  AND created_at < :end_date + interval '1 day'
+            """),
+            {"tenant_id": tenant_id, "start_date": start_date, "end_date": end_date},
+        )
+        row = dict(summary_result.mappings().one())
 
-        cached = _stats_cache.get(cache_key)
-        if cached:
-            ts, data = cached
-            if time.monotonic() - ts < _CACHE_TTL:
-                return data
+        sent = row["sent"]
+        pct = lambda x: round(x / sent * 100, 2) if sent > 0 else 0
 
-        zero_summary = {
-            "targets": 0, "sent": 0, "delivered": 0, "delivered_percent": 0,
-            "invalid_email": 0, "soft_bounce": 0, "billing": 0,
-            "total_opens": 0, "total_open_percent": 0, "opens": 0,
-            "open_percent": 0, "report_spam": 0, "unsubscribe": 0,
+        summary = {
+            **row,
+            "billing": sent,
+            "delivered_percent": pct(row["delivered"]),
+            "total_open_percent": pct(row["total_opens"]),
+            "open_percent": pct(row["opens"]),
         }
 
-        try:
-            client = EngageLabClient()
-            raw_summary = await client.get_stats_day(sd, ed, aggregate_by=1)
-            raw_daily = await client.get_stats_day(sd, ed, aggregate_by=0)
-        except Exception:
-            logger.warning("EngageLab Stats API 调用失败", exc_info=True)
-            return {"summary": zero_summary, "daily": []}
-
-        if not raw_summary:
-            summary = zero_summary
-        else:
-            summary = {
-                "targets": int(raw_summary.get("targets", 0)),
-                "sent": int(raw_summary.get("sent", 0)),
-                "delivered": int(raw_summary.get("delivered", 0)),
-                "delivered_percent": float(raw_summary.get("delivered_percent", 0)),
-                "invalid_email": int(raw_summary.get("invalid_email", 0)),
-                "soft_bounce": int(raw_summary.get("soft_bounce", 0)),
-                "billing": int(raw_summary.get("billing_count", 0)),
-                "total_opens": int(raw_summary.get("total_opens", 0)),
-                "total_open_percent": float(raw_summary.get("total_open_percent", 0)),
-                "opens": int(raw_summary.get("opens", 0)),
-                "open_percent": float(raw_summary.get("open_percent", 0)),
-                "report_spam": int(raw_summary.get("report_spam", 0)),
-                "unsubscribe": int(raw_summary.get("unsubscribe", 0)),
+        daily_result = await conn.execute(
+            text("""
+                SELECT DATE(created_at) AS date,
+                       COUNT(*) FILTER (WHERE status NOT IN ('draft','pending','queued')) AS sent,
+                       COUNT(*) FILTER (WHERE status IN ('delivered','opened','clicked','replied')) AS delivered,
+                       COUNT(*) FILTER (WHERE first_opened_at IS NOT NULL) AS opens
+                FROM emails
+                WHERE tenant_id = CAST(:tenant_id AS uuid)
+                  AND created_at >= :start_date
+                  AND created_at < :end_date + interval '1 day'
+                GROUP BY DATE(created_at)
+                ORDER BY date
+            """),
+            {"tenant_id": tenant_id, "start_date": start_date, "end_date": end_date},
+        )
+        daily = [
+            {
+                "date": str(r["date"]),
+                "sent": r["sent"],
+                "delivered": r["delivered"],
+                "opens": r["opens"],
             }
+            for r in daily_result.mappings().all()
+        ]
 
-        if raw_daily:
-            daily = sorted(
-                [
-                    {
-                        "date": item.get("send_date", ""),
-                        "sent": int(item.get("sent", 0)),
-                        "delivered": int(item.get("delivered", 0)),
-                        "opens": int(item.get("total_opens", 0)),
-                    }
-                    for item in raw_daily
-                ],
-                key=lambda x: x["date"],
-            )
-        else:
-            daily = []
-            current = start_date
-            while current <= end_date:
-                daily.append({"date": str(current), "sent": 0, "delivered": 0, "opens": 0})
-                current += timedelta(days=1)
-
-        result = {"summary": summary, "daily": daily}
-        _stats_cache[cache_key] = (time.monotonic(), result)
-        return result
+        return {"summary": summary, "daily": daily}
 
     async def plan_overview(
         self, conn: AsyncConnection, tenant_id: str, plan_id: str | None = None
