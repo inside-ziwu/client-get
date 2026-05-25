@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useImperativeHandle } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -21,6 +21,8 @@ export const EmailRichEditor = forwardRef<
   EmailRichEditorHandle,
   EmailRichEditorProps
 >(function EmailRichEditor({ initialContent, placeholder, onUpdate }, ref) {
+  const lastSelectionRef = useRef<{ from: number; to: number } | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -31,11 +33,28 @@ export const EmailRichEditor = forwardRef<
     onUpdate: ({ editor }) => {
       onUpdate?.(editor.getHTML(), editor.getText());
     },
+    onSelectionUpdate: ({ editor }) => {
+      lastSelectionRef.current = {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      };
+    },
+    onBlur: ({ editor }) => {
+      lastSelectionRef.current = {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      };
+    },
   });
 
   useImperativeHandle(ref, () => ({
     insertVariable(text: string) {
       if (!editor) return;
+      if (!editor.isFocused && lastSelectionRef.current) {
+        const { from, to } = lastSelectionRef.current;
+        editor.chain().focus().setTextSelection({ from, to }).insertContent(text).run();
+        return;
+      }
       if (!editor.isFocused) {
         editor.commands.focus('end');
       }
