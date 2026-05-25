@@ -762,6 +762,9 @@ class TenantQueryService:
         self, conn: AsyncConnection, tenant_id: str, start_date: date, end_date: date
     ) -> dict:
         """仪表盘邮件统计：本地 emails 表聚合查询"""
+        end_exclusive = end_date + timedelta(days=1)
+        params = {"tenant_id": tenant_id, "start_date": start_date, "end_exclusive": end_exclusive}
+
         summary_result = await conn.execute(
             text("""
                 SELECT
@@ -777,9 +780,9 @@ class TenantQueryService:
                 FROM emails
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
                   AND created_at >= :start_date
-                  AND created_at < :end_date + interval '1 day'
+                  AND created_at < :end_exclusive
             """),
-            {"tenant_id": tenant_id, "start_date": start_date, "end_date": end_date},
+            params,
         )
         row = dict(summary_result.mappings().one())
 
@@ -803,11 +806,11 @@ class TenantQueryService:
                 FROM emails
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
                   AND created_at >= :start_date
-                  AND created_at < :end_date + interval '1 day'
+                  AND created_at < :end_exclusive
                 GROUP BY DATE(created_at)
                 ORDER BY date
             """),
-            {"tenant_id": tenant_id, "start_date": start_date, "end_date": end_date},
+            params,
         )
         daily = [
             {
