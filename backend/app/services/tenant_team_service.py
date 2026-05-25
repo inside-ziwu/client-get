@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -5,6 +7,8 @@ from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.security.passwords import hash_password
 from app.services.audit_service import AuditService
+
+_EMAIL_RE = re.compile(r"^.+@.+\..+$")
 
 
 class TenantTeamService:
@@ -185,6 +189,21 @@ class TenantTeamService:
             if item["id"] == user_id:
                 return item
         raise AppError(code="NOT_FOUND", message="租户用户不存在", status_code=404)
+
+    async def update_test_email(self, conn: AsyncConnection, user_id: str, test_email: str) -> None:
+        if not test_email or not _EMAIL_RE.match(test_email):
+            raise AppError(code="VALIDATION_ERROR", message="邮箱格式不正确", status_code=422)
+        await conn.execute(
+            text("UPDATE users SET test_email = :test_email WHERE id = :user_id"),
+            {"test_email": test_email, "user_id": user_id},
+        )
+
+    async def get_test_email(self, conn: AsyncConnection, user_id: str) -> str | None:
+        result = await conn.execute(
+            text("SELECT test_email FROM users WHERE id = :user_id"),
+            {"user_id": user_id},
+        )
+        return result.scalar_one_or_none()
 
     def _validate_roles(self, roles: list[str]) -> None:
         if not roles:
