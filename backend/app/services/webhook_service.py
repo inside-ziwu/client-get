@@ -1,8 +1,8 @@
 """Webhook 服务：处理 EngageLab 推送事件，回写邮件状态和 D-041 追踪字段
 
-EngageLab webhook 有两种回调格式：
-  状态回调（投递类）：message_status + status_data（含 email_id）
-  响应回调（行为类）：event + response_data（含 email_id）
+EngageLab webhook 真实 payload 结构（根据生产日志确认）：
+  状态回调：payload.status.message_status + payload.status.status_data.email_id
+  响应回调：payload.event（顶层）+ payload.response_data.email_id（待确认）
 """
 import logging
 from datetime import datetime, timezone
@@ -18,24 +18,11 @@ logger = logging.getLogger(__name__)
 
 class WebhookService:
     async def process_engagelab_event(self, conn: AsyncConnection, payload: dict) -> dict:
-        """
-        处理 EngageLab webhook 事件。
+        """处理 EngageLab webhook 事件（适配真实 payload 嵌套结构）"""
 
-        EngageLab 两种回调结构：
-          状态回调：message_status="delivered" + status_data={email_id, task_id, ...}
-          响应回调：event="open" + response_data={email_id, task_id, ip, ...}
-
-        email_id 在嵌套的 status_data / response_data 中，用于匹配本地 emails.engagelab_message_id
-        """
-        # 提取事件类型：状态回调用 message_status，响应回调用 event
-        raw_event = (
-            payload.get("message_status")
-            or payload.get("event")
-            or payload.get("event_type")
-        )
+        # 展平嵌套结构，提取事件类型和 email_id
+        raw_event = self._extract_event_type(payload)
         event_type = self._normalize_event_type(raw_event)
-
-        # 提取 email_id：优先从嵌套的 status_data / response_data 中取
         message_id = self._extract_email_id(payload)
 
         # 时间戳：itime（毫秒长整型）
@@ -43,11 +30,7 @@ class WebhookService:
         occurred_at_dt = self._parse_timestamp(occurred_at)
 
         # EngageLab 不发 event_id，用 message_id + 事件类型 + 时间戳 生成唯一标识
-        provider_event_id = (
-            payload.get("event_id")
-            or payload.get("id")
-            or f"{message_id}_{raw_event}_{occurred_at}"
-        )
+        provider_event_id = f"{message_id}_{raw_event}_{occurred_at}"
 
         logger.info(
             "Webhook 解析: raw_event=%s, event_type=%s, message_id=%s, itime=%s",
@@ -109,7 +92,7 @@ class WebhookService:
 
         # 更新 emails 表：状态字段 + D-041 追踪字段
         status_updates = self._status_update_fields(event_type, occurred_at_dt, payload, email)
-        await self._apply_email_updates(conn, email, status_updates, event_type, payload)
+        await self._apply_email_updates(conn, email, status_updates, event_type, raw_event)
 
         # 序列状态联动（回复/退信/退订时终止序列）
         if event_type in {"replied", "bounced", "unsubscribed"} and email["enrollment_id"]:
@@ -173,37 +156,77 @@ class WebhookService:
 
         return {"status": "processed", "provider_event_id": provider_event_id}
 
+    def _extract_event_type(self, payload: dict) -> str | None:
+        """
+        提取原始事件类型。
+
+        生产实际结构（状态回调）：
+          payload["status"]["message_status"] = "sent" / "delivered" / ...
+        响应回调（待确认）：
+          payload["event"] 或 payload["response"]["event"]
+        """
+        # 状态回调：嵌套在 payload.status 中
+        status_obj = payload.get("status")
+        if isinstance(status_obj, dict):
+            ms = status_obj.get("message_status")
+            if ms:
+                return ms
+
+        # 响应回调：可能在 payload.response 或直接在顶层
+        response_obj = payload.get("response")
+        if isinstance(response_obj, dict):
+            evt = response_obj.get("event")
+            if evt:
+                return evt
+
+        # 兜底：顶层字段
+        return (
+            payload.get("event")
+            or payload.get("message_status")
+            or payload.get("event_type")
+        )
+
     def _extract_email_id(self, payload: dict) -> str | None:
         """
-        从 EngageLab webhook payload 提取 email_id。
+        提取 email_id 用于匹配本地 emails.engagelab_message_id。
 
-        EngageLab 的 email_id 在嵌套结构中：
-          状态回调：status_data.email_id
-          响应回调：response_data.email_id
-        顶层的 message_id 是 webhook 消息标识，不一定等于邮件的 email_id。
+        生产实际结构：
+          状态回调：payload["status"]["status_data"]["email_id"]
+          target 事件：payload["status"]["status_data"]["email_ids"][0]
+        兜底：
+          payload["message_id"]（顶层）
         """
-        # 优先从嵌套数据中提取（EngageLab 文档标准格式）
-        status_data = payload.get("status_data") or {}
-        response_data = payload.get("response_data") or {}
+        # 状态回调：status.status_data.email_id
+        status_obj = payload.get("status")
+        if isinstance(status_obj, dict):
+            sd = status_obj.get("status_data")
+            if isinstance(sd, dict):
+                eid = sd.get("email_id")
+                if eid:
+                    return str(eid)
+                # target 事件用 email_ids 数组
+                eids = sd.get("email_ids")
+                if isinstance(eids, list) and eids:
+                    return str(eids[0])
 
-        email_id = (
-            status_data.get("email_id")
-            or response_data.get("email_id")
-            # target 事件的 email_ids 是数组
-            or self._first_from_list(status_data.get("email_ids"))
-            or self._first_from_list(response_data.get("email_ids"))
-            # 兜底：顶层字段
-            or payload.get("message_id")
-            or payload.get("email_id")
-            or payload.get("engagelab_message_id")
-            or payload.get("mail_id")
-        )
-        return str(email_id) if email_id else None
+        # 响应回调：response.response_data.email_id 或 response_data.email_id
+        response_obj = payload.get("response")
+        if isinstance(response_obj, dict):
+            rd = response_obj.get("response_data")
+            if isinstance(rd, dict):
+                eid = rd.get("email_id")
+                if eid:
+                    return str(eid)
 
-    def _first_from_list(self, value) -> str | None:
-        if isinstance(value, list) and value:
-            return str(value[0])
-        return None
+        rd_top = payload.get("response_data")
+        if isinstance(rd_top, dict):
+            eid = rd_top.get("email_id")
+            if eid:
+                return str(eid)
+
+        # 兜底：顶层 message_id
+        mid = payload.get("message_id") or payload.get("email_id")
+        return str(mid) if mid else None
 
     async def _apply_email_updates(
         self,
@@ -211,18 +234,9 @@ class WebhookService:
         email,
         status_updates: dict,
         event_type: str,
-        payload: dict,
+        raw_event: str | None,
     ) -> None:
-        """
-        拼装 UPDATE emails SET ... 语句。
-
-        D-041 追踪字段：
-          - open 事件：first_opened_at（COALESCE）+ open_count（+1）
-          - bounce 事件：soft_bounce / invalid_email（根据原始 message_status 区分）
-          - spam 事件：report_spam
-          - unsubscribe 事件：unsubscribed
-        """
-        # 基础状态字段
+        """拼装 UPDATE emails SET ... 语句"""
         base_fields = {field: value for field, value in status_updates.items() if field != "status"}
         set_parts = ["status = :status"]
         params: dict = {
@@ -239,12 +253,11 @@ class WebhookService:
         if event_type == "opened":
             set_parts.append("first_opened_at = COALESCE(first_opened_at, :occurred_at_open)")
             set_parts.append("open_count = open_count + 1")
-            params["occurred_at_open"] = status_updates.get("opened_at") or payload.get("occurred_at_dt")
+            params["occurred_at_open"] = status_updates.get("opened_at")
 
         elif event_type == "bounced":
-            # EngageLab 直接用 message_status 区分：soft_bounce / invalid_email
-            raw_status = (payload.get("message_status") or "").lower()
-            if raw_status in {"soft_bounce", "soft", "temporary", "temp"}:
+            raw = (raw_event or "").lower()
+            if raw in {"soft_bounce", "soft", "temporary", "temp"}:
                 set_parts.append("soft_bounce = true")
             else:
                 set_parts.append("invalid_email = true")
@@ -287,12 +300,8 @@ class WebhookService:
             "opened": "opened",
             "clicked": "clicked",
             "replied": "replied",
-            "reply": "replied",
             "bounced": "bounced",
-            "bounce": "bounced",
             "complained": "complained",
-            "complaint": "complained",
-            "spam": "complained",
             "unsubscribed": "unsubscribed",
         }
         return mapping.get(value.lower())
@@ -301,7 +310,6 @@ class WebhookService:
         if isinstance(value, datetime):
             return value
         if isinstance(value, (int, float)):
-            # EngageLab itime：毫秒级时间戳
             ts = value / 1000 if value > 1e12 else value
             return datetime.fromtimestamp(ts, tz=timezone.utc)
         if isinstance(value, str):
@@ -316,7 +324,7 @@ class WebhookService:
         payload: dict,
         email=None,
     ) -> dict:
-        """计算需要更新的状态字段（不含 D-041 追踪字段）"""
+        """计算需要更新的状态字段"""
         fields: dict = {"status": event_type}
         timestamp_field_map = {
             "sent": "sent_at",
@@ -329,12 +337,13 @@ class WebhookService:
         if event_type in timestamp_field_map:
             fields[timestamp_field_map[event_type]] = occurred_at
         if event_type == "replied":
-            # route 回调的回复数据在 response_data 中
-            resp = payload.get("response_data") or {}
-            fields["reply_message_id"] = resp.get("email_id") or payload.get("reply_message_id")
-            fields["reply_from_email"] = resp.get("from") or payload.get("reply_from_email")
-            fields["reply_subject"] = resp.get("subject") or payload.get("reply_subject")
-            fields["reply_body_text"] = resp.get("text") or payload.get("reply_body_text")
+            response_obj = payload.get("response") or {}
+            rd = response_obj.get("response_data") if isinstance(response_obj, dict) else {}
+            rd = rd or payload.get("response_data") or {}
+            fields["reply_message_id"] = rd.get("email_id") or payload.get("reply_message_id")
+            fields["reply_from_email"] = rd.get("from") or payload.get("reply_from_email")
+            fields["reply_subject"] = rd.get("subject") or payload.get("reply_subject")
+            fields["reply_body_text"] = rd.get("text") or payload.get("reply_body_text")
             fields["reply_received_at"] = occurred_at
         return fields
 
