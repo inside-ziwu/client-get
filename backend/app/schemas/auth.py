@@ -18,6 +18,10 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+class UpdateTestEmailRequest(BaseModel):
+    test_email: str
+
+
 class AuthTokenResponse(APIModel):
     access_token: str
     token_type: str = "bearer"

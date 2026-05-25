@@ -67,3 +67,57 @@ class TestGetTestEmail:
         svc = TenantTeamService()
         result = await svc.get_test_email(conn, "u-001")
         assert result is None
+
+
+# ── U3: 路由 PATCH /auth/me/test-email ──
+
+
+def _fake_tenant_context():
+    conn = AsyncMock()
+    conn.execute = AsyncMock()
+    return TenantAuthContext(
+        tenant_id="t-001",
+        tenant_slug="test-tenant",
+        user_id="u-001",
+        email="test@test.com",
+        name="Test User",
+        roles=["admin"],
+        must_change_pwd=False,
+        connection=conn,
+    )
+
+
+@pytest.fixture
+def app():
+    application = create_app()
+    ctx = _fake_tenant_context()
+    application.dependency_overrides[get_current_tenant_user] = lambda: ctx
+    yield application
+    application.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def client(app):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+class TestUpdateTestEmailRoute:
+
+    @pytest.mark.asyncio
+    async def test_success(self, client):
+        resp = await client.patch(
+            "/t/test-tenant/api/v1/auth/me/test-email",
+            json={"test_email": "a@b.com"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["test_email"] == "a@b.com"
+
+    @pytest.mark.asyncio
+    async def test_invalid_email_returns_422(self, client):
+        resp = await client.patch(
+            "/t/test-tenant/api/v1/auth/me/test-email",
+            json={"test_email": "bad"},
+        )
+        assert resp.status_code == 422

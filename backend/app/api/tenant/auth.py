@@ -9,12 +9,15 @@ from app.schemas.auth import (
     ChangePasswordRequest,
     TenantLoginRequest,
     TenantMeResponse,
+    UpdateTestEmailRequest,
 )
 from app.security.dependencies import TenantAuthContext, get_current_tenant_user
 from app.services.auth_service import AuthService
+from app.services.tenant_team_service import TenantTeamService
 
 router = APIRouter(prefix="/auth", tags=["tenant-auth"])
 service = AuthService()
+team_service = TenantTeamService()
 
 
 @router.post("/login")
@@ -67,3 +70,12 @@ async def change_password(
         new_password=payload.new_password,
     )
     return success_response({"changed": True})
+
+
+@router.patch("/me/test-email")
+async def update_test_email(
+    payload: UpdateTestEmailRequest,
+    context: TenantAuthContext = Depends(get_current_tenant_user),
+) -> dict:
+    await team_service.update_test_email(context.connection, context.user_id, payload.test_email)
+    return success_response({"test_email": payload.test_email})
