@@ -65,9 +65,6 @@ class Settings(BaseSettings):
     internal_service_secret: str = Field(alias="INTERNAL_SERVICE_SECRET")
     engagelab_webhook_secret: str = Field(alias="ENGAGELAB_WEBHOOK_SECRET")
     engagelab_base_url: str | None = Field(default=None, alias="ENGAGELAB_BASE_URL")
-    engagelab_stats_base_url: str = Field(
-        default="https://email.api.engagelab.cc", alias="ENGAGELAB_STATS_BASE_URL"
-    )
     engagelab_send_path: str = Field(default="/v1/mail/send", alias="ENGAGELAB_SEND_PATH")
     engagelab_timeout_seconds: float = Field(default=10.0, alias="ENGAGELAB_TIMEOUT_SECONDS")
     # EngageLab HTTP Basic Auth：Basic base64(api_user:credential)
