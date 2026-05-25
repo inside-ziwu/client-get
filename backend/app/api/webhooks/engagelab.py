@@ -23,6 +23,31 @@ async def engagelab_webhook_verify() -> dict:
     return success_response({"status": "ok"})
 
 
+def _verify_signature(timestamp: str, appkey: str, app_key: str, signature: str) -> bool:
+    """
+    验证 EngageLab webhook 签名。
+    尝试 MD5（实际观测）和 HmacSHA256（文档描述）两种算法。
+    """
+    # 方式1：md5(timestamp + appkey + APP_KEY) — 实际观测签名为 32 位 hex
+    raw = f"{timestamp}{appkey}{app_key}"
+    md5_expected = hashlib.md5(raw.encode()).hexdigest()
+    if md5_expected == signature:
+        return True
+
+    # 方式2：HmacSHA256(timestamp, APP_KEY) — 英文文档描述
+    hmac_expected = hmac.new(
+        app_key.encode(), timestamp.encode(), hashlib.sha256
+    ).hexdigest()
+    if hmac_expected == signature:
+        return True
+
+    logger.warning(
+        "签名验证失败: md5(%s+%s+***) = %s, hmac_sha256 = %s, got = %s",
+        timestamp, appkey, md5_expected, hmac_expected[:16] + "...", signature,
+    )
+    return False
+
+
 @router.post("/engagelab")
 async def engagelab_webhook(
     request: Request,
@@ -41,17 +66,12 @@ async def engagelab_webhook(
         x_webhook_timestamp, x_webhook_appkey, x_webhook_signature,
     )
 
-    # EngageLab 签名验证：HmacSHA256(timestamp, APP_KEY)
+    # 签名验证
     if not x_webhook_timestamp or not x_webhook_signature:
         raise AppError(code="FORBIDDEN", message="缺少 webhook 签名头", status_code=403)
 
     app_key = settings.engagelab_webhook_secret
-    expected = hmac.new(
-        app_key.encode(), x_webhook_timestamp.encode(), hashlib.sha256
-    ).hexdigest()
-
-    if expected != x_webhook_signature:
-        logger.warning("Webhook 签名校验失败: expected=%s, got=%s", expected, x_webhook_signature)
+    if not _verify_signature(x_webhook_timestamp, x_webhook_appkey or "", app_key, x_webhook_signature):
         raise AppError(code="FORBIDDEN", message="Webhook 签名校验失败", status_code=403)
 
     # 解析 JSON 请求体（兼容数组和对象两种格式）
