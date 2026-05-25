@@ -26,14 +26,30 @@ class WebhookService:
                                 emails.unsubscribed = true
           delivered / sent / clicked / replied → 照常处理状态字段
         """
-        provider_event_id = payload.get("event_id") or payload.get("id")
         message_id = payload.get("message_id") or payload.get("engagelab_message_id")
-        event_type = self._normalize_event_type(payload.get("event") or payload.get("event_type"))
-        occurred_at = payload.get("occurred_at") or payload.get("timestamp")
+        # EngageLab 状态回调用 message_status，响应回调用 event
+        raw_event = (
+            payload.get("event")
+            or payload.get("message_status")
+            or payload.get("event_type")
+        )
+        event_type = self._normalize_event_type(raw_event)
+        # EngageLab 时间戳：itime（毫秒长整型）或 occurred_at / timestamp
+        occurred_at = payload.get("occurred_at") or payload.get("timestamp") or payload.get("itime")
         occurred_at_dt = self._parse_timestamp(occurred_at)
+        # EngageLab 不发 event_id，用 message_id + 事件类型 生成唯一标识
+        provider_event_id = (
+            payload.get("event_id")
+            or payload.get("id")
+            or f"{message_id}_{raw_event}_{occurred_at}"
+        )
 
-        if not provider_event_id or not message_id or not event_type:
+        if not message_id or not event_type:
             raise AppError(code="VALIDATION_ERROR", message="Webhook payload 不完整", status_code=422)
+
+        # target 事件仅表示请求成功，不需要更新邮件状态
+        if event_type == "target":
+            return {"status": "ignored", "reason": "target_event"}
 
         # 按 engagelab_message_id 查找邮件
         email_result = await conn.execute(
@@ -190,12 +206,12 @@ class WebhookService:
             params["occurred_at_open"] = status_updates.get("opened_at") or payload.get("occurred_at_dt")
 
         elif event_type == "bounced":
-            # 判断软退信还是无效邮箱
-            bounce_type = (payload.get("bounce_type") or "").lower()
-            if bounce_type in {"soft", "temporary", "temp"}:
+            # EngageLab 直接用 message_status 区分：soft_bounce / invalid_email
+            raw_status = (payload.get("message_status") or payload.get("bounce_type") or "").lower()
+            if raw_status in {"soft_bounce", "soft", "temporary", "temp"}:
                 set_parts.append("soft_bounce = true")
             else:
-                # hard bounce / invalid 归为无效邮箱
+                # hard bounce / invalid_email 归为无效邮箱
                 set_parts.append("invalid_email = true")
 
         elif event_type == "complained":
@@ -230,21 +246,32 @@ class WebhookService:
             "click": "clicked",
             "replied": "replied",
             "reply": "replied",
+            "route": "replied",
             "bounced": "bounced",
             "bounce": "bounced",
-            # spam / complained 统一映射到 complained（与 email_events CHECK 约束一致）
+            # EngageLab 直接用 soft_bounce / invalid_email 作为 message_status
+            "soft_bounce": "bounced",
+            "invalid_email": "bounced",
+            # spam / complained
             "complained": "complained",
             "complaint": "complained",
             "spam": "complained",
+            "report_spam": "complained",
             # unsubscribe 事件
             "unsubscribed": "unsubscribed",
             "unsubscribe": "unsubscribed",
+            # target 事件（忽略，不影响状态）
+            "target": "target",
         }
         return mapping.get(value.lower())
 
     def _parse_timestamp(self, value) -> datetime:
         if isinstance(value, datetime):
             return value
+        if isinstance(value, (int, float)):
+            # EngageLab itime：毫秒级时间戳
+            ts = value / 1000 if value > 1e12 else value
+            return datetime.fromtimestamp(ts, tz=timezone.utc)
         if isinstance(value, str):
             normalized = value.replace("Z", "+00:00")
             return datetime.fromisoformat(normalized)
