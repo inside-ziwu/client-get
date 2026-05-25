@@ -281,3 +281,66 @@ class TestEmailStatsByDateRange:
                 MagicMock(), "t", date(2026, 5, 1), date(2026, 5, 3)
             )
         assert r["summary"]["billing"] == 77
+
+
+# ── U4: 路由层端到端 ──────────────────────────────────────────
+
+
+class TestDashboardEmailStatsRoute:
+    @pytest.fixture
+    def app(self):
+        from app.main import create_app
+        from app.security.dependencies import TenantAuthContext, get_current_tenant_user
+
+        application = create_app()
+        conn = AsyncMock()
+        ctx = TenantAuthContext(
+            tenant_id="t-001",
+            tenant_slug="test-tenant",
+            user_id="u-001",
+            email="test@test.com",
+            name="Test",
+            roles=["admin"],
+            must_change_pwd=False,
+            connection=conn,
+        )
+        application.dependency_overrides[get_current_tenant_user] = lambda: ctx
+        yield application
+        application.dependency_overrides.clear()
+
+    @pytest.fixture(autouse=True)
+    def _clear_cache(self):
+        from app.services import tenant_query_service as m
+
+        m._stats_cache.clear()
+        yield
+        m._stats_cache.clear()
+
+    @pytest.mark.asyncio
+    async def test_email_stats_route_returns_summary_and_daily(self, app):
+        import httpx
+
+        mc = _mock_client(MOCK_SUMMARY_RESPONSE["result"], MOCK_DAILY_RESPONSE["result"])
+        with patch("app.services.tenant_query_service.EngageLabClient", return_value=mc):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+                resp = await ac.get(
+                    "/t/test-tenant/api/v1/dashboard/email-stats",
+                    params={"start_date": "2026-05-01", "end_date": "2026-05-03"},
+                )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        data = body["data"]
+
+        s = data["summary"]
+        assert s["targets"] == 100
+        assert s["delivered"] == 85
+        assert s["billing"] == 90
+        assert s["delivered_percent"] == 94.4
+        assert s["open_percent"] == 35.3
+
+        d = data["daily"]
+        assert len(d) == 3
+        assert d[0]["date"] == "2026-05-01"
+        assert d[0]["opens"] == 15
