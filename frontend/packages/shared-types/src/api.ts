@@ -262,6 +262,62 @@ export interface AiUsageTrend {
   total_cost?: number;
 }
 
+// 仪表盘邮件统计
+export interface EmailStatsSummary {
+  targets: number;
+  sent: number;
+  delivered: number;
+  delivered_percent: number;
+  invalid_email: number;
+  soft_bounce: number;
+  billing: number;
+  total_opens: number;
+  total_open_percent: number;
+  opens: number;
+  open_percent: number;
+  report_spam: number;
+  unsubscribe: number;
+}
+
+export interface EmailStatsDaily {
+  date: string;
+  sent: number;
+  delivered: number;
+  opens: number;
+}
+
+export interface EmailStatsResponse {
+  summary: EmailStatsSummary;
+  daily: EmailStatsDaily[];
+}
+
+// 仪表盘计划概览
+export interface PlanOverviewResponse {
+  keyword_count: number;
+  companies_collected: number;
+  companies_scored: number;
+  contacts_total: number;
+  emails_drafted: number;
+  emails_sent: number;
+  plans: Array<{ id: string; name: string }>;
+}
+
+// 仪表盘每日配额
+export interface DailyQuotaResponse {
+  limit: number;
+  used: number;
+  remaining: number;
+}
+
+// 仪表盘 LLM 余额
+export interface LlmBalanceResponse {
+  is_configured: boolean;
+  balance_remaining: number | null;
+  usage: number | null;
+  limit: number | null;
+  balance_status: string;
+}
+
 // Import results
 export interface ImportResult {
   total: number;

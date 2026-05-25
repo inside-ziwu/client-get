@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -754,6 +754,216 @@ class TenantQueryService:
         )
         row = result.mappings().one()
         return dict(row)
+
+    async def email_stats_by_date_range(
+        self, conn: AsyncConnection, tenant_id: str, start_date: date, end_date: date
+    ) -> dict:
+        """仪表盘邮件统计：汇总 + 每日明细，按日期范围过滤"""
+        # end_date 加一天，实现 [start_date, end_date] 闭区间
+        end_exclusive = end_date + timedelta(days=1)
+        params = {"tenant_id": tenant_id, "start_date": start_date, "end_date": end_exclusive}
+
+        # 汇总统计
+        summary_result = await conn.execute(
+            text(
+                """
+                SELECT
+                  count(*) AS targets,
+                  count(*) FILTER (WHERE status NOT IN ('draft', 'pending', 'queued')) AS sent,
+                  count(*) FILTER (WHERE status IN ('delivered', 'opened', 'clicked', 'replied')) AS delivered,
+                  count(*) FILTER (WHERE invalid_email = true) AS invalid_email,
+                  count(*) FILTER (WHERE soft_bounce = true) AS soft_bounce,
+                  COALESCE(SUM(open_count), 0) AS total_opens,
+                  count(*) FILTER (WHERE first_opened_at IS NOT NULL) AS opens,
+                  count(*) FILTER (WHERE report_spam = true) AS report_spam,
+                  count(*) FILTER (WHERE unsubscribed = true) AS unsubscribe
+                FROM emails
+                WHERE tenant_id = :tenant_id
+                  AND created_at >= :start_date
+                  AND created_at < :end_date
+                """
+            ),
+            params,
+        )
+        row = summary_result.mappings().one()
+        targets = int(row["targets"])
+        sent = int(row["sent"])
+        delivered = int(row["delivered"])
+        total_opens = int(row["total_opens"])
+        opens = int(row["opens"])
+
+        summary = {
+            "targets": targets,
+            "sent": sent,
+            "delivered": delivered,
+            "delivered_percent": round(delivered / sent * 100, 1) if sent > 0 else 0,
+            "invalid_email": int(row["invalid_email"]),
+            "soft_bounce": int(row["soft_bounce"]),
+            "billing": sent,
+            "total_opens": total_opens,
+            "total_open_percent": round(total_opens / sent * 100, 1) if sent > 0 else 0,
+            "opens": opens,
+            "open_percent": round(opens / sent * 100, 1) if sent > 0 else 0,
+            "report_spam": int(row["report_spam"]),
+            "unsubscribe": int(row["unsubscribe"]),
+        }
+
+        # 每日明细
+        daily_result = await conn.execute(
+            text(
+                """
+                SELECT
+                  DATE(created_at) AS date,
+                  count(*) FILTER (WHERE status NOT IN ('draft', 'pending', 'queued')) AS sent,
+                  count(*) FILTER (WHERE status IN ('delivered', 'opened', 'clicked', 'replied')) AS delivered,
+                  count(*) FILTER (WHERE first_opened_at IS NOT NULL) AS opens
+                FROM emails
+                WHERE tenant_id = :tenant_id
+                  AND created_at >= :start_date
+                  AND created_at < :end_date
+                GROUP BY DATE(created_at)
+                ORDER BY date
+                """
+            ),
+            params,
+        )
+        daily = [
+            {
+                "date": str(row["date"]),
+                "sent": int(row["sent"]),
+                "delivered": int(row["delivered"]),
+                "opens": int(row["opens"]),
+            }
+            for row in daily_result.mappings().all()
+        ]
+
+        return {"summary": summary, "daily": daily}
+
+    async def plan_overview(
+        self, conn: AsyncConnection, tenant_id: str, plan_id: str | None = None
+    ) -> dict:
+        """仪表盘计划概览：关键词、公司、联系人、邮件统计 + 可选计划列表"""
+        params: dict = {"tenant_id": tenant_id}
+
+        # 租户级汇总指标
+        counts_result = await conn.execute(
+            text(
+                """
+                SELECT
+                  (SELECT count(*) FROM collection_keywords WHERE tenant_id = :tenant_id) AS keyword_count,
+                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id) AS companies_collected,
+                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id AND score IS NOT NULL) AS companies_scored,
+                  (SELECT count(*) FROM tenant_contacts WHERE tenant_id = :tenant_id) AS contacts_total
+                """
+            ),
+            params,
+        )
+        counts = counts_result.mappings().one()
+
+        # 邮件统计：按 plan_id 或租户级汇总
+        if plan_id:
+            params["plan_id"] = plan_id
+            email_result = await conn.execute(
+                text(
+                    """
+                    SELECT
+                      count(*) FILTER (WHERE status = 'draft') AS emails_drafted,
+                      count(*) FILTER (WHERE status NOT IN ('draft', 'pending', 'queued')) AS emails_sent
+                    FROM emails
+                    WHERE tenant_id = :tenant_id AND plan_id = :plan_id
+                    """
+                ),
+                params,
+            )
+        else:
+            email_result = await conn.execute(
+                text(
+                    """
+                    SELECT
+                      count(*) FILTER (WHERE status = 'draft') AS emails_drafted,
+                      count(*) FILTER (WHERE status NOT IN ('draft', 'pending', 'queued')) AS emails_sent
+                    FROM emails
+                    WHERE tenant_id = :tenant_id
+                    """
+                ),
+                params,
+            )
+        email_row = email_result.mappings().one()
+
+        # 计划列表
+        plans_result = await conn.execute(
+            text(
+                """
+                SELECT id, name FROM sending_plans
+                WHERE tenant_id = :tenant_id AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                """
+            ),
+            {"tenant_id": tenant_id},
+        )
+        plans = [{"id": str(r["id"]), "name": r["name"]} for r in plans_result.mappings().all()]
+
+        return {
+            "keyword_count": int(counts["keyword_count"]),
+            "companies_collected": int(counts["companies_collected"]),
+            "companies_scored": int(counts["companies_scored"]),
+            "contacts_total": int(counts["contacts_total"]),
+            "emails_drafted": int(email_row["emails_drafted"]),
+            "emails_sent": int(email_row["emails_sent"]),
+            "plans": plans,
+        }
+
+    async def daily_quota(self, conn: AsyncConnection, tenant_id: str) -> dict:
+        """仪表盘每日发送配额：域名 daily_limit 汇总 + 今日已发送"""
+        today = date.today()
+        tomorrow = today + timedelta(days=1)
+
+        # 域名配额汇总
+        limit_result = await conn.execute(
+            text(
+                """
+                SELECT COALESCE(SUM(daily_limit), 0) AS total_limit
+                FROM domain_warmup_status
+                WHERE tenant_id = :tenant_id
+                """
+            ),
+            {"tenant_id": tenant_id},
+        )
+        total_limit = int(limit_result.scalar_one())
+
+        # 今日已发送
+        used_result = await conn.execute(
+            text(
+                """
+                SELECT count(*) AS used
+                FROM emails
+                WHERE tenant_id = :tenant_id
+                  AND status NOT IN ('draft', 'pending', 'queued')
+                  AND created_at >= :today
+                  AND created_at < :tomorrow
+                """
+            ),
+            {"tenant_id": tenant_id, "today": today, "tomorrow": tomorrow},
+        )
+        used = int(used_result.scalar_one())
+
+        return {
+            "limit": total_limit,
+            "used": used,
+            "remaining": max(total_limit - used, 0),
+        }
+
+    async def llm_balance(self, conn: AsyncConnection, tenant_id: str) -> dict:
+        """仪表盘 LLM 余额：复用 AI provider 配置"""
+        provider_state = await self.ai_provider.get_config(conn, tenant_id=tenant_id, refresh_if_stale=True)
+        balance = provider_state["balance"]
+        return {
+            "is_configured": provider_state["is_configured"],
+            "balance_remaining": balance["amount"],
+            "usage": balance.get("total_usage"),
+            "limit": balance.get("key_limit"),
+            "balance_status": balance["status"],
+        }
 
     async def ai_capabilities(self, conn: AsyncConnection, tenant_id: str, roles: list[str]) -> dict:
         provider_state = await self.ai_provider.get_config(conn, tenant_id=tenant_id, refresh_if_stale=True)

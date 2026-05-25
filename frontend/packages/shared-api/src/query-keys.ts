@@ -47,6 +47,10 @@ export const queryKeys = {
     overview: () => [...queryKeys.dashboard.all(), 'overview'] as const,
     funnel: () => [...queryKeys.dashboard.all(), 'funnel'] as const,
     aiCapabilities: () => [...queryKeys.dashboard.all(), 'aiCapabilities'] as const,
+    emailStats: (params?: Record<string, unknown>) => [...queryKeys.dashboard.all(), 'emailStats', params] as const,
+    planOverview: (params?: Record<string, unknown>) => [...queryKeys.dashboard.all(), 'planOverview', params] as const,
+    dailyQuota: () => [...queryKeys.dashboard.all(), 'dailyQuota'] as const,
+    llmBalance: () => [...queryKeys.dashboard.all(), 'llmBalance'] as const,
   },
   aiProvider: {
     all: () => ['tenant', tenantScope(), 'aiProvider'] as const,

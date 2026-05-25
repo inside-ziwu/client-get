@@ -1,81 +1,120 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { Bot, Building2, Mail, Send } from 'lucide-react';
-import { Badge, Card, CardContent, CardHeader, CardTitle, Progress, StatCard } from '@shared/ui';
+import { useState } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui';
+import { queryKeys } from '@shared/api';
 import { tenantApi } from '@/lib/api';
+import { DateRangePicker, getPresetRange } from '@/components/pages/dashboard/date-range-picker';
+import { StatsSection } from '@/components/pages/dashboard/stats-section';
+import { EmailTrendChart } from '@/components/pages/dashboard/email-trend-chart';
+import { PlanOverview } from '@/components/pages/dashboard/plan-overview';
+import { QuotaBalance } from '@/components/pages/dashboard/quota-balance';
 
 export default function DashboardPage() {
-  const overviewQuery = useQuery({
-    queryKey: ['tenant', 'dashboard', 'overview'],
-    queryFn: async () => (await tenantApi.dashboard.overview()).data.data,
+  // 日期范围状态
+  const [dateRange, setDateRange] = useState(() => getPresetRange('last30'));
+
+  // 计划选择状态
+  const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>();
+
+  // 邮件统计查询（日期联动）
+  const emailStatsQuery = useQuery({
+    queryKey: queryKeys.dashboard.emailStats(dateRange as unknown as Record<string, unknown>),
+    queryFn: async () => (await tenantApi.dashboard.emailStats(dateRange)).data.data,
+    placeholderData: keepPreviousData,
   });
-  const funnelQuery = useQuery({
-    queryKey: ['tenant', 'dashboard', 'funnel'],
-    queryFn: async () => (await tenantApi.dashboard.funnel()).data.data,
+
+  // 计划概览查询（计划选择联动）
+  const planOverviewQuery = useQuery({
+    queryKey: queryKeys.dashboard.planOverview({ plan_id: selectedPlanId }),
+    queryFn: async () => (await tenantApi.dashboard.planOverview({ plan_id: selectedPlanId })).data.data,
   });
-  const aiQuery = useQuery({
-    queryKey: ['tenant', 'dashboard', 'ai-capabilities'],
-    queryFn: async () => (await tenantApi.dashboard.aiCapabilities()).data.data,
+
+  // 每日配额查询（页面加载）
+  const dailyQuotaQuery = useQuery({
+    queryKey: queryKeys.dashboard.dailyQuota(),
+    queryFn: async () => (await tenantApi.dashboard.dailyQuota()).data.data,
   });
-  const overview = overviewQuery.data;
-  const funnel = funnelQuery.data;
-  const maxStage = Math.max(...(funnel?.stages ?? []).map((stage) => stage.count), 1);
+
+  // LLM 余额查询（页面加载）
+  const llmBalanceQuery = useQuery({
+    queryKey: queryKeys.dashboard.llmBalance(),
+    queryFn: async () => (await tenantApi.dashboard.llmBalance()).data.data,
+  });
+
+  const isFetchingStats = emailStatsQuery.isFetching && emailStatsQuery.data !== undefined;
 
   return (
     <div className="tenant-page">
+      {/* 顶部 loading 条 */}
+      {isFetchingStats && (
+        <div className="fixed inset-x-0 top-0 z-50 h-0.5">
+          <div className="h-full animate-pulse bg-primary" />
+        </div>
+      )}
+
+      {/* 标题 + 日期选择器 */}
       <div className="tenant-page-header">
-        <div>
-          <h1 className="tenant-page-title">仪表盘</h1>
-          <p className="tenant-page-description">客户、计划、邮件和 AI 能力概览</p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="tenant-page-title">仪表盘</h1>
+            <p className="tenant-page-description">邮件运营数据总览</p>
+          </div>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="公司总数" value={overview?.total_companies ?? '-'} helper="已入库客户" icon={<Building2 className="h-4 w-4" />} />
-        <StatCard label="优选客户" value={overview?.total_prospects ?? overview?.scored_companies ?? '-'} helper="已评分或已筛选" icon={<Building2 className="h-4 w-4" />} />
-        <StatCard label="活跃计划" value={overview?.active_plans ?? overview?.running_plans ?? '-'} helper="正在执行" icon={<Send className="h-4 w-4" />} />
-        <StatCard label="本月发送" value={overview?.emails_sent_this_month ?? '-'} helper={`回复率 ${overview?.reply_rate ?? 0}%`} icon={<Mail className="h-4 w-4" />} />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>客户漏斗</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(funnel?.stages ?? []).map((stage) => (
-              <div key={stage.status} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span>{stage.status}</span>
-                  <span className="font-medium">{stage.count}</span>
-                </div>
-                <Progress value={(stage.count / maxStage) * 100} />
-              </div>
-            ))}
-            {!funnel?.stages?.length ? <div className="text-sm text-muted-foreground">暂无漏斗数据</div> : null}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-4 w-4" />
-              AI 能力状态
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between rounded-md border border-border p-3">
-              <span className="text-sm">OpenRouter</span>
-              <Badge variant={aiQuery.data?.provider.is_configured ? 'default' : 'secondary'}>
-                {aiQuery.data?.provider.is_configured ? '已配置' : '未配置'}
-              </Badge>
+
+      {/* 发送统计 + 追踪统计 */}
+      <StatsSection
+        data={emailStatsQuery.data?.summary}
+        isLoading={emailStatsQuery.isLoading}
+        isError={emailStatsQuery.isError}
+        refetch={emailStatsQuery.refetch}
+      />
+
+      {/* 趋势图 */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base">发送趋势</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {emailStatsQuery.isLoading ? (
+            <div className="h-[300px] animate-pulse rounded bg-muted" />
+          ) : emailStatsQuery.isError ? (
+            <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+              加载失败，点击重试
             </div>
-            {(aiQuery.data?.features ?? []).map((feature) => (
-              <div key={feature.feature} className="flex items-center justify-between rounded-md border border-border p-3">
-                <span className="text-sm">{feature.feature}</span>
-                <Badge variant={feature.available ? 'default' : 'secondary'}>{feature.available ? '可用' : '不可用'}</Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+          ) : (
+            <EmailTrendChart data={emailStatsQuery.data?.daily ?? []} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 底部：计划概览 + 配额余额 */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <PlanOverview
+          data={planOverviewQuery.data}
+          isLoading={planOverviewQuery.isLoading}
+          isError={planOverviewQuery.isError}
+          refetch={planOverviewQuery.refetch}
+          selectedPlanId={selectedPlanId}
+          onPlanChange={setSelectedPlanId}
+        />
+        <QuotaBalance
+          quota={{
+            data: dailyQuotaQuery.data,
+            isLoading: dailyQuotaQuery.isLoading,
+            isError: dailyQuotaQuery.isError,
+            refetch: dailyQuotaQuery.refetch,
+          }}
+          balance={{
+            data: llmBalanceQuery.data,
+            isLoading: llmBalanceQuery.isLoading,
+            isError: llmBalanceQuery.isError,
+            refetch: llmBalanceQuery.refetch,
+          }}
+        />
       </div>
     </div>
   );
