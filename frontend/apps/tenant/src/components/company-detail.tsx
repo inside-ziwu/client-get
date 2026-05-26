@@ -106,6 +106,7 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
           <InfoRow label="进口额" value={formatUsd(c.trade_amount_3y_usd)} />
           <InfoRow label="产品标签" value={(c.product_tags ?? []).join(', ') || '-'} />
           <InfoRow label="进口次数" value={c.trade_count} />
+          <InfoRow label="来源同行" value={c.source_competitor} />
         </div>
         {editing && (
           <div className="mt-2 grid grid-cols-2 gap-x-8">

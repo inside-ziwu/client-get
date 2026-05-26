@@ -47,6 +47,7 @@ export interface Company {
   risk_factors?: unknown;
   main_business?: string;
   trade_summary?: string;
+  source_competitor?: string;
   created_at?: string;
   updated_at?: string;
   tenant_created_at?: string;
