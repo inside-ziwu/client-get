@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
-  BarChart3,
   Bot,
   Building2,
   Gauge,
@@ -34,7 +33,6 @@ const groups = [
     items: [
       { href: '/templates', label: '邮件模板', icon: Mail },
       { href: '/send-plans', label: '发送计划', icon: Send },
-      { href: '/email-monitor', label: '邮件监控', icon: BarChart3 },
     ],
   },
   { label: '情报', items: [{ href: '/intelligence', label: '情报中心', icon: Newspaper }] },
