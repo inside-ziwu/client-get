@@ -36,6 +36,64 @@ class EngageLabClient:
                 "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置"
             )
 
+    async def query_email_status(
+        self, send_date: str, email_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        """查询邮件投递状态（GET /v1/email_status），自动分批（每批 20 个 ID）"""
+        self._validate_config()
+        headers = {"Authorization": self._build_auth_header()}
+        results: list[dict[str, Any]] = []
+
+        if email_ids:
+            # API 限制每次最多 20 个 email_ids
+            for i in range(0, len(email_ids), 20):
+                batch_ids = email_ids[i : i + 20]
+                batch_results = await self._fetch_status_page(
+                    headers, send_date, ";".join(batch_ids)
+                )
+                results.extend(batch_results)
+        else:
+            results = await self._fetch_status_page(headers, send_date, None)
+
+        return results
+
+    async def _fetch_status_page(
+        self, headers: dict, send_date: str, email_ids_param: str | None
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"send_date": send_date}
+        if email_ids_param:
+            params["email_ids"] = email_ids_param
+
+        results: list[dict[str, Any]] = []
+        offset = 0
+        limit = 100
+
+        async with httpx.AsyncClient(
+            base_url=self.settings.engagelab_base_url,
+            timeout=self.settings.engagelab_timeout_seconds,
+            transport=self.transport,
+        ) as client:
+            while True:
+                params["offset"] = str(offset)
+                params["limit"] = limit
+                response = await client.get(
+                    "/v1/email_status", headers=headers, params=params
+                )
+                if response.status_code >= 400:
+                    raise EngageLabSendError(
+                        f"查询失败，status={response.status_code}: "
+                        f"{self._sanitize_provider_text(response.text)}"
+                    )
+                data = self._safe_json(response)
+                batch = data.get("result", [])
+                results.extend(batch)
+                total = int(data.get("total", 0))
+                if offset + limit >= total or not batch:
+                    break
+                offset += limit
+
+        return results
+
     async def send_email(self, payload: dict[str, Any]) -> dict[str, Any]:
         self._validate_config()
 
