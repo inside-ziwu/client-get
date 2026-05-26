@@ -56,6 +56,7 @@ export interface Company {
 export interface CompanyListFilters {
   keyword?: string;
   grade?: string;
+  'grades[]'?: string[];
   'countries[]'?: string[];
   'sub_industries[]'?: string[];
   'product_tags[]'?: string[];

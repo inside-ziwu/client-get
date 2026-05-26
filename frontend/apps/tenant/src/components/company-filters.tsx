@@ -5,7 +5,6 @@ import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import {
   Button, Card, CardContent, Input, MultiSelect,
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@shared/ui';
 
 export type FilterValues = {
@@ -13,7 +12,7 @@ export type FilterValues = {
   countries: string[];
   sub_industries: string[];
   product_tags: string[];
-  grade: string;
+  grades: string[];
   trade_amount_min: string;
   trade_amount_max: string;
   trade_count_min: string;
@@ -29,7 +28,7 @@ export const EMPTY_FILTERS: FilterValues = {
   countries: [],
   sub_industries: [],
   product_tags: [],
-  grade: '',
+  grades: [],
   trade_amount_min: '',
   trade_amount_max: '',
   trade_count_min: '',
@@ -125,7 +124,7 @@ export function countryZh(v: string | null | undefined) {
 export function buildParams(f: FilterValues, page: number, pageSize: number): CompanyListFilters {
   const p: CompanyListFilters = { page, page_size: pageSize };
   if (f.keyword.trim()) p.keyword = f.keyword.trim();
-  if (f.grade) p.grade = f.grade;
+  if (f.grades.length) p['grades[]'] = f.grades;
   if (f.countries.length) p['countries[]'] = f.countries;
   if (f.sub_industries.length) p['sub_industries[]'] = f.sub_industries;
   if (f.product_tags.length) p['product_tags[]'] = f.product_tags;
@@ -206,16 +205,13 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
               placeholder="产品标签"
               allowCreate={false}
             />
-            <Select
-              value={filters.grade || 'all'}
-              onValueChange={(v) => setFilters((f) => ({ ...f, grade: v === 'all' ? '' : v }))}
-            >
-              <SelectTrigger><SelectValue placeholder="评级（不限）" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">评级（不限）</SelectItem>
-                {gradeOpts.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <MultiSelect
+              value={filters.grades}
+              onChange={(v) => setFilters((f) => ({ ...f, grades: v }))}
+              options={gradeOpts.map((g) => ({ label: g, value: g }))}
+              placeholder="评级"
+              allowCreate={false}
+            />
           </div>
           <div className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_auto]">
             <div className="flex items-center gap-1">
