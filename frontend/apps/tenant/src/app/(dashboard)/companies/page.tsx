@@ -132,14 +132,14 @@ export default function CompaniesPage() {
                   <th className="w-10 px-3 py-2">
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
-                  {['公司名', '国家', '域名', '行业', '员工规模', '成立', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
+                  {['公司名', '国家', '域名', '行业', '员工规模', '成立', '评级', '评分', '细分行业', '来源同行', '联系人数', '操作', '入库时间'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 && (
-                  <tr><td colSpan={13} className="py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={14} className="py-12 text-center text-muted-foreground">
                     {listQuery.isLoading ? '加载中...' : '暂无数据'}
                   </td></tr>
                 )}
@@ -167,6 +167,7 @@ export default function CompaniesPage() {
                     </td>
                     <td className="px-3 py-2">{row.wmt_score != null ? row.wmt_score : '-'}</td>
                     <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
+                    <td className="max-w-[120px] truncate px-3 py-2">{dash(row.source_competitor)}</td>
                     <td className="whitespace-nowrap px-3 py-2">{row.contacts_count ?? '-'}</td>
                     <td className="whitespace-nowrap px-3 py-2">
                       <div className="flex min-w-[104px] items-center gap-2">
