@@ -48,6 +48,7 @@ export interface Company {
   main_business?: string;
   trade_summary?: string;
   source_competitor?: string;
+  source_competitor_cn?: string;
   created_at?: string;
   updated_at?: string;
   tenant_created_at?: string;

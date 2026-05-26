@@ -349,13 +349,16 @@ class TenantQueryService:
                   tc.tags,
                   wc.created_at,
                   wc.updated_at,
-                  wr_raw.source_competitor
+                  wr_raw.source_competitor,
+                  lxc.entname AS source_competitor_cn
                 FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 LEFT JOIN waimaotong_raw_companies wr_raw
                   ON wr_raw.sys_company_id = wc.sys_company_id
+                LEFT JOIN lixiaoyun_api_clean_companies lxc
+                  ON lower(trim(lxc.entname_eng)) = lower(trim(wr_raw.source_competitor))
                 {group_join_sql}
                 WHERE {where_sql}
                 ORDER BY wc.id DESC
@@ -398,6 +401,7 @@ class TenantQueryService:
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                 "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
                 "source_competitor": row["source_competitor"],
+                "source_competitor_cn": row["source_competitor_cn"],
             }
             for row in result.mappings().all()
         ]
@@ -452,13 +456,16 @@ class TenantQueryService:
                   tc.score_adjustment,
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at,
-                  wr_raw.source_competitor
+                  wr_raw.source_competitor,
+                  lxc.entname AS source_competitor_cn
                 FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 LEFT JOIN waimaotong_raw_companies wr_raw
                   ON wr_raw.sys_company_id = wc.sys_company_id
+                LEFT JOIN lixiaoyun_api_clean_companies lxc
+                  ON lower(trim(lxc.entname_eng)) = lower(trim(wr_raw.source_competitor))
                 WHERE wc.id = :clean_company_id
                 LIMIT 1
                 """
@@ -516,6 +523,7 @@ class TenantQueryService:
             "tenant_created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
             "tenant_updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
             "source_competitor": row["source_competitor"],
+            "source_competitor_cn": row["source_competitor_cn"],
         }
 
     async def v3_company_contacts(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str) -> list[dict]:
