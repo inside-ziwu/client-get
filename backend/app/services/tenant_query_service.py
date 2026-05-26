@@ -174,7 +174,7 @@ class TenantQueryService:
         pcb_supplier_presence: str | None = None,
         min_score: float | None = None,
         max_score: float | None = None,
-        grade: str | None = None,
+        grades: list[str] | None = None,
         group_id: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
@@ -267,9 +267,11 @@ class TenantQueryService:
             where_clauses.append("wc.founded_year <= :founded_year_to")
             params["founded_year_to"] = founded_year_to
 
-        if grade:
-            where_clauses.append("wc.grade = :grade")
-            params["grade"] = grade
+        if grades:
+            placeholders = ", ".join(f":grade_{i}" for i in range(len(grades)))
+            where_clauses.append(f"wc.grade IN ({placeholders})")
+            for i, g in enumerate(grades):
+                params[f"grade_{i}"] = g
 
         if employee_scales:
             placeholders = ", ".join(f":emp_scale_{i}" for i in range(len(employee_scales)))
