@@ -1,4 +1,4 @@
-"""source_competitor 字段透传测试 — 列表 + 详情"""
+"""source_competitor / source_competitor_cn 字段透传测试 — 列表 + 详情"""
 
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
@@ -51,6 +51,7 @@ def _list_row(**overrides):
         "created_at": datetime(2026, 1, 1),
         "updated_at": datetime(2026, 1, 2),
         "source_competitor": None,
+        "source_competitor_cn": None,
     }
     base.update(overrides)
     return base
@@ -103,6 +104,45 @@ class TestCompaniesPageSourceCompetitor:
         assert total == 1
         assert len(rows) == 1
         assert rows[0]["source_competitor"] == "深圳市信安电路有限公司"
+
+    @pytest.mark.asyncio
+    async def test_source_competitor_cn_normal(self):
+        """lixiaoyun 匹配时，响应中 source_competitor_cn 返回中文名"""
+        svc = TenantQueryService()
+        conn = AsyncMock()
+
+        row = _list_row(
+            source_competitor="JIANGMEN BENLIDA PRINTED CIRCUIT CO., LTD.",
+            source_competitor_cn="江门市奔力达电路有限公司",
+        )
+        count_result = MagicMock()
+        count_result.scalar_one.return_value = 1
+        data_result = MagicMock()
+        data_result.mappings.return_value.all.return_value = [_make_mapping(row)]
+
+        conn.execute = AsyncMock(side_effect=[count_result, data_result])
+
+        rows, _ = await svc.companies_page(conn, tenant_id=TENANT_ID, limit=10)
+
+        assert rows[0]["source_competitor_cn"] == "江门市奔力达电路有限公司"
+
+    @pytest.mark.asyncio
+    async def test_source_competitor_cn_null(self):
+        """lixiaoyun 无匹配时，source_competitor_cn 返回 null"""
+        svc = TenantQueryService()
+        conn = AsyncMock()
+
+        row = _list_row(source_competitor="SOME UNKNOWN CO.", source_competitor_cn=None)
+        count_result = MagicMock()
+        count_result.scalar_one.return_value = 1
+        data_result = MagicMock()
+        data_result.mappings.return_value.all.return_value = [_make_mapping(row)]
+
+        conn.execute = AsyncMock(side_effect=[count_result, data_result])
+
+        rows, _ = await svc.companies_page(conn, tenant_id=TENANT_ID, limit=10)
+
+        assert rows[0]["source_competitor_cn"] is None
 
     @pytest.mark.asyncio
     async def test_null_value(self):
@@ -179,3 +219,38 @@ class TestCompanyDetailSourceCompetitor:
         detail = await svc.v3_company_detail(conn, TENANT_ID, "1")
 
         assert detail["source_competitor"] is None
+
+    @pytest.mark.asyncio
+    async def test_source_competitor_cn_normal(self):
+        """详情响应包含 source_competitor_cn 中文名"""
+        svc = TenantQueryService()
+        conn = AsyncMock()
+
+        row = _detail_row(
+            source_competitor="SHENNAN CIRCUITS CO., LTD.",
+            source_competitor_cn="深南电路股份有限公司",
+        )
+        result = MagicMock()
+        result.mappings.return_value.first.return_value = _make_mapping(row)
+
+        conn.execute = AsyncMock(return_value=result)
+
+        detail = await svc.v3_company_detail(conn, TENANT_ID, "1")
+
+        assert detail["source_competitor_cn"] == "深南电路股份有限公司"
+
+    @pytest.mark.asyncio
+    async def test_source_competitor_cn_null(self):
+        """source_competitor_cn 无匹配时返回 null"""
+        svc = TenantQueryService()
+        conn = AsyncMock()
+
+        row = _detail_row(source_competitor="UNKNOWN", source_competitor_cn=None)
+        result = MagicMock()
+        result.mappings.return_value.first.return_value = _make_mapping(row)
+
+        conn.execute = AsyncMock(return_value=result)
+
+        detail = await svc.v3_company_detail(conn, TENANT_ID, "1")
+
+        assert detail["source_competitor_cn"] is None
