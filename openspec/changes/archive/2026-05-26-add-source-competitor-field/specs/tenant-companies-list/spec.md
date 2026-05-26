@@ -1,8 +1,5 @@
-# tenant-companies-list Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change fix-tenant-company-list-wmt-link. Update Purpose after archive.
-## Requirements
 ### Requirement: tenant 公司列表 SHALL 只展示匹配租户关键词的 wmt 公司
 tenant 公司列表 SHALL 以 `waimaotong_clean_companies` 为唯一公司数据源，并且只展示已通过 wmt 血缘匹配当前租户 active 关键词的公司。查询 SHALL 通过 LEFT JOIN `waimaotong_raw_companies`（关联条件：`sys_company_id`）附加 `source_competitor` 字段。
 
@@ -19,4 +16,3 @@ tenant 公司列表 SHALL 以 `waimaotong_clean_companies` 为唯一公司数据
 #### Scenario: 不返回旧 clean 公司
 - **WHEN** `tenant_companies.clean_company_id` 指向旧 `clean_companies.id` 且无法 JOIN 到 `waimaotong_clean_companies.id`
 - **THEN** tenant 公司列表 MUST NOT 返回该旧关联对应的数据
-
