@@ -116,6 +116,7 @@ flowchart TB
 - 假日由 AI 预填 + admin 手动修改，不对接第三方日历服务
 - 不支持按个人行为数据优化发送时间（12月目标）
 - 收件人 tab 不新增当地时间列（当地时间仅在发送日志 tab 显示），但会新增「跳过原因」列（R20 要求）
+- Admin 端仅桌面端，不做移动端适配。保留基础无障碍：表单 label 关联、键盘可导航、对比度符合 WCAG AA
 
 ### Deferred to Follow-Up Work
 
@@ -255,7 +256,7 @@ flowchart TB
   - 规则集 Tab：DataTable 只读列表。列：名称、工作日（badge 展示如「周一」「周二」…）、时段（badge）、关联国家数。操作列：`>` 箭头图标进详情、垃圾桶图标删除。删除需 AlertDialog 确认，文案提示将解除 N 个关联国家
   - 规则集详情页（新页面）：默认只读展示（label-value 行式布局），右上角「编辑」按钮切换到表单态（名称 input + 工作日 checkbox + 时段编辑器）。下方关联国家表格，国家选择器使用带搜索的 Combobox，选中已归属其他规则集的国家时显示内联警告「该国当前属于 XX 规则集，保存后将自动移除」
   - 国家 Tab：DataTable 只读列表，支持搜索。搜索框右侧加 Select 筛选「全部 / 已关联规则集 / 未关联规则集」+ 「AI 搜集假日」按钮（Tab 级别批量触发）。列：国家名、ISO3、时区、关联规则集（badge）、假日数（badge，0 为灰色）。操作列：`>` 箭头图标进详情
-  - 国家详情页（新页面）：默认只读展示（时区、关联规则集），右上角「编辑」按钮切换到表单态（时区下拉 + 规则集下拉，含「不关联」选项）。下方假日管理表格（列表+添加/删除），支持年份筛选，保留单国「AI 搜集假日」按钮
+  - 国家详情页（新页面）：默认只读展示（时区、关联规则集），右上角「编辑」按钮切换到表单态（时区用带搜索的 Combobox，400+ IANA 时区支持模糊搜索；规则集用 Select 下拉，含「不关联」选项）。下方假日管理表格（列表+添加/删除），支持年份筛选，保留单国「AI 搜集假日」按钮
   - 默认规则 Tab：默认只读展示（工作日 badge + 时段 badge），右上角「编辑」按钮切换到表单态（工作日 checkbox + 时段编辑器），保存后回到只读态
   - 时段编辑组件：支持多时段添加/删除，每个时段为开始时间+结束时间 TimePicker
   - 工作日选择组件：7 个 checkbox（周一至周日）
@@ -270,6 +271,20 @@ flowchart TB
   - 修改国家时区后保存成功，列表显示新时区
   - 添加假日后列表显示新条目
   - 修改默认规则后保存成功
+- **Interaction states:**
+
+  | 功能 | Loading | Empty | Error | Success |
+  |------|---------|-------|-------|---------|
+  | 规则集列表 | 表格骨架屏 | 「尚未创建规则集」+ 新建按钮 | toast 提示加载失败 | 正常表格 |
+  | 国家列表 | 表格骨架屏 | 不会出现（种子数据 250+） | toast 提示加载失败 | 正常表格 |
+  | 假日列表 | 「加载中...」文字 | 「暂无假日数据，点击 AI 搜集」+ AI 搜集按钮 | toast 提示 | 正常表格 |
+  | 默认规则 | 「加载中...」文字 | 不会出现（系统初始化预设） | toast 提示 | 只读展示 |
+  | 规则集详情编辑 | 保存按钮 loading 态 | — | inline 红色错误提示（时段重叠等）| toast「保存成功」+ 回到只读 |
+  | 国家详情编辑 | 保存按钮 loading 态 | — | inline 错误提示 | toast「保存成功」+ 回到只读 |
+  | 删除规则集 | AlertDialog 确认按钮 loading | — | toast 提示删除失败 | toast「已删除」+ 列表刷新 |
+  | AI 搜集假日 | 按钮 loading + 「正在搜集...」进度提示 | — | toast 提示搜集失败 | toast「已搜集 N 个假日」+ 列表刷新 |
+  | 时区分布概览 | 「统计加载中...」占位 | 「暂无收件人」文字 | — | 分布图表 |
+
 - **Verification:** 在 `next dev` 环境中手动操作所有 CRUD 流程
 
 ---
@@ -389,7 +404,7 @@ flowchart TB
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | 3 proposals, 3 accepted, 0 deferred |
 | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 1 issue (FK 决策), 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | -- | -- |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | score: 7/10 → 9/10, 3 decisions |
 
 - **UNRESOLVED:** 0
-- **VERDICT:** CEO + ENG CLEARED
+- **VERDICT:** CEO + ENG + DESIGN CLEARED — ready to implement
