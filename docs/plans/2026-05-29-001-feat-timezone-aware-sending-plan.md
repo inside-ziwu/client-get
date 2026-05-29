@@ -184,7 +184,7 @@ flowchart TB
 ### U3. Admin API 路由
 
 - **Goal:** 暴露工作时间配置的 HTTP 端点
-- **Requirements:** R2-R8, R10-R15
+- **Requirements:** R2-R11, R15
 - **Dependencies:** U2
 - **Files:**
   - `backend/app/api/admin/work_schedule.py`（新建）
@@ -205,6 +205,8 @@ flowchart TB
     - `GET /countries/{iso3}/holidays` → 假日列表（支持 `?year=`）
     - `POST /countries/{iso3}/holidays` → 添加假日
     - `DELETE /countries/{iso3}/holidays/{id}` → 删除假日
+    - `POST /countries/{iso3}/holidays/ai-fill` → 触发 AI 搜集假日（单国）
+    - `POST /countries/holidays/ai-fill` → 批量触发 AI 搜集假日（多国）
     - `GET /default-rule` → 获取默认规则
     - `PATCH /default-rule` → 修改默认规则
   - 所有端点使用 `Depends(get_current_platform_user)` 认证
@@ -343,6 +345,7 @@ flowchart TB
 - **Files:**
   - `backend/app/services/tenant_messaging_service.py`（修改 `claim_due_emails`）
   - `backend/app/workers/sending.py`（修改 `run_once`）
+  - `backend/Dockerfile`（确保安装 `tzdata` 系统包）
 - **Approach:**
   - 在 `run_once` 开头一次性加载所有时区配置：国家→时区映射、规则集数据、假日数据，缓存到内存 dict
   - 时区检查必须在 `claim_due_emails` 内部执行，位于 `_step_condition_satisfied` 检查之后、`email_send_locks` INSERT 和 `reserve_domain_quota` 之前。不满足时区条件的 enrollment 直接 `continue` 跳过——不锁定、不消耗配额、不创建 email 记录，确保下次轮询时该 enrollment 自然重新进入候选集（R18）
@@ -435,9 +438,11 @@ flowchart TB
   - `backend/03_database/schema.sql`（更新 DEFAULT 值文档）
   - `backend/scripts/seed_demo_data.py`（移除旧字段引用）
   - `backend/alembic/versions/20260529_0002_cleanup_send_strategy.py`（迁移文件，更新 DEFAULT）
+  - `frontend/packages/shared-types/src/models.ts`（移除 SendStrategy 接口中的旧字段）
 - **Approach:**
-  - 修改 `send_strategy` 的 DEFAULT 值，只保留 `interval_seconds`：`'{"interval_seconds":[30,120]}'`
+  - 修改 `send_strategy` 的 DEFAULT 值，只保留 `interval_seconds`：`'{"interval_seconds":[30,120]}'`（注意：当前前端类型用的是 `interval_minutes`，需核实并对齐命名）
   - 在 `tenant_messaging_service.py` 的 `create_complete_sending_plan` 中更新默认值
+  - 在 `frontend/packages/shared-types/src/models.ts` 的 `SendStrategy` 接口中移除 `timezone_aware`、`preferred_hours`、`daily_limit` 字段
   - 不删除已有数据中的旧字段值（JSON 字段中多余的 key 不影响功能）
   - 在 `seed_demo_data.py` 中移除旧字段
 - **Patterns to follow:** 现有 migration 的 `ALTER TABLE ... ALTER COLUMN ... SET DEFAULT` 模式
@@ -456,7 +461,7 @@ flowchart TB
 - **国家数据质量：** ISO 3166-1 到 IANA 时区的映射需要手动维护（部分国家有多时区，需选择主时区）。种子数据准确性直接影响功能正确性
 - **Worker 性能影响：** 时区检查为纯内存计算（Python `zoneinfo` + dict lookup），不增加数据库查询。每轮开头多一次配置加载查询，影响可忽略
 - **`tzdata` 包验证：** 后端 Docker 镜像基于 `python:3.13-slim`，需在 Dockerfile 中显式安装 `tzdata`（`apt-get install -y tzdata`）或在 `pyproject.toml` 中添加 Python `tzdata` 依赖。不能假设 slim 镜像默认包含
-- **R9 AI 假日搜集实现：** 当前计划仅定义了触发入口（admin 手动触发），具体的 AI 搜集逻辑（使用哪个 LLM、prompt 设计、失败重试、批量进度）在实施时根据项目 AI 集成模式决定。不需要单独 API 端点，可作为服务层内部方法实现
+- **R9 AI 假日搜集实现：** U3 已声明 AI 搜集 HTTP 端点（单国和批量），服务层实现搜集逻辑。具体的 AI 搜集逻辑（使用哪个 LLM、prompt 设计、失败重试、批量进度）在实施时根据项目 AI 集成模式决定
 - **U8 前端类型清理：** 检查 `frontend/packages/shared-types/src/models.ts` 中是否有 `SendStrategy` 类型定义引用了 `timezone_aware`/`preferred_hours`/`daily_limit`，如有需同步清理
 
 ---
@@ -468,7 +473,7 @@ flowchart TB
 - Admin 服务模式：`backend/app/services/admin_config_service.py`（async + 原生 SQL + 审计日志）
 - Admin 前端模式：`frontend/apps/admin/src/app/(dashboard)/ai-config/`（server/client 分离）
 - API 客户端模式：`frontend/packages/shared-api/src/admin/ai-config.ts`（工厂函数+类型定义）
-- 侧边栏注册：`frontend/apps/admin/src/components/sidebar.tsx`
+- 侧边栏注册：`frontend/apps/admin/src/components/layout/sidebar.tsx`
 - Prior learning `[use-querykeys-helper]`：所有 React Query queryKey 使用 `query-keys.ts` helper
 - Prior learning `[email-template-variable-mapping-drift]`：多路径调用同一函数时注意参数映射一致性，Worker 修改时需检查所有 `claim_due_emails` 调用路径
 
