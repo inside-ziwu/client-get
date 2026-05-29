@@ -38,6 +38,23 @@ const CONDITION_LABELS: Record<string, string> = {
   clicked: '已点击',
 };
 
+const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
+  active: '进行中',
+  paused: '已暂停',
+  cancelled: '已取消',
+  completed: '已完成',
+};
+
+const EMAIL_STATUS_LABELS: Record<string, string> = {
+  sent: '已发送',
+  delivered: '已送达',
+  opened: '已打开',
+  clicked: '已点击',
+  replied: '已回复',
+  bounced: '已退信',
+  unsubscribed: '已退订',
+};
+
 type ActionDef = { label: string; action: 'start' | 'pause' | 'resume' | 'cancel'; variant: 'default' | 'outline' | 'destructive' };
 
 const ACTION_MAP: Record<string, ActionDef[]> = {
@@ -214,7 +231,7 @@ export default function SendPlanDetailPage() {
             columns={[
               { key: 'email', title: '邮箱', render: (row) => row.contact_email ?? '-' },
               { key: 'company', title: '公司', render: (row) => row.company_name ?? '-' },
-              { key: 'status', title: '状态', render: (row) => row.enrollment_status ?? '-' },
+              { key: 'status', title: '状态', render: (row) => ENROLLMENT_STATUS_LABELS[row.enrollment_status ?? ''] ?? row.enrollment_status ?? '-' },
               { key: 'step', title: '当前步骤', render: (row) => row.current_step ?? '-' },
             ]}
           />
@@ -226,7 +243,7 @@ export default function SendPlanDetailPage() {
             columns={[
               { key: 'to', title: '收件人', render: (row) => (row.to_email as string) ?? '-' },
               { key: 'subject', title: '主题', render: (row) => (row.subject as string) ?? '-' },
-              { key: 'status', title: '状态', render: (row) => (row.status as string) ?? '-' },
+              { key: 'status', title: '状态', render: (row) => { const s = row.status as string | undefined; return s ? (EMAIL_STATUS_LABELS[s] ?? s) : '-'; }},
               { key: 'sent_at', title: '发送时间', render: (row) => {
                 const t = row.sent_at as string | undefined;
                 return t ? t.slice(0, 16).replace('T', ' ') : '-';
