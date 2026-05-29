@@ -239,57 +239,103 @@ flowchart TB
 
 ---
 
-### U5. Admin 前端页面
+### U5. Admin 前端——主页面骨架与规则集列表
 
-- **Goal:** 实现发送时间配置的完整管理界面
-- **Requirements:** R2-R15
+- **Goal:** 实现发送时间配置的主页面框架（Tab 切换）和规则集 Tab 的完整功能
+- **Requirements:** R4-R8, R12-R15
 - **Dependencies:** U4
 - **Files:**
-  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/page.tsx`（主页面，含 Tab）
-  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/client-page.tsx`（客户端交互）
-  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/rule-sets/[id]/page.tsx`（规则集详情）
-  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/countries/[iso3]/page.tsx`（国家详情）
+  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/page.tsx`（主页面 server 组件）
+  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/client-page.tsx`（主页面 client 组件，含 Tab 切换）
   - `frontend/apps/admin/src/components/layout/sidebar.tsx`（新增菜单项）
 - **Approach:**
   - 全局交互模式：所有页面默认只读展示，点击「编辑」按钮切换到表单编辑态，保存/取消回到只读态。列表页纯只读，操作列统一用图标按钮（`>` 进详情、🗑 删除）
   - 主页面三个 Tab：「规则集」「国家」「默认规则」
-  - 规则集 Tab：DataTable 只读列表。列：名称、工作日（badge 展示如「周一」「周二」…）、时段（badge）、关联国家数。操作列：`>` 箭头图标进详情、垃圾桶图标删除。删除需 AlertDialog 确认，文案提示将解除 N 个关联国家
-  - 规则集详情页（新页面）：默认只读展示（label-value 行式布局），右上角「编辑」按钮切换到表单态（名称 input + 工作日 checkbox + 时段编辑器）。下方关联国家表格，国家选择器使用带搜索的 Combobox，选中已归属其他规则集的国家时显示内联警告「该国当前属于 XX 规则集，保存后将自动移除」
-  - 国家 Tab：DataTable 只读列表，支持搜索。搜索框右侧加 Select 筛选「全部 / 已关联规则集 / 未关联规则集」+ 「AI 搜集假日」按钮（Tab 级别批量触发）。列：国家名、ISO3、时区、关联规则集（badge）、假日数（badge，0 为灰色）。操作列：`>` 箭头图标进详情
-  - 国家详情页（新页面）：默认只读展示（时区、关联规则集），右上角「编辑」按钮切换到表单态（时区用带搜索的 Combobox，400+ IANA 时区支持模糊搜索；规则集用 Select 下拉，含「不关联」选项）。下方假日管理表格（列表+添加/删除），支持年份筛选，保留单国「AI 搜集假日」按钮
+  - 规则集 Tab：DataTable 只读列表。列：名称、工作日（badge）、时段（badge）、关联国家数。操作列：`>` 箭头进详情、垃圾桶删除。删除需 AlertDialog 确认，文案提示将解除 N 个关联国家
   - 默认规则 Tab：默认只读展示（工作日 badge + 时段 badge），右上角「编辑」按钮切换到表单态（工作日 checkbox + 时段编辑器），保存后回到只读态
   - 时段编辑组件：支持多时段添加/删除，每个时段为开始时间+结束时间 TimePicker
   - 工作日选择组件：7 个 checkbox（周一至周日）
   - 侧边栏「营销」分组下新增「发送时间配置」菜单项，icon 使用 `Clock`
   - 设计参考：`docs/mock/admin-work-schedule.html`
-- **Patterns to follow:** `frontend/apps/admin/src/app/(dashboard)/ai-config/` 的 server/client 分离模式；`sidebar.tsx` 的菜单注册模式
+- **Patterns to follow:** `frontend/apps/admin/src/app/(dashboard)/ai-config/` 的 server/client 分离模式
 - **Test scenarios:**
   - 页面加载时正确显示三个 Tab
   - 创建规则集后列表刷新显示新记录
-  - 编辑规则集时段，添加重叠时段提示错误
-  - 在规则集详情中添加国家，该国在国家列表的「关联规则集」列更新
-  - 修改国家时区后保存成功，列表显示新时区
-  - 添加假日后列表显示新条目
+  - 编辑规则集时段，添加重叠时段提示错误（inline 红色提示）
+  - 删除规则集弹出确认弹窗，确认后列表刷新
   - 修改默认规则后保存成功
 - **Interaction states:**
 
   | 功能 | Loading | Empty | Error | Success |
   |------|---------|-------|-------|---------|
   | 规则集列表 | 表格骨架屏 | 「尚未创建规则集」+ 新建按钮 | toast 提示加载失败 | 正常表格 |
-  | 国家列表 | 表格骨架屏 | 不会出现（种子数据 250+） | toast 提示加载失败 | 正常表格 |
-  | 假日列表 | 「加载中...」文字 | 「暂无假日数据，点击 AI 搜集」+ AI 搜集按钮 | toast 提示 | 正常表格 |
   | 默认规则 | 「加载中...」文字 | 不会出现（系统初始化预设） | toast 提示 | 只读展示 |
-  | 规则集详情编辑 | 保存按钮 loading 态 | — | inline 红色错误提示（时段重叠等）| toast「保存成功」+ 回到只读 |
-  | 国家详情编辑 | 保存按钮 loading 态 | — | inline 错误提示 | toast「保存成功」+ 回到只读 |
   | 删除规则集 | AlertDialog 确认按钮 loading | — | toast 提示删除失败 | toast「已删除」+ 列表刷新 |
-  | AI 搜集假日 | 按钮 loading + 「正在搜集...」进度提示 | — | toast 提示搜集失败 | toast「已搜集 N 个假日」+ 列表刷新 |
-  | 时区分布概览 | 「统计加载中...」占位 | 「暂无收件人」文字 | — | 分布图表 |
 
-- **Verification:** 在 `next dev` 环境中手动操作所有 CRUD 流程
+- **Verification:** 在 `next dev` 环境中 Tab 切换正常，规则集 CRUD 和默认规则编辑功能完整
 
 ---
 
-### U6. Worker 时区感知发送逻辑
+### U6. Admin 前端——规则集详情页
+
+- **Goal:** 实现规则集的只读/编辑切换和关联国家管理
+- **Requirements:** R4-R8
+- **Dependencies:** U5
+- **Files:**
+  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/rule-sets/[id]/page.tsx`（规则集详情）
+- **Approach:**
+  - 默认只读展示（label-value 行式布局：名称、工作日、时段），右上角「编辑」按钮切换到表单态（名称 input + 工作日 checkbox + 时段编辑器）
+  - 下方关联国家表格（国家名、ISO3、时区、操作），国家选择器使用带搜索的 Combobox，选中已归属其他规则集的国家时显示内联警告「该国当前属于 XX 规则集，保存后将自动移除」
+  - 面包屑导航返回主页面
+- **Patterns to follow:** 复用 U5 的时段编辑组件和工作日选择组件
+- **Test scenarios:**
+  - 详情页只读展示正确
+  - 编辑后保存成功，回到只读态
+  - 添加已归属其他规则集的国家，显示警告
+  - 移除国家后表格刷新
+- **Interaction states:**
+
+  | 功能 | Loading | Empty | Error | Success |
+  |------|---------|-------|-------|---------|
+  | 规则集详情编辑 | 保存按钮 loading 态 | — | inline 红色错误提示 | toast「保存成功」+ 回到只读 |
+
+- **Verification:** 规则集编辑和国家关联管理全流程可用
+
+---
+
+### U7. Admin 前端——国家详情页与假日管理
+
+- **Goal:** 实现国家列表 Tab、国家详情页（时区编辑+假日管理）
+- **Requirements:** R2-R3, R9-R11
+- **Dependencies:** U5
+- **Files:**
+  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/client-page.tsx`（国家 Tab 部分）
+  - `frontend/apps/admin/src/app/(dashboard)/work-schedule/countries/[iso3]/page.tsx`（国家详情）
+- **Approach:**
+  - 国家 Tab：DataTable 只读列表，支持搜索。搜索框右侧加 Select 筛选「全部 / 已关联规则集 / 未关联规则集」+ 「AI 搜集假日」按钮（Tab 级别批量触发）。列：国家名、ISO3、时区、关联规则集（badge）、假日数（badge，0 为灰色）。操作列：`>` 箭头进详情
+  - 国家详情页：默认只读展示（时区、关联规则集），右上角「编辑」按钮切换到表单态（时区用带搜索的 Combobox；规则集用 Select 下拉，含「不关联」选项）
+  - 下方假日管理表格（日期、名称、来源、操作），支持年份筛选、添加/删除假日，保留单国「AI 搜集假日」按钮
+  - 面包屑导航返回主页面
+- **Patterns to follow:** 复用 U5 的 DataTable 和 Badge 模式
+- **Test scenarios:**
+  - 国家列表搜索和筛选正常
+  - 修改国家时区后保存成功，列表显示新时区
+  - 添加假日后列表显示新条目
+  - AI 搜集假日触发后假日列表刷新
+- **Interaction states:**
+
+  | 功能 | Loading | Empty | Error | Success |
+  |------|---------|-------|-------|---------|
+  | 国家列表 | 表格骨架屏 | 不会出现（种子数据 250+） | toast 提示加载失败 | 正常表格 |
+  | 国家详情编辑 | 保存按钮 loading 态 | — | inline 错误提示 | toast「保存成功」+ 回到只读 |
+  | 假日列表 | 「加载中...」文字 | 「暂无假日数据，点击 AI 搜集」+ AI 搜集按钮 | toast 提示 | 正常表格 |
+  | AI 搜集假日 | 按钮 loading + 「正在搜集...」 | — | toast 提示搜集失败 | toast「已搜集 N 个假日」+ 刷新 |
+
+- **Verification:** 国家搜索/筛选、时区编辑、假日管理全流程可用
+
+---
+
+### U8. Worker 时区感知发送逻辑（原 U6）
 
 - **Goal:** Worker 发送时按收件人当地时间判断是否在工作时段内
 - **Requirements:** R16-R20
@@ -326,38 +372,64 @@ flowchart TB
 
 ---
 
-### U7. Tenant 前端——当地时间显示和时区分布
+### U9. Tenant 后端——发送日志和收件人 API 补充字段
 
-- **Goal:** 发送日志新增当地时间列，计划信息增加时区分布概览
-- **Requirements:** R20（显示部分）, R21-R23
-- **Dependencies:** U1（国家时区数据）, U6（skip_reason 字段）
+- **Goal:** Tenant 端 API 返回时区和跳过原因数据，为前端显示提供数据基础
+- **Requirements:** R20（数据部分）, R21, R23
+- **Dependencies:** U1（countries 表）, U8（skip_reason 字段）
 - **Files:**
-  - `frontend/apps/tenant/src/app/(dashboard)/send-plans/[id]/page.tsx`（修改：发送日志+收件人 tab）
-  - `backend/app/api/tenant/messaging.py`（修改：发送日志和收件人 API 返回 country_iso3 + timezone + skip_reason）
-  - `backend/app/services/tenant_messaging_service.py`（修改：list_emails 和 list_recipients 查询追加字段）
+  - `backend/app/api/tenant/messaging.py`（修改：发送日志和收件人 API 响应）
+  - `backend/app/services/tenant_messaging_service.py`（修改：list_emails、list_recipients、get_sending_plan 查询）
 - **Approach:**
-  - 后端修改：在 Tenant 发送日志 API（`list_emails`）和收件人 API（`list_recipients`）的 SQL 查询中追加 JOIN `countries` 表，返回每条记录的 `country_iso3` 和 `timezone` 字段。收件人 API 同时返回 `last_skip_reason`。无需新建公共接口，避免 Tenant 端跨越 Admin API 认证边界
-  - 当地时间列：前端用 `dayjs.tz()` 根据后端返回的 `timezone` 字段实时转换，无需二次查询国家映射表
-  - 显示格式：`YYYY-MM-DD HH:mm TZ`，如 `2026-05-29 09:30 EDT`
-  - 收件人 tab 新增「跳过原因」列，显示 `last_skip_reason`，无值时显示 `-`
-  - 时区分布概览：在发送计划详情 API（`GET /sending-plans/{id}`）响应中新增 `recipient_country_distribution` 字段（`[{country_iso3, country_name, count, percentage}]`），前端在「计划信息」tab 增加统计区块。加载中显示占位文字，无收件人时显示「暂无收件人」
+  - `list_emails` SQL 追加 JOIN `countries` 表（通过 `waimaotong_clean_companies.country_iso3`），返回 `country_iso3` 和 `timezone` 字段
+  - `list_recipients` SQL 追加返回 `last_skip_reason` 和 `country_iso3`
+  - `get_sending_plan` 响应中新增 `recipient_country_distribution` 字段（SQL GROUP BY `country_iso3` 聚合，返回 `[{country_iso3, country_name, count, percentage}]`）
+  - 无需新建公共接口，避免 Tenant 端跨越 Admin API 认证边界
+- **Patterns to follow:** 现有 `list_emails` 的 JOIN 和响应格式
+- **Test scenarios:**
+  - 发送日志 API 返回 `country_iso3` 和 `timezone` 字段
+  - 收件人 API 返回 `last_skip_reason` 字段
+  - 发送计划详情 API 返回 `recipient_country_distribution` 字段
+  - 无收件人时分布字段返回空数组
+- **Verification:** curl 调用 API 确认新增字段存在且数据正确
+
+---
+
+### U10. Tenant 前端——当地时间显示和时区分布
+
+- **Goal:** 发送日志新增当地时间列，收件人 tab 新增跳过原因列，计划信息增加时区分布概览
+- **Requirements:** R20（显示部分）, R21-R23
+- **Dependencies:** U9（后端字段就绪）
+- **Files:**
+  - `frontend/apps/tenant/src/app/(dashboard)/send-plans/[id]/page.tsx`（修改：发送日志+收件人+计划信息 tab）
+- **Approach:**
+  - 发送日志 tab 新增「当地时间」列：用 `dayjs.tz()` 根据后端返回的 `timezone` 字段实时转换，显示格式 `YYYY-MM-DD HH:mm TZ`
+  - 收件人 tab 新增「跳过原因」列：显示 `last_skip_reason`，无值时显示 `-`
+  - 计划信息 tab 新增时区分布概览统计区块，读取 `recipient_country_distribution` 字段
   - 前端使用 `dayjs` + `dayjs/plugin/timezone` 做时区转换
 - **Patterns to follow:** 现有 `formatDateTime()` 函数（`frontend/apps/tenant/src/lib/format.ts`）；DataTable 列定义模式
 - **Test scenarios:**
   - 发送日志中当地时间列正确显示转换后的时间和时区缩写
   - 公司未填国家的邮件，当地时间列显示 `-`
   - Admin 修改某国时区后，刷新页面当地时间列按新时区显示
+  - 收件人 tab 跳过原因列正确显示
   - 时区分布概览正确显示各区域比例
-  - 发送计划无收件人时分布概览显示空状态
-- **Verification:** 在 `next dev` 环境中查看发送日志页面，确认双时间列和分布概览正确显示
+  - 发送计划无收件人时分布概览显示「暂无收件人」
+- **Interaction states:**
+
+  | 功能 | Loading | Empty | Error | Success |
+  |------|---------|-------|-------|---------|
+  | 时区分布概览 | 「统计加载中...」占位 | 「暂无收件人」文字 | — | 分布图表 |
+
+- **Verification:** 在 `next dev` 环境中查看发送日志页面，确认双时间列、跳过原因列和分布概览正确显示
 
 ---
 
-### U8. 清理 send_strategy 未使用字段
+### U11. 清理 send_strategy 未使用字段
 
 - **Goal:** 移除 `sending_plans.send_strategy` 中的 `timezone_aware`、`preferred_hours`、`daily_limit` 历史遗留字段
 - **Requirements:** R24
-- **Dependencies:** U6（确认 Worker 已切换到新的时区配置体系）
+- **Dependencies:** U8（确认 Worker 已切换到新的时区配置体系）
 - **Files:**
   - `backend/app/services/tenant_messaging_service.py`（移除默认值引用）
   - `backend/03_database/schema.sql`（更新 DEFAULT 值文档）
