@@ -14,8 +14,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   DescriptionList,
   StatusTag,
   Table,
@@ -24,6 +22,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@shared/ui';
 import type { SendingPlanStatus } from '@shared/types';
 import { tenantApi } from '@/lib/api';
@@ -145,85 +147,96 @@ export default function SendPlanDetailPage() {
         }
       />
 
-      {/* 概览区 */}
-      {plan && (
-        <DescriptionList
-          items={[
-            { label: '状态', value: <StatusTag status={plan.status as SendingPlanStatus} /> },
-            { label: '发件人名称', value: plan.sender_name },
-            { label: '发件邮箱', value: plan.sender_email },
-            { label: '收件人数', value: plan.total_recipients },
-            { label: '已发送', value: plan.sent_count },
-            { label: '创建时间', value: plan.created_at?.slice(0, 10) },
-            { label: '描述', value: plan.description },
-          ]}
-        />
-      )}
+      <Tabs defaultValue="info">
+        <TabsList>
+          <TabsTrigger value="info">计划信息</TabsTrigger>
+          <TabsTrigger value="steps">发送步骤</TabsTrigger>
+          <TabsTrigger value="recipients">收件人</TabsTrigger>
+          <TabsTrigger value="logs">发送日志</TabsTrigger>
+        </TabsList>
 
-      {/* 步骤摘要区 */}
-      <Card>
-        <CardHeader>
-          <CardTitle>发送步骤</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {stepsQuery.isLoading ? (
-            <p className="p-4 text-sm text-muted-foreground">加载中...</p>
-          ) : steps.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">暂无步骤</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>模板名称</TableHead>
-                  <TableHead>延迟</TableHead>
-                  <TableHead>触发条件</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {steps.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.step_order ?? s.step_number}</TableCell>
-                    <TableCell>{s.template_name ?? '-'}</TableCell>
-                    <TableCell>{s.delay_days === 0 ? '立即' : `${s.delay_days} 天`}</TableCell>
-                    <TableCell>{CONDITION_LABELS[s.condition_type ?? ''] ?? s.condition_type ?? '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        <TabsContent value="info">
+          {plan && (
+            <Card>
+              <CardContent className="pt-6">
+                <DescriptionList
+                  items={[
+                    { label: '状态', value: <StatusTag status={plan.status as SendingPlanStatus} /> },
+                    { label: '发件人名称', value: plan.sender_name },
+                    { label: '发件邮箱', value: plan.sender_email },
+                    { label: '收件人数', value: plan.total_recipients },
+                    { label: '已发送', value: plan.sent_count },
+                    { label: '创建时间', value: plan.created_at?.slice(0, 10) },
+                    { label: '描述', value: plan.description },
+                  ]}
+                />
+              </CardContent>
+            </Card>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      {/* 收件人列表区 */}
-      <DataTable
-        title="收件人"
-        rows={recipientsQuery.data}
-        columns={[
-          { key: 'company', title: '公司', render: (row) => row.company_name ?? '-' },
-          { key: 'email', title: '邮箱', render: (row) => row.contact_email ?? '-' },
-          { key: 'status', title: '状态', render: (row) => row.enrollment_status ?? '-' },
-          { key: 'step', title: '当前步骤', render: (row) => row.current_step ?? '-' },
-        ]}
-      />
+        <TabsContent value="steps">
+          <Card>
+            <CardContent className="p-0">
+              {stepsQuery.isLoading ? (
+                <p className="p-4 text-sm text-muted-foreground">加载中...</p>
+              ) : steps.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">暂无步骤</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>模板名称</TableHead>
+                      <TableHead>延迟</TableHead>
+                      <TableHead>触发条件</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {steps.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>{s.step_order ?? s.step_number}</TableCell>
+                        <TableCell>{s.template_name ?? '-'}</TableCell>
+                        <TableCell>{s.delay_days === 0 ? '立即' : `${s.delay_days} 天`}</TableCell>
+                        <TableCell>{CONDITION_LABELS[s.condition_type ?? ''] ?? s.condition_type ?? '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* 发送日志区 */}
-      <DataTable
-        title="发送日志"
-        rows={emails}
-        columns={[
-          { key: 'to', title: '收件人', render: (row) => (row.to_email as string) ?? '-' },
-          { key: 'subject', title: '主题', render: (row) => (row.subject as string) ?? '-' },
-          { key: 'status', title: '状态', render: (row) => (row.status as string) ?? '-' },
-          { key: 'sent_at', title: '发送时间', render: (row) => {
-            const t = row.sent_at as string | undefined;
-            return t ? t.slice(0, 16).replace('T', ' ') : '-';
-          }},
-        ]}
-        emptyText={plan?.status === 'draft' ? '计划尚未开始发送' : '暂无发送记录'}
-      />
+        <TabsContent value="recipients">
+          <DataTable
+            rows={recipientsQuery.data}
+            columns={[
+              { key: 'company', title: '公司', render: (row) => row.company_name ?? '-' },
+              { key: 'email', title: '邮箱', render: (row) => row.contact_email ?? '-' },
+              { key: 'status', title: '状态', render: (row) => row.enrollment_status ?? '-' },
+              { key: 'step', title: '当前步骤', render: (row) => row.current_step ?? '-' },
+            ]}
+          />
+        </TabsContent>
 
-      {/* 取消确认弹窗 */}
+        <TabsContent value="logs">
+          <DataTable
+            rows={emails}
+            columns={[
+              { key: 'to', title: '收件人', render: (row) => (row.to_email as string) ?? '-' },
+              { key: 'subject', title: '主题', render: (row) => (row.subject as string) ?? '-' },
+              { key: 'status', title: '状态', render: (row) => (row.status as string) ?? '-' },
+              { key: 'sent_at', title: '发送时间', render: (row) => {
+                const t = row.sent_at as string | undefined;
+                return t ? t.slice(0, 16).replace('T', ' ') : '-';
+              }},
+            ]}
+            emptyText={plan?.status === 'draft' ? '计划尚未开始发送' : '暂无发送记录'}
+          />
+        </TabsContent>
+      </Tabs>
+
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>
           <AlertDialogTitle>确定取消此发送计划？</AlertDialogTitle>
