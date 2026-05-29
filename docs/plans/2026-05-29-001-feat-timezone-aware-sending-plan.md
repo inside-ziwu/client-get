@@ -252,7 +252,7 @@ flowchart TB
   - `frontend/apps/admin/src/components/layout/sidebar.tsx`（新增菜单项）
 - **Approach:**
   - 全局交互模式：所有页面默认只读展示，点击「编辑」按钮切换到表单编辑态，保存/取消回到只读态。列表页纯只读，操作列统一用图标按钮（`>` 进详情、🗑 删除）
-  - 主页面三个 Tab：「规则集」「国家」「默认规则」
+  - 主页面三个 Tab：「规则集」「国家」「默认规则」。U5 只建 Tab 骨架和规则集/默认规则两个 Tab 的完整实现，国家 Tab 仅渲染占位容器，由 U7 填充完整内容
   - 规则集 Tab：DataTable 只读列表。列：名称、工作日（badge）、时段（badge）、关联国家数。操作列：`>` 箭头进详情、垃圾桶删除。删除需 AlertDialog 确认，文案提示将解除 N 个关联国家
   - 默认规则 Tab：默认只读展示（工作日 badge + 时段 badge），右上角「编辑」按钮切换到表单态（工作日 checkbox + 时段编辑器），保存后回到只读态
   - 时段编辑组件：支持多时段添加/删除，每个时段为开始时间+结束时间 TimePicker
@@ -384,7 +384,7 @@ flowchart TB
   - `backend/app/api/tenant/messaging.py`（修改：发送日志和收件人 API 响应）
   - `backend/app/services/tenant_messaging_service.py`（修改：list_emails、list_recipients、get_sending_plan 查询）
 - **Approach:**
-  - `list_emails` SQL 追加 JOIN `countries` 表（通过 `waimaotong_clean_companies.country_iso3`），返回 `country_iso3` 和 `timezone` 字段
+  - `list_emails` SQL 追加 JOIN 链获取 `country_iso3` 和 `timezone`。完整路径：`emails → sequence_enrollments (enrollment_id) → sending_plan_recipients (plan_recipient_id) → tenant_companies (tenant_company_id) → waimaotong_clean_companies (clean_company_id) → LEFT JOIN countries (country_iso3)`，共 5 个额外 JOIN。需确认 `emails.enrollment_id` 是否有索引，无则需在 U1 迁移中补建
   - `list_recipients` SQL 追加返回 `last_skip_reason` 和 `country_iso3`
   - `get_sending_plan` 响应中新增 `recipient_country_distribution` 字段（SQL GROUP BY `country_iso3` 聚合，返回 `[{country_iso3, country_name, count, percentage}]`）
   - 无需新建公共接口，避免 Tenant 端跨越 Admin API 认证边界
