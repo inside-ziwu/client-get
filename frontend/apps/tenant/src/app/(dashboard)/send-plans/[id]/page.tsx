@@ -43,6 +43,7 @@ const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
   paused: '已暂停',
   cancelled: '已取消',
   completed: '已完成',
+  bounced: '已退信',
 };
 
 const EMAIL_STATUS_LABELS: Record<string, string> = {
