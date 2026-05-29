@@ -161,7 +161,7 @@ flowchart TB
   - `backend/app/services/admin_work_schedule_service.py`（新建）
 - **Approach:**
   - 新建 `AdminWorkScheduleService` 类，遵循 `admin_config_service.py` 的模式：async 方法 + `conn: AsyncConnection` 参数 + 原生 SQL
-  - 规则集 CRUD：`list_rule_sets`、`get_rule_set`、`create_rule_set`、`update_rule_set`、`delete_rule_set`（删除为硬删除，FK ON DELETE SET NULL 自动解除国家关联）
+  - 规则集 CRUD：`list_rule_sets`、`get_rule_set`、`create_rule_set`、`update_rule_set`、`delete_rule_set`（删除为硬删除，FK ON DELETE SET NULL 自动解除国家关联）。**`delete_rule_set` 必须检查 `is_default`，禁止删除默认规则**
   - 国家管理：`list_countries`（支持搜索、筛选关联/未关联）、`get_country`、`update_country_timezone`
   - 规则集-国家关联：`assign_countries_to_rule_set`、`remove_country_from_rule_set`。分配时自动清除旧关联（UPDATE SET rule_set_id = NULL WHERE iso3 IN ... AND rule_set_id != target）
   - 假日管理：`list_holidays`（支持年份筛选）、`create_holiday`、`update_holiday`、`delete_holiday`。R9 的 AI 假日预填通过 admin 手动触发搜集实现，搜集结果写入 `country_holidays` 表
@@ -301,14 +301,15 @@ flowchart TB
   - 在 `run_once` 开头一次性加载所有时区配置：国家→时区映射、规则集数据、假日数据，缓存到内存 dict
   - 时区检查必须在 `claim_due_emails` 内部执行，位于 `_step_condition_satisfied` 检查之后、`email_send_locks` INSERT 和 `reserve_domain_quota` 之前。不满足时区条件的 enrollment 直接 `continue` 跳过——不锁定、不消耗配额、不创建 email 记录，确保下次轮询时该 enrollment 自然重新进入候选集（R18）
   - `claim_due_emails` 的 SQL 查询中 SELECT 追加 `cc.country_iso3`（现有 JOIN 链 `sending_plan_recipients → tenant_companies → waimaotong_clean_companies` 已包含该表，只需追加 SELECT 列）
-  - 新增辅助函数 `is_sendable_now(country_iso3, tz_config)` → `(bool, skip_reason)`：
+  - 新增辅助函数 `is_sendable_now(country_iso3, tz_config)` → `(bool, skip_reason, next_sendable_at)`：
     1. 查国家时区，用 `zoneinfo.ZoneInfo` 转换当前 UTC 到当地时间
-    2. 检查当天是否是工作日（星期几匹配规则集 `work_days`）
-    3. 检查当天是否是该国假日
-    4. 检查当前时间是否在某个工作时段内（处理跨天：start > end 时检查 `now >= start OR now < end`）
-    5. 未关联规则集或无国家时，使用默认规则
-  - 不满足条件时，UPDATE `sequence_enrollments` 设置 `last_skip_reason` 和 `last_skip_at`，发送成功后清空这两个字段
+    2. **先匹配当前时间落入哪个工作时段**（包括跨天时段：`now < end` 可能属于前一天开始的跨天段）
+    3. 如果匹配到时段，用该时段的**开始时间所在日**判定工作日和假日（非当前日期）
+    4. 如果未匹配任何时段，判定为不可发送
+    5. 未关联规则集或无国家时，使用默认规则；**无国家时固定使用 UTC 时区**（非服务器本地时区，避免随 Docker 环境漂移）
+  - 不满足条件时，**计算 next_sendable_at**（下一个工作日+工作时段开始时间的 UTC 时间），UPDATE `sequence_enrollments` 设置 `next_step_due_at = next_sendable_at`、`last_skip_reason`、`last_skip_at`。这样跳过的 enrollment 不会在下一轮被重新 claim，避免忙轮询和 LIMIT 截断
   - 满足条件的继续走现有的 `reserve_domain_quota` → `send_email` 流程
+  - **域名日限处理：** `reserve_domain_quota` 抛出 `QUOTA_EXCEEDED` 时需显式捕获，已处理的 enrollment 结果（skip_reason 更新、sent 标记）不应被回滚。确保配额检查的异常不会回滚同批次已有结果
 - **Patterns to follow:** 现有 `claim_due_emails` 的 `FOR UPDATE SKIP LOCKED` 并发模式；`reserve_domain_quota` 的配额检查模式
 - **Test scenarios:**
   - 收件人国家当地时间在工作时段内，正常发送
@@ -317,7 +318,7 @@ flowchart TB
   - 收件人国家当天非工作日，跳过并记录原因「当地非工作日」
   - 跨天时段（22:00-06:00）：当地 23:30 可发送，07:00 跳过
   - 多时段（9-12 + 14-18）：当地 13:00 跳过，15:00 可发送
-  - 公司未填国家：走默认规则，按服务器时间判断
+  - 公司未填国家：走默认规则 + UTC 时区
   - 国家未关联规则集：走默认规则 + 该国时区
   - 夏令时边界：美国夏令时切换日前后，发送时间正确换算
   - 域名日限达到时停止本轮所有发送
@@ -382,6 +383,9 @@ flowchart TB
 - **前端 `dayjs` 时区支持：** 需要安装 `dayjs` 的 `timezone` 和 `utc` 插件。检查 `frontend/` 是否已有 `dayjs` 依赖
 - **国家数据质量：** ISO 3166-1 到 IANA 时区的映射需要手动维护（部分国家有多时区，需选择主时区）。种子数据准确性直接影响功能正确性
 - **Worker 性能影响：** 时区检查为纯内存计算（Python `zoneinfo` + dict lookup），不增加数据库查询。每轮开头多一次配置加载查询，影响可忽略
+- **`tzdata` 包验证：** 后端 Docker 镜像基于 `python:3.13-slim`，需在 Dockerfile 中显式安装 `tzdata`（`apt-get install -y tzdata`）或在 `pyproject.toml` 中添加 Python `tzdata` 依赖。不能假设 slim 镜像默认包含
+- **R9 AI 假日搜集实现：** 当前计划仅定义了触发入口（admin 手动触发），具体的 AI 搜集逻辑（使用哪个 LLM、prompt 设计、失败重试、批量进度）在实施时根据项目 AI 集成模式决定。不需要单独 API 端点，可作为服务层内部方法实现
+- **U8 前端类型清理：** 检查 `frontend/packages/shared-types/src/models.ts` 中是否有 `SendStrategy` 类型定义引用了 `timezone_aware`/`preferred_hours`/`daily_limit`，如有需同步清理
 
 ---
 
@@ -403,7 +407,7 @@ flowchart TB
 | Review | Trigger | Why | Runs | Status | Findings |
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 1 | CLEAR | 3 proposals, 3 accepted, 0 deferred |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 1 issue (FK 决策), 0 critical gaps |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 1 issue + outside voice 10 findings, 4 critical fixed |
 | Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAR | score: 7/10 → 9/10, 3 decisions |
 
 - **UNRESOLVED:** 0
