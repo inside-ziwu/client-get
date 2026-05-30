@@ -77,6 +77,7 @@ class InternalOpsService:
             conn,
             service_instance=payload.get("service_instance", "sending-service"),
             limit=payload.get("limit", 20),
+            domain_id=payload.get("domain_id"),
         )
 
     async def mark_email_sent(self, conn: AsyncConnection, *, email_id: str, payload: dict) -> dict:

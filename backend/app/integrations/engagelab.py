@@ -8,7 +8,9 @@ from app.core.config import Settings, get_settings
 
 
 class EngageLabSendError(Exception):
-    pass
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class EngageLabClient:
@@ -82,7 +84,8 @@ class EngageLabClient:
                 if response.status_code >= 400:
                     raise EngageLabSendError(
                         f"查询失败，status={response.status_code}: "
-                        f"{self._sanitize_provider_text(response.text)}"
+                        f"{self._sanitize_provider_text(response.text)}",
+                        status_code=response.status_code,
                     )
                 data = self._safe_json(response)
                 batch = data.get("result", [])
@@ -118,7 +121,8 @@ class EngageLabClient:
         if response.status_code >= 400:
             raise EngageLabSendError(
                 f"发送失败，provider status={response.status_code}: "
-                f"{self._sanitize_provider_text(response.text)}"
+                f"{self._sanitize_provider_text(response.text)}",
+                status_code=response.status_code,
             )
 
         data = self._safe_json(response)
@@ -135,7 +139,7 @@ class EngageLabClient:
             "html": payload["body_html"],
             "text": payload.get("body_text") or "",
         }
-        return {
+        body = {
             "from": payload["from_email"],
             "to": [payload["to_email"]],
             "body": {
@@ -150,6 +154,9 @@ class EngageLabClient:
                 },
             },
         }
+        if payload.get("idempotency_key"):
+            body["idempotency_key"] = payload["idempotency_key"]
+        return body
 
     def _safe_json(self, response: httpx.Response) -> dict[str, Any]:
         try:

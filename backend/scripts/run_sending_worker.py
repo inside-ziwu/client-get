@@ -23,7 +23,7 @@ async def run(args: argparse.Namespace) -> None:
             result = await worker.run_once(
                 engine,
                 service_instance=args.service_instance,
-                limit=args.limit,
+                idle_poll_seconds=args.idle_poll_seconds,
             )
             print(json.dumps(result, ensure_ascii=False))
             return
@@ -31,10 +31,9 @@ async def run(args: argparse.Namespace) -> None:
             result = await worker.run_once(
                 engine,
                 service_instance=args.service_instance,
-                limit=args.limit,
+                idle_poll_seconds=args.idle_poll_seconds,
             )
             print(json.dumps(result, ensure_ascii=False))
-            await asyncio.sleep(args.sleep_seconds)
     finally:
         await close_engines()
 
@@ -43,8 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run ClientGet sending worker")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--service-instance", default="sending-worker-1")
-    parser.add_argument("--limit", type=int, default=20)
-    parser.add_argument("--sleep-seconds", type=int, default=5)
+    parser.add_argument("--idle-poll-seconds", type=int, default=5)
     return parser.parse_args()
 
 
