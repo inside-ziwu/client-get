@@ -19,6 +19,12 @@ from app.utils.html_sanitizer import sanitize_html, sanitize_plain_text, sanitiz
 
 
 class TenantMessagingService:
+    RETRY_DELAYS = (
+        timedelta(minutes=15),
+        timedelta(hours=1),
+        timedelta(hours=4),
+    )
+
     def __init__(self) -> None:
         self.audit = AuditService()
         self.ai_provider = TenantAiProviderService()
@@ -1547,14 +1553,16 @@ class TenantMessagingService:
         *,
         service_instance: str,
         limit: int,
+        domain_id: str | None = None,
         timezone_config: dict | None = None,
     ) -> dict:
         timezone_config = timezone_config or await self.load_timezone_config(conn)
+        candidate_limit = max(limit * 5, 20)
         result = await conn.execute(
             text(
                 """
                 SELECT e.id AS enrollment_id, e.plan_id, e.plan_recipient_id, e.tenant_id, e.tenant_contact_id, e.current_step,
-                       e.next_step_due_at, p.domain_id, p.sender_name, p.sender_email, s.id AS step_id, s.step_number,
+                       e.next_step_due_at, p.domain_id, p.send_strategy, p.sender_name, p.sender_email, s.id AS step_id, s.step_number,
                        s.template_id, s.condition_type, s.delay_days,
                        pr.tenant_company_id, cc.company_name AS company_name, cc.country_iso3,
                        shc.name AS contact_name, shc.email AS to_email,
@@ -1571,15 +1579,18 @@ class TenantMessagingService:
                 WHERE e.status = 'active'
                   AND e.next_step_due_at <= now()
                   AND p.status = 'running'
+                  AND (CAST(:domain_id AS text) IS NULL OR p.domain_id = CAST(:domain_id AS uuid))
                 ORDER BY e.next_step_due_at ASC
-                LIMIT :limit
+                LIMIT :candidate_limit
                 FOR UPDATE OF e SKIP LOCKED
                 """
             ),
-            {"limit": limit},
+            {"domain_id": domain_id, "candidate_limit": candidate_limit},
         )
         claimed = []
         for row in result.mappings().all():
+            if len(claimed) >= limit:
+                break
             if not await self._step_condition_satisfied(conn, row):
                 continue
             sendable, skip_reason, next_sendable_at = self.is_sendable_now(row["country_iso3"], timezone_config)
@@ -1713,8 +1724,11 @@ class TenantMessagingService:
                 {
                     "email_id": email_id,
                     "tenant_id": str(row["tenant_id"]),
+                    "enrollment_id": str(row["enrollment_id"]),
                     "plan_id": str(row["plan_id"]),
                     "step_id": str(row["step_id"]),
+                    "domain_id": str(row["domain_id"]),
+                    "send_strategy": row["send_strategy"],
                     "tenant_contact_id": str(row["tenant_contact_id"]),
                     "from_email": row["sender_email"],
                     "from_name": row["sender_name"],
@@ -1912,6 +1926,7 @@ class TenantMessagingService:
                     """
                     UPDATE sequence_enrollments
                     SET status = 'completed',
+                        send_attempt_count = 0,
                         last_step_sent_at = now(),
                         next_step_due_at = NULL,
                         completed_at = now(),
@@ -1927,6 +1942,7 @@ class TenantMessagingService:
                     """
                     UPDATE sequence_enrollments
                     SET current_step = :current_step,
+                        send_attempt_count = 0,
                         last_step_sent_at = now(),
                         next_step_due_at = now() + make_interval(days => :delay_days),
                         updated_at = now()
@@ -1959,6 +1975,10 @@ class TenantMessagingService:
         payload: dict,
     ) -> dict:
         email = await self._load_email(conn, email_id)
+        is_permanent = bool(payload.get("is_permanent", False))
+        domain_id = payload.get("domain_id")
+        status_code = payload.get("status_code")
+        error_category = payload.get("error_category")
         await conn.execute(
             text(
                 """
@@ -1986,18 +2006,220 @@ class TenantMessagingService:
             ),
             {"email_id": email_id},
         )
-        await conn.execute(
+        await self._release_reserved_quota(conn, domain_id=domain_id, plan_id=email["plan_id"])
+
+        enrollment_result = await conn.execute(
             text(
                 """
-                UPDATE sequence_enrollments
-                SET next_step_due_at = now() + interval '15 minutes',
-                    updated_at = now()
+                SELECT send_attempt_count
+                FROM sequence_enrollments
                 WHERE id = :enrollment_id
+                FOR UPDATE
                 """
             ),
             {"enrollment_id": email["enrollment_id"]},
         )
-        return {"email_id": email_id, "status": "failed", "reason": payload.get("reason")}
+        enrollment = enrollment_result.mappings().first()
+        current_attempts = int(enrollment["send_attempt_count"] or 0) if enrollment else 0
+
+        if is_permanent:
+            await conn.execute(
+                text(
+                    """
+                    UPDATE sequence_enrollments
+                    SET status = 'failed',
+                        updated_at = now()
+                    WHERE id = :enrollment_id
+                    """
+                ),
+                {"enrollment_id": email["enrollment_id"]},
+            )
+            await self._update_contact_for_permanent_failure(
+                conn,
+                tenant_contact_id=email["tenant_contact_id"],
+                status_code=status_code,
+                error_category=error_category,
+            )
+            return {
+                "email_id": email_id,
+                "status": "failed",
+                "reason": payload.get("reason"),
+                "send_attempt_count": current_attempts,
+            }
+
+        next_attempts = current_attempts + 1
+        if next_attempts <= len(self.RETRY_DELAYS):
+            retry_delay = self.RETRY_DELAYS[next_attempts - 1]
+            await conn.execute(
+                text(
+                    """
+                    UPDATE sequence_enrollments
+                    SET send_attempt_count = :send_attempt_count,
+                        next_step_due_at = now() + make_interval(secs => :retry_seconds),
+                        updated_at = now()
+                    WHERE id = :enrollment_id
+                    """
+                ),
+                {
+                    "enrollment_id": email["enrollment_id"],
+                    "send_attempt_count": next_attempts,
+                    "retry_seconds": int(retry_delay.total_seconds()),
+                },
+            )
+            return {
+                "email_id": email_id,
+                "status": "retry_scheduled",
+                "reason": payload.get("reason"),
+                "send_attempt_count": next_attempts,
+                "retry_seconds": int(retry_delay.total_seconds()),
+            }
+
+        await conn.execute(
+            text(
+                """
+                UPDATE sequence_enrollments
+                SET status = 'failed',
+                    send_attempt_count = :send_attempt_count,
+                    next_step_due_at = NULL,
+                    updated_at = now()
+                WHERE id = :enrollment_id
+                """
+            ),
+            {
+                "enrollment_id": email["enrollment_id"],
+                "send_attempt_count": next_attempts,
+            },
+        )
+        return {
+            "email_id": email_id,
+            "status": "failed",
+            "reason": payload.get("reason"),
+            "send_attempt_count": next_attempts,
+        }
+
+    async def recover_stale_locks(
+        self,
+        conn: AsyncConnection,
+        *,
+        stale_minutes: int = 30,
+    ) -> dict:
+        result = await conn.execute(
+            text(
+                """
+                WITH recovered AS (
+                    UPDATE email_send_locks
+                    SET status = 'released',
+                        released_at = now()
+                    WHERE status = 'locked'
+                      AND locked_at < now() - make_interval(mins => :stale_minutes)
+                    RETURNING enrollment_id, email_id
+                )
+                SELECT recovered.enrollment_id,
+                       recovered.email_id,
+                       sequence_enrollments.plan_id
+                FROM recovered
+                JOIN sequence_enrollments
+                  ON sequence_enrollments.id = recovered.enrollment_id
+                """
+            ),
+            {"stale_minutes": stale_minutes},
+        )
+        recovered = result.mappings().all()
+        for row in recovered:
+            if row["email_id"]:
+                email = await self._load_email(conn, str(row["email_id"]))
+                await conn.execute(
+                    text(
+                        """
+                        UPDATE emails
+                        SET status = 'failed',
+                            error_code = 'STALE_LOCK',
+                            error_message = '发送锁超过恢复阈值，已由 worker 启动恢复'
+                        WHERE id = :email_id
+                          AND created_at = :created_at
+                          AND status = 'queued'
+                        """
+                    ),
+                    {"email_id": email["id"], "created_at": email["created_at"]},
+                )
+                await self._release_reserved_quota(conn, domain_id=None, plan_id=email["plan_id"])
+            else:
+                await self._release_reserved_quota(conn, domain_id=None, plan_id=row["plan_id"])
+        return {
+            "recovered_count": len(recovered),
+            "enrollment_ids": [str(row["enrollment_id"]) for row in recovered],
+        }
+
+    async def list_running_domain_ids(self, conn: AsyncConnection) -> list[str]:
+        result = await conn.execute(
+            text(
+                """
+                SELECT DISTINCT domain_id
+                FROM sending_plans
+                WHERE status = 'running'
+                  AND domain_id IS NOT NULL
+                ORDER BY domain_id
+                """
+            )
+        )
+        return [str(row["domain_id"]) for row in result.mappings().all()]
+
+    async def _release_reserved_quota(
+        self,
+        conn: AsyncConnection,
+        *,
+        domain_id: str | None,
+        plan_id,
+    ) -> None:
+        resolved_domain_id = domain_id
+        if not resolved_domain_id:
+            result = await conn.execute(
+                text("SELECT domain_id FROM sending_plans WHERE id = :plan_id"),
+                {"plan_id": plan_id},
+            )
+            row = result.mappings().first()
+            if row is None or row["domain_id"] is None:
+                return
+            resolved_domain_id = str(row["domain_id"])
+        await conn.execute(
+            text(
+                """
+                UPDATE domain_daily_usage
+                SET reserved_count = GREATEST(reserved_count - 1, 0),
+                    updated_at = now()
+                WHERE domain_id = CAST(:domain_id AS uuid)
+                  AND usage_date = CURRENT_DATE
+                """
+            ),
+            {"domain_id": resolved_domain_id},
+        )
+
+    async def _update_contact_for_permanent_failure(
+        self,
+        conn: AsyncConnection,
+        *,
+        tenant_contact_id,
+        status_code: int | None,
+        error_category: str | None,
+    ) -> None:
+        next_status = None
+        if error_category == "invalid" or status_code == 422:
+            next_status = "invalid"
+        elif error_category == "bounce":
+            next_status = "bounced"
+        if not next_status:
+            return
+        await conn.execute(
+            text(
+                """
+                UPDATE tenant_contacts
+                SET contact_status = :contact_status,
+                    updated_at = now()
+                WHERE id = :tenant_contact_id
+                """
+            ),
+            {"tenant_contact_id": tenant_contact_id, "contact_status": next_status},
+        )
 
     async def reserve_domain_quota(self, conn: AsyncConnection, *, domain_id: str, count: int) -> dict:
         usage = await conn.execute(
@@ -2087,7 +2309,7 @@ class TenantMessagingService:
             excluded_reason = None
             if self._is_blacklisted(row, blacklist):
                 excluded_reason = "blacklisted"
-            elif row["contact_status"] in {"unsubscribed", "bounced"}:
+            elif row["contact_status"] in {"unsubscribed", "bounced", "invalid"}:
                 excluded_reason = row["contact_status"]
             elif not row.get("is_sendable", True):
                 excluded_reason = "not_sendable"
@@ -2293,7 +2515,7 @@ class TenantMessagingService:
                     WHERE gm.tenant_id = :tenant_id
                       AND gm.group_id = :group_id
                       AND shc.email IS NOT NULL
-                      AND tc.contact_status NOT IN ('unsubscribed', 'bounced')
+                      AND tc.contact_status NOT IN ('unsubscribed', 'bounced', 'invalid')
                       AND tco.data_status = 'ready'
                       AND COALESCE(pcl.is_sendable, true) = true
                 ),
