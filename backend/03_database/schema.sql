@@ -1036,6 +1036,44 @@ CREATE TABLE email_templates (
 );
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON email_templates FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
+CREATE TABLE work_rule_sets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  work_days int[] NOT NULL,
+  time_segments jsonb NOT NULL,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (array_length(work_days, 1) IS NOT NULL),
+  CHECK (time_segments <> '[]'::jsonb)
+);
+CREATE UNIQUE INDEX idx_work_rule_sets_one_default ON work_rule_sets(is_default) WHERE is_default;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON work_rule_sets FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TABLE countries (
+  iso3 char(3) PRIMARY KEY,
+  name_zh text NOT NULL,
+  name_en text NOT NULL,
+  timezone text NOT NULL,
+  rule_set_id uuid REFERENCES work_rule_sets(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (iso3 ~ '^[A-Z]{3}$')
+);
+CREATE INDEX idx_countries_rule_set ON countries(rule_set_id);
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON countries FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TABLE country_holidays (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  country_iso3 char(3) NOT NULL REFERENCES countries(iso3) ON DELETE CASCADE,
+  date date NOT NULL,
+  name text,
+  source varchar(20) NOT NULL DEFAULT 'manual',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (country_iso3, date)
+);
+CREATE INDEX idx_country_holidays_country_date ON country_holidays(country_iso3, date);
+
 CREATE TABLE sending_plans (
   id uuid PRIMARY KEY,
   tenant_id uuid NOT NULL REFERENCES tenants(id),
@@ -1045,7 +1083,7 @@ CREATE TABLE sending_plans (
   status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','scheduled','running','paused','completed','cancelled')),
   recipient_source varchar(20) NOT NULL CHECK (recipient_source IN ('group','manual','filter')),
   recipient_config jsonb NOT NULL,
-  send_strategy jsonb NOT NULL DEFAULT '{"timezone_aware":true,"preferred_hours":[9,17],"daily_limit":100,"interval_seconds":[30,120]}',
+  send_strategy jsonb NOT NULL DEFAULT '{"interval_seconds":[30,120]}',
   sender_name varchar(200),
   sender_email varchar(255),
   domain_id uuid REFERENCES domain_warmup_status(id),
@@ -1106,6 +1144,8 @@ CREATE TABLE sequence_enrollments (
   enrolled_at timestamptz NOT NULL DEFAULT now(),
   last_step_sent_at timestamptz,
   next_step_due_at timestamptz,
+  last_skip_reason text,
+  last_skip_at timestamptz,
   completed_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -1173,6 +1213,7 @@ CREATE TABLE emails (
 
 CREATE INDEX idx_emails_tenant_created ON emails(tenant_id, created_at DESC, id DESC);
 CREATE INDEX idx_emails_engagelab ON emails(engagelab_message_id) WHERE engagelab_message_id IS NOT NULL;
+CREATE INDEX idx_emails_enrollment ON emails(enrollment_id) WHERE enrollment_id IS NOT NULL;
 CREATE INDEX idx_emails_open_tracking ON emails(tenant_id, first_opened_at) WHERE first_opened_at IS NOT NULL;
 CREATE INDEX idx_emails_delivery_flags ON emails(tenant_id, soft_bounce, report_spam, unsubscribed) WHERE soft_bounce OR report_spam OR unsubscribed;
 

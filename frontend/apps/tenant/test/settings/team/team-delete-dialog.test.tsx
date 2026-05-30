@@ -43,7 +43,9 @@ function renderWithProviders() {
 
 async function openDeleteDialog() {
   const deleteBtns = await screen.findAllByText('删除');
-  fireEvent.click(deleteBtns[0]);
+  const deleteBtn = deleteBtns[0];
+  expect(deleteBtn).toBeDefined();
+  fireEvent.click(deleteBtn!);
   await waitFor(() => {
     expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
   });

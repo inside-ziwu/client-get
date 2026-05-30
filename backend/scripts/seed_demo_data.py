@@ -405,7 +405,7 @@ async def ensure_plan(
                 "description": "Seeded demo sending plan",
                 "recipient_source": "group",
                 "recipient_config": {"group_id": group_id},
-                "send_strategy": {"timezone_aware": True, "preferred_hours": [9, 17], "daily_limit": 100},
+                "send_strategy": {"interval_seconds": [30, 120]},
                 "sender_name": "ClientGet Demo",
                 "sender_email": sender_email,
                 "domain_id": domain_id,

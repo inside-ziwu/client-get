@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   Bot,
   Building2,
+  Clock,
   Database,
   Flame,
   Globe2,
@@ -46,6 +47,7 @@ const groups = [
       { href: '/scoring-templates', label: '评分模板', icon: Star },
       { href: '/contact-classification', label: '联系人规则', icon: Network },
       { href: '/warmup-rules', label: '预热规则', icon: Flame },
+      { href: '/work-schedule', label: '发送时间配置', icon: Clock },
       { href: '/ai-config', label: 'AI 配置', icon: Bot },
     ],
   },

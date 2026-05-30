@@ -43,7 +43,9 @@ function renderWithProviders() {
 
 async function openEditDialog() {
   const editBtns = await screen.findAllByText('编辑');
-  fireEvent.click(editBtns[0]);
+  const editBtn = editBtns[0];
+  expect(editBtn).toBeDefined();
+  fireEvent.click(editBtn!);
   await waitFor(() => {
     expect(document.querySelector('[role="dialog"]')).toBeTruthy();
   });

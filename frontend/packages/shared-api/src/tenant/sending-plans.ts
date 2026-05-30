@@ -21,6 +21,18 @@ export interface SendingPlanRecipient {
   contact_name?: string;
   enrollment_status?: string;
   current_step?: number;
+  next_step_due_at?: string | null;
+  country_iso3?: string | null;
+  timezone?: string | null;
+  last_skip_reason?: string | null;
+  last_skip_at?: string | null;
+}
+
+export interface RecipientCountryDistribution {
+  country_iso3: string | null;
+  country_name: string | null;
+  count: number;
+  percentage: number;
 }
 
 export interface PreviewRecipientContact {
@@ -64,6 +76,7 @@ export interface SendingPlan {
   total_recipients?: number;
   sent_count?: number;
   steps_count?: number;
+  recipient_country_distribution?: RecipientCountryDistribution[];
   created_at: string;
   updated_at: string;
 }

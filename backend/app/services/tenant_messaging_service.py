@@ -1,7 +1,8 @@
 import base64
 import json
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -480,7 +481,7 @@ class TenantMessagingService:
                 "send_strategy": self._to_json(
                     payload.get(
                         "send_strategy",
-                        {"timezone_aware": True, "preferred_hours": [9, 17], "daily_limit": 100, "interval_seconds": [30, 120]},
+                        {"interval_seconds": [30, 120]},
                     )
                 ),
                 "sender_name": payload.get("sender_name"),
@@ -579,6 +580,7 @@ class TenantMessagingService:
             raise AppError(code="NOT_FOUND", message="发送计划不存在", status_code=404)
         plan = self._serialize_plan(row)
         plan["steps_count"] = len(await self.list_plan_steps(conn, tenant_id, plan_id))
+        plan["recipient_country_distribution"] = await self._recipient_country_distribution(conn, tenant_id, plan_id)
         return plan
 
     async def update_sending_plan(
@@ -924,11 +926,14 @@ class TenantMessagingService:
                 """
                 SELECT pr.id, pr.tenant_company_id, pr.tenant_contact_id, pr.source_type, pr.source_ref, pr.locked_at,
                        pr.appended_after_start, pr.excluded_at, pr.excluded_reason, cc.company_name AS company_name,
+                       cc.country_iso3, c.timezone,
                        shc.email AS contact_email, shc.name AS contact_name,
-                       se.status AS enrollment_status, se.current_step AS current_step
+                       se.status AS enrollment_status, se.current_step AS current_step,
+                       se.next_step_due_at, se.last_skip_reason, se.last_skip_at
                 FROM sending_plan_recipients pr
                 JOIN tenant_companies tc ON tc.id = pr.tenant_company_id
                 JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
+                LEFT JOIN countries c ON c.iso3 = cc.country_iso3
                 JOIN tenant_contacts tc2 ON tc2.id = pr.tenant_contact_id
                 LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tc2.clean_contact_id
                 LEFT JOIN sequence_enrollments se ON se.plan_id = pr.plan_id AND se.tenant_contact_id = pr.tenant_contact_id
@@ -954,6 +959,50 @@ class TenantMessagingService:
                 "contact_email": row["contact_email"],
                 "enrollment_status": row["enrollment_status"],
                 "current_step": row["current_step"],
+                "next_step_due_at": row["next_step_due_at"].isoformat() if row["next_step_due_at"] else None,
+                "country_iso3": row["country_iso3"],
+                "timezone": row["timezone"],
+                "last_skip_reason": row["last_skip_reason"],
+                "last_skip_at": row["last_skip_at"].isoformat() if row["last_skip_at"] else None,
+            }
+            for row in result.mappings().all()
+        ]
+
+    async def _recipient_country_distribution(
+        self,
+        conn: AsyncConnection,
+        tenant_id: str,
+        plan_id: str,
+    ) -> list[dict]:
+        result = await conn.execute(
+            text(
+                """
+                WITH country_counts AS (
+                  SELECT cc.country_iso3, c.name_zh AS country_name, count(*) AS count
+                  FROM sending_plan_recipients pr
+                  JOIN tenant_companies tc ON tc.id = pr.tenant_company_id
+                  JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
+                  LEFT JOIN countries c ON c.iso3 = cc.country_iso3
+                  WHERE pr.tenant_id = :tenant_id AND pr.plan_id = :plan_id
+                  GROUP BY cc.country_iso3, c.name_zh
+                ),
+                totals AS (
+                  SELECT sum(count) AS total FROM country_counts
+                )
+                SELECT country_iso3, country_name, count,
+                       CASE WHEN totals.total > 0 THEN count::float / totals.total ELSE 0 END AS percentage
+                FROM country_counts, totals
+                ORDER BY count DESC, country_iso3 ASC
+                """
+            ),
+            {"tenant_id": tenant_id, "plan_id": plan_id},
+        )
+        return [
+            {
+                "country_iso3": row["country_iso3"],
+                "country_name": row["country_name"],
+                "count": row["count"],
+                "percentage": float(row["percentage"] or 0),
             }
             for row in result.mappings().all()
         ]
@@ -1258,10 +1307,16 @@ class TenantMessagingService:
                 f"""
                 SELECT e.id, e.created_at, e.plan_id, e.step_id, e.step_number, e.template_id, e.enrollment_id,
                        e.tenant_contact_id, e.from_email, e.to_email, e.subject, e.status, e.sent_at, e.opened_at,
-                       e.clicked_at, e.replied_at, e.bounced_at, sp.name AS plan_name, et.name AS template_name
+                       e.clicked_at, e.replied_at, e.bounced_at, sp.name AS plan_name, et.name AS template_name,
+                       cc.country_iso3, c.timezone
                 FROM emails e
                 LEFT JOIN sending_plans sp ON sp.id = e.plan_id
                 LEFT JOIN email_templates et ON et.id = e.template_id
+                LEFT JOIN sequence_enrollments se ON se.id = e.enrollment_id
+                LEFT JOIN sending_plan_recipients pr ON pr.id = se.plan_recipient_id
+                LEFT JOIN tenant_companies tc ON tc.id = pr.tenant_company_id
+                LEFT JOIN waimaotong_clean_companies cc ON cc.id = tc.clean_company_id
+                LEFT JOIN countries c ON c.iso3 = cc.country_iso3
                 WHERE e.tenant_id = :tenant_id
                   {cursor_clause}
                   {plan_clause}
@@ -1492,14 +1547,17 @@ class TenantMessagingService:
         *,
         service_instance: str,
         limit: int,
+        timezone_config: dict | None = None,
     ) -> dict:
+        timezone_config = timezone_config or await self.load_timezone_config(conn)
         result = await conn.execute(
             text(
                 """
                 SELECT e.id AS enrollment_id, e.plan_id, e.plan_recipient_id, e.tenant_id, e.tenant_contact_id, e.current_step,
                        e.next_step_due_at, p.domain_id, p.sender_name, p.sender_email, s.id AS step_id, s.step_number,
                        s.template_id, s.condition_type, s.delay_days,
-                       pr.tenant_company_id, cc.company_name AS company_name, shc.name AS contact_name, shc.email AS to_email,
+                       pr.tenant_company_id, cc.company_name AS company_name, cc.country_iso3,
+                       shc.name AS contact_name, shc.email AS to_email,
                        t.subject, t.body_html, t.body_text
                 FROM sequence_enrollments e
                 JOIN sending_plans p ON p.id = e.plan_id
@@ -1523,6 +1581,26 @@ class TenantMessagingService:
         claimed = []
         for row in result.mappings().all():
             if not await self._step_condition_satisfied(conn, row):
+                continue
+            sendable, skip_reason, next_sendable_at = self.is_sendable_now(row["country_iso3"], timezone_config)
+            if not sendable:
+                await conn.execute(
+                    text(
+                        """
+                        UPDATE sequence_enrollments
+                        SET next_step_due_at = :next_sendable_at,
+                            last_skip_reason = :skip_reason,
+                            last_skip_at = now(),
+                            updated_at = now()
+                        WHERE id = :enrollment_id
+                        """
+                    ),
+                    {
+                        "enrollment_id": row["enrollment_id"],
+                        "next_sendable_at": next_sendable_at,
+                        "skip_reason": skip_reason,
+                    },
+                )
                 continue
             inserted = await conn.execute(
                 text(
@@ -1552,7 +1630,22 @@ class TenantMessagingService:
             )
             if inserted.mappings().first() is None:
                 continue
-            await self.reserve_domain_quota(conn, domain_id=str(row["domain_id"]), count=1)
+            try:
+                await self.reserve_domain_quota(conn, domain_id=str(row["domain_id"]), count=1)
+            except AppError as exc:
+                if exc.code != "QUOTA_EXCEEDED":
+                    raise
+                await conn.execute(
+                    text(
+                        """
+                        UPDATE email_send_locks
+                        SET status = 'released', released_at = now()
+                        WHERE enrollment_id = :enrollment_id AND step_id = :step_id
+                        """
+                    ),
+                    {"enrollment_id": row["enrollment_id"], "step_id": row["step_id"]},
+                )
+                break
             created_at = datetime.now(timezone.utc)
             email_id = str(new_uuid())
             body_html = self._render_text(
@@ -1633,6 +1726,125 @@ class TenantMessagingService:
                 }
             )
         return {"items": claimed}
+
+    async def load_timezone_config(self, conn: AsyncConnection) -> dict:
+        rules_result = await conn.execute(
+            text(
+                """
+                SELECT id, name, work_days, time_segments, is_default
+                FROM work_rule_sets
+                ORDER BY is_default DESC, created_at ASC
+                """
+            )
+        )
+        rules = {}
+        default_rule = None
+        for row in rules_result.mappings().all():
+            rule = {
+                "id": str(row["id"]),
+                "name": row["name"],
+                "work_days": list(row["work_days"]),
+                "time_segments": row["time_segments"],
+                "is_default": row["is_default"],
+            }
+            rules[rule["id"]] = rule
+            if rule["is_default"]:
+                default_rule = rule
+
+        countries_result = await conn.execute(
+            text("SELECT iso3, timezone, rule_set_id FROM countries")
+        )
+        countries = {
+            row["iso3"]: {
+                "timezone": row["timezone"],
+                "rule_set_id": str(row["rule_set_id"]) if row["rule_set_id"] else None,
+            }
+            for row in countries_result.mappings().all()
+        }
+        holidays_result = await conn.execute(text("SELECT country_iso3, date FROM country_holidays"))
+        holidays = {
+            (row["country_iso3"], row["date"].isoformat())
+            for row in holidays_result.mappings().all()
+        }
+        return {"rules": rules, "default_rule": default_rule, "countries": countries, "holidays": holidays}
+
+    def is_sendable_now(
+        self,
+        country_iso3: str | None,
+        timezone_config: dict,
+        now_utc: datetime | None = None,
+    ) -> tuple[bool, str | None, datetime | None]:
+        rule, timezone_name, holiday_country = self._rule_for_country(country_iso3, timezone_config)
+        if rule is None:
+            return True, None, None
+
+        local_tz = ZoneInfo(timezone_name)
+        now = now_utc or datetime.now(timezone.utc)
+        local_now = now.astimezone(local_tz)
+        matched_start_date = self._matched_segment_start_date(local_now, rule["time_segments"])
+        if matched_start_date is None:
+            return False, "当地非工作时间", self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config)
+        if matched_start_date.weekday() not in rule["work_days"]:
+            return False, "当地非工作日", self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config)
+        if self._is_holiday(holiday_country, matched_start_date, timezone_config):
+            return False, "当地假日", self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config)
+        return True, None, None
+
+    def _rule_for_country(self, country_iso3: str | None, timezone_config: dict) -> tuple[dict | None, str, str | None]:
+        default_rule = timezone_config.get("default_rule")
+        if not country_iso3:
+            return default_rule, "UTC", None
+        country = timezone_config.get("countries", {}).get(country_iso3)
+        if country is None:
+            return default_rule, "UTC", None
+        rule = timezone_config.get("rules", {}).get(country.get("rule_set_id")) or default_rule
+        return rule, country["timezone"], country_iso3
+
+    def _matched_segment_start_date(self, local_now: datetime, segments: list[dict]) -> date | None:
+        current_minute = local_now.hour * 60 + local_now.minute
+        for segment in segments:
+            start = self._segment_minute(segment["start"])
+            end = self._segment_minute(segment["end"])
+            if start < end and start <= current_minute < end:
+                return local_now.date()
+            if start > end:
+                if current_minute >= start:
+                    return local_now.date()
+                if current_minute < end:
+                    return local_now.date() - timedelta(days=1)
+        return None
+
+    def _next_sendable_at(
+        self,
+        local_now: datetime,
+        local_tz: ZoneInfo,
+        rule: dict,
+        holiday_country: str | None,
+        timezone_config: dict,
+    ) -> datetime:
+        segments = sorted(rule["time_segments"], key=lambda item: self._segment_minute(item["start"]))
+        for offset in range(15):
+            candidate_date = local_now.date() + timedelta(days=offset)
+            if candidate_date.weekday() not in rule["work_days"]:
+                continue
+            if self._is_holiday(holiday_country, candidate_date, timezone_config):
+                continue
+            for segment in segments:
+                candidate = datetime.combine(
+                    candidate_date,
+                    time.fromisoformat(segment["start"]),
+                    tzinfo=local_tz,
+                )
+                if candidate > local_now:
+                    return candidate.astimezone(timezone.utc)
+        return (local_now + timedelta(hours=1)).astimezone(timezone.utc)
+
+    def _is_holiday(self, country_iso3: str | None, local_date: date, timezone_config: dict) -> bool:
+        return bool(country_iso3 and (country_iso3, local_date.isoformat()) in timezone_config.get("holidays", set()))
+
+    def _segment_minute(self, value: str) -> int:
+        hour, minute = value.split(":")
+        return int(hour) * 60 + int(minute)
 
     async def mark_email_sent(
         self,
@@ -2414,6 +2626,8 @@ class TenantMessagingService:
             "status": row["status"],
             "plan_name": row.get("plan_name"),
             "template_name": row.get("template_name"),
+            "country_iso3": row.get("country_iso3"),
+            "timezone": row.get("timezone"),
             "sent_at": row["sent_at"].isoformat() if row["sent_at"] else None,
             "opened_at": row["opened_at"].isoformat() if row["opened_at"] else None,
             "clicked_at": row["clicked_at"].isoformat() if row["clicked_at"] else None,

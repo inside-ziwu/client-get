@@ -50,10 +50,12 @@ class SendingWorker:
         """
         # 步骤 1：领取到期邮件（写入 emails 表 status=queued，lock 保证并发安全）
         async with engine.begin() as conn:
+            timezone_config = await self.service.load_timezone_config(conn)
             claimed = await self.service.claim_due_emails(
                 conn,
                 service_instance=service_instance,
                 limit=limit,
+                timezone_config=timezone_config,
             )
 
         processed = []
