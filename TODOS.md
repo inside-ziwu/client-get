@@ -10,6 +10,8 @@
 
 - **收件人筛选扩展 contact_status NOT IN 包含 'invalid'**：发送节流与可靠性计划（R7）会将永久失败的联系人标记为 `contact_status='invalid'`，但 `tenant_messaging_service.py:2296` 的收件人筛选查询只过滤 `NOT IN ('unsubscribed', 'bounced')`。不扩展意味着未来 plan 会继续选中 invalid 联系人并重复失败，浪费配额和 API 调用。修改一行 SQL 即可：`NOT IN ('unsubscribed', 'bounced', 'invalid')`。（来源：sending-throttle-reliability 工程审查 D9，Codex outside voice 也独立发现此问题）
 
+- **Webhook 回填定时任务**：EngageLab 在高并发发送时存在 webhook 回调丢失（5/29 发送 672 封，约 60% 的 delivered/bounced 回调未到达）。现已改为逐封节流发送，问题应不再出现。若再次出现 sent 状态滞留，将 `backend/scripts/backfill_email_status.py` 改造为每日定时任务，自动扫描前一天滞留的 sent 邮件并通过 EngageLab API 回填真实状态。（来源：2026-05-30 生产数据排查）
+
 - **后端团队管理 API 保护**：`TenantTeamService` 的 `update_user` 和 `delete_user` 缺少两项保护：(1) 最后一个 admin 保护 — 可以把最后一个 admin 降级/禁用/删除，导致租户被永久锁定（无人能访问团队管理页面）；(2) 自操作拦截 — 后端不阻止 `user_id === actor_user_id` 的自删/自禁用/自降级操作（前端通过按钮隐藏防护，但 API 层可绕过）。建议在 `backend/app/services/tenant_team_service.py` 的 `update_user` 和 `delete_user` 中增加检查。（来源：team-management-crud-completion 工程审查 Codex outside voice，代码验证 confidence 10/10）
 
 ## Completed

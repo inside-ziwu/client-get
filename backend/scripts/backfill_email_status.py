@@ -5,6 +5,7 @@
   cd backend
   python -m scripts.backfill_email_status --date 2025-05-24 --prod
   python -m scripts.backfill_email_status --date 2025-05-24 --prod --execute
+
 """
 
 import argparse
@@ -42,6 +43,7 @@ async def run(args: argparse.Namespace) -> None:
             return
         # 替换开发库 URL，复用 Settings 的 asyncpg 转换逻辑
         os.environ["CLIENTGET_DEV_DATABASE_URL"] = prod_url
+        os.environ.setdefault("ENGAGELAB_TIMEOUT_SECONDS", "60")
         get_settings.cache_clear()
         print(">>> 连接生产库")
 
