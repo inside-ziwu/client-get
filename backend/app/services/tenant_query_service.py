@@ -805,14 +805,16 @@ class TenantQueryService:
         row = dict(summary_result.mappings().one())
 
         sent = row["sent"]
-        pct = lambda x: round(x / sent * 100, 2) if sent > 0 else 0
+        delivered = row["delivered"]
+        pct_sent = lambda x: round(x / sent * 100, 2) if sent > 0 else 0
+        pct_delivered = lambda x: round(x / delivered * 100, 2) if delivered > 0 else 0
 
         summary = {
             **row,
             "billing": sent,
-            "delivered_percent": pct(row["delivered"]),
-            "total_open_percent": pct(row["total_opens"]),
-            "open_percent": pct(row["opens"]),
+            "delivered_percent": pct_sent(row["delivered"]),
+            "total_open_percent": pct_delivered(row["total_opens"]),
+            "open_percent": pct_delivered(row["opens"]),
         }
 
         daily_result = await conn.execute(

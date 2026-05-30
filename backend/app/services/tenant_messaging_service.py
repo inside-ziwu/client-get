@@ -1403,22 +1403,24 @@ class TenantMessagingService:
         )
         row = result.mappings().one()
         data = dict(row)
-        # 计算各项比率（分母为已发送总量）
         sent = int(data.get("sent") or 0)
+        delivered = int(data.get("delivered") or 0)
         if sent > 0:
-            data["delivery_rate"] = round(int(data.get("delivered") or 0) / sent, 4)
-            data["open_rate"] = round(int(data.get("opened_unique") or 0) / sent, 4)
+            data["delivery_rate"] = round(delivered / sent, 4)
             data["soft_bounce_rate"] = round(int(data.get("soft_bounce_count") or 0) / sent, 4)
-            data["report_spam_rate"] = round(int(data.get("report_spam_count") or 0) / sent, 4)
-            data["unsubscribed_rate"] = round(int(data.get("unsubscribed_count") or 0) / sent, 4)
             data["bounce_rate"] = round(int(data.get("bounced") or 0) / sent, 4)
         else:
             data["delivery_rate"] = 0
-            data["open_rate"] = 0
             data["soft_bounce_rate"] = 0
+            data["bounce_rate"] = 0
+        if delivered > 0:
+            data["open_rate"] = round(int(data.get("opened_unique") or 0) / delivered, 4)
+            data["report_spam_rate"] = round(int(data.get("report_spam_count") or 0) / delivered, 4)
+            data["unsubscribed_rate"] = round(int(data.get("unsubscribed_count") or 0) / delivered, 4)
+        else:
+            data["open_rate"] = 0
             data["report_spam_rate"] = 0
             data["unsubscribed_rate"] = 0
-            data["bounce_rate"] = 0
         return data
 
     async def email_stats_by_plan(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
