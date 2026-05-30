@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   Checkbox,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
   Label,
   Select,
   SelectContent,
@@ -132,42 +129,30 @@ function CompanyRecipientList({ companies }: { companies: PreviewRecipientCompan
           const isOpen = expanded[co.tenant_company_id] ?? false;
           const validRecipients = co.recipients.filter((r) => r.excluded_reason === null);
           return (
-            <Collapsible
-              key={co.tenant_company_id}
-              open={isOpen}
-              onOpenChange={(open) =>
-                setExpanded((prev) => ({ ...prev, [co.tenant_company_id]: open }))
-              }
-              asChild
-            >
-              <>
-                <CollapsibleTrigger asChild>
-                  <TableRow className="cursor-pointer hover:bg-muted/50">
-                    <TableCell className="w-8 px-2">
-                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </TableCell>
-                    <TableCell className="font-medium">{co.company_name}</TableCell>
-                    <TableCell className="text-right">{co.recipient_count} 人</TableCell>
-                  </TableRow>
-                </CollapsibleTrigger>
-                <CollapsibleContent asChild>
-                  <>
-                    {validRecipients.map((r, i) => (
-                      <TableRow key={i} className="bg-muted/30">
-                        <TableCell />
-                        <TableCell className="pl-8 text-sm text-muted-foreground">
-                          {r.contact_name ?? '-'}
-                          {r.level_name && (
-                            <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs">{r.level_name}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm text-muted-foreground">{r.contact_email}</TableCell>
-                      </TableRow>
-                    ))}
-                  </>
-                </CollapsibleContent>
-              </>
-            </Collapsible>
+            <Fragment key={co.tenant_company_id}>
+              <TableRow
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => setExpanded((prev) => ({ ...prev, [co.tenant_company_id]: !isOpen }))}
+              >
+                <TableCell className="w-8 px-2">
+                  {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </TableCell>
+                <TableCell className="font-medium">{co.company_name}</TableCell>
+                <TableCell className="text-right">{co.recipient_count} 人</TableCell>
+              </TableRow>
+              {isOpen && validRecipients.map((r, i) => (
+                <TableRow key={`${co.tenant_company_id}-${i}`} className="bg-muted/30">
+                  <TableCell />
+                  <TableCell className="pl-8 text-sm text-muted-foreground">
+                    {r.contact_name ?? '-'}
+                    {r.level_name && (
+                      <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs">{r.level_name}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-sm text-muted-foreground">{r.contact_email}</TableCell>
+                </TableRow>
+              ))}
+            </Fragment>
           );
         })}
       </TableBody>

@@ -30,6 +30,7 @@ import {
 import type { SendingPlanStatus } from '@shared/types';
 import { tenantApi } from '@/lib/api';
 import { DataTable, PageHeader } from '@/components/pages/page-kit';
+import { formatDateTime, formatZonedDateTime } from '@/lib/format';
 
 const CONDITION_LABELS: Record<string, string> = {
   always: '始终发送',
@@ -47,7 +48,9 @@ const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 const EMAIL_STATUS_LABELS: Record<string, string> = {
+  queued: '已排队',
   sent: '已发送',
+  failed: '发送失败',
   delivered: '已送达',
   opened: '已打开',
   clicked: '已点击',
@@ -85,6 +88,7 @@ export default function SendPlanDetailPage() {
   const planQuery = useQuery({
     queryKey: ['tenant', 'sendingPlans', planId],
     queryFn: async () => (await tenantApi.sendingPlans.detail(planId)).data.data,
+    refetchInterval: (query) => (query.state.data?.status === 'running' ? 5000 : false),
   });
 
   const stepsQuery = useQuery({
@@ -95,11 +99,13 @@ export default function SendPlanDetailPage() {
   const recipientsQuery = useQuery({
     queryKey: ['tenant', 'sendingPlans', planId, 'recipients'],
     queryFn: async () => (await tenantApi.sendingPlans.listRecipients(planId)).data.data,
+    refetchInterval: () => (planQuery.data?.status === 'running' ? 5000 : false),
   });
 
   const emailsQuery = useQuery({
     queryKey: ['tenant', 'emails', { plan_id: planId }],
     queryFn: async () => (await tenantApi.emails.list({ plan_id: planId })).data.data,
+    refetchInterval: () => (planQuery.data?.status === 'running' ? 5000 : false),
   });
 
   const plan = planQuery.data;
@@ -108,6 +114,7 @@ export default function SendPlanDetailPage() {
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['tenant', 'sendingPlans', planId] });
+    queryClient.invalidateQueries({ queryKey: ['tenant', 'sendingPlans', planId, 'recipients'] });
     queryClient.invalidateQueries({ queryKey: ['tenant', 'emails', { plan_id: planId }] });
   };
 
@@ -188,6 +195,22 @@ export default function SendPlanDetailPage() {
                     { label: '描述', value: plan.description },
                   ]}
                 />
+                <div className="mt-6 border-t border-border pt-5">
+                  <h3 className="mb-3 text-sm font-medium">收件人时区分布</h3>
+                  {(plan.recipient_country_distribution ?? []).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">暂无收件人</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(plan.recipient_country_distribution ?? []).map((item) => (
+                        <div key={item.country_iso3 ?? 'unknown'} className="grid gap-2 text-sm md:grid-cols-[1fr_90px_80px]">
+                          <span>{item.country_name ?? item.country_iso3 ?? '未知国家'}</span>
+                          <span>{item.count} 人</span>
+                          <span>{Math.round(item.percentage * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -232,8 +255,13 @@ export default function SendPlanDetailPage() {
             columns={[
               { key: 'email', title: '邮箱', render: (row) => row.contact_email ?? '-' },
               { key: 'company', title: '公司', render: (row) => row.company_name ?? '-' },
+              { key: 'country', title: '国家', render: (row) => row.country_iso3 ?? '-' },
               { key: 'status', title: '状态', render: (row) => ENROLLMENT_STATUS_LABELS[row.enrollment_status ?? ''] ?? row.enrollment_status ?? '-' },
               { key: 'step', title: '当前步骤', render: (row) => row.current_step ?? '-' },
+              { key: 'next_send_at', title: '下次发送时间', render: (row) => (
+                row.timezone ? formatZonedDateTime(row.next_step_due_at, row.timezone) : formatDateTime(row.next_step_due_at)
+              ) },
+              { key: 'skip_reason', title: '跳过原因', render: (row) => row.last_skip_reason ?? '-' },
             ]}
           />
         </TabsContent>
@@ -247,7 +275,12 @@ export default function SendPlanDetailPage() {
               { key: 'status', title: '状态', render: (row) => { const s = row.status as string | undefined; return s ? (EMAIL_STATUS_LABELS[s] ?? s) : '-'; }},
               { key: 'sent_at', title: '发送时间', render: (row) => {
                 const t = row.sent_at as string | undefined;
-                return t ? t.slice(0, 16).replace('T', ' ') : '-';
+                return formatZonedDateTime(t, 'Asia/Shanghai');
+              }},
+              { key: 'local_time', title: '当地时间', render: (row) => {
+                const sentAt = row.sent_at as string | undefined;
+                const tz = row.timezone as string | undefined;
+                return formatZonedDateTime(sentAt, tz);
               }},
             ]}
             emptyText={plan?.status === 'draft' ? '计划尚未开始发送' : '暂无发送记录'}

@@ -9,6 +9,7 @@ import { emailTemplatesApi } from './email-templates';
 import { warmupRulesApi } from './warmup-rules';
 import { aiConfigApi } from './ai-config';
 import { tenantsApi } from './tenants';
+import { workScheduleApi } from './work-schedule';
 
 export function createAdminApi(client: AxiosInstance) {
   return {
@@ -22,6 +23,7 @@ export function createAdminApi(client: AxiosInstance) {
     warmupRules: warmupRulesApi(client),
     aiConfig: aiConfigApi(client),
     tenants: tenantsApi(client),
+    workSchedule: workScheduleApi(client),
   };
 }
 

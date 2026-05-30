@@ -1,0 +1,1502 @@
+[
+  {
+    "iso3": "ABW",
+    "name_zh": "阿鲁巴",
+    "name_en": "Aruba",
+    "timezone": "America/Aruba"
+  },
+  {
+    "iso3": "AFG",
+    "name_zh": "阿富汗",
+    "name_en": "Afghanistan",
+    "timezone": "Asia/Kabul"
+  },
+  {
+    "iso3": "AGO",
+    "name_zh": "安哥拉",
+    "name_en": "Angola",
+    "timezone": "Africa/Luanda"
+  },
+  {
+    "iso3": "AIA",
+    "name_zh": "安圭拉",
+    "name_en": "Anguilla",
+    "timezone": "America/Anguilla"
+  },
+  {
+    "iso3": "ALA",
+    "name_zh": "奥兰群岛",
+    "name_en": "Åland Islands",
+    "timezone": "Europe/Mariehamn"
+  },
+  {
+    "iso3": "ALB",
+    "name_zh": "阿尔巴尼亚",
+    "name_en": "Albania",
+    "timezone": "Europe/Tirane"
+  },
+  {
+    "iso3": "AND",
+    "name_zh": "安道尔",
+    "name_en": "Andorra",
+    "timezone": "Europe/Andorra"
+  },
+  {
+    "iso3": "ARE",
+    "name_zh": "阿拉伯联合酋长国",
+    "name_en": "United Arab Emirates",
+    "timezone": "Asia/Dubai"
+  },
+  {
+    "iso3": "ARG",
+    "name_zh": "阿根廷",
+    "name_en": "Argentina",
+    "timezone": "America/Argentina/Buenos_Aires"
+  },
+  {
+    "iso3": "ARM",
+    "name_zh": "亚美尼亚",
+    "name_en": "Armenia",
+    "timezone": "Asia/Yerevan"
+  },
+  {
+    "iso3": "ASM",
+    "name_zh": "美属萨摩亚",
+    "name_en": "American Samoa",
+    "timezone": "Pacific/Pago_Pago"
+  },
+  {
+    "iso3": "ATA",
+    "name_zh": "南极洲",
+    "name_en": "Antarctica",
+    "timezone": "Antarctica/McMurdo"
+  },
+  {
+    "iso3": "ATF",
+    "name_zh": "法属南部领地",
+    "name_en": "French Southern Territories",
+    "timezone": "Indian/Kerguelen"
+  },
+  {
+    "iso3": "ATG",
+    "name_zh": "安提瓜和巴布达",
+    "name_en": "Antigua and Barbuda",
+    "timezone": "America/Antigua"
+  },
+  {
+    "iso3": "AUS",
+    "name_zh": "澳大利亚",
+    "name_en": "Australia",
+    "timezone": "Australia/Lord_Howe"
+  },
+  {
+    "iso3": "AUT",
+    "name_zh": "奥地利",
+    "name_en": "Austria",
+    "timezone": "Europe/Vienna"
+  },
+  {
+    "iso3": "AZE",
+    "name_zh": "阿塞拜疆",
+    "name_en": "Azerbaijan",
+    "timezone": "Asia/Baku"
+  },
+  {
+    "iso3": "BDI",
+    "name_zh": "布隆迪",
+    "name_en": "Burundi",
+    "timezone": "Africa/Bujumbura"
+  },
+  {
+    "iso3": "BEL",
+    "name_zh": "比利时",
+    "name_en": "Belgium",
+    "timezone": "Europe/Brussels"
+  },
+  {
+    "iso3": "BEN",
+    "name_zh": "贝宁",
+    "name_en": "Benin",
+    "timezone": "Africa/Porto-Novo"
+  },
+  {
+    "iso3": "BES",
+    "name_zh": "荷属加勒比区",
+    "name_en": "Bonaire, Sint Eustatius and Saba",
+    "timezone": "America/Kralendijk"
+  },
+  {
+    "iso3": "BFA",
+    "name_zh": "布基纳法索",
+    "name_en": "Burkina Faso",
+    "timezone": "Africa/Ouagadougou"
+  },
+  {
+    "iso3": "BGD",
+    "name_zh": "孟加拉国",
+    "name_en": "Bangladesh",
+    "timezone": "Asia/Dhaka"
+  },
+  {
+    "iso3": "BGR",
+    "name_zh": "保加利亚",
+    "name_en": "Bulgaria",
+    "timezone": "Europe/Sofia"
+  },
+  {
+    "iso3": "BHR",
+    "name_zh": "巴林",
+    "name_en": "Bahrain",
+    "timezone": "Asia/Bahrain"
+  },
+  {
+    "iso3": "BHS",
+    "name_zh": "巴哈马",
+    "name_en": "Bahamas",
+    "timezone": "America/Nassau"
+  },
+  {
+    "iso3": "BIH",
+    "name_zh": "波斯尼亚和黑塞哥维那",
+    "name_en": "Bosnia and Herzegovina",
+    "timezone": "Europe/Sarajevo"
+  },
+  {
+    "iso3": "BLM",
+    "name_zh": "圣巴泰勒米",
+    "name_en": "Saint Barthélemy",
+    "timezone": "America/St_Barthelemy"
+  },
+  {
+    "iso3": "BLR",
+    "name_zh": "白俄罗斯",
+    "name_en": "Belarus",
+    "timezone": "Europe/Minsk"
+  },
+  {
+    "iso3": "BLZ",
+    "name_zh": "伯利兹",
+    "name_en": "Belize",
+    "timezone": "America/Belize"
+  },
+  {
+    "iso3": "BMU",
+    "name_zh": "百慕大",
+    "name_en": "Bermuda",
+    "timezone": "Atlantic/Bermuda"
+  },
+  {
+    "iso3": "BOL",
+    "name_zh": "玻利维亚",
+    "name_en": "Bolivia",
+    "timezone": "America/La_Paz"
+  },
+  {
+    "iso3": "BRA",
+    "name_zh": "巴西",
+    "name_en": "Brazil",
+    "timezone": "America/Noronha"
+  },
+  {
+    "iso3": "BRB",
+    "name_zh": "巴巴多斯",
+    "name_en": "Barbados",
+    "timezone": "America/Barbados"
+  },
+  {
+    "iso3": "BRN",
+    "name_zh": "文莱",
+    "name_en": "Brunei Darussalam",
+    "timezone": "Asia/Brunei"
+  },
+  {
+    "iso3": "BTN",
+    "name_zh": "不丹",
+    "name_en": "Bhutan",
+    "timezone": "Asia/Thimphu"
+  },
+  {
+    "iso3": "BVT",
+    "name_zh": "布韦岛",
+    "name_en": "Bouvet Island",
+    "timezone": "UTC"
+  },
+  {
+    "iso3": "BWA",
+    "name_zh": "博茨瓦纳",
+    "name_en": "Botswana",
+    "timezone": "Africa/Gaborone"
+  },
+  {
+    "iso3": "CAF",
+    "name_zh": "中非共和国",
+    "name_en": "Central African Republic",
+    "timezone": "Africa/Bangui"
+  },
+  {
+    "iso3": "CAN",
+    "name_zh": "加拿大",
+    "name_en": "Canada",
+    "timezone": "America/St_Johns"
+  },
+  {
+    "iso3": "CCK",
+    "name_zh": "科科斯（基林）群岛",
+    "name_en": "Cocos (Keeling) Islands",
+    "timezone": "Indian/Cocos"
+  },
+  {
+    "iso3": "CHE",
+    "name_zh": "瑞士",
+    "name_en": "Switzerland",
+    "timezone": "Europe/Zurich"
+  },
+  {
+    "iso3": "CHL",
+    "name_zh": "智利",
+    "name_en": "Chile",
+    "timezone": "America/Santiago"
+  },
+  {
+    "iso3": "CHN",
+    "name_zh": "中国",
+    "name_en": "China",
+    "timezone": "Asia/Shanghai"
+  },
+  {
+    "iso3": "CIV",
+    "name_zh": "科特迪瓦",
+    "name_en": "Côte d'Ivoire",
+    "timezone": "Africa/Abidjan"
+  },
+  {
+    "iso3": "CMR",
+    "name_zh": "喀麦隆",
+    "name_en": "Cameroon",
+    "timezone": "Africa/Douala"
+  },
+  {
+    "iso3": "COD",
+    "name_zh": "刚果（金）",
+    "name_en": "Congo, The Democratic Republic of the",
+    "timezone": "Africa/Kinshasa"
+  },
+  {
+    "iso3": "COG",
+    "name_zh": "刚果（布）",
+    "name_en": "Congo",
+    "timezone": "Africa/Brazzaville"
+  },
+  {
+    "iso3": "COK",
+    "name_zh": "库克群岛",
+    "name_en": "Cook Islands",
+    "timezone": "Pacific/Rarotonga"
+  },
+  {
+    "iso3": "COL",
+    "name_zh": "哥伦比亚",
+    "name_en": "Colombia",
+    "timezone": "America/Bogota"
+  },
+  {
+    "iso3": "COM",
+    "name_zh": "科摩罗",
+    "name_en": "Comoros",
+    "timezone": "Indian/Comoro"
+  },
+  {
+    "iso3": "CPV",
+    "name_zh": "佛得角",
+    "name_en": "Cabo Verde",
+    "timezone": "Atlantic/Cape_Verde"
+  },
+  {
+    "iso3": "CRI",
+    "name_zh": "哥斯达黎加",
+    "name_en": "Costa Rica",
+    "timezone": "America/Costa_Rica"
+  },
+  {
+    "iso3": "CUB",
+    "name_zh": "古巴",
+    "name_en": "Cuba",
+    "timezone": "America/Havana"
+  },
+  {
+    "iso3": "CUW",
+    "name_zh": "库拉索",
+    "name_en": "Curaçao",
+    "timezone": "America/Curacao"
+  },
+  {
+    "iso3": "CXR",
+    "name_zh": "圣诞岛",
+    "name_en": "Christmas Island",
+    "timezone": "Indian/Christmas"
+  },
+  {
+    "iso3": "CYM",
+    "name_zh": "开曼群岛",
+    "name_en": "Cayman Islands",
+    "timezone": "America/Cayman"
+  },
+  {
+    "iso3": "CYP",
+    "name_zh": "塞浦路斯",
+    "name_en": "Cyprus",
+    "timezone": "Asia/Nicosia"
+  },
+  {
+    "iso3": "CZE",
+    "name_zh": "捷克",
+    "name_en": "Czechia",
+    "timezone": "Europe/Prague"
+  },
+  {
+    "iso3": "DEU",
+    "name_zh": "德国",
+    "name_en": "Germany",
+    "timezone": "Europe/Berlin"
+  },
+  {
+    "iso3": "DJI",
+    "name_zh": "吉布提",
+    "name_en": "Djibouti",
+    "timezone": "Africa/Djibouti"
+  },
+  {
+    "iso3": "DMA",
+    "name_zh": "多米尼克",
+    "name_en": "Dominica",
+    "timezone": "America/Dominica"
+  },
+  {
+    "iso3": "DNK",
+    "name_zh": "丹麦",
+    "name_en": "Denmark",
+    "timezone": "Europe/Copenhagen"
+  },
+  {
+    "iso3": "DOM",
+    "name_zh": "多米尼加共和国",
+    "name_en": "Dominican Republic",
+    "timezone": "America/Santo_Domingo"
+  },
+  {
+    "iso3": "DZA",
+    "name_zh": "阿尔及利亚",
+    "name_en": "Algeria",
+    "timezone": "Africa/Algiers"
+  },
+  {
+    "iso3": "ECU",
+    "name_zh": "厄瓜多尔",
+    "name_en": "Ecuador",
+    "timezone": "America/Guayaquil"
+  },
+  {
+    "iso3": "EGY",
+    "name_zh": "埃及",
+    "name_en": "Egypt",
+    "timezone": "Africa/Cairo"
+  },
+  {
+    "iso3": "ERI",
+    "name_zh": "厄立特里亚",
+    "name_en": "Eritrea",
+    "timezone": "Africa/Asmara"
+  },
+  {
+    "iso3": "ESH",
+    "name_zh": "西撒哈拉",
+    "name_en": "Western Sahara",
+    "timezone": "Africa/El_Aaiun"
+  },
+  {
+    "iso3": "ESP",
+    "name_zh": "西班牙",
+    "name_en": "Spain",
+    "timezone": "Europe/Madrid"
+  },
+  {
+    "iso3": "EST",
+    "name_zh": "爱沙尼亚",
+    "name_en": "Estonia",
+    "timezone": "Europe/Tallinn"
+  },
+  {
+    "iso3": "ETH",
+    "name_zh": "埃塞俄比亚",
+    "name_en": "Ethiopia",
+    "timezone": "Africa/Addis_Ababa"
+  },
+  {
+    "iso3": "FIN",
+    "name_zh": "芬兰",
+    "name_en": "Finland",
+    "timezone": "Europe/Helsinki"
+  },
+  {
+    "iso3": "FJI",
+    "name_zh": "斐济",
+    "name_en": "Fiji",
+    "timezone": "Pacific/Fiji"
+  },
+  {
+    "iso3": "FLK",
+    "name_zh": "福克兰群岛",
+    "name_en": "Falkland Islands (Malvinas)",
+    "timezone": "Atlantic/Stanley"
+  },
+  {
+    "iso3": "FRA",
+    "name_zh": "法国",
+    "name_en": "France",
+    "timezone": "Europe/Paris"
+  },
+  {
+    "iso3": "FRO",
+    "name_zh": "法罗群岛",
+    "name_en": "Faroe Islands",
+    "timezone": "Atlantic/Faroe"
+  },
+  {
+    "iso3": "FSM",
+    "name_zh": "密克罗尼西亚",
+    "name_en": "Micronesia, Federated States of",
+    "timezone": "Pacific/Chuuk"
+  },
+  {
+    "iso3": "GAB",
+    "name_zh": "加蓬",
+    "name_en": "Gabon",
+    "timezone": "Africa/Libreville"
+  },
+  {
+    "iso3": "GBR",
+    "name_zh": "英国",
+    "name_en": "United Kingdom",
+    "timezone": "Europe/London"
+  },
+  {
+    "iso3": "GEO",
+    "name_zh": "格鲁吉亚",
+    "name_en": "Georgia",
+    "timezone": "Asia/Tbilisi"
+  },
+  {
+    "iso3": "GGY",
+    "name_zh": "根西岛",
+    "name_en": "Guernsey",
+    "timezone": "Europe/Guernsey"
+  },
+  {
+    "iso3": "GHA",
+    "name_zh": "加纳",
+    "name_en": "Ghana",
+    "timezone": "Africa/Accra"
+  },
+  {
+    "iso3": "GIB",
+    "name_zh": "直布罗陀",
+    "name_en": "Gibraltar",
+    "timezone": "Europe/Gibraltar"
+  },
+  {
+    "iso3": "GIN",
+    "name_zh": "几内亚",
+    "name_en": "Guinea",
+    "timezone": "Africa/Conakry"
+  },
+  {
+    "iso3": "GLP",
+    "name_zh": "瓜德罗普",
+    "name_en": "Guadeloupe",
+    "timezone": "America/Guadeloupe"
+  },
+  {
+    "iso3": "GMB",
+    "name_zh": "冈比亚",
+    "name_en": "Gambia",
+    "timezone": "Africa/Banjul"
+  },
+  {
+    "iso3": "GNB",
+    "name_zh": "几内亚比绍",
+    "name_en": "Guinea-Bissau",
+    "timezone": "Africa/Bissau"
+  },
+  {
+    "iso3": "GNQ",
+    "name_zh": "赤道几内亚",
+    "name_en": "Equatorial Guinea",
+    "timezone": "Africa/Malabo"
+  },
+  {
+    "iso3": "GRC",
+    "name_zh": "希腊",
+    "name_en": "Greece",
+    "timezone": "Europe/Athens"
+  },
+  {
+    "iso3": "GRD",
+    "name_zh": "格林纳达",
+    "name_en": "Grenada",
+    "timezone": "America/Grenada"
+  },
+  {
+    "iso3": "GRL",
+    "name_zh": "格陵兰",
+    "name_en": "Greenland",
+    "timezone": "America/Nuuk"
+  },
+  {
+    "iso3": "GTM",
+    "name_zh": "危地马拉",
+    "name_en": "Guatemala",
+    "timezone": "America/Guatemala"
+  },
+  {
+    "iso3": "GUF",
+    "name_zh": "法属圭亚那",
+    "name_en": "French Guiana",
+    "timezone": "America/Cayenne"
+  },
+  {
+    "iso3": "GUM",
+    "name_zh": "关岛",
+    "name_en": "Guam",
+    "timezone": "Pacific/Guam"
+  },
+  {
+    "iso3": "GUY",
+    "name_zh": "圭亚那",
+    "name_en": "Guyana",
+    "timezone": "America/Guyana"
+  },
+  {
+    "iso3": "HKG",
+    "name_zh": "中国香港特别行政区",
+    "name_en": "Hong Kong",
+    "timezone": "Asia/Hong_Kong"
+  },
+  {
+    "iso3": "HMD",
+    "name_zh": "赫德岛和麦克唐纳群岛",
+    "name_en": "Heard Island and McDonald Islands",
+    "timezone": "UTC"
+  },
+  {
+    "iso3": "HND",
+    "name_zh": "洪都拉斯",
+    "name_en": "Honduras",
+    "timezone": "America/Tegucigalpa"
+  },
+  {
+    "iso3": "HRV",
+    "name_zh": "克罗地亚",
+    "name_en": "Croatia",
+    "timezone": "Europe/Zagreb"
+  },
+  {
+    "iso3": "HTI",
+    "name_zh": "海地",
+    "name_en": "Haiti",
+    "timezone": "America/Port-au-Prince"
+  },
+  {
+    "iso3": "HUN",
+    "name_zh": "匈牙利",
+    "name_en": "Hungary",
+    "timezone": "Europe/Budapest"
+  },
+  {
+    "iso3": "IDN",
+    "name_zh": "印度尼西亚",
+    "name_en": "Indonesia",
+    "timezone": "Asia/Jakarta"
+  },
+  {
+    "iso3": "IMN",
+    "name_zh": "马恩岛",
+    "name_en": "Isle of Man",
+    "timezone": "Europe/Isle_of_Man"
+  },
+  {
+    "iso3": "IND",
+    "name_zh": "印度",
+    "name_en": "India",
+    "timezone": "Asia/Kolkata"
+  },
+  {
+    "iso3": "IOT",
+    "name_zh": "英属印度洋领地",
+    "name_en": "British Indian Ocean Territory",
+    "timezone": "Indian/Chagos"
+  },
+  {
+    "iso3": "IRL",
+    "name_zh": "爱尔兰",
+    "name_en": "Ireland",
+    "timezone": "Europe/Dublin"
+  },
+  {
+    "iso3": "IRN",
+    "name_zh": "伊朗",
+    "name_en": "Iran",
+    "timezone": "Asia/Tehran"
+  },
+  {
+    "iso3": "IRQ",
+    "name_zh": "伊拉克",
+    "name_en": "Iraq",
+    "timezone": "Asia/Baghdad"
+  },
+  {
+    "iso3": "ISL",
+    "name_zh": "冰岛",
+    "name_en": "Iceland",
+    "timezone": "Atlantic/Reykjavik"
+  },
+  {
+    "iso3": "ISR",
+    "name_zh": "以色列",
+    "name_en": "Israel",
+    "timezone": "Asia/Jerusalem"
+  },
+  {
+    "iso3": "ITA",
+    "name_zh": "意大利",
+    "name_en": "Italy",
+    "timezone": "Europe/Rome"
+  },
+  {
+    "iso3": "JAM",
+    "name_zh": "牙买加",
+    "name_en": "Jamaica",
+    "timezone": "America/Jamaica"
+  },
+  {
+    "iso3": "JEY",
+    "name_zh": "泽西岛",
+    "name_en": "Jersey",
+    "timezone": "Europe/Jersey"
+  },
+  {
+    "iso3": "JOR",
+    "name_zh": "约旦",
+    "name_en": "Jordan",
+    "timezone": "Asia/Amman"
+  },
+  {
+    "iso3": "JPN",
+    "name_zh": "日本",
+    "name_en": "Japan",
+    "timezone": "Asia/Tokyo"
+  },
+  {
+    "iso3": "KAZ",
+    "name_zh": "哈萨克斯坦",
+    "name_en": "Kazakhstan",
+    "timezone": "Asia/Almaty"
+  },
+  {
+    "iso3": "KEN",
+    "name_zh": "肯尼亚",
+    "name_en": "Kenya",
+    "timezone": "Africa/Nairobi"
+  },
+  {
+    "iso3": "KGZ",
+    "name_zh": "吉尔吉斯斯坦",
+    "name_en": "Kyrgyzstan",
+    "timezone": "Asia/Bishkek"
+  },
+  {
+    "iso3": "KHM",
+    "name_zh": "柬埔寨",
+    "name_en": "Cambodia",
+    "timezone": "Asia/Phnom_Penh"
+  },
+  {
+    "iso3": "KIR",
+    "name_zh": "基里巴斯",
+    "name_en": "Kiribati",
+    "timezone": "Pacific/Tarawa"
+  },
+  {
+    "iso3": "KNA",
+    "name_zh": "圣基茨和尼维斯",
+    "name_en": "Saint Kitts and Nevis",
+    "timezone": "America/St_Kitts"
+  },
+  {
+    "iso3": "KOR",
+    "name_zh": "韩国",
+    "name_en": "South Korea",
+    "timezone": "Asia/Seoul"
+  },
+  {
+    "iso3": "KWT",
+    "name_zh": "科威特",
+    "name_en": "Kuwait",
+    "timezone": "Asia/Kuwait"
+  },
+  {
+    "iso3": "LAO",
+    "name_zh": "老挝",
+    "name_en": "Laos",
+    "timezone": "Asia/Vientiane"
+  },
+  {
+    "iso3": "LBN",
+    "name_zh": "黎巴嫩",
+    "name_en": "Lebanon",
+    "timezone": "Asia/Beirut"
+  },
+  {
+    "iso3": "LBR",
+    "name_zh": "利比里亚",
+    "name_en": "Liberia",
+    "timezone": "Africa/Monrovia"
+  },
+  {
+    "iso3": "LBY",
+    "name_zh": "利比亚",
+    "name_en": "Libya",
+    "timezone": "Africa/Tripoli"
+  },
+  {
+    "iso3": "LCA",
+    "name_zh": "圣卢西亚",
+    "name_en": "Saint Lucia",
+    "timezone": "America/St_Lucia"
+  },
+  {
+    "iso3": "LIE",
+    "name_zh": "列支敦士登",
+    "name_en": "Liechtenstein",
+    "timezone": "Europe/Vaduz"
+  },
+  {
+    "iso3": "LKA",
+    "name_zh": "斯里兰卡",
+    "name_en": "Sri Lanka",
+    "timezone": "Asia/Colombo"
+  },
+  {
+    "iso3": "LSO",
+    "name_zh": "莱索托",
+    "name_en": "Lesotho",
+    "timezone": "Africa/Maseru"
+  },
+  {
+    "iso3": "LTU",
+    "name_zh": "立陶宛",
+    "name_en": "Lithuania",
+    "timezone": "Europe/Vilnius"
+  },
+  {
+    "iso3": "LUX",
+    "name_zh": "卢森堡",
+    "name_en": "Luxembourg",
+    "timezone": "Europe/Luxembourg"
+  },
+  {
+    "iso3": "LVA",
+    "name_zh": "拉脱维亚",
+    "name_en": "Latvia",
+    "timezone": "Europe/Riga"
+  },
+  {
+    "iso3": "MAC",
+    "name_zh": "中国澳门特别行政区",
+    "name_en": "Macao",
+    "timezone": "Asia/Macau"
+  },
+  {
+    "iso3": "MAF",
+    "name_zh": "法属圣马丁",
+    "name_en": "Saint Martin (French part)",
+    "timezone": "America/Marigot"
+  },
+  {
+    "iso3": "MAR",
+    "name_zh": "摩洛哥",
+    "name_en": "Morocco",
+    "timezone": "Africa/Casablanca"
+  },
+  {
+    "iso3": "MCO",
+    "name_zh": "摩纳哥",
+    "name_en": "Monaco",
+    "timezone": "Europe/Monaco"
+  },
+  {
+    "iso3": "MDA",
+    "name_zh": "摩尔多瓦",
+    "name_en": "Moldova",
+    "timezone": "Europe/Chisinau"
+  },
+  {
+    "iso3": "MDG",
+    "name_zh": "马达加斯加",
+    "name_en": "Madagascar",
+    "timezone": "Indian/Antananarivo"
+  },
+  {
+    "iso3": "MDV",
+    "name_zh": "马尔代夫",
+    "name_en": "Maldives",
+    "timezone": "Indian/Maldives"
+  },
+  {
+    "iso3": "MEX",
+    "name_zh": "墨西哥",
+    "name_en": "Mexico",
+    "timezone": "America/Mexico_City"
+  },
+  {
+    "iso3": "MHL",
+    "name_zh": "马绍尔群岛",
+    "name_en": "Marshall Islands",
+    "timezone": "Pacific/Majuro"
+  },
+  {
+    "iso3": "MKD",
+    "name_zh": "北马其顿",
+    "name_en": "North Macedonia",
+    "timezone": "Europe/Skopje"
+  },
+  {
+    "iso3": "MLI",
+    "name_zh": "马里",
+    "name_en": "Mali",
+    "timezone": "Africa/Bamako"
+  },
+  {
+    "iso3": "MLT",
+    "name_zh": "马耳他",
+    "name_en": "Malta",
+    "timezone": "Europe/Malta"
+  },
+  {
+    "iso3": "MMR",
+    "name_zh": "缅甸",
+    "name_en": "Myanmar",
+    "timezone": "Asia/Yangon"
+  },
+  {
+    "iso3": "MNE",
+    "name_zh": "黑山",
+    "name_en": "Montenegro",
+    "timezone": "Europe/Podgorica"
+  },
+  {
+    "iso3": "MNG",
+    "name_zh": "蒙古",
+    "name_en": "Mongolia",
+    "timezone": "Asia/Ulaanbaatar"
+  },
+  {
+    "iso3": "MNP",
+    "name_zh": "北马里亚纳群岛",
+    "name_en": "Northern Mariana Islands",
+    "timezone": "Pacific/Saipan"
+  },
+  {
+    "iso3": "MOZ",
+    "name_zh": "莫桑比克",
+    "name_en": "Mozambique",
+    "timezone": "Africa/Maputo"
+  },
+  {
+    "iso3": "MRT",
+    "name_zh": "毛里塔尼亚",
+    "name_en": "Mauritania",
+    "timezone": "Africa/Nouakchott"
+  },
+  {
+    "iso3": "MSR",
+    "name_zh": "蒙特塞拉特",
+    "name_en": "Montserrat",
+    "timezone": "America/Montserrat"
+  },
+  {
+    "iso3": "MTQ",
+    "name_zh": "马提尼克",
+    "name_en": "Martinique",
+    "timezone": "America/Martinique"
+  },
+  {
+    "iso3": "MUS",
+    "name_zh": "毛里求斯",
+    "name_en": "Mauritius",
+    "timezone": "Indian/Mauritius"
+  },
+  {
+    "iso3": "MWI",
+    "name_zh": "马拉维",
+    "name_en": "Malawi",
+    "timezone": "Africa/Blantyre"
+  },
+  {
+    "iso3": "MYS",
+    "name_zh": "马来西亚",
+    "name_en": "Malaysia",
+    "timezone": "Asia/Kuala_Lumpur"
+  },
+  {
+    "iso3": "MYT",
+    "name_zh": "马约特",
+    "name_en": "Mayotte",
+    "timezone": "Indian/Mayotte"
+  },
+  {
+    "iso3": "NAM",
+    "name_zh": "纳米比亚",
+    "name_en": "Namibia",
+    "timezone": "Africa/Windhoek"
+  },
+  {
+    "iso3": "NCL",
+    "name_zh": "新喀里多尼亚",
+    "name_en": "New Caledonia",
+    "timezone": "Pacific/Noumea"
+  },
+  {
+    "iso3": "NER",
+    "name_zh": "尼日尔",
+    "name_en": "Niger",
+    "timezone": "Africa/Niamey"
+  },
+  {
+    "iso3": "NFK",
+    "name_zh": "诺福克岛",
+    "name_en": "Norfolk Island",
+    "timezone": "Pacific/Norfolk"
+  },
+  {
+    "iso3": "NGA",
+    "name_zh": "尼日利亚",
+    "name_en": "Nigeria",
+    "timezone": "Africa/Lagos"
+  },
+  {
+    "iso3": "NIC",
+    "name_zh": "尼加拉瓜",
+    "name_en": "Nicaragua",
+    "timezone": "America/Managua"
+  },
+  {
+    "iso3": "NIU",
+    "name_zh": "纽埃",
+    "name_en": "Niue",
+    "timezone": "Pacific/Niue"
+  },
+  {
+    "iso3": "NLD",
+    "name_zh": "荷兰",
+    "name_en": "Netherlands",
+    "timezone": "Europe/Amsterdam"
+  },
+  {
+    "iso3": "NOR",
+    "name_zh": "挪威",
+    "name_en": "Norway",
+    "timezone": "Europe/Oslo"
+  },
+  {
+    "iso3": "NPL",
+    "name_zh": "尼泊尔",
+    "name_en": "Nepal",
+    "timezone": "Asia/Kathmandu"
+  },
+  {
+    "iso3": "NRU",
+    "name_zh": "瑙鲁",
+    "name_en": "Nauru",
+    "timezone": "Pacific/Nauru"
+  },
+  {
+    "iso3": "NZL",
+    "name_zh": "新西兰",
+    "name_en": "New Zealand",
+    "timezone": "Pacific/Auckland"
+  },
+  {
+    "iso3": "OMN",
+    "name_zh": "阿曼",
+    "name_en": "Oman",
+    "timezone": "Asia/Muscat"
+  },
+  {
+    "iso3": "PAK",
+    "name_zh": "巴基斯坦",
+    "name_en": "Pakistan",
+    "timezone": "Asia/Karachi"
+  },
+  {
+    "iso3": "PAN",
+    "name_zh": "巴拿马",
+    "name_en": "Panama",
+    "timezone": "America/Panama"
+  },
+  {
+    "iso3": "PCN",
+    "name_zh": "皮特凯恩群岛",
+    "name_en": "Pitcairn",
+    "timezone": "Pacific/Pitcairn"
+  },
+  {
+    "iso3": "PER",
+    "name_zh": "秘鲁",
+    "name_en": "Peru",
+    "timezone": "America/Lima"
+  },
+  {
+    "iso3": "PHL",
+    "name_zh": "菲律宾",
+    "name_en": "Philippines",
+    "timezone": "Asia/Manila"
+  },
+  {
+    "iso3": "PLW",
+    "name_zh": "帕劳",
+    "name_en": "Palau",
+    "timezone": "Pacific/Palau"
+  },
+  {
+    "iso3": "PNG",
+    "name_zh": "巴布亚新几内亚",
+    "name_en": "Papua New Guinea",
+    "timezone": "Pacific/Port_Moresby"
+  },
+  {
+    "iso3": "POL",
+    "name_zh": "波兰",
+    "name_en": "Poland",
+    "timezone": "Europe/Warsaw"
+  },
+  {
+    "iso3": "PRI",
+    "name_zh": "波多黎各",
+    "name_en": "Puerto Rico",
+    "timezone": "America/Puerto_Rico"
+  },
+  {
+    "iso3": "PRK",
+    "name_zh": "朝鲜",
+    "name_en": "North Korea",
+    "timezone": "Asia/Pyongyang"
+  },
+  {
+    "iso3": "PRT",
+    "name_zh": "葡萄牙",
+    "name_en": "Portugal",
+    "timezone": "Europe/Lisbon"
+  },
+  {
+    "iso3": "PRY",
+    "name_zh": "巴拉圭",
+    "name_en": "Paraguay",
+    "timezone": "America/Asuncion"
+  },
+  {
+    "iso3": "PSE",
+    "name_zh": "巴勒斯坦领土",
+    "name_en": "Palestine, State of",
+    "timezone": "Asia/Gaza"
+  },
+  {
+    "iso3": "PYF",
+    "name_zh": "法属波利尼西亚",
+    "name_en": "French Polynesia",
+    "timezone": "Pacific/Tahiti"
+  },
+  {
+    "iso3": "QAT",
+    "name_zh": "卡塔尔",
+    "name_en": "Qatar",
+    "timezone": "Asia/Qatar"
+  },
+  {
+    "iso3": "REU",
+    "name_zh": "留尼汪",
+    "name_en": "Réunion",
+    "timezone": "Indian/Reunion"
+  },
+  {
+    "iso3": "ROU",
+    "name_zh": "罗马尼亚",
+    "name_en": "Romania",
+    "timezone": "Europe/Bucharest"
+  },
+  {
+    "iso3": "RUS",
+    "name_zh": "俄罗斯",
+    "name_en": "Russian Federation",
+    "timezone": "Europe/Kaliningrad"
+  },
+  {
+    "iso3": "RWA",
+    "name_zh": "卢旺达",
+    "name_en": "Rwanda",
+    "timezone": "Africa/Kigali"
+  },
+  {
+    "iso3": "SAU",
+    "name_zh": "沙特阿拉伯",
+    "name_en": "Saudi Arabia",
+    "timezone": "Asia/Riyadh"
+  },
+  {
+    "iso3": "SDN",
+    "name_zh": "苏丹",
+    "name_en": "Sudan",
+    "timezone": "Africa/Khartoum"
+  },
+  {
+    "iso3": "SEN",
+    "name_zh": "塞内加尔",
+    "name_en": "Senegal",
+    "timezone": "Africa/Dakar"
+  },
+  {
+    "iso3": "SGP",
+    "name_zh": "新加坡",
+    "name_en": "Singapore",
+    "timezone": "Asia/Singapore"
+  },
+  {
+    "iso3": "SGS",
+    "name_zh": "南乔治亚和南桑威奇群岛",
+    "name_en": "South Georgia and the South Sandwich Islands",
+    "timezone": "Atlantic/South_Georgia"
+  },
+  {
+    "iso3": "SHN",
+    "name_zh": "圣赫勒拿",
+    "name_en": "Saint Helena, Ascension and Tristan da Cunha",
+    "timezone": "Atlantic/St_Helena"
+  },
+  {
+    "iso3": "SJM",
+    "name_zh": "斯瓦尔巴和扬马延",
+    "name_en": "Svalbard and Jan Mayen",
+    "timezone": "Arctic/Longyearbyen"
+  },
+  {
+    "iso3": "SLB",
+    "name_zh": "所罗门群岛",
+    "name_en": "Solomon Islands",
+    "timezone": "Pacific/Guadalcanal"
+  },
+  {
+    "iso3": "SLE",
+    "name_zh": "塞拉利昂",
+    "name_en": "Sierra Leone",
+    "timezone": "Africa/Freetown"
+  },
+  {
+    "iso3": "SLV",
+    "name_zh": "萨尔瓦多",
+    "name_en": "El Salvador",
+    "timezone": "America/El_Salvador"
+  },
+  {
+    "iso3": "SMR",
+    "name_zh": "圣马力诺",
+    "name_en": "San Marino",
+    "timezone": "Europe/San_Marino"
+  },
+  {
+    "iso3": "SOM",
+    "name_zh": "索马里",
+    "name_en": "Somalia",
+    "timezone": "Africa/Mogadishu"
+  },
+  {
+    "iso3": "SPM",
+    "name_zh": "圣皮埃尔和密克隆群岛",
+    "name_en": "Saint Pierre and Miquelon",
+    "timezone": "America/Miquelon"
+  },
+  {
+    "iso3": "SRB",
+    "name_zh": "塞尔维亚",
+    "name_en": "Serbia",
+    "timezone": "Europe/Belgrade"
+  },
+  {
+    "iso3": "SSD",
+    "name_zh": "南苏丹",
+    "name_en": "South Sudan",
+    "timezone": "Africa/Juba"
+  },
+  {
+    "iso3": "STP",
+    "name_zh": "圣多美和普林西比",
+    "name_en": "Sao Tome and Principe",
+    "timezone": "Africa/Sao_Tome"
+  },
+  {
+    "iso3": "SUR",
+    "name_zh": "苏里南",
+    "name_en": "Suriname",
+    "timezone": "America/Paramaribo"
+  },
+  {
+    "iso3": "SVK",
+    "name_zh": "斯洛伐克",
+    "name_en": "Slovakia",
+    "timezone": "Europe/Bratislava"
+  },
+  {
+    "iso3": "SVN",
+    "name_zh": "斯洛文尼亚",
+    "name_en": "Slovenia",
+    "timezone": "Europe/Ljubljana"
+  },
+  {
+    "iso3": "SWE",
+    "name_zh": "瑞典",
+    "name_en": "Sweden",
+    "timezone": "Europe/Stockholm"
+  },
+  {
+    "iso3": "SWZ",
+    "name_zh": "斯威士兰",
+    "name_en": "Eswatini",
+    "timezone": "Africa/Mbabane"
+  },
+  {
+    "iso3": "SXM",
+    "name_zh": "荷属圣马丁",
+    "name_en": "Sint Maarten (Dutch part)",
+    "timezone": "America/Lower_Princes"
+  },
+  {
+    "iso3": "SYC",
+    "name_zh": "塞舌尔",
+    "name_en": "Seychelles",
+    "timezone": "Indian/Mahe"
+  },
+  {
+    "iso3": "SYR",
+    "name_zh": "叙利亚",
+    "name_en": "Syria",
+    "timezone": "Asia/Damascus"
+  },
+  {
+    "iso3": "TCA",
+    "name_zh": "特克斯和凯科斯群岛",
+    "name_en": "Turks and Caicos Islands",
+    "timezone": "America/Grand_Turk"
+  },
+  {
+    "iso3": "TCD",
+    "name_zh": "乍得",
+    "name_en": "Chad",
+    "timezone": "Africa/Ndjamena"
+  },
+  {
+    "iso3": "TGO",
+    "name_zh": "多哥",
+    "name_en": "Togo",
+    "timezone": "Africa/Lome"
+  },
+  {
+    "iso3": "THA",
+    "name_zh": "泰国",
+    "name_en": "Thailand",
+    "timezone": "Asia/Bangkok"
+  },
+  {
+    "iso3": "TJK",
+    "name_zh": "塔吉克斯坦",
+    "name_en": "Tajikistan",
+    "timezone": "Asia/Dushanbe"
+  },
+  {
+    "iso3": "TKL",
+    "name_zh": "托克劳",
+    "name_en": "Tokelau",
+    "timezone": "Pacific/Fakaofo"
+  },
+  {
+    "iso3": "TKM",
+    "name_zh": "土库曼斯坦",
+    "name_en": "Turkmenistan",
+    "timezone": "Asia/Ashgabat"
+  },
+  {
+    "iso3": "TLS",
+    "name_zh": "东帝汶",
+    "name_en": "Timor-Leste",
+    "timezone": "Asia/Dili"
+  },
+  {
+    "iso3": "TON",
+    "name_zh": "汤加",
+    "name_en": "Tonga",
+    "timezone": "Pacific/Tongatapu"
+  },
+  {
+    "iso3": "TTO",
+    "name_zh": "特立尼达和多巴哥",
+    "name_en": "Trinidad and Tobago",
+    "timezone": "America/Port_of_Spain"
+  },
+  {
+    "iso3": "TUN",
+    "name_zh": "突尼斯",
+    "name_en": "Tunisia",
+    "timezone": "Africa/Tunis"
+  },
+  {
+    "iso3": "TUR",
+    "name_zh": "土耳其",
+    "name_en": "Türkiye",
+    "timezone": "Europe/Istanbul"
+  },
+  {
+    "iso3": "TUV",
+    "name_zh": "图瓦卢",
+    "name_en": "Tuvalu",
+    "timezone": "Pacific/Funafuti"
+  },
+  {
+    "iso3": "TWN",
+    "name_zh": "台湾",
+    "name_en": "Taiwan",
+    "timezone": "Asia/Taipei"
+  },
+  {
+    "iso3": "TZA",
+    "name_zh": "坦桑尼亚",
+    "name_en": "Tanzania",
+    "timezone": "Africa/Dar_es_Salaam"
+  },
+  {
+    "iso3": "UGA",
+    "name_zh": "乌干达",
+    "name_en": "Uganda",
+    "timezone": "Africa/Kampala"
+  },
+  {
+    "iso3": "UKR",
+    "name_zh": "乌克兰",
+    "name_en": "Ukraine",
+    "timezone": "Europe/Simferopol"
+  },
+  {
+    "iso3": "UMI",
+    "name_zh": "美国本土外小岛屿",
+    "name_en": "United States Minor Outlying Islands",
+    "timezone": "Pacific/Midway"
+  },
+  {
+    "iso3": "URY",
+    "name_zh": "乌拉圭",
+    "name_en": "Uruguay",
+    "timezone": "America/Montevideo"
+  },
+  {
+    "iso3": "USA",
+    "name_zh": "美国",
+    "name_en": "United States",
+    "timezone": "America/New_York"
+  },
+  {
+    "iso3": "UZB",
+    "name_zh": "乌兹别克斯坦",
+    "name_en": "Uzbekistan",
+    "timezone": "Asia/Samarkand"
+  },
+  {
+    "iso3": "VAT",
+    "name_zh": "梵蒂冈",
+    "name_en": "Holy See (Vatican City State)",
+    "timezone": "Europe/Vatican"
+  },
+  {
+    "iso3": "VCT",
+    "name_zh": "圣文森特和格林纳丁斯",
+    "name_en": "Saint Vincent and the Grenadines",
+    "timezone": "America/St_Vincent"
+  },
+  {
+    "iso3": "VEN",
+    "name_zh": "委内瑞拉",
+    "name_en": "Venezuela",
+    "timezone": "America/Caracas"
+  },
+  {
+    "iso3": "VGB",
+    "name_zh": "英属维尔京群岛",
+    "name_en": "Virgin Islands, British",
+    "timezone": "America/Tortola"
+  },
+  {
+    "iso3": "VIR",
+    "name_zh": "美属维尔京群岛",
+    "name_en": "Virgin Islands, U.S.",
+    "timezone": "America/St_Thomas"
+  },
+  {
+    "iso3": "VNM",
+    "name_zh": "越南",
+    "name_en": "Vietnam",
+    "timezone": "Asia/Ho_Chi_Minh"
+  },
+  {
+    "iso3": "VUT",
+    "name_zh": "瓦努阿图",
+    "name_en": "Vanuatu",
+    "timezone": "Pacific/Efate"
+  },
+  {
+    "iso3": "WLF",
+    "name_zh": "瓦利斯和富图纳",
+    "name_en": "Wallis and Futuna",
+    "timezone": "Pacific/Wallis"
+  },
+  {
+    "iso3": "WSM",
+    "name_zh": "萨摩亚",
+    "name_en": "Samoa",
+    "timezone": "Pacific/Apia"
+  },
+  {
+    "iso3": "XKX",
+    "name_zh": "科索沃",
+    "name_en": "Kosovo",
+    "timezone": "Europe/Belgrade"
+  },
+  {
+    "iso3": "YEM",
+    "name_zh": "也门",
+    "name_en": "Yemen",
+    "timezone": "Asia/Aden"
+  },
+  {
+    "iso3": "ZAF",
+    "name_zh": "南非",
+    "name_en": "South Africa",
+    "timezone": "Africa/Johannesburg"
+  },
+  {
+    "iso3": "ZMB",
+    "name_zh": "赞比亚",
+    "name_en": "Zambia",
+    "timezone": "Africa/Lusaka"
+  },
+  {
+    "iso3": "ZWE",
+    "name_zh": "津巴布韦",
+    "name_en": "Zimbabwe",
+    "timezone": "Africa/Harare"
+  }
+]

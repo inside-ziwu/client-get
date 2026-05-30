@@ -28,6 +28,7 @@ export type {
 } from './admin/collection';
 export type { AiModel, AiSceneDefault, AiPricingResponse } from './admin/ai-config';
 export type { Tenant, TenantDomain, TenantTeamUser } from './admin/tenants';
+export type { Country, CountryFilters, Holiday, TimeSegment, WorkRuleSet } from './admin/work-schedule';
 export type { Company, CompanyListFilters } from './tenant/companies';
 export type { Prospect } from './tenant/prospects';
 export type { Group } from './tenant/groups';
@@ -37,11 +38,13 @@ export type {
   SendingPlan,
   SendingPlanStep,
   SendingPlanRecipient,
+  RecipientCountryDistribution,
   PreviewRecipientCompany,
   PreviewRecipientContact,
   PreviewRecipientsSummary,
   PreviewRecipientsResponse,
 } from './tenant/sending-plans';
+export type { EmailLog } from './tenant/emails';
 export type { TeamUser } from './tenant/team';
 export type { Keyword } from './tenant/keywords';
 export type { TenantScoringTemplate } from './tenant/scoring';

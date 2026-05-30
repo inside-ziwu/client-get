@@ -117,5 +117,14 @@ export const queryKeys = {
       team: (id: string) => [...queryKeys.admin.tenants.all(), id, 'team'] as const,
       aiProvider: (id: string) => [...queryKeys.admin.tenants.all(), id, 'aiProvider'] as const,
     },
+    workSchedule: {
+      all: () => ['admin', 'workSchedule'] as const,
+      ruleSets: () => [...queryKeys.admin.workSchedule.all(), 'ruleSets'] as const,
+      ruleSet: (id: string) => [...queryKeys.admin.workSchedule.ruleSets(), id] as const,
+      countries: (filters?: Record<string, unknown>) => [...queryKeys.admin.workSchedule.all(), 'countries', filters] as const,
+      country: (iso3: string) => [...queryKeys.admin.workSchedule.all(), 'countries', iso3] as const,
+      holidays: (iso3: string, year?: number) => [...queryKeys.admin.workSchedule.country(iso3), 'holidays', year] as const,
+      defaultRule: () => [...queryKeys.admin.workSchedule.all(), 'defaultRule'] as const,
+    },
   },
 } as const;

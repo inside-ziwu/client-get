@@ -286,10 +286,7 @@ export interface PlatformEmailTemplate {
 // === 发送计划 ===
 
 export interface SendStrategy {
-  timezone_aware: boolean;
-  preferred_hours?: { start: number; end: number };
-  daily_limit?: number;
-  interval_minutes?: number;
+  interval_seconds?: [number, number];
 }
 
 export interface SendingPlan {
