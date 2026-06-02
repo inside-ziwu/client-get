@@ -84,6 +84,21 @@ class AdminCollectionService:
                 """
             ),
         )
+        _empty_stage = {
+            "status": None,
+            "today_count": 0,
+            "total_count": 0,
+            "daily_limit": None,
+            "last_run_date": None,
+        }
+        _empty_direct = {
+            "status": None,
+            "current_page": 0,
+            "total_pages": 0,
+            "today_pages": 0,
+            "daily_limit": None,
+            "last_run_date": None,
+        }
         return [
             {
                 "keyword": r["keyword"],
@@ -94,6 +109,9 @@ class AdminCollectionService:
                 "total_contacts": 0,
                 "last_run_date": None,
                 "error_msg": None,
+                "direct": _empty_direct,
+                "reverse_stage1": _empty_stage,
+                "reverse_stage2": _empty_stage,
             }
             for r in result.mappings().all()
         ]
