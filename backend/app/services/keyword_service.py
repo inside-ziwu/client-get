@@ -54,20 +54,19 @@ async def lookup_keyword_master(
             SELECT
                 km.id::text                     AS keyword_master_id,
                 km.keyword,
-                -- 关联的 clean_companies：通过 collection_keywords 追溯
                 COALESCE(
                     (
-                        SELECT COUNT(DISTINCT ck.id)
-                        FROM collection_keywords ck
-                        WHERE ck.keyword_master_id = km.id
+                        SELECT COUNT(DISTINCT ckk.clean_company_id)
+                        FROM clean_company_keywords ckk
+                        WHERE ckk.keyword_master_id = km.id
                     ), 0
                 )                               AS company_count,
-                -- 订阅该关键词的租户数量
                 COALESCE(
                     (
                         SELECT COUNT(DISTINCT tk.tenant_id)
                         FROM tenant_keyword tk
                         WHERE tk.keyword_master_id = km.id
+                          AND tk.status = 'active'
                     ), 0
                 )                               AS tenant_count
             FROM keyword_master km
@@ -138,18 +137,11 @@ async def bind_tenant_keyword(
     keyword_master_id: str,
     keyword_raw: str | None = None,
     created_by: str | None = None,
-) -> bool:
+) -> int:
     """将租户与 keyword_master 绑定（幂等），并恢复已软删订阅。
 
-    Args:
-        conn: 异步数据库连接
-        tenant_id: 租户 UUID（str）
-        keyword_master_id: keyword_master UUID（str）
-        keyword_raw: 租户原始输入；为空时使用 keyword_master.keyword
-        created_by: 创建人；恢复已删除行时会更新为最近操作人
-
     Returns:
-        True 表示新建了关联，False 表示已有行被恢复或保持不变
+        tenant_keyword.id
     """
     result = await conn.execute(
         text(
@@ -174,10 +166,11 @@ async def bind_tenant_keyword(
             "created_by": created_by,
         },
     )
-    if result.first() is not None:
-        return True
+    row = result.first()
+    if row is not None:
+        return row[0]
 
-    await conn.execute(
+    result = await conn.execute(
         text(
             """
             UPDATE tenant_keyword
@@ -186,6 +179,7 @@ async def bind_tenant_keyword(
                 status = 'active'
             WHERE tenant_id = :tenant_id
               AND keyword_master_id = :keyword_master_id
+            RETURNING id
             """
         ),
         {
@@ -195,4 +189,4 @@ async def bind_tenant_keyword(
             "created_by": created_by,
         },
     )
-    return False
+    return result.scalar_one()

@@ -1,22 +1,16 @@
-import json
 import re
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import bindparam, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.core.ids import new_uuid
 from app.services.company_filter_sql import (
     append_employee_count_range,
     pcb_supplier_presence_clause,
 )
 
-# 励销云每日上限是平台关键词/run 维度，不从租户关键词或租户设置继承。
-_DEFAULT_DAILY_LIMIT = 1000
-_DEFAULT_REQUEST_PAGE_SIZE = 10
-_MAX_REQUEST_PAGE_SIZE = 100
 _BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
 
@@ -73,499 +67,36 @@ class AdminCollectionService:
         result = await conn.execute(
             text(
                 """
-                WITH keyword_groups AS (
-                    SELECT
-                        km.id AS keyword_master_id,
-                        km.keyword_normalized,
-                        MAX(km.keyword) AS keyword,
-                        jsonb_agg(DISTINCT jsonb_build_object(
-                            'id', t.id::text,
-                            'name', t.name
-                        )) AS tenants,
-                        'not_started' AS subscription_status,
-                        0 AS current_page,
-                        0 AS total_pages,
-                        0 AS today_pages,
-                        NULL::int AS daily_page_limit,
-                        NULL::date AS direct_last_run_date,
-                        CAST(:default_daily_limit AS int) AS daily_stage1_limit,
-                        NULL::int AS daily_stage2_limit,
-                        NULL::text AS error_msg
-                    FROM keyword_master km
-                    JOIN tenant_keyword tk ON tk.keyword_master_id = km.id
-                    JOIN tenants t ON t.id = tk.tenant_id
-                    WHERE tk.status = 'active'
-                    GROUP BY km.id, km.keyword_normalized
-                )
                 SELECT
-                    kg.*,
-                    -- 外贸通直采：最新任务状态
-                    NULL::text AS direct_task_status,
-                    -- 励销云 stage1：最新 competitor_search 任务（关联到本关键词）
-                    lx_task.status        AS lx_task_status,
-                    lx_task.started_at    AS lx_task_started_at,
-                    lx_task.completed_at  AS lx_task_completed_at,
-                    lx_task.error_message AS lx_task_error,
-                    -- 腾道 stage2：最新 buyer_lookup 任务（同一 keyword_normalized）
-                    td_task.status        AS td_task_status,
-                    td_task.started_at    AS td_task_started_at,
-                    td_task.completed_at  AS td_task_completed_at,
-                    -- 励销云：今日 / 累计采集数
-                    COALESCE(lx_cnt.today_count, 0) AS stage1_today_count,
-                    COALESCE(lx_cnt.total_count, 0) AS stage1_total_count,
-                    lx_cnt.last_run_date            AS last_stage1_date,
-                    lx_run.id::text                 AS lx_run_id,
-                    lx_run.status                   AS lx_run_status,
-                    lx_run.daily_limit              AS lx_run_daily_limit,
-                    lx_run.next_run_at              AS lx_run_next_run_at,
-                    lx_run.completed_at             AS lx_run_completed_at,
-                    -- 腾道：今日 / 累计采集数
-                    COALESCE(td_cnt.today_count, 0) AS stage2_today_count,
-                    COALESCE(td_cnt.total_count, 0) AS stage2_total_count,
-                    td_cnt.last_run_date            AS last_stage2_date,
-                    -- 合计（同行公司 = 励销云，总联系人 = 励销云联系人）
-                    COALESCE(lx_cnt.total_count, 0) AS total_companies,
-                    COALESCE(lx_cnt.total_contacts, 0) AS total_contacts,
-                    COALESCE(lx_cnt.last_run_date,
-                             td_cnt.last_run_date) AS last_run_date
-                FROM keyword_groups kg
-                LEFT JOIN LATERAL (
-                    -- 最新一个 competitor_search（励销云）任务
-                    SELECT ct.status, ct.started_at, ct.completed_at, ct.error_message
-                    FROM collection_tasks ct
-                    WHERE ct.keyword_normalized = kg.keyword_normalized
-                      AND ct.task_type = 'competitor_search'
-                    ORDER BY ct.created_at DESC
-                    LIMIT 1
-                ) lx_task ON true
-                LEFT JOIN LATERAL (
-                    -- 最新一个 buyer_lookup（腾道）任务，按 keyword_normalized 关联
-                    SELECT ct.status, ct.started_at, ct.completed_at
-                    FROM collection_tasks ct
-                    WHERE ct.keyword_normalized = kg.keyword_normalized
-                      AND ct.task_type = 'buyer_lookup'
-                    ORDER BY ct.created_at DESC
-                    LIMIT 1
-                ) td_task ON true
-                LEFT JOIN LATERAL (
-                    -- 励销云：今日 / 累计同行公司数 + 联系人数
-                    SELECT
-                        COUNT(*) FILTER (WHERE lrc.created_at >= CURRENT_DATE) AS today_count,
-                        COUNT(*)                                                AS total_count,
-                        MAX(lrc.created_at::date)                              AS last_run_date,
-                        SUM(
-                            jsonb_array_length(
-                                COALESCE(lrc.raw_payload -> 'lx_contacts', '[]'::jsonb)
-                            )
-                        )                                                       AS total_contacts
-                    FROM lixiaoyun_raw_companies lrc
-                    WHERE lrc.keyword_master_id = kg.keyword_master_id
-                ) lx_cnt ON true
-                LEFT JOIN LATERAL (
-                    -- 全平台 run 状态是 admin 关键词页的状态真源
-                    SELECT cr.id, cr.status, cr.daily_limit, cr.next_run_at, cr.completed_at
-                    FROM collection_runs cr
-                    WHERE cr.keyword_master_id = kg.keyword_master_id
-                      AND cr.provider = 'lixiaoyun'
-                    ORDER BY
-                      CASE cr.status
-                        WHEN 'running' THEN 1
-                        WHEN 'daily_limit_reached' THEN 2
-                        WHEN 'failed' THEN 3
-                        WHEN 'completed' THEN 4
-                        WHEN 'stopped' THEN 5
-                        ELSE 6
-                      END,
-                      cr.created_at DESC
-                    LIMIT 1
-                ) lx_run ON true
-                LEFT JOIN LATERAL (
-                    -- 腾道：今日 / 累计外贸买家数
-                    SELECT
-                        COUNT(*) FILTER (WHERE trc.created_at >= CURRENT_DATE) AS today_count,
-                        COUNT(*)                                                AS total_count,
-                        MAX(trc.created_at::date)                              AS last_run_date
-                    FROM tendata_raw_companies trc
-                    WHERE trc.keyword_master_id = kg.keyword_master_id
-                ) td_cnt ON true
-                ORDER BY kg.keyword_normalized
+                    km.id AS keyword_master_id,
+                    km.keyword_normalized,
+                    MAX(km.keyword) AS keyword,
+                    jsonb_agg(DISTINCT jsonb_build_object(
+                        'id', t.id::text,
+                        'name', t.name
+                    )) AS tenants
+                FROM keyword_master km
+                JOIN tenant_keyword tk ON tk.keyword_master_id = km.id
+                JOIN tenants t ON t.id = tk.tenant_id
+                WHERE tk.status = 'active'
+                GROUP BY km.id, km.keyword_normalized
+                ORDER BY km.keyword_normalized
                 """
             ),
-            {"default_daily_limit": _DEFAULT_DAILY_LIMIT},
         )
-        rows = result.mappings().all()
-        return [self._format_keyword_row(r) for r in rows]
-
-    async def trigger_collection(
-        self,
-        conn: AsyncConnection,
-        *,
-        keyword_normalized: str,
-        channel: str,
-    ) -> dict:
-        # D-035：V3 仅开放 lixiaoyun（反推）渠道；waimao_tong（外贸通直采）推迟至 V3.1+
-        if channel != "lixiaoyun":
-            raise AppError(
-                code="CHANNEL_NOT_AVAILABLE",
-                message=f"外贸通直采已推迟至 V3.1+，当前仅支持 lixiaoyun 渠道，收到: {channel}",
-                status_code=400,
-            )
-
-        # Load keyword group
-        kw_result = await conn.execute(
-            text(
-                """
-                SELECT ck.id, ck.keyword, ck.tenant_id, ck.keyword_master_id
-                FROM collection_keywords ck
-                WHERE ck.keyword_normalized = :kn
-                  AND ck.status = 'active'
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        kw_rows = kw_result.mappings().all()
-        if not kw_rows:
-            raise AppError(
-                code="NOT_FOUND",
-                message="关键词不存在或已停用",
-                status_code=404,
-            )
-
-        source_types = ["waimao_tong"] if channel == "waimao_tong" else ["lixiaoyun"]
-
-        # Check no running task exists for this channel
-        keyword_id_tuple = tuple(str(r["id"]) for r in kw_rows)
-        running_result = await conn.execute(
-            text(
-                """
-                SELECT ct.id
-                FROM collection_tasks ct
-                JOIN collection_task_keywords ctk ON ctk.task_id = ct.id
-                WHERE ctk.keyword_id IN :keyword_ids
-                  AND ct.source_types @> CAST(:source_types AS jsonb)
-                  AND ct.status IN ('pending', 'running')
-                LIMIT 1
-                """
-            ).bindparams(bindparam("keyword_ids", expanding=True)),
-            {
-                "keyword_ids": keyword_id_tuple,
-                "source_types": json.dumps(source_types),
-            },
-        )
-        if running_result.first() is not None:
-            raise AppError(
-                code="TASK_ALREADY_RUNNING",
-                message="该渠道已有进行中的任务，请等待完成后再触发",
-                status_code=409,
-            )
-
-        keyword = kw_rows[0]["keyword"]
-        keyword_master_id = await self._ensure_keyword_master_for_group(
-            conn,
-            keyword=keyword,
-            keyword_normalized=keyword_normalized,
-            kw_rows=kw_rows,
-        )
-
-        daily_limit = _DEFAULT_DAILY_LIMIT
-
-        skip_rows = await conn.execute(
-            text(
-                """
-                SELECT DISTINCT lrc.source_id
-                FROM lixiaoyun_raw_companies lrc
-                WHERE lrc.keyword_master_id = :keyword_master_id
-                  AND lrc.source_id IS NOT NULL
-                """
-            ),
-            {"keyword_master_id": keyword_master_id},
-        )
-        skip_source_ids = [r["source_id"] for r in skip_rows.mappings().all()]
-
-        page_size = _DEFAULT_REQUEST_PAGE_SIZE
-        context = {
-            "params": {
-                "max_competitors": min(daily_limit, page_size),
-                "daily_limit": daily_limit,
-                "page_size": page_size,
-                "skip_source_ids": skip_source_ids,
-            }
-        }
-
-        run_id = await self._create_collection_run(
-            conn,
-            keyword_master_id=keyword_master_id,
-            keyword=keyword,
-            keyword_normalized=keyword_normalized,
-            daily_limit=daily_limit,
-            request_page_size=page_size,
-            skip_source_ids=skip_source_ids,
-        )
-        task_id = str(new_uuid())
-        biz_date = datetime.now(_BEIJING_TZ).date()
-        await conn.execute(
-            text(
-                """
-                INSERT INTO collection_tasks
-                  (id, run_id, keyword, keyword_normalized, countries, countries_hash,
-                   source_types, task_type, context, status, priority, scheduled_at,
-                   scheduled_biz_date, batch_no, page_size, cursor_snapshot)
-                VALUES
-                  (:id, :run_id, :keyword, :keyword_normalized, '[]'::jsonb, '',
-                   CAST(:source_types AS jsonb), 'competitor_search',
-                   CAST(:context AS jsonb), 'pending', 10, now(),
-                   :scheduled_biz_date, 1, :page_size, '{}'::jsonb)
-                """
-            ),
-            {
-                "id": task_id,
-                "run_id": int(run_id),
-                "keyword": keyword,
-                "keyword_normalized": keyword_normalized,
-                "source_types": json.dumps(source_types),
-                "context": json.dumps(context, ensure_ascii=False),
-                "scheduled_biz_date": biz_date,
-                "page_size": page_size,
-            },
-        )
-
-        for row in kw_rows:
-            await conn.execute(
-                text(
-                    """
-                    INSERT INTO collection_task_keywords (id, task_id, keyword_id, tenant_id)
-                    VALUES (:id, :task_id, :keyword_id, :tenant_id)
-                    ON CONFLICT (task_id, keyword_id) DO NOTHING
-                    """
-                ),
-                {
-                    "id": str(new_uuid()),
-                    "task_id": task_id,
-                    "keyword_id": str(row["id"]),
-                    "tenant_id": str(row["tenant_id"]),
-                },
-            )
-
-        await conn.execute(
-            text(
-                """
-                UPDATE collection_keywords
-                SET subscription_status = 'running',
-                    started_at = COALESCE(started_at, now()),
-                    updated_at = now()
-                WHERE keyword_normalized = :kn
-                  AND status = 'active'
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-
-        return {"task_id": task_id, "run_id": str(run_id), "channel": channel, "keyword": keyword}
-
-    async def list_collection_history(
-        self,
-        conn: AsyncConnection,
-        *,
-        keyword_normalized: str,
-        channel: str,
-    ) -> list[dict]:
-        if channel == "waimao_tong":
-            source_filter = "ct.source_types @> '[\"waimao_tong\"]'::jsonb"
-            type_filter = ""
-        elif channel == "lixiaoyun":
-            source_filter = "ct.source_types @> '[\"lixiaoyun\"]'::jsonb"
-            type_filter = "AND ct.task_type = 'competitor_search'"
-        else:
-            raise AppError(
-                code="VALIDATION_ERROR",
-                message=f"channel 必须是 waimao_tong 或 lixiaoyun，收到: {channel}",
-                status_code=422,
-            )
-
-        result = await conn.execute(
-            text(
-                f"""
-                SELECT DISTINCT
-                    ct.id, ct.status, ct.source_types,
-                    ct.started_at, ct.completed_at, ct.created_at,
-                    ct.error_message, ct.result_summary,
-                    ct.attempt_count
-                FROM collection_tasks ct
-                JOIN collection_task_keywords ctk ON ctk.task_id = ct.id
-                JOIN collection_keywords ck ON ck.id = ctk.keyword_id
-                WHERE ck.keyword_normalized = :kn
-                  AND {source_filter}
-                  {type_filter}
-                ORDER BY ct.created_at DESC
-                LIMIT 50
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        rows = result.mappings().all()
         return [
             {
-                "task_id": str(r["id"]),
-                "status": r["status"],
-                "started_at": r["started_at"].isoformat() if r["started_at"] else None,
-                "completed_at": r["completed_at"].isoformat() if r["completed_at"] else None,
-                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
-                "error_message": r["error_message"],
-                "result_summary": r["result_summary"] or {},
-                "attempt_count": r["attempt_count"],
+                "keyword": r["keyword"],
+                "keyword_normalized": r["keyword_normalized"],
+                "tenants": self._dedupe_tenants(r["tenants"]),
+                "subscription_status": "not_started",
+                "total_companies": 0,
+                "total_contacts": 0,
+                "last_run_date": None,
+                "error_msg": None,
             }
-            for r in rows
+            for r in result.mappings().all()
         ]
-
-    async def stop_keyword(self, conn, *, keyword_normalized: str) -> dict:
-        """停止采集并回到未开始态，cancel pending/running tasks。"""
-        keyword_result = await conn.execute(
-            text(
-                """
-                UPDATE collection_keywords
-                SET subscription_status = 'not_started',
-                    updated_at = now()
-                WHERE keyword_normalized = :kn
-                RETURNING keyword_normalized
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        if keyword_result.first() is None:
-            raise AppError(code="NOT_FOUND", message="关键词不存在", status_code=404)
-
-        tasks_result = await conn.execute(
-            text(
-                """
-                UPDATE collection_tasks
-                SET status = 'cancelled',
-                    completed_at = now(),
-                    updated_at = now()
-                WHERE keyword_normalized = :kn
-                  AND status IN ('pending', 'running')
-                RETURNING id
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        cancelled_tasks = len(tasks_result.mappings().all())
-
-        run_result = await conn.execute(
-            text(
-                """
-                UPDATE collection_runs
-                SET status = 'stopped',
-                    manual_stopped_at = now(),
-                    next_run_at = NULL,
-                    updated_at = now()
-                WHERE keyword_master_id IN (
-                    SELECT keyword_master_id
-                    FROM collection_keywords
-                    WHERE keyword_normalized = :kn
-                      AND keyword_master_id IS NOT NULL
-                )
-                  AND status IN ('running', 'daily_limit_reached')
-                RETURNING id
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        stopped_runs = len(run_result.mappings().all())
-        return {
-            "keyword_normalized": keyword_normalized,
-            "subscription_status": "not_started",
-            "run_status": "stopped" if stopped_runs else "not_started",
-            "stopped_runs": stopped_runs,
-            "cancelled_tasks": cancelled_tasks,
-        }
-
-    async def reset_keyword(self, conn, *, keyword_normalized: str) -> dict:
-        keyword_result = await conn.execute(
-            text(
-                """
-                UPDATE collection_keywords
-                SET subscription_status = 'not_started',
-                    current_page = 0,
-                    total_pages = 0,
-                    today_pages = 0,
-                    stage1_today_count = 0,
-                    stage1_total_count = 0,
-                    stage1_status = 'not_started',
-                    stage2_today_count = 0,
-                    stage2_total_count = 0,
-                    stage2_status = 'not_started',
-                    total_companies = 0,
-                    total_contacts = 0,
-                    error_msg = NULL,
-                    last_run_date = NULL,
-                    last_stage1_date = NULL,
-                    last_stage2_date = NULL,
-                    started_at = NULL,
-                    updated_at = now()
-                WHERE keyword_normalized = :kn
-                RETURNING keyword_normalized
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        if keyword_result.first() is None:
-            raise AppError(code="NOT_FOUND", message="关键词不存在", status_code=404)
-
-        await conn.execute(
-            text(
-                """
-                UPDATE collection_tasks
-                SET status = 'cancelled'
-                WHERE keyword_normalized = :kn
-                  AND status IN ('pending', 'running')
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        return {
-            "keyword_normalized": keyword_normalized,
-            "subscription_status": "not_started",
-        }
-
-    async def retry_keyword(self, conn, *, keyword_normalized: str) -> dict:
-        result = await conn.execute(
-            text(
-                """
-                SELECT subscription_status
-                FROM collection_keywords
-                WHERE keyword_normalized = :kn
-                ORDER BY updated_at DESC NULLS LAST
-                LIMIT 1
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        row = result.mappings().first()
-        if row is None:
-            raise AppError(code="NOT_FOUND", message="关键词不存在", status_code=404)
-        if row["subscription_status"] not in ("error", "not_started"):
-            raise AppError(
-                code="VALIDATION_ERROR",
-                message="只允许在 error/not_started 状态下重试",
-                status_code=422,
-            )
-
-        await conn.execute(
-            text(
-                """
-                UPDATE collection_keywords
-                SET subscription_status = 'pending',
-                    error_msg = NULL,
-                    updated_at = now()
-                WHERE keyword_normalized = :kn
-                """
-            ),
-            {"kn": keyword_normalized},
-        )
-        return {
-            "keyword_normalized": keyword_normalized,
-            "subscription_status": "pending",
-        }
 
     async def get_dashboard(self, conn) -> dict:
         today_companies = await self._scalar_int(
@@ -584,17 +115,14 @@ class AdminCollectionService:
             WHERE created_at::date = current_date
             """,
         )
-        running_count = await self._keyword_status_count(conn, "running")
-        paused_count = await self._keyword_status_count(conn, "paused")
-        error_count = await self._keyword_status_count(conn, "error")
         keywords = await self.list_collection_keywords(conn)
 
         return {
             "today_companies": today_companies,
             "today_contacts": today_contacts,
-            "running_count": running_count,
-            "paused_count": paused_count,
-            "error_count": error_count,
+            "running_count": 0,
+            "paused_count": 0,
+            "error_count": 0,
             "keywords": keywords,
         }
 
@@ -1664,58 +1192,6 @@ COALESCE(
             "reconcile_c": reconcile_c,
         }
 
-    def _format_keyword_row(self, r) -> dict:
-        # 从实际任务状态推导 subscription_status（worker 不更新 collection_keywords 本身）
-        lx_task_status = r.get("lx_task_status")  # competitor_search 最新任务
-        td_task_status = r.get("td_task_status")  # buyer_lookup 最新任务
-        lx_run_status = r.get("lx_run_status")
-        db_sub_status = r.get("subscription_status") or "not_started"
-
-        if lx_run_status in ("running", "daily_limit_reached", "completed", "stopped", "failed"):
-            effective_status = lx_run_status
-        elif lx_task_status in ("pending", "running") or td_task_status in ("pending", "running"):
-            effective_status = "running"
-        elif db_sub_status == "running":
-            effective_status = "running"
-        else:
-            effective_status = "not_started"
-
-        return {
-            "keyword": r["keyword"],
-            "keyword_normalized": r["keyword_normalized"],
-            "tenants": self._dedupe_tenants(r["tenants"]),
-            "subscription_status": effective_status,
-            "total_companies": int(r["total_companies"] or 0),
-            "total_contacts": int(r["total_contacts"] or 0),
-            "last_run_date": self._date_iso(r["last_run_date"]),
-            "error_msg": r["error_msg"],
-            "direct": {
-                "current_page": r["current_page"] or 0,
-                "total_pages": r["total_pages"] or 0,
-                "today_pages": r["today_pages"] or 0,
-                "daily_limit": r["daily_page_limit"],
-                "status": r["direct_task_status"],
-                "last_run_date": self._date_iso(r["direct_last_run_date"]),
-            },
-            "reverse_stage1": {
-                "today_count": int(r["stage1_today_count"] or 0),
-                "total_count": int(r["stage1_total_count"] or 0),
-                "daily_limit": r["lx_run_daily_limit"] or r["daily_stage1_limit"],
-                "status": lx_run_status or lx_task_status,
-                "last_run_date": self._date_iso(r["last_stage1_date"]),
-                "run_id": r["lx_run_id"],
-                "next_run_at": self._datetime_iso(r["lx_run_next_run_at"]),
-                "completed_at": self._datetime_iso(r["lx_run_completed_at"]),
-            },
-            "reverse_stage2": {
-                "today_count": int(r["stage2_today_count"] or 0),
-                "total_count": int(r["stage2_total_count"] or 0),
-                "daily_limit": r["daily_stage2_limit"],
-                "status": td_task_status,
-                "last_run_date": self._date_iso(r["last_stage2_date"]),
-            },
-        }
-
     def _dedupe_tenants(self, tenants: list[dict] | None) -> list[dict]:
         tenants = tenants or []
         seen = set()
@@ -1739,131 +1215,6 @@ COALESCE(
     async def _scalar_int(self, conn, sql: str, params: dict | None = None) -> int:
         result = await conn.execute(text(sql), params or {})
         return int(result.scalar_one() or 0)
-
-    async def _keyword_status_count(self, conn, status: str) -> int:
-        return await self._scalar_int(
-            conn,
-            """
-            SELECT COUNT(*)
-            FROM collection_keywords
-            WHERE subscription_status = :status
-            """,
-            {"status": status},
-        )
-
-    async def _ensure_keyword_master_for_group(
-        self,
-        conn: AsyncConnection,
-        *,
-        keyword: str,
-        keyword_normalized: str,
-        kw_rows,
-    ) -> str:
-        existing = next(
-            (row["keyword_master_id"] for row in kw_rows if row.get("keyword_master_id")), None
-        )
-        if existing:
-            return str(existing)
-
-        result = await conn.execute(
-            text(
-                """
-                INSERT INTO keyword_master (keyword, keyword_normalized)
-                VALUES (:keyword, :keyword_normalized)
-                ON CONFLICT (keyword_normalized) DO UPDATE
-                SET keyword = COALESCE(keyword_master.keyword, EXCLUDED.keyword)
-                RETURNING id::text
-                """
-            ),
-            {"keyword": keyword, "keyword_normalized": keyword_normalized},
-        )
-        keyword_master_id = result.scalar_one()
-        tenant_rows = []
-        for row in kw_rows:
-            tenant_rows.append(
-                {
-                    "keyword_id": str(row["id"]),
-                    "tenant_id": str(row["tenant_id"]),
-                    "keyword_master_id": keyword_master_id,
-                }
-            )
-
-        for row in tenant_rows:
-            await conn.execute(
-                text(
-                    """
-                    UPDATE collection_keywords
-                    SET keyword_master_id = :keyword_master_id,
-                        updated_at = now()
-                    WHERE id = :keyword_id
-                    """
-                ),
-                row,
-            )
-            await conn.execute(
-                text(
-                    """
-                    INSERT INTO tenant_keyword (tenant_id, keyword_master_id, keyword_raw, status)
-                    SELECT :tenant_id, :keyword_master_id, ck.keyword, 'active'
-                    FROM collection_keywords ck
-                    WHERE ck.id = :keyword_id
-                    ON CONFLICT (tenant_id, keyword_master_id) DO UPDATE
-                    SET keyword_raw = EXCLUDED.keyword_raw,
-                        status = 'active'
-                    """
-                ),
-                row,
-            )
-        return keyword_master_id
-
-    async def _create_collection_run(
-        self,
-        conn: AsyncConnection,
-        *,
-        keyword_master_id: str,
-        keyword: str,
-        keyword_normalized: str,
-        daily_limit: int,
-        request_page_size: int,
-        skip_source_ids: list[str],
-    ) -> str:
-        await conn.execute(
-            text(
-                """
-                UPDATE collection_runs
-                SET status = 'stopped',
-                    manual_stopped_at = now(),
-                    next_run_at = NULL,
-                    updated_at = now()
-                WHERE keyword_master_id = :keyword_master_id
-                  AND provider = 'lixiaoyun'
-                  AND status IN ('running', 'daily_limit_reached')
-                """
-            ),
-            {"keyword_master_id": keyword_master_id},
-        )
-        result = await conn.execute(
-            text(
-                """
-                INSERT INTO collection_runs
-                  (keyword_master_id, provider, stage, status, daily_limit,
-                   request_page_size, skip_source_ids, biz_date)
-                VALUES
-                  (:keyword_master_id, 'lixiaoyun', 'lixiaoyun_competitors',
-                   'running', :daily_limit, :request_page_size,
-                   CAST(:skip_source_ids AS jsonb), :biz_date)
-                RETURNING id::text
-                """
-            ),
-            {
-                "keyword_master_id": keyword_master_id,
-                "daily_limit": daily_limit,
-                "request_page_size": min(max(request_page_size, 1), _MAX_REQUEST_PAGE_SIZE),
-                "skip_source_ids": json.dumps(skip_source_ids, ensure_ascii=False),
-                "biz_date": datetime.now(_BEIJING_TZ).date(),
-            },
-        )
-        return result.scalar_one()
 
     # ── 同行公司（peer_companies）清洗层 ──────────────────────
 

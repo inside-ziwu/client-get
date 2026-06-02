@@ -1,7 +1,6 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
 
 from app.core.responses import paginated_response, success_response
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
@@ -12,11 +11,6 @@ router = APIRouter(tags=["admin-collection"])
 service = AdminCollectionService()
 
 
-class TriggerCollectionRequest(BaseModel):
-    keyword_normalized: str
-    channel: str
-
-
 @router.get("/collection-keywords")
 async def list_collection_keywords(
     context: PlatformAuthContext = Depends(get_current_platform_user),
@@ -24,59 +18,6 @@ async def list_collection_keywords(
     items = await service.list_collection_keywords(context.connection)
     return paginated_response(items, total=len(items))
 
-
-@router.post("/collection-keywords/trigger")
-async def trigger_collection(
-    payload: TriggerCollectionRequest,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    result = await service.trigger_collection(
-        context.connection,
-        keyword_normalized=payload.keyword_normalized,
-        channel=payload.channel,
-    )
-    return success_response(result)
-
-
-@router.get("/collection-keywords/{keyword_normalized}/history")
-async def list_collection_history(
-    keyword_normalized: str,
-    channel: str = "waimao_tong",
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    items = await service.list_collection_history(
-        context.connection,
-        keyword_normalized=keyword_normalized,
-        channel=channel,
-    )
-    return paginated_response(items, total=len(items))
-
-
-@router.post("/collection-keywords/{keyword_normalized}/stop")
-async def stop_collection(
-    keyword_normalized: str,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    result = await service.stop_keyword(context.connection, keyword_normalized=keyword_normalized)
-    return success_response(result)
-
-
-@router.post("/collection-keywords/{keyword_normalized}/reset")
-async def reset_collection(
-    keyword_normalized: str,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    result = await service.reset_keyword(context.connection, keyword_normalized=keyword_normalized)
-    return success_response(result)
-
-
-@router.post("/collection-keywords/{keyword_normalized}/retry")
-async def retry_collection(
-    keyword_normalized: str,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    result = await service.retry_keyword(context.connection, keyword_normalized=keyword_normalized)
-    return success_response(result)
 
 
 @router.get("/collection/dashboard")

@@ -855,7 +855,7 @@ class TenantQueryService:
             text(
                 """
                 SELECT
-                  (SELECT count(*) FROM collection_keywords WHERE tenant_id = :tenant_id) AS keyword_count,
+                  (SELECT count(*) FROM tenant_keyword WHERE tenant_id = :tenant_id AND status = 'active') AS keyword_count,
                   (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id) AS companies_collected,
                   (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id AND score IS NOT NULL) AS companies_scored,
                   (SELECT count(*) FROM tenant_contacts WHERE tenant_id = :tenant_id) AS contacts_total

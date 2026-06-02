@@ -4,7 +4,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.core.ids import new_uuid
 from app.services.keyword_service import (
     bind_tenant_keyword,
     get_or_create_keyword_master,
@@ -19,10 +18,11 @@ class TenantSettingsService:
         result = await conn.execute(
             text(
                 """
-                SELECT id, keyword, keyword_normalized, status, created_at
-                FROM collection_keywords
-                WHERE tenant_id = :tenant_id AND status != 'deleted'
-                ORDER BY created_at DESC
+                SELECT tk.id, km.keyword, km.keyword_normalized, tk.status, tk.created_at
+                FROM tenant_keyword tk
+                JOIN keyword_master km ON km.id = tk.keyword_master_id
+                WHERE tk.tenant_id = :tenant_id AND tk.status != 'deleted'
+                ORDER BY tk.created_at DESC
                 """
             ),
             {"tenant_id": tenant_id},
@@ -54,7 +54,7 @@ class TenantSettingsService:
             keyword=keyword,
             keyword_normalized=keyword_normalized,
         )
-        await bind_tenant_keyword(
+        tenant_keyword_id = await bind_tenant_keyword(
             conn,
             tenant_id=tenant_id,
             keyword_master_id=keyword_master_id,
@@ -66,28 +66,8 @@ class TenantSettingsService:
             tenant_id=tenant_id,
             keyword_master_id=keyword_master_id,
         )
-
-        keyword_id = str(new_uuid())
-        await conn.execute(
-            text(
-                """
-                INSERT INTO collection_keywords
-                  (id, tenant_id, keyword, keyword_normalized, status, created_by, keyword_master_id)
-                VALUES
-                  (:id, :tenant_id, :keyword, :keyword_normalized, 'active', :created_by, :keyword_master_id)
-                """
-            ),
-            {
-                "id": keyword_id,
-                "tenant_id": tenant_id,
-                "keyword": keyword,
-                "keyword_normalized": keyword_normalized,
-                "created_by": user_id,
-                "keyword_master_id": keyword_master_id,
-            },
-        )
         return {
-            "id": keyword_id,
+            "id": str(tenant_keyword_id),
             "keyword": keyword,
             "keyword_normalized": keyword_normalized,
             "status": "active",
@@ -102,17 +82,17 @@ class TenantSettingsService:
         existing = await conn.execute(
             text(
                 """
-                SELECT keyword, status, keyword_master_id
-                FROM collection_keywords
-                WHERE id = :keyword_id AND tenant_id = :tenant_id
+                SELECT tk.id, km.keyword, tk.status, tk.keyword_master_id
+                FROM tenant_keyword tk
+                JOIN keyword_master km ON km.id = tk.keyword_master_id
+                WHERE tk.id = :keyword_id AND tk.tenant_id = :tenant_id
                 """
             ),
-            {"tenant_id": tenant_id, "keyword_id": keyword_id},
+            {"tenant_id": tenant_id, "keyword_id": int(keyword_id)},
         )
         row = existing.mappings().first()
         if row is None:
             raise AppError(code="NOT_FOUND", message="关键词不存在", status_code=404)
-        old_keyword_master_id = row["keyword_master_id"]
         keyword = (payload.get("keyword") or row["keyword"]).strip()
         keyword_normalized = normalize_keyword(keyword)
         status = payload.get("status") or row["status"]
@@ -121,37 +101,28 @@ class TenantSettingsService:
             keyword=keyword,
             keyword_normalized=keyword_normalized,
         )
-        await bind_tenant_keyword(
-            conn,
-            tenant_id=tenant_id,
-            keyword_master_id=keyword_master_id,
-            keyword_raw=keyword,
-        )
-        await run_fan_out_for_tenant_keyword(
-            conn,
-            tenant_id=tenant_id,
-            keyword_master_id=keyword_master_id,
-        )
         await conn.execute(
             text(
                 """
-                UPDATE collection_keywords
-                SET keyword = :keyword,
-                    keyword_normalized = :keyword_normalized,
-                    keyword_master_id = :keyword_master_id,
-                    status = :status,
-                    updated_at = now()
+                UPDATE tenant_keyword
+                SET keyword_master_id = :keyword_master_id,
+                    keyword_raw = :keyword,
+                    status = :status
                 WHERE id = :keyword_id AND tenant_id = :tenant_id
                 """
             ),
             {
                 "tenant_id": tenant_id,
-                "keyword_id": keyword_id,
+                "keyword_id": int(keyword_id),
                 "keyword": keyword,
-                "keyword_normalized": keyword_normalized,
                 "keyword_master_id": keyword_master_id,
                 "status": status,
             },
+        )
+        await run_fan_out_for_tenant_keyword(
+            conn,
+            tenant_id=tenant_id,
+            keyword_master_id=keyword_master_id,
         )
         return {
             "id": keyword_id,
@@ -161,42 +132,19 @@ class TenantSettingsService:
         }
 
     async def delete_keyword(self, conn: AsyncConnection, *, tenant_id: str, keyword_id: str) -> None:
-        existing = await conn.execute(
+        result = await conn.execute(
             text(
                 """
-                SELECT keyword_master_id
-                FROM collection_keywords
+                UPDATE tenant_keyword
+                SET status = 'deleted'
                 WHERE id = :keyword_id AND tenant_id = :tenant_id
+                RETURNING id
                 """
             ),
-            {"tenant_id": tenant_id, "keyword_id": keyword_id},
+            {"tenant_id": tenant_id, "keyword_id": int(keyword_id)},
         )
-        row = existing.mappings().first()
-        if row is None:
+        if result.first() is None:
             raise AppError(code="NOT_FOUND", message="关键词不存在", status_code=404)
-
-        await conn.execute(
-            text(
-                """
-                UPDATE collection_keywords
-                SET status = 'deleted', updated_at = now()
-                WHERE id = :keyword_id AND tenant_id = :tenant_id
-                """
-            ),
-            {"tenant_id": tenant_id, "keyword_id": keyword_id},
-        )
-        if row["keyword_master_id"]:
-            await conn.execute(
-                text(
-                    """
-                    UPDATE tenant_keyword
-                    SET status = 'deleted'
-                    WHERE tenant_id = :tenant_id
-                      AND keyword_master_id = :keyword_master_id
-                    """
-                ),
-                {"tenant_id": tenant_id, "keyword_master_id": row["keyword_master_id"]},
-            )
 
     async def get_scoring_templates(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
         result = await conn.execute(
@@ -366,7 +314,7 @@ class TenantSettingsService:
                 text(
                     """
                     SELECT count(*)
-                    FROM collection_keywords
+                    FROM tenant_keyword
                     WHERE tenant_id = :tenant_id AND status = 'active'
                     """
                 ),
