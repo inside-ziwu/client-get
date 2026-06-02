@@ -1686,7 +1686,6 @@ class AdminConfigService:
                 SELECT
                   (SELECT count(*) FROM tenants WHERE status = 'active') AS active_tenants,
                   (SELECT count(*) FROM users) AS total_users,
-                  (SELECT count(*) FROM collection_tasks WHERE status = 'running') AS running_collection_tasks,
                   (SELECT count(*) FROM sending_plans WHERE status = 'running' AND deleted_at IS NULL) AS running_sending_plans,
                   (SELECT count(*) FROM intelligence_articles) AS total_articles,
                   (SELECT count(*) FROM tenant_ai_provider_configs WHERE provider = 'openrouter') AS configured_openrouter_tenants
@@ -1697,43 +1696,14 @@ class AdminConfigService:
         return {
             "active_tenants": row["active_tenants"],
             "total_users": row["total_users"],
-            "running_collection_tasks": row["running_collection_tasks"],
+            "running_collection_tasks": 0,
             "running_sending_plans": row["running_sending_plans"],
             "total_articles": row["total_articles"],
             "configured_openrouter_tenants": row["configured_openrouter_tenants"],
         }
 
     async def get_collection_task_monitor(self, conn: AsyncConnection) -> list[dict]:
-        result = await conn.execute(
-            text(
-                """
-                SELECT id, keyword, status, priority, lease_owner, lease_expires_at, attempt_count, max_attempts,
-                       scheduled_at, started_at, completed_at, result_summary, error_message, created_at
-                FROM collection_tasks
-                ORDER BY created_at DESC
-                LIMIT 100
-                """
-            )
-        )
-        return [
-            {
-                "id": str(row["id"]),
-                "keyword": row["keyword"],
-                "status": row["status"],
-                "priority": row["priority"],
-                "lease_owner": row["lease_owner"],
-                "lease_expires_at": row["lease_expires_at"].isoformat() if row["lease_expires_at"] else None,
-                "attempt_count": row["attempt_count"],
-                "max_attempts": row["max_attempts"],
-                "scheduled_at": row["scheduled_at"].isoformat(),
-                "started_at": row["started_at"].isoformat() if row["started_at"] else None,
-                "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
-                "result_summary": row["result_summary"],
-                "error_message": row["error_message"],
-                "created_at": row["created_at"].isoformat(),
-            }
-            for row in result.mappings().all()
-        ]
+        return []
 
     async def _get_tenant_user(self, conn: AsyncConnection, tenant_id: str, user_id: str) -> dict:
         users = await self.list_tenant_users(conn, tenant_id)

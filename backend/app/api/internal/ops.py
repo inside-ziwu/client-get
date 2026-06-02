@@ -19,21 +19,6 @@ async def list_collection_credentials(
     return paginated_response(items, total=len(items))
 
 
-@router.post("/collection/competitors/batch-upsert")
-async def batch_upsert_competitors(
-    payload: dict,
-    _: ServiceAuthContext = Depends(require_service_scopes("collection:write")),
-    conn=Depends(get_connection),
-) -> dict:
-    return success_response(
-        await service.batch_upsert_competitors(
-            conn,
-            task_id=payload["task_id"],
-            competitors=payload.get("competitors", []),
-        )
-    )
-
-
 @router.post("/sending/due-emails/claim")
 async def claim_due_emails(
     payload: dict,

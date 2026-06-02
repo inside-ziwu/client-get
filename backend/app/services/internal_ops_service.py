@@ -1,11 +1,8 @@
-import json
-
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.crypto import decrypt_secret
 from app.core.errors import AppError
-from app.core.ids import new_uuid
 from app.services.intelligence_service import IntelligenceService
 from app.services.tenant_messaging_service import TenantMessagingService
 
@@ -41,37 +38,6 @@ class InternalOpsService:
             for row in result.mappings().all()
         ]
 
-    async def batch_upsert_competitors(self, conn: AsyncConnection, *, task_id: str, competitors: list[dict]) -> dict:
-        tenant_keyword_map = await self._load_task_tenant_keywords(conn, task_id)
-        count = 0
-        for competitor in competitors:
-            for tenant_id in tenant_keyword_map:
-                await conn.execute(
-                    text(
-                        """
-                        INSERT INTO competitor_companies
-                          (id, tenant_id, company_name, domain, reason, source_type, raw_data)
-                        VALUES
-                          (:id, :tenant_id, :company_name, :domain, :reason, :source_type, CAST(:raw_data AS jsonb))
-                        ON CONFLICT (tenant_id, company_name) DO UPDATE
-                        SET domain = COALESCE(excluded.domain, competitor_companies.domain),
-                            reason = COALESCE(excluded.reason, competitor_companies.reason),
-                            raw_data = excluded.raw_data
-                        """
-                    ),
-                    {
-                        "id": str(new_uuid()),
-                        "tenant_id": tenant_id,
-                        "company_name": competitor["company_name"],
-                        "domain": competitor.get("domain"),
-                        "reason": competitor.get("reason"),
-                        "source_type": competitor.get("source_type", "lixiaoyun"),
-                        "raw_data": json.dumps(competitor.get("raw_data", {}), ensure_ascii=False),
-                    },
-                )
-                count += 1
-        return {"task_id": task_id, "count": count}
-
     async def claim_due_emails(self, conn: AsyncConnection, payload: dict) -> dict:
         return await self.messaging.claim_due_emails(
             conn,
@@ -97,19 +63,3 @@ class InternalOpsService:
 
     async def publish_article(self, conn: AsyncConnection, payload: dict) -> dict:
         return await self.intelligence.publish_article(conn, payload=payload)
-
-    async def _load_task_tenant_keywords(self, conn: AsyncConnection, task_id: str) -> dict[str, str]:
-        result = await conn.execute(
-            text(
-                """
-                SELECT tenant_id, keyword_id
-                FROM collection_task_keywords
-                WHERE task_id = :task_id
-                """
-            ),
-            {"task_id": task_id},
-        )
-        rows = result.mappings().all()
-        if not rows:
-            raise AppError(code="NOT_FOUND", message="collection task 或其关键词绑定不存在", status_code=404)
-        return {str(row["tenant_id"]): str(row["keyword_id"]) for row in rows}
