@@ -7,10 +7,16 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import asyncio
 import json
+import logging
 
 from app.core.config import get_settings
 from app.db.pools import close_engines, get_engine, initialize_engines
+from app.workers.reconciliation import ReconciliationWorker
 from app.workers.sending import SendingWorker
+
+logger = logging.getLogger(__name__)
+
+RECONCILE_EVERY_N_LOOPS = 120  # 约 10 分钟（每轮 ~5 秒）
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -18,6 +24,8 @@ async def run(args: argparse.Namespace) -> None:
     initialize_engines(settings)
     engine = get_engine()
     worker = SendingWorker()
+    reconciler = ReconciliationWorker()
+    loop_count = 0
     try:
         if args.once:
             result = await worker.run_once(
@@ -34,6 +42,16 @@ async def run(args: argparse.Namespace) -> None:
                 idle_poll_seconds=args.idle_poll_seconds,
             )
             print(json.dumps(result, ensure_ascii=False))
+
+            loop_count += 1
+            if loop_count >= RECONCILE_EVERY_N_LOOPS:
+                loop_count = 0
+                try:
+                    stats = await reconciler.run_once(engine)
+                    if stats["total"] > 0:
+                        logger.info("对账完成: %s", json.dumps(stats, ensure_ascii=False))
+                except Exception:
+                    logger.exception("对账异常")
     finally:
         await close_engines()
 
