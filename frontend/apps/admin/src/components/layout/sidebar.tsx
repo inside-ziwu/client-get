@@ -78,7 +78,7 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'hidden h-screen shrink-0 border-r border-border bg-white transition-all duration-200 lg:block',
+          'relative hidden h-screen shrink-0 border-r border-border bg-white transition-all duration-200 lg:block',
           collapsed ? 'w-16' : 'w-64',
         )}
         onMouseEnter={() => collapsed && setHovered(true)}
