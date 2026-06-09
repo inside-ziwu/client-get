@@ -407,6 +407,7 @@ async def list_wmt_clean_companies(
     year_max: int | None = None,
     has_contacts: bool | None = None,
     grade: str | None = None,
+    collection_type: str | None = None,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     rows, total = await service.list_wmt_clean_companies(
@@ -421,6 +422,7 @@ async def list_wmt_clean_companies(
         year_max=year_max,
         has_contacts=has_contacts,
         grade=grade,
+        collection_type=collection_type,
     )
     return paginated_response(rows, total=total, has_more=(page * page_size < total))
 

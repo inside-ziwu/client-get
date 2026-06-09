@@ -21,6 +21,7 @@ type FilterValues = {
   country: string;
   industry: string;
   size: string;
+  collection_type: string;
   year_min: string;
   year_max: string;
   has_contacts: boolean;
@@ -31,6 +32,7 @@ const EMPTY_FILTERS: FilterValues = {
   country: '',
   industry: '',
   size: '',
+  collection_type: '',
   year_min: '',
   year_max: '',
   has_contacts: false,
@@ -81,6 +83,7 @@ export function CustomerArchivePage() {
             year_min: appliedFilters.year_min ? Number(appliedFilters.year_min) : undefined,
             year_max: appliedFilters.year_max ? Number(appliedFilters.year_max) : undefined,
             has_contacts: appliedFilters.has_contacts || undefined,
+            collection_type: appliedFilters.collection_type || undefined,
           })
         ).data;
       } catch {
@@ -132,8 +135,8 @@ export function CustomerArchivePage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">外贸通客户数据</h1>
-          <p className="admin-page-description">waimaotong_clean_companies 清洗后的公司数据及联系人。</p>
+          <h1 className="admin-page-title">客户数据</h1>
+          <p className="admin-page-description">清洗后的公司数据及联系人。</p>
         </div>
       </div>
 
@@ -141,7 +144,7 @@ export function CustomerArchivePage() {
       <Card>
         <CardContent className="p-4">
           <form className="space-y-3" onSubmit={onSearch}>
-            <div className="grid gap-3 lg:grid-cols-[1fr_160px_160px_160px]">
+            <div className="grid gap-3 lg:grid-cols-[1fr_140px_140px_160px_160px]">
               <Input
                 placeholder="公司名 / 域名搜索"
                 value={filters.q}
@@ -170,6 +173,19 @@ export function CustomerArchivePage() {
                   <SelectItem value="small">10 - 49 人</SelectItem>
                   <SelectItem value="medium">50 - 199 人</SelectItem>
                   <SelectItem value="large">&ge; 200 人</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={filters.collection_type || 'all'}
+                onValueChange={(v) => setFilters((f) => ({ ...f, collection_type: v === 'all' ? '' : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="采集类型（不限）" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">采集类型（不限）</SelectItem>
+                  <SelectItem value="keyword">关键词采集</SelectItem>
+                  <SelectItem value="reverse">精准反推</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -210,12 +226,12 @@ export function CustomerArchivePage() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1400px] text-sm">
+            <table className="w-full min-w-[1200px] text-sm">
               <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
                 <tr>
                   {[
                     '公司名', '国家', '域名', '行业', '员工规模', '成立',
-                    '电话', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间',
+                    '采集类型', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间',
                   ].map((label) => (
                     <th key={label} className="whitespace-nowrap px-3 py-2">{label}</th>
                   ))}
@@ -231,7 +247,7 @@ export function CustomerArchivePage() {
                 )}
                 {pageData.data.map((row) => (
                   <tr key={row.id} className="border-b hover:bg-muted/40">
-                    <td className="max-w-[180px] truncate px-3 py-2">
+                    <td className="max-w-[220px] truncate px-3 py-2">
                       <button
                         className="text-left font-medium text-primary hover:underline"
                         onClick={() => setSelectedId(Number(row.id))}
@@ -240,21 +256,23 @@ export function CustomerArchivePage() {
                       </button>
                     </td>
                     <td className="px-3 py-2">{dash(row.country)}</td>
-                    <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
-                    <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry)}</td>
+                    <td className="max-w-[180px] truncate px-3 py-2">{dash(row.domain)}</td>
+                    <td className="max-w-[160px] truncate px-3 py-2">{dash(row.industry)}</td>
                     <td className="px-3 py-2">{dash(row.employee_size)}</td>
-                    <td className="px-3 py-2">{dash(row.founded_year)}</td>
-                    <td className="px-3 py-2">{dash(row.phone)}</td>
+                    <td className="w-[60px] px-3 py-2">{dash(row.founded_year)}</td>
                     <td className="px-3 py-2">
+                      {row.collection_type === 'keyword' ? '关键词采集' : '精准反推'}
+                    </td>
+                    <td className="w-[50px] px-3 py-2">
                       {row.grade ? (
                         <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[row.grade] ?? ''}`}>
                           {row.grade}
                         </span>
                       ) : '-'}
                     </td>
-                    <td className="px-3 py-2">{row.score != null ? row.score : '-'}</td>
+                    <td className="w-[50px] px-3 py-2">{row.score != null ? row.score : '-'}</td>
                     <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
-                    <td className="px-3 py-2">{row.contacts_count ?? '-'}</td>
+                    <td className="w-[70px] px-3 py-2">{row.contacts_count ?? '-'}</td>
                     <td className="px-3 py-2">
                       <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setSelectedId(Number(row.id))}>
                         查看详情

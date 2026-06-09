@@ -1812,6 +1812,7 @@ COALESCE(
         year_max: int | None = None,
         has_contacts: bool | None = None,
         grade: str | None = None,
+        collection_type: str | None = None,
     ) -> tuple[list[dict], int]:
         where_parts: list[str] = []
         params: dict = {"limit": page_size, "offset": (page - 1) * page_size}
@@ -1856,6 +1857,14 @@ COALESCE(
             where_parts.append("grade = :grade")
             params["grade"] = grade
 
+        _keyword_tag_jsonb = """'["外贸通关键词采集"]'::jsonb"""
+        if collection_type == "keyword":
+            where_parts.append(f"data_source_tags @> {_keyword_tag_jsonb}")
+        elif collection_type == "reverse":
+            where_parts.append(
+                f"(data_source_tags IS NULL OR NOT data_source_tags @> {_keyword_tag_jsonb})"
+            )
+
         where_clause = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
 
         total = await self._scalar_int(
@@ -1897,6 +1906,9 @@ COALESCE(
             item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
             item["product_tags"] = list(item["product_tags"] or [])
             item["data_source_tags"] = list(item["data_source_tags"] or [])
+            item["collection_type"] = (
+                "keyword" if "外贸通关键词采集" in item["data_source_tags"] else "reverse"
+            )
             item["created_at"] = self._datetime_iso(item.get("created_at"))
             item["updated_at"] = self._datetime_iso(item.get("updated_at"))
             rows.append(item)

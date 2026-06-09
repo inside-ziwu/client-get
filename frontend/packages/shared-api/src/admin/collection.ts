@@ -193,6 +193,7 @@ export interface WmtCleanCompanyRow {
   company_type_analysis: string | null;
   product_tags: string[];
   data_source_tags: string[];
+  collection_type: 'keyword' | 'reverse';
   has_trade_data: boolean | null;
   trade_amount_3y_usd: number | null;
   trade_count: number | null;
@@ -503,6 +504,7 @@ export function collectionApi(client: AxiosInstance) {
       year_max?: number;
       has_contacts?: boolean;
       grade?: string;
+      collection_type?: string;
     }) =>
       client.get<PaginatedResponse<WmtCleanCompanyRow>>(
         '/api/v1/collection/wmt-clean-companies',
