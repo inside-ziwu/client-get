@@ -5,6 +5,7 @@ import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import {
   Button, Card, CardContent, Input, MultiSelect,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@shared/ui';
 
 export type FilterValues = {
@@ -12,6 +13,7 @@ export type FilterValues = {
   countries: string[];
   sub_industries: string[];
   product_tags: string[];
+  collection_type: string;
   grades: string[];
   trade_amount_min: string;
   trade_amount_max: string;
@@ -28,6 +30,7 @@ export const EMPTY_FILTERS: FilterValues = {
   countries: [],
   sub_industries: [],
   product_tags: [],
+  collection_type: '',
   grades: [],
   trade_amount_min: '',
   trade_amount_max: '',
@@ -128,6 +131,7 @@ export function buildParams(f: FilterValues, page: number, pageSize: number): Co
   if (f.countries.length) p['countries[]'] = f.countries;
   if (f.sub_industries.length) p['sub_industries[]'] = f.sub_industries;
   if (f.product_tags.length) p['product_tags[]'] = f.product_tags;
+  if (f.collection_type) p.collection_type = f.collection_type;
   if (f.trade_amount_min) p.trade_amount_min = Number(f.trade_amount_min);
   if (f.trade_amount_max) p.trade_amount_max = Number(f.trade_amount_max);
   if (f.trade_count_min) p.trade_count_min = Number(f.trade_count_min);
@@ -178,7 +182,7 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
     <Card className={compact ? 'border-0 shadow-none' : undefined}>
       <CardContent className={compact ? 'p-0' : 'p-4'}>
         <form className="space-y-3" onSubmit={onSearch}>
-          <div className={wrapper ?? "grid gap-3 lg:grid-cols-5"}>
+          <div className={wrapper ?? "grid gap-3 lg:grid-cols-6"}>
             <Input
               placeholder="公司名 / 域名搜索"
               value={filters.keyword}
@@ -205,6 +209,19 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
               placeholder="产品标签"
               allowCreate={false}
             />
+            <Select
+              value={filters.collection_type || 'all'}
+              onValueChange={(v) => setFilters((f) => ({ ...f, collection_type: v === 'all' ? '' : v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="采集类型" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">不限</SelectItem>
+                <SelectItem value="keyword">关键词采集</SelectItem>
+                <SelectItem value="reverse">精准反推</SelectItem>
+              </SelectContent>
+            </Select>
             <MultiSelect
               value={filters.grades}
               onChange={(v) => setFilters((f) => ({ ...f, grades: v }))}

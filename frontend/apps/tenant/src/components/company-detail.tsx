@@ -17,6 +17,10 @@ function formatUsd(v: number | null | undefined) {
   return `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
+function collectionTypeLabel(value: Company['collection_type']) {
+  return value === 'keyword' ? '关键词采集' : '精准反推';
+}
+
 interface Props {
   company: Company;
   onGroupAdd?: (tcId: string, name: string) => void;
@@ -98,6 +102,7 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
         <div className="grid grid-cols-2 gap-x-8 gap-y-2">
           <InfoRow label="网站" value={c.website} />
           <InfoRow label="评级" value={c.grade} />
+          <InfoRow label="采集类型" value={collectionTypeLabel(c.collection_type)} />
           <InfoRow label="国家" value={c.country_iso3} />
           <InfoRow label="总分" value={c.wmt_score} />
           <InfoRow label="细分行业" value={c.sub_industry} />

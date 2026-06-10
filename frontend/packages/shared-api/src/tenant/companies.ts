@@ -30,6 +30,7 @@ export interface Company {
   contacts_count?: number;
   description?: string;
   data_source_tags?: string[];
+  collection_type: 'keyword' | 'reverse';
   sources?: string[];
   full_address?: string;
   matched_keywords?: string[];
@@ -74,6 +75,7 @@ export interface CompanyListFilters {
   min_score?: number;
   max_score?: number;
   group_id?: string;
+  collection_type?: string;
   page?: number;
   page_size?: number;
 }

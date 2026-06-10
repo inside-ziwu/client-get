@@ -34,6 +34,10 @@ function dash(value: string | number | null | undefined) {
   return String(value);
 }
 
+function collectionTypeLabel(value: Company['collection_type']) {
+  return value === 'keyword' ? '关键词采集' : '精准反推';
+}
+
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
   const [appliedFilters, setAppliedFilters] = useState<FilterValues>(EMPTY_FILTERS);
@@ -126,20 +130,20 @@ export default function CompaniesPage() {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1280px] text-sm">
+            <table className="w-full min-w-[1360px] text-sm">
               <thead className="sticky top-0 z-10 border-b bg-muted/90 text-left text-xs text-muted-foreground shadow-sm">
                 <tr>
                   <th className="w-10 px-3 py-2">
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
-                  {['公司名', '国家', '域名', '行业', '员工规模', '成立', '评级', '评分', '细分行业', '来源同行', '来源同行（中文名）', '联系人数', '操作', '入库时间'].map((h) => (
+                  {['公司名', '国家', '采集类型', '域名', '行业', '员工规模', '成立', '评级', '评分', '细分行业', '来源同行', '来源同行（中文名）', '联系人数', '操作', '入库时间'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 && (
-                  <tr><td colSpan={15} className="py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={16} className="py-12 text-center text-muted-foreground">
                     {listQuery.isLoading ? '加载中...' : '暂无数据'}
                   </td></tr>
                 )}
@@ -154,6 +158,7 @@ export default function CompaniesPage() {
                       </button>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">{countryZh(row.country_iso3)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{collectionTypeLabel(row.collection_type)}</td>
                     <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
                     <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
                     <td className="whitespace-nowrap px-3 py-2">{dash(row.employee_num)}</td>

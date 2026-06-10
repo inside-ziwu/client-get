@@ -10,6 +10,7 @@ from app.services.company_filter_sql import (
     append_employee_count_range,
     pcb_supplier_presence_clause,
 )
+from app.services.collection_source import KEYWORD_TAG_JSONB, compute_collection_type
 
 _BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -1857,12 +1858,11 @@ COALESCE(
             where_parts.append("grade = :grade")
             params["grade"] = grade
 
-        _keyword_tag_jsonb = """'["外贸通关键词采集"]'::jsonb"""
         if collection_type == "keyword":
-            where_parts.append(f"data_source_tags @> {_keyword_tag_jsonb}")
+            where_parts.append(f"data_source_tags @> {KEYWORD_TAG_JSONB}")
         elif collection_type == "reverse":
             where_parts.append(
-                f"(data_source_tags IS NULL OR NOT data_source_tags @> {_keyword_tag_jsonb})"
+                f"(data_source_tags IS NULL OR NOT data_source_tags @> {KEYWORD_TAG_JSONB})"
             )
 
         where_clause = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
@@ -1906,9 +1906,7 @@ COALESCE(
             item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
             item["product_tags"] = list(item["product_tags"] or [])
             item["data_source_tags"] = list(item["data_source_tags"] or [])
-            item["collection_type"] = (
-                "keyword" if "外贸通关键词采集" in item["data_source_tags"] else "reverse"
-            )
+            item["collection_type"] = compute_collection_type(item["data_source_tags"])
             item["created_at"] = self._datetime_iso(item.get("created_at"))
             item["updated_at"] = self._datetime_iso(item.get("updated_at"))
             rows.append(item)

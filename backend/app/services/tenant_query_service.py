@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
 from app.services.company_filter_sql import append_employee_count_range
+from app.services.collection_source import KEYWORD_TAG_JSONB, compute_collection_type
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class TenantQueryService:
         pcb_supplier_presence: str | None = None,
         min_score: float | None = None,
         max_score: float | None = None,
+        collection_type: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
         offset: int | None = None,
@@ -130,6 +132,7 @@ class TenantQueryService:
             pcb_supplier_presence=pcb_supplier_presence,
             min_score=min_score,
             max_score=max_score,
+            collection_type=collection_type,
             limit=limit,
             cursor=cursor,
             offset=offset,
@@ -174,6 +177,7 @@ class TenantQueryService:
         pcb_supplier_presence: str | None = None,
         min_score: float | None = None,
         max_score: float | None = None,
+        collection_type: str | None = None,
         grades: list[str] | None = None,
         group_id: str | None = None,
         limit: int = 50,
@@ -228,7 +232,9 @@ class TenantQueryService:
             params["sub_industries"] = sub_industries
 
         if product_tags:
-            where_clauses.append("wc.product_tags && :product_tags")
+            where_clauses.append(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(wc.product_tags) p WHERE p = ANY(:product_tags))"
+            )
             params["product_tags"] = product_tags
 
         if trade_amount_min is not None:
@@ -245,11 +251,18 @@ class TenantQueryService:
             params["trade_count_max"] = trade_count_max
 
         if source_type:
-            where_clauses.append("wc.data_source_tags && ARRAY[:source_type]::text[]")
+            where_clauses.append("wc.data_source_tags @> jsonb_build_array(:source_type)")
             params["source_type"] = source_type
         if sources:
-            where_clauses.append("wc.data_source_tags && :sources")
+            where_clauses.append(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(wc.data_source_tags) s WHERE s = ANY(:sources))"
+            )
             params["sources"] = sources
+
+        if collection_type == "keyword":
+            where_clauses.append(f"wc.data_source_tags @> {KEYWORD_TAG_JSONB}")
+        elif collection_type == "reverse":
+            where_clauses.append(f"(wc.data_source_tags IS NULL OR NOT wc.data_source_tags @> {KEYWORD_TAG_JSONB})")
 
         effective_contact_count_min = contact_count_min if contact_count_min is not None else contacts_count_min
         effective_contact_count_max = contact_count_max if contact_count_max is not None else contacts_count_max
@@ -391,6 +404,7 @@ class TenantQueryService:
                 "trade_count": row["trade_count"],
                 "description": row["description"],
                 "data_source_tags": list(row["data_source_tags"] or []),
+                "collection_type": compute_collection_type(row["data_source_tags"] or []),
                 "company_size": row["company_size"],
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
@@ -500,6 +514,7 @@ class TenantQueryService:
             "full_address": row["full_address"],
             "description": row["description"],
             "sources": list(row["data_source_tags"] or []),
+            "collection_type": compute_collection_type(row["data_source_tags"] or []),
             "matched_keywords": [],
             "business_status": row["business_status"],
             "data_status": row["data_status"],
@@ -630,10 +645,14 @@ class TenantQueryService:
             )
             params["sub_industries"] = sub_industries
         if product_tags:
-            where_clauses.append("wc.product_tags && :product_tags")
+            where_clauses.append(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(wc.product_tags) p WHERE p = ANY(:product_tags))"
+            )
             params["product_tags"] = product_tags
         if sources:
-            where_clauses.append("wc.data_source_tags && :sources")
+            where_clauses.append(
+                "EXISTS (SELECT 1 FROM jsonb_array_elements_text(wc.data_source_tags) s WHERE s = ANY(:sources))"
+            )
             params["sources"] = sources
         append_employee_count_range(
             where_clauses,

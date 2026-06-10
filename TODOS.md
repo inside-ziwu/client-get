@@ -14,7 +14,9 @@
 
 - **接通 OpenAPI 自动类型生成**：前端 `shared-types` 当前是手写的 TypeScript 类型定义（models.ts、api.ts、auth.ts 等），与后端 FastAPI 的 Pydantic schema 没有自动同步机制。任何后端字段变更都需要手动同步前端类型，容易遗漏导致运行时错误。建议用 `openapi-typescript` 从 FastAPI 自动导出的 OpenAPI spec 生成前端类型，替代手写的 `@shared/types`。（来源：技术栈统一辩论，Claude + Codex 共识）
 
-- **提升后端测试覆盖率**：当前 137 个测试函数覆盖 230 个 API 端点（覆盖率 < 60%），426 处裸 SQL 调用缺乏回归保障。优先补充覆盖：多租户 RLS 隔离、JWT 认证刷新流程、sending worker 邮件发送逻辑、关键 service 层的 SQL 查询正确性。（来源：技术栈统一辩论，Codex 代码统计）
+- **提升后端测试覆盖率**：当前 137 个测试函数覆盖 230 个 API 端点（覆盖率 < 60%），426 处裸 SQL 调用缺乏回归保障。优先补充覆盖：多租户 RLS 隔离、JWT 认证刷新流程、sending worker 邮件发送逻辑、关键 service 层的 SQL 查询正确性。补充：分发类 worker（`fan_out.py` / `wmt_lineage_repair.py` / 行业 fan-out）的幂等、行业排除、data_status 分级行为只有真实 DB 集成测试能验，当前仅 SQL 字符串断言 + dev 库手动验证（tenant-keyword-collection-distribution 工程审查 4A 决策的遗留技术债）；注意 `data_source_tags`/`product_tags` 列不在 alembic 体系内（外部采集程序建列，生产为 jsonb），建测试库时需手工对齐表结构。（来源：技术栈统一辩论，Codex 代码统计）
+
+- **第二个采集行业出现时，行业分发规则数据化**：当出现非 PCB 的第二个采集行业批次时，把硬编码在 `backend/app/workers/wmt_lineage_repair.py` 常量里的「批次标签（外贸通关键词采集）→ 行业（PCB）」规则和行业别名表（PCB ≡ 电路板，小写归一化比对）迁移到数据表或配置。当前硬编码是 tenant-keyword-collection-distribution 工程审查 D3 的有意识 YAGNI 取舍（当时仅 1 个行业、3 个租户全是 PCB）；触发器明确：第二个行业到来时不要在常量里继续堆，应抽象。（来源：tenant-keyword-collection-distribution 工程审查 D13）
 
 - **后端团队管理 API 保护**：`TenantTeamService` 的 `update_user` 和 `delete_user` 缺少两项保护：(1) 最后一个 admin 保护 — 可以把最后一个 admin 降级/禁用/删除，导致租户被永久锁定（无人能访问团队管理页面）；(2) 自操作拦截 — 后端不阻止 `user_id === actor_user_id` 的自删/自禁用/自降级操作（前端通过按钮隐藏防护，但 API 层可绕过）。建议在 `backend/app/services/tenant_team_service.py` 的 `update_user` 和 `delete_user` 中增加检查。（来源：team-management-crud-completion 工程审查 Codex outside voice，代码验证 confidence 10/10）
 
