@@ -363,21 +363,15 @@ class TenantQueryService:
                   wc.created_at,
                   wc.updated_at,
                   wr_raw.source_competitor,
-                  lxc.source_competitor_cn
+                  lxc.entname AS source_competitor_cn
                 FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 LEFT JOIN waimaotong_raw_companies wr_raw
                   ON wr_raw.sys_company_id = wc.sys_company_id
-                LEFT JOIN LATERAL (
-                  SELECT lxc2.entname AS source_competitor_cn
-                  FROM lixiaoyun_api_clean_companies lxc2
-                  WHERE wr_raw.source_competitor IS NOT NULL
-                    AND wr_raw.source_competitor <> ''
-                    AND lower(trim(lxc2.entname_eng)) = lower(trim(wr_raw.source_competitor))
-                  LIMIT 1
-                ) lxc ON true
+                LEFT JOIN lixiaoyun_api_clean_companies lxc
+                  ON lower(trim(lxc.entname_eng)) = lower(trim(wr_raw.source_competitor))
                 {group_join_sql}
                 WHERE {where_sql}
                 ORDER BY wc.id DESC
@@ -477,21 +471,15 @@ class TenantQueryService:
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at,
                   wr_raw.source_competitor,
-                  lxc.source_competitor_cn
+                  lxc.entname AS source_competitor_cn
                 FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
                 LEFT JOIN waimaotong_raw_companies wr_raw
                   ON wr_raw.sys_company_id = wc.sys_company_id
-                LEFT JOIN LATERAL (
-                  SELECT lxc2.entname AS source_competitor_cn
-                  FROM lixiaoyun_api_clean_companies lxc2
-                  WHERE wr_raw.source_competitor IS NOT NULL
-                    AND wr_raw.source_competitor <> ''
-                    AND lower(trim(lxc2.entname_eng)) = lower(trim(wr_raw.source_competitor))
-                  LIMIT 1
-                ) lxc ON true
+                LEFT JOIN lixiaoyun_api_clean_companies lxc
+                  ON lower(trim(lxc.entname_eng)) = lower(trim(wr_raw.source_competitor))
                 WHERE wc.id = :clean_company_id
                 LIMIT 1
                 """
