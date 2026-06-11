@@ -1985,17 +1985,13 @@ class TenantMessagingService:
             text(
                 """
                 UPDATE emails
-                SET status = 'failed',
-                    error_code = :error_code,
-                    error_message = :error_message
+                SET status = 'failed'
                 WHERE id = :email_id AND created_at = :created_at
                 """
             ),
             {
                 "email_id": email["id"],
                 "created_at": email["created_at"],
-                "error_code": payload.get("error_code"),
-                "error_message": payload.get("error_message"),
             },
         )
         await conn.execute(
@@ -2134,9 +2130,7 @@ class TenantMessagingService:
                     text(
                         """
                         UPDATE emails
-                        SET status = 'failed',
-                            error_code = 'STALE_LOCK',
-                            error_message = '发送锁超过恢复阈值，已由 worker 启动恢复'
+                        SET status = 'failed'
                         WHERE id = :email_id
                           AND created_at = :created_at
                           AND status = 'queued'
