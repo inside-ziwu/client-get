@@ -115,7 +115,7 @@ async def list_collection_clean(
 async def list_v3_raw_companies(
     provider: str,
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=1000),
     keyword_master_id: str | None = None,
     q: str | None = None,
     keyword: str | None = None,
@@ -314,7 +314,7 @@ async def get_peer_company_detail(
 @router.get("/collection/lixiaoyun-clean-companies")
 async def list_lixiaoyun_clean_companies(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=1000),
     keyword: str | None = None,
     keyword_filter: str | None = None,
     industry_tag: str | None = None,
@@ -398,7 +398,7 @@ async def keyword_master_check(
 @router.get("/collection/wmt-clean-companies")
 async def list_wmt_clean_companies(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=1000),
     q: str | None = None,
     country: str | None = None,
     industry: str | None = None,

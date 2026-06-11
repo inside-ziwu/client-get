@@ -17,7 +17,7 @@ import { tenantApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 import { PageHeader } from '@/components/pages/page-kit';
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 500, 1000] as const;
 
 const STATUS_OPTIONS = [
   { value: 'all', label: '全部状态' },

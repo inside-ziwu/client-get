@@ -69,10 +69,10 @@ async def list_companies(
     grades: list[str] = Query(default=[], alias="grades[]", description="评级多选 OR"),
     group_id: str | None = Query(None, description="群组ID过滤"),
     collection_type: str | None = Query(None, description="采集类型：keyword/reverse"),
-    limit: int = Query(50, ge=1, le=200, description="每页条数"),
+    limit: int = Query(50, ge=1, le=1000, description="每页条数"),
     cursor: str | None = Query(None, description="游标分页"),
     page: int | None = Query(None, ge=1, description="页码分页页号"),
-    page_size: int | None = Query(None, ge=1, le=200, description="页码分页每页条数"),
+    page_size: int | None = Query(None, ge=1, le=1000, description="页码分页每页条数"),
     context: TenantAuthContext = Depends(get_current_tenant_user),
 ) -> dict:
     effective_limit = page_size or limit
@@ -209,7 +209,7 @@ async def list_prospects(
     founded_year_from: int | None = Query(None, description="成立年份起"),
     founded_year_to: int | None = Query(None, description="成立年份止"),
     pcb_supplier_presence: str | None = Query(None, description="PCB 供应商：has/none"),
-    limit: int = Query(50, ge=1, le=200, description="每页条数"),
+    limit: int = Query(50, ge=1, le=1000, description="每页条数"),
     context: TenantAuthContext = Depends(get_current_tenant_user),
 ) -> dict:
     items = await query_service.prospects(

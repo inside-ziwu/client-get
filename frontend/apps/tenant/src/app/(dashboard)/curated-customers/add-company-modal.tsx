@@ -12,7 +12,7 @@ import {
 import { tenantApi } from '@/lib/api';
 import CompanyFilters, { type FilterValues, EMPTY_FILTERS, buildParams, countryZh } from '@/components/company-filters';
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 500, 1000] as const;
 
 const GRADE_COLORS: Record<string, string> = {
   S: 'bg-purple-100 text-purple-800',
