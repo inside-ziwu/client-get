@@ -260,7 +260,7 @@ export default function CuratedCustomersPage() {
                     <div className="flex items-center gap-3 text-muted-foreground">
                       <span>共 {total} 条</span>
                       <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
-                        <SelectTrigger className="h-8 w-[100px]"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {PAGE_SIZE_OPTIONS.map((s) => <SelectItem key={s} value={String(s)}>{s} 条/页</SelectItem>)}
                         </SelectContent>
