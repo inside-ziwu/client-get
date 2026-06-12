@@ -487,7 +487,7 @@ class TenantMessagingService:
                 "send_strategy": self._to_json(
                     payload.get(
                         "send_strategy",
-                        {"interval_seconds": [30, 120]},
+                        {"interval_seconds": [10, 20]},
                     )
                 ),
                 "sender_name": payload.get("sender_name"),
