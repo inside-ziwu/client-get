@@ -189,6 +189,8 @@ export interface WmtCleanCompanyRow {
   description: string | null;
   grade: string | null;
   score: number | null;
+  system_grade: string | null;
+  system_score: number | null;
   email_priority: string | null;
   company_type_analysis: string | null;
   product_tags: string[];
@@ -504,6 +506,7 @@ export function collectionApi(client: AxiosInstance) {
       year_max?: number;
       has_contacts?: boolean;
       grade?: string;
+      system_grade?: string;
       collection_type?: string;
     }) =>
       client.get<PaginatedResponse<WmtCleanCompanyRow>>(

@@ -7,20 +7,12 @@ import { toast } from 'sonner';
 import {
   Button, Checkbox, Dialog, DialogContent, DialogTitle,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-  Input,
+  Input, RatingTag,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 import CompanyFilters, { type FilterValues, EMPTY_FILTERS, buildParams, countryZh } from '@/components/company-filters';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 500, 1000] as const;
-
-const GRADE_COLORS: Record<string, string> = {
-  S: 'bg-purple-100 text-purple-800',
-  A: 'bg-green-100 text-green-800',
-  B: 'bg-blue-100 text-blue-800',
-  C: 'bg-orange-100 text-orange-800',
-  D: 'bg-red-100 text-red-800',
-};
 
 function dash(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return '-';
@@ -142,14 +134,14 @@ export default function AddCompanyModal({ groupId, open, onClose }: Props) {
                   <th className="w-10 px-3 py-2">
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
-                  {['公司名', '国家', '域名', '行业', '员工规模', '评级', '评分', '细分行业', '联系人数', '状态'].map((h) => (
+                  {['公司名', '国家', '域名', '行业', '员工规模', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '联系人数', '状态'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 && (
-                  <tr><td colSpan={11} className="py-12 text-center text-muted-foreground">
+                  <tr><td colSpan={13} className="py-12 text-center text-muted-foreground">
                     {listQuery.isLoading ? '加载中...' : '暂无数据'}
                   </td></tr>
                 )}
@@ -173,13 +165,13 @@ export default function AddCompanyModal({ groupId, open, onClose }: Props) {
                       <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
                       <td className="px-3 py-2">{dash(row.employee_num)}</td>
                       <td className="px-3 py-2">
-                        {row.grade ? (
-                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[row.grade] ?? ''}`}>
-                            {row.grade}
-                          </span>
-                        ) : '-'}
+                        {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}
                       </td>
                       <td className="px-3 py-2">{row.wmt_score != null ? row.wmt_score : '-'}</td>
+                      <td className="px-3 py-2">
+                        {row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-'}
+                      </td>
+                      <td className="px-3 py-2">{row.system_score != null ? row.system_score : '-'}</td>
                       <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
                       <td className="px-3 py-2">{row.contacts_count ?? '-'}</td>
                       <td className="px-3 py-2">{dash(row.business_status)}</td>

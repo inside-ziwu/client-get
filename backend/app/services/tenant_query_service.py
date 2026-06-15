@@ -179,6 +179,7 @@ class TenantQueryService:
         max_score: float | None = None,
         collection_type: str | None = None,
         grades: list[str] | None = None,
+        system_grades: list[str] | None = None,
         group_id: str | None = None,
         limit: int = 50,
         cursor: str | None = None,
@@ -286,6 +287,12 @@ class TenantQueryService:
             for i, g in enumerate(grades):
                 params[f"grade_{i}"] = g
 
+        if system_grades:
+            placeholders = ", ".join(f":sys_grade_{i}" for i in range(len(system_grades)))
+            where_clauses.append(f"cs.grade IN ({placeholders})")
+            for i, g in enumerate(system_grades):
+                params[f"sys_grade_{i}"] = g
+
         if employee_scales:
             placeholders = ", ".join(f":emp_scale_{i}" for i in range(len(employee_scales)))
             where_clauses.append(f"wc.employee_size IN ({placeholders})")
@@ -312,6 +319,8 @@ class TenantQueryService:
 
         where_sql = " AND ".join(where_clauses)
 
+        cs_join_sql = "LEFT JOIN company_scores cs ON cs.tenant_company_id = tc.id AND cs.is_retry = false"
+
         total_result = await conn.execute(
             text(
                 f"""
@@ -320,6 +329,7 @@ class TenantQueryService:
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
+                {cs_join_sql}
                 {group_join_sql}
                 WHERE {where_sql}
                 """
@@ -354,6 +364,8 @@ class TenantQueryService:
                   wc.description,
                   wc.data_source_tags,
                   wc.company_size,
+                  cs.grade AS system_grade,
+                  cs.total_score AS system_score,
                   tc.business_status,
                   tc.data_status,
                   tc.model_score,
@@ -368,6 +380,7 @@ class TenantQueryService:
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
+                {cs_join_sql}
                 LEFT JOIN waimaotong_raw_companies wr_raw
                   ON wr_raw.sys_company_id = wc.sys_company_id
                 LEFT JOIN lixiaoyun_api_clean_companies lxc
@@ -416,6 +429,8 @@ class TenantQueryService:
                 "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
                 "source_competitor": row["source_competitor"],
                 "source_competitor_cn": row["source_competitor_cn"],
+                "system_grade": row["system_grade"],
+                "system_score": float(row["system_score"]) if row["system_score"] is not None else None,
             }
             for row in result.mappings().all()
         ]
@@ -470,12 +485,17 @@ class TenantQueryService:
                   tc.score_adjustment,
                   tc.created_at AS tenant_created_at,
                   tc.updated_at AS tenant_updated_at,
+                  cs.grade AS system_grade,
+                  cs.total_score AS system_score,
                   wr_raw.source_competitor,
                   lxc.entname AS source_competitor_cn
                 FROM waimaotong_clean_companies wc
                 JOIN tenant_companies tc
                   ON tc.clean_company_id = wc.id
                  AND tc.tenant_id = :tenant_id
+                LEFT JOIN company_scores cs
+                  ON cs.tenant_company_id = tc.id
+                 AND cs.is_retry = false
                 LEFT JOIN waimaotong_raw_companies wr_raw
                   ON wr_raw.sys_company_id = wc.sys_company_id
                 LEFT JOIN lixiaoyun_api_clean_companies lxc
@@ -539,6 +559,8 @@ class TenantQueryService:
             "tenant_updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
             "source_competitor": row["source_competitor"],
             "source_competitor_cn": row["source_competitor_cn"],
+            "system_grade": row["system_grade"],
+            "system_score": float(row["system_score"]) if row["system_score"] is not None else None,
         }
 
     async def v3_company_contacts(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str) -> list[dict]:

@@ -4,7 +4,7 @@ import type { WmtCleanCompanyRow, WmtCleanCompanyDetail, WmtCleanContactRow } fr
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { Badge } from '@shared/ui';
+import { Badge, RatingTag } from '@shared/ui';
 import { Button } from '@shared/ui';
 import { Card, CardContent } from '@shared/ui';
 import { Checkbox } from '@shared/ui';
@@ -22,6 +22,7 @@ type FilterValues = {
   industry: string;
   size: string;
   collection_type: string;
+  system_grade: string;
   year_min: string;
   year_max: string;
   has_contacts: boolean;
@@ -33,17 +34,12 @@ const EMPTY_FILTERS: FilterValues = {
   industry: '',
   size: '',
   collection_type: '',
+  system_grade: '',
   year_min: '',
   year_max: '',
   has_contacts: false,
 };
 
-const GRADE_COLORS: Record<string, string> = {
-  A: 'bg-green-100 text-green-800',
-  B: 'bg-blue-100 text-blue-800',
-  C: 'bg-orange-100 text-orange-800',
-  X: 'bg-red-100 text-red-800',
-};
 
 function dash(value: string | number | boolean | null | undefined) {
   if (value === null || value === undefined || value === '') return '-';
@@ -84,6 +80,7 @@ export function CustomerArchivePage() {
             year_max: appliedFilters.year_max ? Number(appliedFilters.year_max) : undefined,
             has_contacts: appliedFilters.has_contacts || undefined,
             collection_type: appliedFilters.collection_type || undefined,
+            system_grade: appliedFilters.system_grade || undefined,
           })
         ).data;
       } catch {
@@ -144,7 +141,7 @@ export function CustomerArchivePage() {
       <Card>
         <CardContent className="p-4">
           <form className="space-y-3" onSubmit={onSearch}>
-            <div className="grid gap-3 lg:grid-cols-[1fr_140px_140px_160px_160px]">
+            <div className="grid gap-3 lg:grid-cols-[1fr_120px_120px_160px_160px]">
               <Input
                 placeholder="公司名 / 域名搜索"
                 value={filters.q}
@@ -189,7 +186,7 @@ export function CustomerArchivePage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-3 lg:grid-cols-[120px_120px_auto_1fr]">
+            <div className="grid gap-3 lg:grid-cols-[120px_120px_160px_auto_1fr]">
               <Input
                 type="number"
                 placeholder="成立年份(起)"
@@ -202,6 +199,22 @@ export function CustomerArchivePage() {
                 value={filters.year_max}
                 onChange={(e) => setFilters((f) => ({ ...f, year_max: e.target.value }))}
               />
+              <Select
+                value={filters.system_grade || 'all'}
+                onValueChange={(v) => setFilters((f) => ({ ...f, system_grade: v === 'all' ? '' : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="系统评级（不限）" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">系统评级（不限）</SelectItem>
+                  <SelectItem value="S">S</SelectItem>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                  <SelectItem value="C">C</SelectItem>
+                  <SelectItem value="D">D</SelectItem>
+                </SelectContent>
+              </Select>
               <label className="flex h-9 items-center gap-2 text-sm">
                 <Checkbox
                   checked={filters.has_contacts}
@@ -231,7 +244,7 @@ export function CustomerArchivePage() {
                 <tr>
                   {[
                     '公司名', '国家', '域名', '行业', '员工规模', '成立',
-                    '采集类型', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间',
+                    '采集类型', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '联系人数', '操作', '入库时间',
                   ].map((label) => (
                     <th key={label} className="whitespace-nowrap px-3 py-2">{label}</th>
                   ))}
@@ -240,7 +253,7 @@ export function CustomerArchivePage() {
               <tbody>
                 {pageData.data.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={15} className="py-12 text-center text-muted-foreground">
                       {query.isLoading ? '加载中...' : '暂无数据'}
                     </td>
                   </tr>
@@ -264,13 +277,13 @@ export function CustomerArchivePage() {
                       {row.collection_type === 'keyword' ? '关键词采集' : '精准反推'}
                     </td>
                     <td className="w-[50px] px-3 py-2">
-                      {row.grade ? (
-                        <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[row.grade] ?? ''}`}>
-                          {row.grade}
-                        </span>
-                      ) : '-'}
+                      {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}
                     </td>
                     <td className="w-[50px] px-3 py-2">{row.score != null ? row.score : '-'}</td>
+                    <td className="w-[50px] px-3 py-2">
+                      {row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-'}
+                    </td>
+                    <td className="w-[50px] px-3 py-2">{row.system_score != null ? row.system_score : '-'}</td>
                     <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
                     <td className="w-[70px] px-3 py-2">{row.contacts_count ?? '-'}</td>
                     <td className="px-3 py-2">
@@ -385,18 +398,24 @@ export function CustomerArchivePage() {
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <div className="text-xs text-muted-foreground">评级</div>
+                        <div className="text-xs text-muted-foreground">大模型评级</div>
                         <div className="mt-1">
-                          {detail.grade ? (
-                            <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[detail.grade] ?? ''}`}>
-                              {detail.grade}
-                            </span>
-                          ) : '-'}
+                          {detail.grade ? <RatingTag grade={detail.grade} variant="model" /> : '-'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs text-muted-foreground">评分</div>
+                        <div className="text-xs text-muted-foreground">大模型评分</div>
                         <div className="mt-1 font-medium">{detail.score != null ? detail.score : '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">系统评级</div>
+                        <div className="mt-1">
+                          {detail.system_grade ? <RatingTag grade={detail.system_grade} variant="system" /> : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">系统评分</div>
+                        <div className="mt-1 font-medium">{detail.system_score != null ? detail.system_score : '-'}</div>
                       </div>
                     </div>
 

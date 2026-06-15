@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 
 import pycountry
@@ -8,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.services.audit_service import AuditService
+from app.services.scoring_engine_service import ScoringEngineService
 from app.services.tenant_contact_utils import ensure_contacts_from_wmt
+
+_scoring_engine = ScoringEngineService()
+_logger = logging.getLogger(__name__)
 
 
 class TenantOpsService:
@@ -239,6 +244,10 @@ class TenantOpsService:
             tenant_company_id=actual_tenant_company_id,
             payload=payload,
         )
+        try:
+            await _scoring_engine.score_tenant_company(conn, tenant_id=tenant_id, tenant_company_id=actual_tenant_company_id)
+        except Exception:
+            _logger.exception("评分失败，公司入库不受影响: tenant=%s tc=%s", tenant_id, actual_tenant_company_id)
         company = await self.get_company(conn, tenant_id, str(actual_tenant_company_id))
         await self.audit.write(
             conn,

@@ -22,6 +22,8 @@ export interface Company {
   wmt_score?: number;
   score?: number;
   model_score?: number;
+  system_grade?: string;
+  system_score?: number;
   score_adjustment?: number;
   phone?: string;
   company_size?: string;
@@ -60,6 +62,7 @@ export interface CompanyListFilters {
   keyword?: string;
   grade?: string;
   'grades[]'?: string[];
+  'system_grades[]'?: string[];
   'countries[]'?: string[];
   'sub_industries[]'?: string[];
   'product_tags[]'?: string[];

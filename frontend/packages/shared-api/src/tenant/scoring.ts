@@ -20,7 +20,7 @@ export function scoringApi(client: AxiosInstance) {
   return {
     get: () =>
       client.get<PaginatedResponse<TenantScoringTemplate>>('/api/v1/scoring-templates'),
-    update: (id: string, data: Partial<TenantScoringTemplate>) =>
+    update: (id: string, data: Record<string, unknown>) =>
       client.put<ApiResponse<TenantScoringTemplate>>(`/api/v1/scoring-templates/${id}`, data),
   };
 }

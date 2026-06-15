@@ -14,6 +14,10 @@ waimaotong_clean_companies 写入 tenant_companies，实现"反推"效果。
 
 import logging
 
+from app.services.scoring_engine_service import ScoringEngineService
+
+_scoring_engine = ScoringEngineService()
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -96,7 +100,14 @@ async def run_fan_out_for_tenant_keyword(
         """),
         {"tenant_id": tenant_id, "keyword_master_id": keyword_master_id},
     )
-    inserted = len(result.mappings().all())
+    new_rows = result.mappings().all()
+    inserted = len(new_rows)
+
+    for row in new_rows:
+        try:
+            await _scoring_engine.score_tenant_company(conn, tenant_id=tenant_id, tenant_company_id=row["id"])
+        except Exception:
+            logger.warning("fan_out: 评分失败 tc_id=%s", row["id"], exc_info=True)
 
     logger.info("fan_out: keyword=%s tenant_id=%s 写入 tenant_companies=%d 条", keyword, tenant_id, inserted)
     return {"inserted": inserted, "tenant_id": tenant_id, "keyword_master_id": keyword_master_id}

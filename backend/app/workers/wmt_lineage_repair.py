@@ -150,6 +150,44 @@ _SQL_DELETE_STALE_RELATIONS = text("""
     RETURNING id
 """)
 
+async def _score_new_companies(conn, new_tc_ids: list) -> int:
+    """对新入库的 tenant_companies 执行评分。"""
+    if not new_tc_ids:
+        return 0
+    from app.services.scoring_engine_service import ScoringEngineService
+    engine = ScoringEngineService()
+    scored = 0
+    for row in new_tc_ids:
+        tc_id = row["id"]
+        t = (await conn.execute(text("SELECT tenant_id FROM tenant_companies WHERE id = :id"), {"id": tc_id})).mappings().first()
+        if t:
+            try:
+                await engine.score_tenant_company(conn, tenant_id=str(t["tenant_id"]), tenant_company_id=tc_id)
+                scored += 1
+            except Exception:
+                pass
+    return scored
+
+
+async def _backfill_platform_scores(conn) -> int:
+    """对 system_grade IS NULL 的 clean_companies 用平台模板补评。"""
+    from app.services.scoring_engine_service import ScoringEngineService
+    engine = ScoringEngineService()
+    rows = (await conn.execute(text(
+        "SELECT id FROM waimaotong_clean_companies WHERE system_grade IS NULL LIMIT 500"
+    ))).fetchall()
+    if not rows:
+        return 0
+    scored = 0
+    for r in rows:
+        try:
+            await engine.score_clean_company(conn, clean_company_id=r[0])
+            scored += 1
+        except Exception:
+            pass
+    return scored
+
+
 _SQL_UNRESOLVED_COUNT = text("""
     SELECT count(*)
     FROM waimaotong_clean_companies
@@ -186,11 +224,18 @@ async def run_wmt_lineage_repair_on_connection(conn) -> dict:
     clean_path = await conn.execute(_SQL_BACKFILL_CLEAN_PATH)
     raw_fallback = await conn.execute(_SQL_BACKFILL_RAW_FALLBACK)
     fan_out = await conn.execute(_SQL_FAN_OUT_ACTIVE_KEYWORDS)
+    fan_out_rows = fan_out.mappings().all()
     industry_fan_out = await conn.execute(
         _SQL_FAN_OUT_INDUSTRY,
         {"industry_aliases": _PCB_INDUSTRY_ALIASES},
     )
+    industry_fan_out_rows = industry_fan_out.mappings().all()
     deleted_stale = await conn.execute(_SQL_DELETE_STALE_RELATIONS)
+
+    scored = await _score_new_companies(conn, fan_out_rows)
+    scored += await _score_new_companies(conn, industry_fan_out_rows)
+    platform_scored = await _backfill_platform_scores(conn)
+
     unresolved = int(await conn.scalar(_SQL_UNRESOLVED_COUNT) or 0)
     active_join = int(await conn.scalar(_SQL_ACTIVE_JOIN_COUNT) or 0)
 
@@ -199,8 +244,8 @@ async def run_wmt_lineage_repair_on_connection(conn) -> dict:
         "normalized_keyword_master_ids": normalized.rowcount,
         "clean_path": clean_path.rowcount,
         "raw_fallback": raw_fallback.rowcount,
-        "fan_out": len(fan_out.mappings().all()),
-        "industry_fan_out": len(industry_fan_out.mappings().all()),
+        "fan_out": len(fan_out_rows),
+        "industry_fan_out": len(industry_fan_out_rows),
         "deleted_stale": len(deleted_stale.mappings().all()),
         "unresolved": unresolved,
         "active_join": active_join,

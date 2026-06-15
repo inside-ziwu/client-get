@@ -9,7 +9,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogTitle,
   Button, Card, CardContent,
-  Dialog, DialogContent, DialogTitle, Input,
+  Dialog, DialogContent, DialogTitle, Input, RatingTag,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Sheet, SheetContent, SheetTitle, Textarea,
 } from '@shared/ui';
@@ -21,14 +21,6 @@ import CompanyFilters, { type FilterValues, EMPTY_FILTERS, buildParams, countryZ
 import AddCompanyModal from './add-company-modal';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 500, 1000] as const;
-
-const GRADE_COLORS: Record<string, string> = {
-  S: 'bg-purple-100 text-purple-800',
-  A: 'bg-green-100 text-green-800',
-  B: 'bg-blue-100 text-blue-800',
-  C: 'bg-orange-100 text-orange-800',
-  D: 'bg-red-100 text-red-800',
-};
 
 function dash(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return '-';
@@ -207,14 +199,14 @@ export default function CuratedCustomersPage() {
                     <table className="w-full min-w-[1240px] text-sm">
                       <thead className="sticky top-0 z-10 border-b bg-muted/90 text-left text-xs text-muted-foreground shadow-sm">
                         <tr>
-                          {['公司名', '国家', '域名', '行业', '员工规模', '成立', '评级', '评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
+                          {['公司名', '国家', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
                             <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {items.length === 0 && (
-                          <tr><td colSpan={12} className="py-12 text-center text-muted-foreground">
+                          <tr><td colSpan={14} className="py-12 text-center text-muted-foreground">
                             {listQuery.isLoading ? '加载中...' : '群组内暂无公司'}
                           </td></tr>
                         )}
@@ -231,13 +223,13 @@ export default function CuratedCustomersPage() {
                             <td className="whitespace-nowrap px-3 py-2">{dash(row.employee_num)}</td>
                             <td className="whitespace-nowrap px-3 py-2">{dash(row.founded_year)}</td>
                             <td className="px-3 py-2">
-                              {row.grade ? (
-                                <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${GRADE_COLORS[row.grade] ?? ''}`}>
-                                  {row.grade}
-                                </span>
-                              ) : '-'}
+                              {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}
                             </td>
                             <td className="px-3 py-2">{row.wmt_score != null ? row.wmt_score : '-'}</td>
+                            <td className="px-3 py-2">
+                              {row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-'}
+                            </td>
+                            <td className="px-3 py-2">{row.system_score != null ? row.system_score : '-'}</td>
                             <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
                             <td className="whitespace-nowrap px-3 py-2">{row.contacts_count ?? '-'}</td>
                             <td className="whitespace-nowrap px-3 py-2">

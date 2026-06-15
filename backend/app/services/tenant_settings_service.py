@@ -195,8 +195,23 @@ class TenantSettingsService:
         if row is None:
             raise AppError(code="NOT_FOUND", message="评分模板不存在", status_code=404)
         name = payload.get("name") or row["name"]
-        dimensions = payload.get("dimensions") or row["dimensions"]
         grade_thresholds = payload.get("grade_thresholds") or row["grade_thresholds"]
+        # 租户只能修改 dimensions 中的 score 值，不能改 condition/value/min/max/key/name
+        incoming_dims = payload.get("dimensions")
+        existing_dims = row["dimensions"]
+        if isinstance(existing_dims, str):
+            import json as _json
+            existing_dims = _json.loads(existing_dims)
+        if incoming_dims and isinstance(incoming_dims, list):
+            for i, dim in enumerate(existing_dims):
+                if i >= len(incoming_dims):
+                    break
+                incoming_conditions = incoming_dims[i].get("conditions") or incoming_dims[i].get("rules") or []
+                existing_conditions = dim.get("conditions") or dim.get("rules") or []
+                for j, cond in enumerate(existing_conditions):
+                    if j < len(incoming_conditions):
+                        cond["score"] = incoming_conditions[j].get("score", cond.get("score", 0))
+        dimensions = existing_dims
         version = row["version"] + 1
         await conn.execute(
             text(

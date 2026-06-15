@@ -26,11 +26,21 @@ import { Textarea } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
+type DimensionCondition = {
+  label: string;
+  score: string;
+  condition: string;
+  value?: unknown;
+  min?: string;
+  max?: string;
+};
+
 type Dimension = {
   key: string;
   name: string;
+  hint?: string;
   weight: string;
-  conditions: Array<{ label: string; score: string }>;
+  conditions: DimensionCondition[];
 };
 
 type TemplateForm = {
@@ -43,9 +53,9 @@ type TemplateForm = {
 };
 
 const DEFAULT_DIMENSIONS: Dimension[] = [
-  { key: 'company_fit', name: '公司匹配度', weight: '20', conditions: [{ label: '目标行业', score: '20' }] },
-  { key: 'scale', name: '规模', weight: '15', conditions: [{ label: '规模达标', score: '15' }] },
-  { key: 'contact', name: '联系人质量', weight: '15', conditions: [{ label: '有关键联系人', score: '15' }] },
+  { key: 'company_fit', name: '公司匹配度', weight: '20', conditions: [{ label: '目标行业', score: '20', condition: 'default' }] },
+  { key: 'scale', name: '规模', weight: '15', conditions: [{ label: '规模达标', score: '15', condition: 'default' }] },
+  { key: 'contact', name: '联系人质量', weight: '15', conditions: [{ label: '有关键联系人', score: '15', condition: 'has_contact' }] },
 ];
 
 const EMPTY_FORM: TemplateForm = {
@@ -68,17 +78,25 @@ const GRADE_LABELS: Record<'S' | 'A' | 'B' | 'C' | 'D', string> = {
 function normalizeDimensions(value: Array<Record<string, unknown>> | undefined): Dimension[] {
   if (!value?.length) return DEFAULT_DIMENSIONS;
   return value.map((item, index) => {
-    const rawConditions = Array.isArray(item.conditions) ? item.conditions : [];
+    const rawConditions = Array.isArray(item.conditions) ? item.conditions : (Array.isArray(item.rules) ? item.rules : []);
     return {
-      key: String(item.key ?? item.name ?? `dimension_${index + 1}`),
+      key: String(item.key ?? item.id ?? item.name ?? `dimension_${index + 1}`),
       name: String(item.name ?? item.label ?? `维度 ${index + 1}`),
+      hint: item.hint ? String(item.hint) : undefined,
       weight: String(item.weight ?? item.score ?? 0),
       conditions: rawConditions.length
         ? rawConditions.map((condition) => {
             const record = condition as Record<string, unknown>;
-            return { label: String(record.label ?? record.name ?? ''), score: String(record.score ?? 0) };
+            return {
+              label: String(record.label ?? record.name ?? ''),
+              score: String(record.score ?? 0),
+              condition: String(record.condition ?? 'default'),
+              value: record.value,
+              min: record.min != null ? String(record.min) : undefined,
+              max: record.max != null ? String(record.max) : undefined,
+            };
           })
-        : [{ label: '默认条件', score: String(item.score ?? 0) }],
+        : [{ label: '默认条件', score: String(item.score ?? 0), condition: 'default' }],
     };
   });
 }
@@ -133,7 +151,7 @@ function DimensionEditor({
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => onChange([...value, { key: `dimension_${value.length + 1}`, name: '', weight: '0', conditions: [] }])}
+          onClick={() => onChange([...value, { key: `dimension_${value.length + 1}`, name: '', weight: '0', conditions: [{ label: '', score: '0', condition: 'default' }] }])}
         >
           <Plus className="h-4 w-4" />
           添加维度
@@ -151,24 +169,40 @@ function DimensionEditor({
           </div>
           <div className="space-y-2">
             {dimension.conditions.map((condition, conditionIndex) => (
-              <div key={conditionIndex} className="grid gap-2 md:grid-cols-[1fr_100px_auto]">
-                <Input placeholder="条件" value={condition.label} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { label: event.target.value })} />
-                <Input placeholder="分数" value={condition.score} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { score: event.target.value })} />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => updateDimension(dimensionIndex, { conditions: dimension.conditions.filter((_, index) => index !== conditionIndex) })}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+              <div key={conditionIndex} className="space-y-1 rounded border border-dashed p-2">
+                <div className="grid gap-2 md:grid-cols-[120px_1fr_80px_auto]">
+                  <Input placeholder="条件类型" value={condition.condition} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { condition: event.target.value })} />
+                  <Input placeholder="标签" value={condition.label} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { label: event.target.value })} />
+                  <Input placeholder="分数" value={condition.score} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { score: event.target.value })} />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => updateDimension(dimensionIndex, { conditions: dimension.conditions.filter((_, index) => index !== conditionIndex) })}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                {(condition.min != null || condition.max != null || condition.value != null) && (
+                  <div className="grid gap-2 md:grid-cols-3">
+                    {condition.value != null && (
+                      <Input placeholder="匹配值 (JSON)" value={typeof condition.value === 'string' ? condition.value : JSON.stringify(condition.value)} onChange={(event) => { try { updateCondition(dimensionIndex, conditionIndex, { value: JSON.parse(event.target.value) }); } catch { updateCondition(dimensionIndex, conditionIndex, { value: event.target.value }); } }} />
+                    )}
+                    {condition.min != null && (
+                      <Input placeholder="最小值" value={condition.min} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { min: event.target.value })} />
+                    )}
+                    {condition.max != null && (
+                      <Input placeholder="最大值" value={condition.max} onChange={(event) => updateCondition(dimensionIndex, conditionIndex, { max: event.target.value })} />
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             <Button
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => updateDimension(dimensionIndex, { conditions: [...dimension.conditions, { label: '', score: '0' }] })}
+              onClick={() => updateDimension(dimensionIndex, { conditions: [...dimension.conditions, { label: '', score: '0', condition: 'default' }] })}
             >
               添加条件
             </Button>
@@ -225,11 +259,19 @@ export function ScoringTemplatesPage() {
       dimensions: form.dimensions.map((dimension) => ({
         key: dimension.key,
         name: dimension.name,
+        hint: dimension.hint || undefined,
         weight: Number(dimension.weight || 0),
-        conditions: dimension.conditions.map((condition) => ({
-          label: condition.label,
-          score: Number(condition.score || 0),
-        })),
+        conditions: dimension.conditions.map((condition) => {
+          const c: Record<string, unknown> = {
+            label: condition.label,
+            score: Number(condition.score || 0),
+            condition: condition.condition || 'default',
+          };
+          if (condition.value != null) c.value = condition.value;
+          if (condition.min != null) c.min = Number(condition.min);
+          if (condition.max != null) c.max = Number(condition.max);
+          return c;
+        }),
       })),
       grade_thresholds: Object.fromEntries(
         Object.entries(form.grade_thresholds).map(([key, value]) => [key, Number(value || 0)]),

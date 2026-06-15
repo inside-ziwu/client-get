@@ -4,7 +4,7 @@ import type { Company } from '@shared/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Badge, Button, Input, Textarea } from '@shared/ui';
+import { Badge, Button, Input, RatingTag, Textarea } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 
 function dash(v: string | number | null | undefined) {
@@ -130,6 +130,28 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
       {showAi && (
         <section>
           <h3 className="mb-2 font-semibold">AI 评估</h3>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <div className="text-xs text-muted-foreground">大模型评级</div>
+              <div className="mt-1">
+                {c.grade ? <RatingTag grade={c.grade} variant="model" /> : '-'}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">大模型评分</div>
+              <div className="mt-1 font-medium">{c.wmt_score != null ? c.wmt_score : '-'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">系统评级</div>
+              <div className="mt-1">
+                {c.system_grade ? <RatingTag grade={c.system_grade} variant="system" /> : '-'}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">系统评分</div>
+              <div className="mt-1 font-medium">{c.system_score != null ? c.system_score : '-'}</div>
+            </div>
+          </div>
           {scoreDetails.length > 0 && (
             <div className="mb-3 space-y-2">
               {scoreDetails.map((d, i) => (

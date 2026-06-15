@@ -15,6 +15,7 @@ export type FilterValues = {
   product_tags: string[];
   collection_type: string;
   grades: string[];
+  system_grades: string[];
   trade_amount_min: string;
   trade_amount_max: string;
   trade_count_min: string;
@@ -32,6 +33,7 @@ export const EMPTY_FILTERS: FilterValues = {
   product_tags: [],
   collection_type: '',
   grades: [],
+  system_grades: [],
   trade_amount_min: '',
   trade_amount_max: '',
   trade_count_min: '',
@@ -73,6 +75,8 @@ export const COUNTRY_ZH: Record<string, string> = {
   ARG: '阿根廷', CHL: '智利', COL: '哥伦比亚', PER: '秘鲁',
   NZL: '新西兰', UNK: '未公开',
 };
+
+const SYSTEM_GRADE_OPTIONS = ['S', 'A', 'B', 'C', 'D'] as const;
 
 const ISO3_TO_ISO2: Record<string, string> = {
   ABW: 'AW', AFG: 'AF', AGO: 'AO', AIA: 'AI', ALA: 'AX', ALB: 'AL', AND: 'AD', ARE: 'AE',
@@ -128,6 +132,7 @@ export function buildParams(f: FilterValues, page: number, pageSize: number): Co
   const p: CompanyListFilters = { page, page_size: pageSize };
   if (f.keyword.trim()) p.keyword = f.keyword.trim();
   if (f.grades.length) p['grades[]'] = f.grades;
+  if (f.system_grades.length) p['system_grades[]'] = f.system_grades;
   if (f.countries.length) p['countries[]'] = f.countries;
   if (f.sub_industries.length) p['sub_industries[]'] = f.sub_industries;
   if (f.product_tags.length) p['product_tags[]'] = f.product_tags;
@@ -182,7 +187,7 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
     <Card className={compact ? 'border-0 shadow-none' : undefined}>
       <CardContent className={compact ? 'p-0' : 'p-4'}>
         <form className="space-y-3" onSubmit={onSearch}>
-          <div className={wrapper ?? "grid gap-3 lg:grid-cols-6"}>
+          <div className={wrapper ?? "grid gap-3 lg:grid-cols-7"}>
             <Input
               placeholder="公司名 / 域名搜索"
               value={filters.keyword}
@@ -227,6 +232,13 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
               onChange={(v) => setFilters((f) => ({ ...f, grades: v }))}
               options={gradeOpts.map((g) => ({ label: g, value: g }))}
               placeholder="评级"
+              allowCreate={false}
+            />
+            <MultiSelect
+              value={filters.system_grades}
+              onChange={(v) => setFilters((f) => ({ ...f, system_grades: v }))}
+              options={SYSTEM_GRADE_OPTIONS.map((g) => ({ label: g, value: g }))}
+              placeholder="系统评级"
               allowCreate={false}
             />
           </div>

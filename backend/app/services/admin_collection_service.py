@@ -1813,6 +1813,7 @@ COALESCE(
         year_max: int | None = None,
         has_contacts: bool | None = None,
         grade: str | None = None,
+        system_grade: str | None = None,
         collection_type: str | None = None,
     ) -> tuple[list[dict], int]:
         where_parts: list[str] = []
@@ -1857,6 +1858,9 @@ COALESCE(
         if grade:
             where_parts.append("grade = :grade")
             params["grade"] = grade
+        if system_grade:
+            where_parts.append("system_grade = :system_grade")
+            params["system_grade"] = system_grade
 
         if collection_type == "keyword":
             where_parts.append(f"data_source_tags @> {KEYWORD_TAG_JSONB}")
@@ -1881,6 +1885,7 @@ COALESCE(
                        phone, employee_size, company_size, founded_year,
                        website, full_address, description,
                        grade, score, email_priority, company_type_analysis,
+                       system_grade, system_score,
                        product_tags, data_source_tags,
                        has_trade_data, trade_amount_3y_usd, trade_count,
                        contacts_count,
@@ -1903,6 +1908,7 @@ COALESCE(
             item["id"] = str(item["id"])
             item["sys_company_id"] = str(item["sys_company_id"]) if item.get("sys_company_id") else None
             item["score"] = float(item["score"]) if item.get("score") is not None else None
+            item["system_score"] = float(item["system_score"]) if item.get("system_score") is not None else None
             item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
             item["product_tags"] = list(item["product_tags"] or [])
             item["data_source_tags"] = list(item["data_source_tags"] or [])

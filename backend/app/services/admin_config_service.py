@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 
 from sqlalchemy import text
@@ -9,7 +10,11 @@ from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.security.passwords import hash_password
 from app.services.audit_service import AuditService
+from app.services.scoring_engine_service import ScoringEngineService
 from app.utils.html_sanitizer import sanitize_html, sanitize_plain_text, sanitize_subject
+
+_scoring_engine = ScoringEngineService()
+_logger = logging.getLogger(__name__)
 
 
 class AdminConfigService:
@@ -487,7 +492,60 @@ class AdminConfigService:
             old_value=before,
             new_value=after,
         )
+
+        await self._sync_platform_template_to_tenants(conn, template_id=template_id, platform_dimensions=dimensions)
+
         return after
+
+    async def _sync_platform_template_to_tenants(
+        self,
+        conn: AsyncConnection,
+        *,
+        template_id: str,
+        platform_dimensions: list | dict,
+    ) -> None:
+        """将平台模板维度结构同步到所有关联租户，保留租户阈值，同步后重新评分。"""
+        tenants = await conn.execute(text("""
+            SELECT id, tenant_id, dimensions, grade_thresholds, version
+            FROM scoring_templates
+            WHERE source_platform_template_id = CAST(:pid AS uuid)
+        """), {"pid": template_id})
+
+        if isinstance(platform_dimensions, str):
+            platform_dimensions = json.loads(platform_dimensions)
+
+        for t in tenants.mappings().all():
+            new_version = t["version"] + 1
+            dims_json = json.dumps(platform_dimensions)
+
+            await conn.execute(text("""
+                UPDATE scoring_templates
+                SET dimensions = CAST(:dims AS jsonb),
+                    version = :version,
+                    updated_at = now()
+                WHERE id = CAST(:id AS uuid)
+            """), {"dims": dims_json, "version": new_version, "id": str(t["id"])})
+
+            await conn.execute(text("""
+                INSERT INTO scoring_template_versions
+                    (id, tenant_id, template_id, version, dimensions, grade_thresholds, change_reason)
+                VALUES
+                    (CAST(:vid AS uuid), CAST(:tid AS uuid), CAST(:tmpl_id AS uuid),
+                     :version, CAST(:dims AS jsonb), CAST(:thresholds AS jsonb), 'platform sync')
+            """), {
+                "vid": str(new_uuid()),
+                "tid": str(t["tenant_id"]),
+                "tmpl_id": str(t["id"]),
+                "version": new_version,
+                "dims": dims_json,
+                "thresholds": json.dumps(t["grade_thresholds"]) if not isinstance(t["grade_thresholds"], str) else t["grade_thresholds"],
+            })
+
+            try:
+                count = await _scoring_engine.rescore_tenant_all(conn, tenant_id=str(t["tenant_id"]))
+                _logger.info("平台模板同步后重新评分: tenant=%s, scored=%d", t["tenant_id"], count)
+            except Exception:
+                _logger.exception("平台模板同步后重新评分失败: tenant=%s", t["tenant_id"])
 
     async def delete_platform_scoring_template(self, conn: AsyncConnection, template_id: str) -> None:
         await conn.execute(
