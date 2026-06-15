@@ -1581,6 +1581,7 @@ class TenantMessagingService:
                 WHERE e.status = 'active'
                   AND e.next_step_due_at <= now()
                   AND p.status = 'running'
+                  AND shc.email IS NOT NULL
                   AND (CAST(:domain_id AS text) IS NULL OR p.domain_id = CAST(:domain_id AS uuid))
                 ORDER BY e.next_step_due_at ASC
                 LIMIT :candidate_limit
