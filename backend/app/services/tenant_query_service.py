@@ -210,8 +210,11 @@ class TenantQueryService:
             params["score_max"] = score_max
 
         if business_status:
-            where_clauses.append("tc.business_status = :business_status")
-            params["business_status"] = business_status
+            if business_status == "not_new":
+                where_clauses.append("tc.business_status != 'new'")
+            else:
+                where_clauses.append("tc.business_status = :business_status")
+                params["business_status"] = business_status
         if data_status:
             where_clauses.append("tc.data_status = :data_status")
             params["data_status"] = data_status

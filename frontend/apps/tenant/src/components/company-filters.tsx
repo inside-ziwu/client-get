@@ -24,6 +24,7 @@ export type FilterValues = {
   contact_count_max: string;
   founded_year_from: string;
   founded_year_to: string;
+  business_status: string;
 };
 
 export const EMPTY_FILTERS: FilterValues = {
@@ -42,6 +43,7 @@ export const EMPTY_FILTERS: FilterValues = {
   contact_count_max: '',
   founded_year_from: '',
   founded_year_to: '',
+  business_status: '',
 };
 
 export const COUNTRY_ZH: Record<string, string> = {
@@ -145,6 +147,7 @@ export function buildParams(f: FilterValues, page: number, pageSize: number): Co
   if (f.contact_count_max) p.contact_count_max = Number(f.contact_count_max);
   if (f.founded_year_from) p.founded_year_from = Number(f.founded_year_from);
   if (f.founded_year_to) p.founded_year_to = Number(f.founded_year_to);
+  if (f.business_status) p.business_status = f.business_status;
   return p;
 }
 
@@ -187,7 +190,7 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
     <Card className={compact ? 'border-0 shadow-none' : undefined}>
       <CardContent className={compact ? 'p-0' : 'p-4'}>
         <form className="space-y-3" onSubmit={onSearch}>
-          <div className={wrapper ?? "grid gap-3 lg:grid-cols-7"}>
+          <div className={wrapper ?? "grid gap-3 lg:grid-cols-8"}>
             <Input
               placeholder="公司名 / 域名搜索"
               value={filters.keyword}
@@ -225,6 +228,19 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
                 <SelectItem value="all">不限</SelectItem>
                 <SelectItem value="keyword">关键词采集</SelectItem>
                 <SelectItem value="reverse">精准反推</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.business_status || 'all'}
+              onValueChange={(v) => setFilters((f) => ({ ...f, business_status: v === 'all' ? '' : v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="是否已入群" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">不限</SelectItem>
+                <SelectItem value="not_new">是</SelectItem>
+                <SelectItem value="new">否</SelectItem>
               </SelectContent>
             </Select>
             <MultiSelect

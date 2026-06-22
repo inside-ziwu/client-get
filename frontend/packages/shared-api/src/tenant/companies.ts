@@ -79,6 +79,7 @@ export interface CompanyListFilters {
   max_score?: number;
   group_id?: string;
   collection_type?: string;
+  business_status?: string;
   page?: number;
   page_size?: number;
 }

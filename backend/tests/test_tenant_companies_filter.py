@@ -55,6 +55,9 @@ def _list_row(**overrides):
         "updated_at": datetime(2026, 1, 2),
         "source_competitor": None,
         "source_competitor_cn": None,
+        "system_grade": None,
+        "system_score": None,
+        "score_adjustment": None,
     }
     base.update(overrides)
     return base
@@ -123,6 +126,36 @@ class TestTenantCompaniesCollectionTypeFilter:
         assert "jsonb_build_array(:source_type)" in sql
         assert "jsonb_array_elements_text(wc.data_source_tags)" in sql
         assert "jsonb_array_elements_text(wc.product_tags)" in sql
+
+
+class TestTenantCompaniesBusinessStatusFilter:
+    """验证 business_status 筛选——含 not_new 语义。"""
+
+    @pytest.mark.asyncio
+    async def test_not_new_generates_not_equal(self):
+        """business_status=not_new 时生成 != 'new' 条件。"""
+        _rows, _total, sql = await _run_companies_page(business_status="not_new")
+        assert "tc.business_status != 'new'" in sql
+        assert ":business_status" not in sql
+
+    @pytest.mark.asyncio
+    async def test_exact_match_preserved(self):
+        """business_status=new 时仍使用精确匹配。"""
+        _rows, _total, sql = await _run_companies_page(business_status="new")
+        assert "tc.business_status = :business_status" in sql
+
+    @pytest.mark.asyncio
+    async def test_in_group_exact_match(self):
+        """business_status=in_group 时使用精确匹配。"""
+        _rows, _total, sql = await _run_companies_page(business_status="in_group")
+        assert "tc.business_status = :business_status" in sql
+
+    @pytest.mark.asyncio
+    async def test_no_filter_no_business_status_clause(self):
+        """不传 business_status 时不添加相关 WHERE。"""
+        _rows, _total, sql = await _run_companies_page()
+        assert "tc.business_status =" not in sql
+        assert "tc.business_status !=" not in sql
 
 
 def _fake_tenant_context():
