@@ -235,12 +235,12 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
               onValueChange={(v) => setFilters((f) => ({ ...f, business_status: v === 'all' ? '' : v }))}
             >
               <SelectTrigger>
-                <SelectValue placeholder="是否已入群" />
+                <SelectValue placeholder="群组状态" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">不限</SelectItem>
-                <SelectItem value="not_new">是</SelectItem>
-                <SelectItem value="new">否</SelectItem>
+                <SelectItem value="all">群组状态</SelectItem>
+                <SelectItem value="not_new">已入群</SelectItem>
+                <SelectItem value="new">未入群</SelectItem>
               </SelectContent>
             </Select>
             <MultiSelect
