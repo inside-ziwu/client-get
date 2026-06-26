@@ -12,6 +12,7 @@ def create_access_token(claims: dict[str, Any]) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         **claims,
+        "iid": settings.instance_id,
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(hours=settings.jwt_expire_hours)).timestamp()),
     }
@@ -23,6 +24,7 @@ def create_refresh_token(claims: dict[str, Any]) -> str:
     now = datetime.now(timezone.utc)
     payload = {
         **claims,
+        "iid": settings.instance_id,
         "type": "refresh",
         "iat": int(now.timestamp()),
         "exp": int((now + timedelta(days=settings.refresh_token_expire_days)).timestamp()),

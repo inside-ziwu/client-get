@@ -10,6 +10,42 @@ from app.security.jwt import (
 )
 
 
+class TestAccessTokenIid:
+    def test_access_token_contains_iid(self):
+        token = create_access_token({"sub": "u1", "kind": "platform"})
+        settings = get_settings()
+        payload = jose_jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        assert payload["iid"] == settings.instance_id
+
+    def test_access_token_iid_matches_instance(self):
+        token = create_access_token({"sub": "u1", "kind": "platform"})
+        settings = get_settings()
+        payload = jose_jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        assert payload["iid"] == "default"
+
+    def test_caller_iid_is_overridden(self):
+        token = create_access_token({"sub": "u1", "kind": "platform", "iid": "should-be-overridden"})
+        settings = get_settings()
+        payload = jose_jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        assert payload["iid"] == settings.instance_id
+
+    def test_service_token_contains_iid(self):
+        token = create_access_token({"sub": "svc", "kind": "service", "service_name": "sending-worker", "scopes": ["sending:claim"]})
+        settings = get_settings()
+        payload = jose_jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        assert payload["iid"] == settings.instance_id
+        assert payload["kind"] == "service"
+
+
+class TestRefreshTokenIid:
+    def test_refresh_token_contains_iid(self):
+        token = create_refresh_token({"sub": "u1", "kind": "platform"})
+        settings = get_settings()
+        payload = jose_jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        assert payload["iid"] == settings.instance_id
+        assert payload["type"] == "refresh"
+
+
 class TestCreateRefreshToken:
     def test_contains_type_refresh(self):
         token = create_refresh_token({"sub": "u1", "kind": "platform"})
