@@ -10,7 +10,7 @@ refresh_token cookie 属性：
 - `HttpOnly`: true
 - `Secure`: true（生产环境）
 - `SameSite`: Lax
-- `Domain`: `.xinanpcb.com`（生产环境）
+- `Domain`: 通过环境变量 `COOKIE_DOMAIN` 配置（Instance A: `.xinanpcb.com`，Instance B: 对应域名）
 - `Path`: `/admin/api/v1/auth`
 - `Max-Age`: 604800（7 天）
 
