@@ -99,6 +99,60 @@ class TestRefreshEndpoint:
         assert resp.status_code == 401
 
 
+class TestRefreshInstanceFilter:
+    """U11: refresh 端点校验 iid + instance_id 过滤"""
+
+    @pytest.mark.asyncio
+    async def test_matching_iid_refreshes_successfully(self, app, client):
+        """refresh_token 的 iid 匹配 → 刷新成功，新 token 包含 iid"""
+        from app.security.jwt import decode_access_token
+
+        token = _make_refresh_cookie()  # 使用默认 instance_id="default"
+        mock_conn = _mock_active_user()
+        app.dependency_overrides[get_connection] = lambda: mock_conn
+
+        resp = await client.post(
+            "/admin/api/v1/auth/refresh",
+            cookies={"refresh_token": token},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        new_access_token = body["data"]["access_token"]
+        decoded = decode_access_token(new_access_token)
+        assert decoded["iid"] == "default"
+
+    @pytest.mark.asyncio
+    async def test_mismatched_iid_returns_403(self, app, client):
+        """refresh_token 的 iid 不匹配 → 返回 403"""
+        from app.core.config import get_settings
+        from jose import jwt as jose_jwt
+
+        settings = get_settings()
+        # 制造一个 iid 与当前实例不匹配的 refresh_token
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        payload = {
+            "sub": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            "kind": "platform",
+            "roles": ["platform_admin"],
+            "iid": "other-instance",  # 不匹配当前实例的 "default"
+            "type": "refresh",
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(days=7)).timestamp()),
+        }
+        token = jose_jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+        mock_conn = _mock_active_user()
+        app.dependency_overrides[get_connection] = lambda: mock_conn
+
+        resp = await client.post(
+            "/admin/api/v1/auth/refresh",
+            cookies={"refresh_token": token},
+        )
+
+        assert resp.status_code == 403
+
+
 class TestLogoutEndpoint:
     @pytest.mark.asyncio
     async def test_clears_refresh_cookie(self, client):
