@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LOCAL_DEV_ORIGINS = (
@@ -29,7 +29,11 @@ class Settings(BaseSettings):
     app_env: str = Field(default="local", alias="APP_ENV")
     debug: bool = Field(default=False, alias="DEBUG")
 
-    jwt_secret: str = Field(alias="JWT_SECRET")
+    instance_id: str = Field(default="default", alias="CLIENTGET_INSTANCE_ID")
+
+    jwt_secret: str = Field(
+        validation_alias=AliasChoices("CLIENTGET_JWT_SECRET", "JWT_SECRET"),
+    )
     jwt_algorithm: str = "HS256"
     jwt_expire_hours: int = Field(default=24, alias="JWT_EXPIRE_HOURS")
     refresh_token_expire_days: int = Field(default=7, alias="REFRESH_TOKEN_EXPIRE_DAYS")
@@ -43,6 +47,12 @@ class Settings(BaseSettings):
     sync_database_url: str = Field(default="", alias="SYNC_DATABASE_URL")
     test_database_url: str | None = Field(default=None, alias="TEST_DATABASE_URL")
     test_sync_database_url: str | None = Field(default=None, alias="TEST_SYNC_DATABASE_URL")
+
+    @model_validator(mode="after")
+    def _require_instance_id_in_production(self) -> Settings:
+        if self.app_env.lower() in {"prod", "production"} and self.instance_id == "default":
+            raise ValueError("生产环境必须显式设置 CLIENTGET_INSTANCE_ID，不能使用默认值 'default'")
+        return self
 
     @model_validator(mode="after")
     def _derive_db_urls(self) -> Settings:
