@@ -129,15 +129,17 @@ class TestInitInstanceSqlContent:
         source = inspect.getsource(main)
         assert "ai_scene_defaults" in source
 
-    def test_all_inserts_use_on_conflict(self):
-        """所有 INSERT 使用 ON CONFLICT 实现幂等"""
+    def test_all_inserts_use_on_conflict_or_pre_check(self):
+        """所有 INSERT 使用 ON CONFLICT 或先查后插实现幂等/安全性"""
         from scripts.init_instance import main
 
         source = inspect.getsource(main)
-        # 统计 INSERT 和 ON CONFLICT 出现次数
+        # platform_users 改为先查后插（显式报错），其余 INSERT 仍用 ON CONFLICT
         insert_count = source.lower().count("insert into")
         conflict_count = source.lower().count("on conflict")
-        assert conflict_count >= insert_count, (
+        # platform_users 的 INSERT 不再使用 ON CONFLICT，而是先检查再插入
+        # 因此允许差 1（platform_users 那条）
+        assert conflict_count >= insert_count - 1, (
             f"INSERT 出现 {insert_count} 次，ON CONFLICT 仅 {conflict_count} 次"
         )
 

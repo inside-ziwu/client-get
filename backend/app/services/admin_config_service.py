@@ -30,7 +30,7 @@ class AdminConfigService:
                        ds.landing_rules,
                        count(dsc.id) FILTER (WHERE dsc.is_active) AS active_credentials_count
                 FROM data_sources ds
-                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type
+                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type AND dsc.instance_id = ds.instance_id
                 WHERE ds.instance_id = :instance_id
                 GROUP BY ds.id
                 ORDER BY ds.source_type
@@ -89,7 +89,7 @@ class AdminConfigService:
                        ds.landing_rules,
                        count(dsc.id) FILTER (WHERE dsc.is_active) AS active_credentials_count
                 FROM data_sources ds
-                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type
+                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type AND dsc.instance_id = ds.instance_id
                 WHERE ds.source_type = :source_type AND ds.instance_id = :instance_id
                 GROUP BY ds.id
                 """

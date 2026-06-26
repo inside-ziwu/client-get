@@ -117,9 +117,10 @@ class TenantService:
                 SET status = :status,
                     updated_at = now()
                 WHERE id = :tenant_id
+                  AND instance_id = :instance_id
                 """
             ),
-            {"tenant_id": tenant_id, "status": status},
+            {"tenant_id": tenant_id, "status": status, "instance_id": get_settings().instance_id},
         )
         return await self.get_tenant(conn, tenant_id)
 
@@ -304,11 +305,12 @@ class TenantService:
                 SELECT id, name, dimensions, grade_thresholds, version
                 FROM platform_scoring_templates
                 WHERE industry = :industry AND is_active = true
+                  AND instance_id = :instance_id
                 ORDER BY updated_at DESC
                 LIMIT 1
                 """
             ),
-            {"industry": industry},
+            {"industry": industry, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -366,9 +368,10 @@ class TenantService:
                 SELECT id, name, category, subject, body_html, body_text, variables
                 FROM platform_email_templates
                 WHERE industry = :industry AND is_active = true
+                  AND instance_id = :instance_id
                 """
             ),
-            {"industry": industry},
+            {"industry": industry, "instance_id": get_settings().instance_id},
         )
         for row in result.mappings().all():
             await conn.execute(

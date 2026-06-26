@@ -112,9 +112,31 @@ def upgrade() -> None:
           REFERENCES data_sources(instance_id, source_type);
     """)
 
+    # data_source_credentials: UNIQUE(source_type, account_no) → UNIQUE(instance_id, source_type, account_no)
+    conn.exec_driver_sql(
+        "ALTER TABLE data_source_credentials "
+        "DROP CONSTRAINT IF EXISTS data_source_credentials_source_type_account_no_key;"
+    )
+    conn.exec_driver_sql("""
+        ALTER TABLE data_source_credentials
+          ADD CONSTRAINT uq_data_source_credentials_instance_source_account
+          UNIQUE (instance_id, source_type, account_no);
+    """)
+
 
 def downgrade() -> None:
     conn = op.get_bind()
+
+    # ── 恢复 data_source_credentials UNIQUE 约束 ────────────────────────
+    conn.exec_driver_sql(
+        "ALTER TABLE data_source_credentials "
+        "DROP CONSTRAINT IF EXISTS uq_data_source_credentials_instance_source_account;"
+    )
+    conn.exec_driver_sql("""
+        ALTER TABLE data_source_credentials
+          ADD CONSTRAINT data_source_credentials_source_type_account_no_key
+          UNIQUE (source_type, account_no);
+    """)
 
     # ── 3. 恢复 data_source_credentials FK ────────────────────────────────
     conn.exec_driver_sql(

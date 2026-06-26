@@ -2714,9 +2714,10 @@ class TenantMessagingService:
                 FROM ai_scene_defaults s
                 JOIN ai_models m ON m.id = s.model_id
                 WHERE s.scene = :scene AND m.is_active = true
+                  AND s.instance_id = :instance_id
                 """
             ),
-            {"scene": scene},
+            {"scene": scene, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:

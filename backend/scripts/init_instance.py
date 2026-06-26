@@ -65,12 +65,22 @@ def main() -> None:
 
     with engine.begin() as conn:
         # ── 1. 平台管理员 ──────────────────────────────────────────────────
+        existing = conn.execute(
+            text("SELECT id, instance_id FROM platform_users WHERE email = :email"),
+            {"email": admin_email},
+        ).first()
+        if existing is not None:
+            print(
+                f"错误：邮箱 {admin_email} 已被 instance_id={existing[1]} 的用户 {existing[0]} 使用，"
+                f"无法为实例 {instance_id} 创建管理员",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         conn.execute(
             text(
                 """
                 INSERT INTO platform_users (id, email, password_hash, name, status, instance_id)
                 VALUES (:id, :email, :password_hash, :name, 'active', :instance_id)
-                ON CONFLICT (email) DO NOTHING
                 """
             ),
             {
