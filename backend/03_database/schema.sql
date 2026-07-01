@@ -1226,7 +1226,7 @@ CREATE TABLE email_events (
   event_type varchar(20) NOT NULL CHECK (event_type IN ('sent','delivered','opened','clicked','replied','bounced','complained','unsubscribed')),
   metadata jsonb NOT NULL DEFAULT '{}',
   source varchar(20) NOT NULL DEFAULT 'engagelab' CHECK (source IN ('engagelab','system')),
-  provider_event_id varchar(100),
+  provider_event_id text,
   occurred_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
