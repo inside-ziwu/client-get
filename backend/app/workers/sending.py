@@ -251,9 +251,9 @@ class SendingWorker:
         return min(due_domains, key=lambda item: self.domain_clocks[item])
 
     def _delay_seconds(self, send_strategy: dict | None) -> float:
-        interval = (send_strategy or {}).get("interval_seconds") or [30, 120]
+        interval = (send_strategy or {}).get("interval_seconds") or [1, 1]
         if not isinstance(interval, list | tuple) or len(interval) != 2:
-            interval = [30, 120]
+            interval = [1, 1]
         low = max(float(interval[0]), 0)
         high = max(float(interval[1]), low)
         return self.random_between(low, high)
