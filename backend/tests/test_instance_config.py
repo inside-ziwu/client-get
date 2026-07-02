@@ -55,6 +55,38 @@ class TestInstanceId:
         assert s.instance_id == "default"
 
 
+class TestCookieDomain:
+    """refresh cookie Domain 按实例配置（COOKIE_DOMAIN），未设置时生产回退 .xinanpcb.com"""
+
+    def _domain(self, **env):
+        from unittest.mock import patch as _patch
+
+        s = _fresh_settings(**env)
+        from app.api.admin import auth as admin_auth
+
+        with _patch.object(admin_auth, "get_settings", return_value=s):
+            return admin_auth._cookie_domain()
+
+    def test_explicit_cookie_domain_wins(self):
+        assert (
+            self._domain(
+                APP_ENV="production",
+                CLIENTGET_INSTANCE_ID="instance_b",
+                COOKIE_DOMAIN=".instance-b.example.com",
+            )
+            == ".instance-b.example.com"
+        )
+
+    def test_production_fallback_keeps_instance_a_zero_config(self):
+        assert (
+            self._domain(APP_ENV="production", CLIENTGET_INSTANCE_ID="default")
+            == ".xinanpcb.com"
+        )
+
+    def test_local_unset_returns_none(self):
+        assert self._domain() is None
+
+
 class TestJwtSecret:
     def test_clientget_jwt_secret_takes_priority(self):
         s = _fresh_settings(CLIENTGET_JWT_SECRET="new-secret", JWT_SECRET="old-secret")
