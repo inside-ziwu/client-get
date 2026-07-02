@@ -3,14 +3,14 @@
 EngageLab webhook 的 provider_event_id 由 message_id、事件类型和时间戳拼接而成，
 真实 message_id 可能包含较长邮箱地址，超过 varchar(100) 后会导致事件入库失败。
 
-revision: 20260701_0001
-down_revision: 20260625_0100
+revision: 20260701_0002
+down_revision: 20260701_0001
 """
 
 from alembic import op
 
-revision = "20260701_0001"
-down_revision = "20260625_0100"
+revision = "20260701_0002"
+down_revision = "20260701_0001"
 branch_labels = None
 depends_on = None
 

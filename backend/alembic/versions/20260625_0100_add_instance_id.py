@@ -6,13 +6,13 @@ data_source_credentials 的 FK 从引用 data_sources(source_type)
 改为复合 FK (instance_id, source_type)。
 
 revision: 20260625_0100
-down_revision: 20260614_0002
+down_revision: 20260701_0002
 """
 
 from alembic import op
 
 revision = "20260625_0100"
-down_revision = "20260614_0002"
+down_revision = "20260701_0002"
 branch_labels = None
 depends_on = None
 

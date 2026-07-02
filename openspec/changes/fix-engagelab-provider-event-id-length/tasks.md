@@ -1,6 +1,6 @@
 ## 1. 数据库迁移
 
-- [x] 1.1 新增 Alembic 迁移文件 `backend/alembic/versions/20260701_0001_email_events_provider_event_id_text.py`，将 `email_events.provider_event_id` 从 `varchar(100)` 修改为 `text`
+- [x] 1.1 新增 Alembic 迁移文件 `backend/alembic/versions/20260701_0002_email_events_provider_event_id_text.py`，将 `email_events.provider_event_id` 从 `varchar(100)` 修改为 `text`
 - [x] 1.2 在迁移中保留现有数据、`idx_email_events_provider_unique` 唯一索引和 `idx_email_events_email` 查询索引语义
 - [x] 1.3 同步更新 `backend/03_database/schema.sql`，将基线 schema 中 `provider_event_id varchar(100)` 改为 `provider_event_id text`
 
@@ -22,4 +22,4 @@
 - [x] 4.1 部署前确认迁移只涉及字段类型放宽，不会删除或截断生产数据
 - [ ] 4.2 若用户明确触发上线，按项目流程构建并推送 backend 镜像，再在 Sealos 更新 `clientget-backend` 及共用 backend 镜像的 worker 服务
 - [ ] 4.3 部署后观察 EngageLab webhook 日志，确认不再出现 `StringDataRightTruncationError: value too long for type character varying(100)`
-- [x] 4.4 收尾前调用 `verification-before-completion`，输出“原始需求 → 已实现/未实现”对照
+- [ ] 4.4 收尾前调用 `verification-before-completion`，输出“原始需求 → 已实现/未实现”对照
