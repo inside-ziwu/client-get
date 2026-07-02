@@ -61,9 +61,12 @@ async def refresh(
     if not token:
         raise AppError(code="UNAUTHORIZED", message="缺少刷新令牌", status_code=401)
     payload = decode_refresh_token(token)
+    settings = get_settings()
+    if payload.get("iid") != settings.instance_id:
+        raise AppError(code="INSTANCE_MISMATCH", message="实例不匹配", status_code=403)
     result = await conn.execute(
-        text("SELECT status FROM platform_users WHERE id = :user_id"),
-        {"user_id": payload["sub"]},
+        text("SELECT status FROM platform_users WHERE id = :user_id AND instance_id = :instance_id"),
+        {"user_id": payload["sub"], "instance_id": settings.instance_id},
     )
     user = result.mappings().first()
     if not user or user["status"] != "active":

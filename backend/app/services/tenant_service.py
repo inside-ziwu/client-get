@@ -3,6 +3,7 @@ import json
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.security.passwords import hash_password
@@ -53,9 +54,11 @@ class TenantService:
                 SELECT id, name, slug, industry, status, needs_onboarding, created_at, updated_at
                 FROM tenants
                 WHERE status != 'archived'
+                  AND instance_id = :instance_id
                 ORDER BY created_at DESC
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         return [self._serialize_tenant(row) for row in result.mappings().all()]
 
@@ -67,9 +70,10 @@ class TenantService:
                        contact_name, contact_phone, contact_email, created_at, updated_at
                 FROM tenants
                 WHERE id = :tenant_id
+                  AND instance_id = :instance_id
                 """
             ),
-            {"tenant_id": tenant_id},
+            {"tenant_id": tenant_id, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -89,10 +93,12 @@ class TenantService:
                     contact_email = COALESCE(:contact_email, contact_email),
                     updated_at = now()
                 WHERE id = :tenant_id
+                  AND instance_id = :instance_id
                 """
             ),
             {
                 "tenant_id": tenant_id,
+                "instance_id": get_settings().instance_id,
                 "name": payload.get("name"),
                 "industry": payload.get("industry"),
                 "contact_name": payload.get("contact_name"),
@@ -111,9 +117,10 @@ class TenantService:
                 SET status = :status,
                     updated_at = now()
                 WHERE id = :tenant_id
+                  AND instance_id = :instance_id
                 """
             ),
-            {"tenant_id": tenant_id, "status": status},
+            {"tenant_id": tenant_id, "status": status, "instance_id": get_settings().instance_id},
         )
         return await self.get_tenant(conn, tenant_id)
 
@@ -129,8 +136,8 @@ class TenantService:
             slug = "t-" + str(new_uuid()).replace("-", "")[:8]
 
         existing = await conn.execute(
-            text("SELECT id FROM tenants WHERE slug = :slug"),
-            {"slug": slug},
+            text("SELECT id FROM tenants WHERE slug = :slug AND instance_id = :instance_id"),
+            {"slug": slug, "instance_id": get_settings().instance_id},
         )
         if existing.first() is not None:
             raise AppError(code="CONFLICT", message="租户 slug 已存在", status_code=409)
@@ -144,8 +151,8 @@ class TenantService:
         await conn.execute(
             text(
                 """
-                INSERT INTO tenants (id, name, slug, industry, contact_name, contact_phone, contact_email, status, settings, needs_onboarding)
-                VALUES (:id, :name, :slug, :industry, :contact_name, :contact_phone, :contact_email, 'active', '{}'::jsonb, true)
+                INSERT INTO tenants (id, name, slug, industry, contact_name, contact_phone, contact_email, status, settings, needs_onboarding, instance_id)
+                VALUES (:id, :name, :slug, :industry, :contact_name, :contact_phone, :contact_email, 'active', '{}'::jsonb, true, :instance_id)
                 """
             ),
             {
@@ -156,6 +163,7 @@ class TenantService:
                 "contact_name": payload.get("contact_name"),
                 "contact_phone": payload.get("contact_phone"),
                 "contact_email": payload["admin_email"],
+                "instance_id": get_settings().instance_id,
             },
         )
         await conn.execute(
@@ -297,11 +305,12 @@ class TenantService:
                 SELECT id, name, dimensions, grade_thresholds, version
                 FROM platform_scoring_templates
                 WHERE industry = :industry AND is_active = true
+                  AND instance_id = :instance_id
                 ORDER BY updated_at DESC
                 LIMIT 1
                 """
             ),
-            {"industry": industry},
+            {"industry": industry, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -359,9 +368,10 @@ class TenantService:
                 SELECT id, name, category, subject, body_html, body_text, variables
                 FROM platform_email_templates
                 WHERE industry = :industry AND is_active = true
+                  AND instance_id = :instance_id
                 """
             ),
-            {"industry": industry},
+            {"industry": industry, "instance_id": get_settings().instance_id},
         )
         for row in result.mappings().all():
             await conn.execute(

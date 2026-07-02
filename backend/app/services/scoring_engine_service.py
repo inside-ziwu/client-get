@@ -4,6 +4,8 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -252,8 +254,9 @@ class ScoringEngineService:
             SELECT dimensions, grade_thresholds
             FROM platform_scoring_templates
             WHERE is_active = true
+              AND instance_id = :instance_id
             ORDER BY updated_at DESC LIMIT 1
-        """))
+        """), {"instance_id": get_settings().instance_id})
         tmpl_row = tmpl.mappings().first()
         if tmpl_row is None:
             return None

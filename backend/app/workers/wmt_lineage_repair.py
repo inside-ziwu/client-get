@@ -17,6 +17,7 @@ from contextlib import suppress
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.core.config import get_settings
 from app.services.collection_source import KEYWORD_TAG_JSONB
 
 logger = logging.getLogger(__name__)
@@ -98,9 +99,11 @@ _SQL_FAN_OUT_ACTIVE_KEYWORDS = text("""
         ELSE 'ready'
       END
     FROM tenant_keyword tk
+    JOIN tenants t ON t.id = tk.tenant_id
     JOIN waimaotong_clean_companies wc
       ON wc.keyword_master_ids @> ARRAY[tk.keyword_master_id]::uuid[]
     WHERE tk.status = 'active'
+      AND t.instance_id = :instance_id
     ON CONFLICT (tenant_id, clean_company_id) DO UPDATE
     SET data_status = EXCLUDED.data_status,
         updated_at = CASE
@@ -133,6 +136,7 @@ _SQL_FAN_OUT_INDUSTRY = text(f"""
       ON wc.data_source_tags @> {KEYWORD_TAG_JSONB}
     WHERE t.status = 'active'
       AND lower(trim(t.industry)) = ANY(:industry_aliases)
+      AND t.instance_id = :instance_id
     ON CONFLICT (tenant_id, clean_company_id) DO UPDATE
     SET data_status = EXCLUDED.data_status,
         updated_at = now()
@@ -212,9 +216,10 @@ async def run_wmt_lineage_repair_once(engine: AsyncEngine) -> dict:
 
 async def run_wmt_lineage_repair_on_connection(conn) -> dict:
     """在已有事务/连接内执行 repair，主要供测试和脚本复用。"""
+    instance_id = get_settings().instance_id
     locked = await conn.scalar(
-        text("SELECT pg_try_advisory_xact_lock(:key)"),
-        {"key": _ADVISORY_LOCK_KEY},
+        text("SELECT pg_try_advisory_xact_lock(:key + pg_catalog.hashtext(:instance_id))"),
+        {"key": _ADVISORY_LOCK_KEY, "instance_id": instance_id},
     )
     if not locked:
         logger.info("wmt_lineage_repair: another instance holds the lock, skipping")
@@ -223,11 +228,14 @@ async def run_wmt_lineage_repair_on_connection(conn) -> dict:
     normalized = await conn.execute(_SQL_NORMALIZE_KEYWORD_MASTER_IDS)
     clean_path = await conn.execute(_SQL_BACKFILL_CLEAN_PATH)
     raw_fallback = await conn.execute(_SQL_BACKFILL_RAW_FALLBACK)
-    fan_out = await conn.execute(_SQL_FAN_OUT_ACTIVE_KEYWORDS)
+    fan_out = await conn.execute(
+        _SQL_FAN_OUT_ACTIVE_KEYWORDS,
+        {"instance_id": instance_id},
+    )
     fan_out_rows = fan_out.mappings().all()
     industry_fan_out = await conn.execute(
         _SQL_FAN_OUT_INDUSTRY,
-        {"industry_aliases": _PCB_INDUSTRY_ALIASES},
+        {"industry_aliases": _PCB_INDUSTRY_ALIASES, "instance_id": instance_id},
     )
     industry_fan_out_rows = industry_fan_out.mappings().all()
     deleted_stale = await conn.execute(_SQL_DELETE_STALE_RELATIONS)

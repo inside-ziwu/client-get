@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.crypto import decrypt_secret
 from app.core.errors import AppError
 from app.services.intelligence_service import IntelligenceService
@@ -19,10 +20,11 @@ class InternalOpsService:
                 SELECT id, account_no, username, credentials_encrypted, rotation_order, daily_quota, current_day_used, is_active
                 FROM data_source_credentials
                 WHERE source_type = :source_type AND is_active = true
+                  AND instance_id = :instance_id
                 ORDER BY rotation_order ASC, created_at ASC
                 """
             ),
-            {"source_type": source_type},
+            {"source_type": source_type, "instance_id": get_settings().instance_id},
         )
         return [
             {

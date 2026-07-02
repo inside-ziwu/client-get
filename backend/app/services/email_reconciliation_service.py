@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.integrations.engagelab import EngageLabClient
 
 logger = logging.getLogger(__name__)
@@ -23,18 +24,22 @@ class EmailReconciliationService:
         self, conn: AsyncConnection, client: EngageLabClient
     ) -> dict:
         """查询所有 stuck 邮件的真实投递状态并更新数据库。"""
+        instance_id = get_settings().instance_id
         rows = await conn.execute(
             text(
                 """
-                SELECT id, created_at, sent_at, tenant_id, enrollment_id,
-                       tenant_contact_id, to_email, engagelab_message_id
-                FROM emails
-                WHERE status = 'sent'
-                  AND sent_at < now() - interval '30 minutes'
-                  AND engagelab_message_id IS NOT NULL
-                ORDER BY sent_at
+                SELECT e.id, e.created_at, e.sent_at, e.tenant_id, e.enrollment_id,
+                       e.tenant_contact_id, e.to_email, e.engagelab_message_id
+                FROM emails e
+                JOIN tenants t ON t.id = e.tenant_id
+                WHERE e.status = 'sent'
+                  AND e.sent_at < now() - interval '30 minutes'
+                  AND e.engagelab_message_id IS NOT NULL
+                  AND t.instance_id = :instance_id
+                ORDER BY e.sent_at
                 """
-            )
+            ),
+            {"instance_id": instance_id},
         )
         emails = [dict(r) for r in rows.mappings().all()]
 

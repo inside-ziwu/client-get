@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.errors import AppError
 from app.core.ids import new_uuid
@@ -29,11 +30,13 @@ class AdminConfigService:
                        ds.landing_rules,
                        count(dsc.id) FILTER (WHERE dsc.is_active) AS active_credentials_count
                 FROM data_sources ds
-                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type
+                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type AND dsc.instance_id = ds.instance_id
+                WHERE ds.instance_id = :instance_id
                 GROUP BY ds.id
                 ORDER BY ds.source_type
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         return [self._serialize_data_source(row) for row in result.mappings().all()]
 
@@ -49,10 +52,10 @@ class AdminConfigService:
             text(
                 """
                 INSERT INTO data_sources
-                  (id, source_type, name, alias_code, purpose, is_active, config, landing_rules)
+                  (id, source_type, name, alias_code, purpose, is_active, config, landing_rules, instance_id)
                 VALUES
                   (:id, :source_type, :name, :alias_code, :purpose, :is_active,
-                   CAST(:config AS jsonb), CAST(:landing_rules AS jsonb))
+                   CAST(:config AS jsonb), CAST(:landing_rules AS jsonb), :instance_id)
                 """
             ),
             {
@@ -64,6 +67,7 @@ class AdminConfigService:
                 "is_active": payload.get("is_active", True),
                 "config": self._to_json(payload.get("config", {})),
                 "landing_rules": self._to_json(payload.get("landing_rules", {})),
+                "instance_id": get_settings().instance_id,
             },
         )
         row = await self.get_data_source(conn, payload["source_type"])
@@ -85,12 +89,12 @@ class AdminConfigService:
                        ds.landing_rules,
                        count(dsc.id) FILTER (WHERE dsc.is_active) AS active_credentials_count
                 FROM data_sources ds
-                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type
-                WHERE ds.source_type = :source_type
+                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type AND dsc.instance_id = ds.instance_id
+                WHERE ds.source_type = :source_type AND ds.instance_id = :instance_id
                 GROUP BY ds.id
                 """
             ),
-            {"source_type": source_type},
+            {"source_type": source_type, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -115,7 +119,7 @@ class AdminConfigService:
                     purpose = COALESCE(:purpose, purpose),
                     is_active = COALESCE(:is_active, is_active),
                     updated_at = now()
-                WHERE source_type = :source_type
+                WHERE source_type = :source_type AND instance_id = :instance_id
                 """
             ),
             {
@@ -124,6 +128,7 @@ class AdminConfigService:
                 "alias_code": payload.get("alias_code"),
                 "purpose": payload.get("purpose"),
                 "is_active": payload.get("is_active"),
+                "instance_id": get_settings().instance_id,
             },
         )
         after = await self.get_data_source(conn, source_type)
@@ -156,13 +161,14 @@ class AdminConfigService:
                 SET config = CAST(:config AS jsonb),
                     landing_rules = CAST(:landing_rules AS jsonb),
                     updated_at = now()
-                WHERE source_type = :source_type
+                WHERE source_type = :source_type AND instance_id = :instance_id
                 """
             ),
             {
                 "source_type": source_type,
                 "config": self._to_json(next_config),
                 "landing_rules": self._to_json(next_landing_rules),
+                "instance_id": get_settings().instance_id,
             },
         )
         after = await self.get_data_source(conn, source_type)
@@ -185,11 +191,11 @@ class AdminConfigService:
                        rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active,
                        last_used_at, last_error_at, last_error_message, consecutive_error_count, created_at
                 FROM data_source_credentials
-                WHERE source_type = :source_type
+                WHERE source_type = :source_type AND instance_id = :instance_id
                 ORDER BY rotation_order ASC, created_at ASC
                 """
             ),
-            {"source_type": source_type},
+            {"source_type": source_type, "instance_id": get_settings().instance_id},
         )
         return [self._serialize_credential(row) for row in result.mappings().all()]
 
@@ -207,10 +213,10 @@ class AdminConfigService:
                 """
                 INSERT INTO data_source_credentials
                   (id, source_type, account_no, username, credentials_encrypted, encryption_key_version,
-                   rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active)
+                   rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active, instance_id)
                 VALUES
                   (:id, :source_type, :account_no, :username, :credentials_encrypted, 1,
-                   :rotation_order, :daily_quota, 0, CURRENT_DATE, :is_active)
+                   :rotation_order, :daily_quota, 0, CURRENT_DATE, :is_active, :instance_id)
                 """
             ),
             {
@@ -226,6 +232,7 @@ class AdminConfigService:
                 "rotation_order": payload.get("rotation_order", 0),
                 "daily_quota": payload.get("daily_quota"),
                 "is_active": payload.get("is_active", True),
+                "instance_id": get_settings().instance_id,
             },
         )
         rows = await self.list_data_source_credentials(conn, source_type)
@@ -266,7 +273,7 @@ class AdminConfigService:
                     daily_quota = COALESCE(:daily_quota, daily_quota),
                     is_active = COALESCE(:is_active, is_active),
                     updated_at = now()
-                WHERE id = :credential_id AND source_type = :source_type
+                WHERE id = :credential_id AND source_type = :source_type AND instance_id = :instance_id
                 """
             ),
             {
@@ -278,6 +285,7 @@ class AdminConfigService:
                 "rotation_order": payload.get("rotation_order"),
                 "daily_quota": payload.get("daily_quota"),
                 "is_active": payload.get("is_active"),
+                "instance_id": get_settings().instance_id,
             },
         )
         after = self._serialize_credential(await self._load_credential_row(conn, source_type, credential_id))
@@ -302,8 +310,8 @@ class AdminConfigService:
     ) -> None:
         before = await self._load_credential_row(conn, source_type, credential_id)
         await conn.execute(
-            text("DELETE FROM data_source_credentials WHERE id = :credential_id AND source_type = :source_type"),
-            {"credential_id": credential_id, "source_type": source_type},
+            text("DELETE FROM data_source_credentials WHERE id = :credential_id AND source_type = :source_type AND instance_id = :instance_id"),
+            {"credential_id": credential_id, "source_type": source_type, "instance_id": get_settings().instance_id},
         )
         await self.audit.write(
             conn,
@@ -336,21 +344,23 @@ class AdminConfigService:
         *,
         industry: str | None = None,
     ) -> list[dict]:
+        _iid = get_settings().instance_id
         if industry is not None:
             query = """
                 SELECT id, industry, name, description, is_active, dimensions, grade_thresholds, version, created_at, updated_at
                 FROM platform_scoring_templates
-                WHERE industry = :industry
+                WHERE industry = :industry AND instance_id = :instance_id
                 ORDER BY updated_at DESC
             """
-            result = await conn.execute(text(query), {"industry": industry})
+            result = await conn.execute(text(query), {"industry": industry, "instance_id": _iid})
         else:
             query = """
                 SELECT id, industry, name, description, is_active, dimensions, grade_thresholds, version, created_at, updated_at
                 FROM platform_scoring_templates
+                WHERE instance_id = :instance_id
                 ORDER BY updated_at DESC
             """
-            result = await conn.execute(text(query))
+            result = await conn.execute(text(query), {"instance_id": _iid})
         return [self._serialize_scoring_template(row) for row in result.mappings().all()]
 
     async def create_platform_scoring_template(
@@ -365,10 +375,10 @@ class AdminConfigService:
             text(
                 """
                 INSERT INTO platform_scoring_templates
-                  (id, industry, name, description, is_active, dimensions, grade_thresholds, version, created_by)
+                  (id, industry, name, description, is_active, dimensions, grade_thresholds, version, created_by, instance_id)
                 VALUES
                   (:id, :industry, :name, :description, :is_active,
-                   CAST(:dimensions AS jsonb), CAST(:grade_thresholds AS jsonb), 1, :created_by)
+                   CAST(:dimensions AS jsonb), CAST(:grade_thresholds AS jsonb), 1, :created_by, :instance_id)
                 """
             ),
             {
@@ -380,6 +390,7 @@ class AdminConfigService:
                 "dimensions": self._to_json(payload["dimensions"]),
                 "grade_thresholds": self._to_json(payload.get("grade_thresholds", {"S": 90, "A": 80, "B": 60, "C": 40, "D": 0})),
                 "created_by": platform_user_id,
+                "instance_id": get_settings().instance_id,
             },
         )
         await conn.execute(
@@ -416,10 +427,10 @@ class AdminConfigService:
                 """
                 SELECT id, industry, name, description, is_active, dimensions, grade_thresholds, version, created_at, updated_at
                 FROM platform_scoring_templates
-                WHERE id = :template_id
+                WHERE id = :template_id AND instance_id = :instance_id
                 """
             ),
-            {"template_id": template_id},
+            {"template_id": template_id, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -450,7 +461,7 @@ class AdminConfigService:
                     grade_thresholds = CAST(:grade_thresholds AS jsonb),
                     version = :version,
                     updated_at = now()
-                WHERE id = :template_id
+                WHERE id = :template_id AND instance_id = :instance_id
                 """
             ),
             {
@@ -462,6 +473,7 @@ class AdminConfigService:
                 "dimensions": self._to_json(dimensions),
                 "grade_thresholds": self._to_json(grade_thresholds),
                 "version": version,
+                "instance_id": get_settings().instance_id,
             },
         )
         await conn.execute(
@@ -506,10 +518,12 @@ class AdminConfigService:
     ) -> None:
         """将平台模板维度结构同步到所有关联租户，保留租户阈值，同步后重新评分。"""
         tenants = await conn.execute(text("""
-            SELECT id, tenant_id, dimensions, grade_thresholds, version
-            FROM scoring_templates
-            WHERE source_platform_template_id = CAST(:pid AS uuid)
-        """), {"pid": template_id})
+            SELECT st.id, st.tenant_id, st.dimensions, st.grade_thresholds, st.version
+            FROM scoring_templates st
+            JOIN tenants t ON t.id = st.tenant_id
+            WHERE st.source_platform_template_id = CAST(:pid AS uuid)
+              AND t.instance_id = :instance_id
+        """), {"pid": template_id, "instance_id": get_settings().instance_id})
 
         if isinstance(platform_dimensions, str):
             platform_dimensions = json.loads(platform_dimensions)
@@ -549,21 +563,22 @@ class AdminConfigService:
 
     async def delete_platform_scoring_template(self, conn: AsyncConnection, template_id: str) -> None:
         await conn.execute(
-            text("DELETE FROM platform_scoring_templates WHERE id = :id"),
-            {"id": template_id},
+            text("DELETE FROM platform_scoring_templates WHERE id = :id AND instance_id = :instance_id"),
+            {"id": template_id, "instance_id": get_settings().instance_id},
         )
 
     async def list_platform_scoring_template_versions(self, conn: AsyncConnection, template_id: str) -> list[dict]:
         result = await conn.execute(
             text(
                 """
-                SELECT id, template_id, version, dimensions, grade_thresholds, change_reason, created_at
-                FROM platform_scoring_template_versions
-                WHERE template_id = :template_id
-                ORDER BY version DESC
+                SELECT pv.id, pv.template_id, pv.version, pv.dimensions, pv.grade_thresholds, pv.change_reason, pv.created_at
+                FROM platform_scoring_template_versions pv
+                JOIN platform_scoring_templates pt ON pt.id = pv.template_id
+                WHERE pv.template_id = :template_id AND pt.instance_id = :instance_id
+                ORDER BY pv.version DESC
                 """
             ),
-            {"template_id": template_id},
+            {"template_id": template_id, "instance_id": get_settings().instance_id},
         )
         return [
             {
@@ -584,9 +599,11 @@ class AdminConfigService:
                 """
                 SELECT id, industry, name, description, category, subject, body_html, body_text, variables, is_active, created_at, updated_at
                 FROM platform_email_templates
+                WHERE instance_id = :instance_id
                 ORDER BY updated_at DESC
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         return [self._serialize_platform_email_template(row) for row in result.mappings().all()]
 
@@ -603,10 +620,10 @@ class AdminConfigService:
             text(
                 """
                 INSERT INTO platform_email_templates
-                  (id, industry, name, description, category, subject, body_html, body_text, variables, is_active)
+                  (id, industry, name, description, category, subject, body_html, body_text, variables, is_active, instance_id)
                 VALUES
                   (:id, :industry, :name, :description, :category, :subject, :body_html, :body_text,
-                   CAST(:variables AS jsonb), :is_active)
+                   CAST(:variables AS jsonb), :is_active, :instance_id)
                 """
             ),
             {
@@ -620,6 +637,7 @@ class AdminConfigService:
                 "body_text": content["body_text"],
                 "variables": self._to_json(payload.get("variables", [])),
                 "is_active": payload.get("is_active", True),
+                "instance_id": get_settings().instance_id,
             },
         )
         template = await self.get_platform_email_template(conn, template_id)
@@ -639,10 +657,10 @@ class AdminConfigService:
                 """
                 SELECT id, industry, name, description, category, subject, body_html, body_text, variables, is_active, created_at, updated_at
                 FROM platform_email_templates
-                WHERE id = :template_id
+                WHERE id = :template_id AND instance_id = :instance_id
                 """
             ),
-            {"template_id": template_id},
+            {"template_id": template_id, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -673,7 +691,7 @@ class AdminConfigService:
                     variables = CAST(:variables AS jsonb),
                     is_active = COALESCE(:is_active, is_active),
                     updated_at = now()
-                WHERE id = :template_id
+                WHERE id = :template_id AND instance_id = :instance_id
                 """
             ),
             {
@@ -687,6 +705,7 @@ class AdminConfigService:
                 "body_text": content["body_text"],
                 "variables": self._to_json(payload.get("variables", before["variables"])),
                 "is_active": payload.get("is_active"),
+                "instance_id": get_settings().instance_id,
             },
         )
         after = await self.get_platform_email_template(conn, template_id)
@@ -710,8 +729,8 @@ class AdminConfigService:
     ) -> None:
         before = await self.get_platform_email_template(conn, template_id)
         await conn.execute(
-            text("DELETE FROM platform_email_templates WHERE id = :template_id"),
-            {"template_id": template_id},
+            text("DELETE FROM platform_email_templates WHERE id = :template_id AND instance_id = :instance_id"),
+            {"template_id": template_id, "instance_id": get_settings().instance_id},
         )
         await self.audit.write(
             conn,
@@ -890,9 +909,11 @@ class AdminConfigService:
                 """
                 SELECT id, name, is_active, min_observation_emails, bounce_alert_rate, config, created_at, updated_at
                 FROM warmup_rules
+                WHERE instance_id = :instance_id
                 ORDER BY is_active DESC, updated_at DESC
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         items = []
         for row in result.mappings().all():
@@ -927,9 +948,9 @@ class AdminConfigService:
                 text(
                     """
                     INSERT INTO warmup_rules
-                      (id, name, is_active, min_observation_emails, bounce_alert_rate, config)
+                      (id, name, is_active, min_observation_emails, bounce_alert_rate, config, instance_id)
                     VALUES
-                      (:id, :name, true, :min_observation_emails, :bounce_alert_rate, CAST(:config AS jsonb))
+                      (:id, :name, true, :min_observation_emails, :bounce_alert_rate, CAST(:config AS jsonb), :instance_id)
                     """
                 ),
                 {
@@ -938,6 +959,7 @@ class AdminConfigService:
                     "min_observation_emails": payload.get("min_observation_emails", 20),
                     "bounce_alert_rate": payload.get("bounce_alert_rate", 0.05),
                     "config": self._to_json(payload.get("config", {})),
+                    "instance_id": get_settings().instance_id,
                 },
             )
         else:
@@ -951,7 +973,7 @@ class AdminConfigService:
                         bounce_alert_rate = :bounce_alert_rate,
                         config = CAST(:config AS jsonb),
                         updated_at = now()
-                    WHERE id = :rule_id
+                    WHERE id = :rule_id AND instance_id = :instance_id
                     """
                 ),
                 {
@@ -960,6 +982,7 @@ class AdminConfigService:
                     "min_observation_emails": payload.get("min_observation_emails", 20),
                     "bounce_alert_rate": payload.get("bounce_alert_rate", 0.05),
                     "config": self._to_json(payload.get("config", {})),
+                    "instance_id": get_settings().instance_id,
                 },
             )
             await conn.execute(text("DELETE FROM warmup_rule_levels WHERE rule_id = :rule_id"), {"rule_id": rule_id})
@@ -1005,9 +1028,11 @@ class AdminConfigService:
                 """
                 SELECT id, provider, model_id, display_name, is_active, config, created_at, updated_at
                 FROM ai_models
+                WHERE instance_id = :instance_id
                 ORDER BY created_at DESC
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         return [self._serialize_ai_model(row) for row in result.mappings().all()]
 
@@ -1023,9 +1048,9 @@ class AdminConfigService:
             text(
                 """
                 INSERT INTO ai_models
-                  (id, provider, model_id, display_name, is_active, config)
+                  (id, provider, model_id, display_name, is_active, config, instance_id)
                 VALUES
-                  (:id, :provider, :model_code, :display_name, :is_active, CAST(:config AS jsonb))
+                  (:id, :provider, :model_code, :display_name, :is_active, CAST(:config AS jsonb), :instance_id)
                 """
             ),
             {
@@ -1035,6 +1060,7 @@ class AdminConfigService:
                 "display_name": payload["display_name"],
                 "is_active": payload.get("is_active", True),
                 "config": self._to_json(payload.get("config", {})),
+                "instance_id": get_settings().instance_id,
             },
         )
         created = await self.get_ai_model(conn, model_id)
@@ -1054,10 +1080,10 @@ class AdminConfigService:
                 """
                 SELECT id, provider, model_id, display_name, is_active, config, created_at, updated_at
                 FROM ai_models
-                WHERE id = :model_id
+                WHERE id = :model_id AND instance_id = :instance_id
                 """
             ),
-            {"model_id": model_id},
+            {"model_id": model_id, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:
@@ -1083,7 +1109,7 @@ class AdminConfigService:
                     is_active = COALESCE(:is_active, is_active),
                     config = CAST(:config AS jsonb),
                     updated_at = now()
-                WHERE id = :model_id
+                WHERE id = :model_id AND instance_id = :instance_id
                 """
             ),
             {
@@ -1093,6 +1119,7 @@ class AdminConfigService:
                 "display_name": payload.get("display_name"),
                 "is_active": payload.get("is_active"),
                 "config": self._to_json(payload.get("config", before["config"])),
+                "instance_id": get_settings().instance_id,
             },
         )
         after = await self.get_ai_model(conn, model_id)
@@ -1115,13 +1142,13 @@ class AdminConfigService:
         platform_user_id: str,
     ) -> None:
         used_scene = await conn.execute(
-            text("SELECT 1 FROM ai_scene_defaults WHERE model_id = :model_id LIMIT 1"),
-            {"model_id": model_id},
+            text("SELECT 1 FROM ai_scene_defaults WHERE model_id = :model_id AND instance_id = :instance_id LIMIT 1"),
+            {"model_id": model_id, "instance_id": get_settings().instance_id},
         )
         if used_scene.first() is not None:
             raise AppError(code="CONFLICT", message="该模型仍被场景默认配置引用，不能删除", status_code=409)
         before = await self.get_ai_model(conn, model_id)
-        await conn.execute(text("DELETE FROM ai_models WHERE id = :model_id"), {"model_id": model_id})
+        await conn.execute(text("DELETE FROM ai_models WHERE id = :model_id AND instance_id = :instance_id"), {"model_id": model_id, "instance_id": get_settings().instance_id})
         await self.audit.write(
             conn,
             action="delete",
@@ -1139,9 +1166,11 @@ class AdminConfigService:
                        m.display_name, m.is_active
                 FROM ai_scene_defaults s
                 JOIN ai_models m ON m.id = s.model_id
+                WHERE s.instance_id = :instance_id
                 ORDER BY s.scene
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         return [
             {
@@ -1166,9 +1195,10 @@ class AdminConfigService:
     ) -> list[dict]:
         items = payload
         for item in items:
+            _iid = get_settings().instance_id
             model_check = await conn.execute(
-                text("SELECT is_active FROM ai_models WHERE id = :model_id"),
-                {"model_id": item["model_id"]},
+                text("SELECT is_active FROM ai_models WHERE id = :model_id AND instance_id = :instance_id"),
+                {"model_id": item["model_id"], "instance_id": _iid},
             )
             row = model_check.mappings().first()
             if row is None:
@@ -1176,8 +1206,8 @@ class AdminConfigService:
             if row["is_active"] is not True:
                 raise AppError(code="VALIDATION_ERROR", message="场景默认模型不能引用 inactive 模型", status_code=422)
             existing = await conn.execute(
-                text("SELECT id FROM ai_scene_defaults WHERE scene = :scene"),
-                {"scene": item["scene"]},
+                text("SELECT id FROM ai_scene_defaults WHERE scene = :scene AND instance_id = :instance_id"),
+                {"scene": item["scene"], "instance_id": _iid},
             )
             existing_row = existing.mappings().first()
             if existing_row is None:
@@ -1185,9 +1215,9 @@ class AdminConfigService:
                     text(
                         """
                         INSERT INTO ai_scene_defaults
-                          (id, scene, model_id, config)
+                          (id, scene, model_id, config, instance_id)
                         VALUES
-                          (:id, :scene, :model_id, CAST(:config AS jsonb))
+                          (:id, :scene, :model_id, CAST(:config AS jsonb), :instance_id)
                         """
                     ),
                     {
@@ -1195,6 +1225,7 @@ class AdminConfigService:
                         "scene": item["scene"],
                         "model_id": item["model_id"],
                         "config": self._to_json(item.get("config", {})),
+                        "instance_id": _iid,
                     },
                 )
             else:
@@ -1205,13 +1236,14 @@ class AdminConfigService:
                         SET model_id = :model_id,
                             config = CAST(:config AS jsonb),
                             updated_at = now()
-                        WHERE scene = :scene
+                        WHERE scene = :scene AND instance_id = :instance_id
                         """
                     ),
                     {
                         "scene": item["scene"],
                         "model_id": item["model_id"],
                         "config": self._to_json(item.get("config", {})),
+                        "instance_id": _iid,
                     },
                 )
         after = await self.list_ai_scene_defaults(conn)
@@ -1738,17 +1770,19 @@ class AdminConfigService:
         return self._serialize_domain(row)
 
     async def get_platform_dashboard(self, conn: AsyncConnection) -> dict:
+        _iid = get_settings().instance_id
         result = await conn.execute(
             text(
                 """
                 SELECT
-                  (SELECT count(*) FROM tenants WHERE status = 'active') AS active_tenants,
-                  (SELECT count(*) FROM users) AS total_users,
-                  (SELECT count(*) FROM sending_plans WHERE status = 'running' AND deleted_at IS NULL) AS running_sending_plans,
+                  (SELECT count(*) FROM tenants WHERE status = 'active' AND instance_id = :instance_id) AS active_tenants,
+                  (SELECT count(*) FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE t.instance_id = :instance_id) AS total_users,
+                  (SELECT count(*) FROM sending_plans sp JOIN tenants t ON t.id = sp.tenant_id WHERE sp.status = 'running' AND sp.deleted_at IS NULL AND t.instance_id = :instance_id) AS running_sending_plans,
                   (SELECT count(*) FROM intelligence_articles) AS total_articles,
-                  (SELECT count(*) FROM tenant_ai_provider_configs WHERE provider = 'openrouter') AS configured_openrouter_tenants
+                  (SELECT count(*) FROM tenant_ai_provider_configs c JOIN tenants t ON t.id = c.tenant_id WHERE c.provider = 'openrouter' AND t.instance_id = :instance_id) AS configured_openrouter_tenants
                 """
-            )
+            ),
+            {"instance_id": _iid},
         )
         row = result.mappings().one()
         return {
@@ -1778,10 +1812,10 @@ class AdminConfigService:
                        rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active,
                        last_used_at, last_error_at, last_error_message, consecutive_error_count, created_at
                 FROM data_source_credentials
-                WHERE source_type = :source_type AND id = :credential_id
+                WHERE source_type = :source_type AND id = :credential_id AND instance_id = :instance_id
                 """
             ),
-            {"source_type": source_type, "credential_id": credential_id},
+            {"source_type": source_type, "credential_id": credential_id, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:

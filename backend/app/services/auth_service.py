@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.pools import get_engine
 from app.security.jwt import create_access_token, create_refresh_token
@@ -20,9 +21,10 @@ class AuthService:
                 SELECT id, email, password_hash, name, status, failed_login_count, locked_until
                 FROM platform_users
                 WHERE lower(email) = lower(:email)
+                  AND instance_id = :instance_id
                 """
             ),
-            {"email": email},
+            {"email": email, "instance_id": get_settings().instance_id},
         )
         user = result.mappings().first()
         if user is None:
@@ -58,9 +60,10 @@ class AuthService:
                 FROM users u
                 JOIN tenants t ON t.id = u.tenant_id
                 WHERE t.slug = :slug AND lower(u.email) = lower(:email)
+                  AND t.instance_id = :instance_id
                 """
             ),
-            {"slug": slug, "email": email},
+            {"slug": slug, "email": email, "instance_id": get_settings().instance_id},
         )
         user = result.mappings().first()
         if user is None:

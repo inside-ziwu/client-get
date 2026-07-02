@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.services.ai_usage_log_service import AiUsageLogService
@@ -345,9 +346,11 @@ class IntelligenceService:
                 FROM ai_scene_defaults s
                 JOIN ai_models m ON m.id = s.model_id
                 WHERE s.scene = 'intelligence_summary' AND m.is_active = true
+                  AND s.instance_id = :instance_id
                 LIMIT 1
                 """
-            )
+            ),
+            {"instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:

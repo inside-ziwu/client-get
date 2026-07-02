@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.integrations.engagelab import EngageLabClient
@@ -1578,17 +1579,19 @@ class TenantMessagingService:
                 JOIN tenant_contacts tco ON tco.id = e.tenant_contact_id
                 LEFT JOIN waimaotong_clean_contacts shc ON shc.id = tco.clean_contact_id
                 JOIN email_templates t ON t.id = s.template_id
+                JOIN tenants tn ON tn.id = e.tenant_id
                 WHERE e.status = 'active'
                   AND e.next_step_due_at <= now()
                   AND p.status = 'running'
                   AND shc.email IS NOT NULL
+                  AND tn.instance_id = :instance_id
                   AND (CAST(:domain_id AS text) IS NULL OR p.domain_id = CAST(:domain_id AS uuid))
                 ORDER BY e.next_step_due_at ASC
                 LIMIT :candidate_limit
                 FOR UPDATE OF e SKIP LOCKED
                 """
             ),
-            {"domain_id": domain_id, "candidate_limit": candidate_limit},
+            {"domain_id": domain_id, "candidate_limit": candidate_limit, "instance_id": get_settings().instance_id},
         )
         claimed = []
         for row in result.mappings().all():
@@ -2102,16 +2105,20 @@ class TenantMessagingService:
         *,
         stale_minutes: int = 30,
     ) -> dict:
+        instance_id = get_settings().instance_id
         result = await conn.execute(
             text(
                 """
                 WITH recovered AS (
-                    UPDATE email_send_locks
+                    UPDATE email_send_locks esl
                     SET status = 'released',
                         released_at = now()
-                    WHERE status = 'locked'
-                      AND locked_at < now() - make_interval(mins => :stale_minutes)
-                    RETURNING enrollment_id, email_id
+                    FROM tenants t
+                    WHERE t.id = esl.tenant_id
+                      AND esl.status = 'locked'
+                      AND esl.locked_at < now() - make_interval(mins => :stale_minutes)
+                      AND t.instance_id = :instance_id
+                    RETURNING esl.enrollment_id, esl.email_id
                 )
                 SELECT recovered.enrollment_id,
                        recovered.email_id,
@@ -2121,7 +2128,7 @@ class TenantMessagingService:
                   ON sequence_enrollments.id = recovered.enrollment_id
                 """
             ),
-            {"stale_minutes": stale_minutes},
+            {"stale_minutes": stale_minutes, "instance_id": instance_id},
         )
         recovered = result.mappings().all()
         for row in recovered:
@@ -2148,16 +2155,20 @@ class TenantMessagingService:
         }
 
     async def list_running_domain_ids(self, conn: AsyncConnection) -> list[str]:
+        instance_id = get_settings().instance_id
         result = await conn.execute(
             text(
                 """
-                SELECT DISTINCT domain_id
-                FROM sending_plans
-                WHERE status = 'running'
-                  AND domain_id IS NOT NULL
-                ORDER BY domain_id
+                SELECT DISTINCT sp.domain_id
+                FROM sending_plans sp
+                JOIN tenants t ON t.id = sp.tenant_id
+                WHERE sp.status = 'running'
+                  AND sp.domain_id IS NOT NULL
+                  AND t.instance_id = :instance_id
+                ORDER BY sp.domain_id
                 """
-            )
+            ),
+            {"instance_id": instance_id},
         )
         return [str(row["domain_id"]) for row in result.mappings().all()]
 
@@ -2703,9 +2714,10 @@ class TenantMessagingService:
                 FROM ai_scene_defaults s
                 JOIN ai_models m ON m.id = s.model_id
                 WHERE s.scene = :scene AND m.is_active = true
+                  AND s.instance_id = :instance_id
                 """
             ),
-            {"scene": scene},
+            {"scene": scene, "instance_id": get_settings().instance_id},
         )
         row = result.mappings().first()
         if row is None:

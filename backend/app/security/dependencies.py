@@ -5,6 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.pools import get_connection
 from app.db.rls import set_current_tenant
@@ -47,16 +48,18 @@ async def get_current_platform_user(
     payload = decode_access_token(_extract_token(credentials))
     if payload.get("kind") != "platform":
         raise AppError(code="FORBIDDEN", message="平台令牌类型不正确", status_code=403)
+    if payload.get("iid") != get_settings().instance_id:
+        raise AppError(code="FORBIDDEN", message="令牌实例不匹配", status_code=403)
 
     result = await conn.execute(
         text(
             """
             SELECT id, email, name, status
             FROM platform_users
-            WHERE id = :user_id
+            WHERE id = :user_id AND instance_id = :instance_id
             """
         ),
-        {"user_id": payload["sub"]},
+        {"user_id": payload["sub"], "instance_id": get_settings().instance_id},
     )
     row = result.mappings().first()
     if row is None or row["status"] != "active":
@@ -79,6 +82,8 @@ async def get_current_tenant_user(
     payload = decode_access_token(_extract_token(credentials))
     if payload.get("kind") != "tenant":
         raise AppError(code="FORBIDDEN", message="租户令牌类型不正确", status_code=403)
+    if payload.get("iid") != get_settings().instance_id:
+        raise AppError(code="FORBIDDEN", message="令牌实例不匹配", status_code=403)
     if payload.get("slug") != slug:
         raise AppError(code="FORBIDDEN", message="租户 slug 与令牌不匹配", status_code=403)
 
