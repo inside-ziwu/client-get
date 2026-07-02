@@ -32,6 +32,11 @@ class Settings(BaseSettings):
 
     instance_id: str = Field(default="default", alias="CLIENTGET_INSTANCE_ID")
 
+    # refresh cookie 的 Domain 属性,按实例配置(Instance A: .xinanpcb.com,
+    # Instance B: 自己的域名);未设置时生产环境回退 .xinanpcb.com,保持
+    # Instance A 零配置兼容,非生产环境不设置 Domain。
+    cookie_domain: str = Field(default="", alias="COOKIE_DOMAIN")
+
     jwt_secret: str = Field(
         validation_alias=AliasChoices("CLIENTGET_JWT_SECRET", "JWT_SECRET"),
     )

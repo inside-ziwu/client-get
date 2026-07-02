@@ -82,9 +82,9 @@
 - [x] 10.6 验证 refresh 端点隔离：跨实例 refresh_token 返回 403（由 `test_auth_refresh.py::TestRefreshInstanceFilter` 覆盖）
 - [x] 10.7 验证 Internal API 隔离：跨实例 service token 返回 403（由 `test_auth_instance_isolation.py::TestServiceTokenIidValidation` 覆盖）
 - [ ] 10.8 部署 Instance A 新版本到生产环境（执行迁移 + 新代码 + **Sealos 显式配置 `CLIENTGET_INSTANCE_ID=default`**，否则生产守卫会阻止启动），确认现有功能不受影响
-- [ ] 10.9 在 Sealos 创建 Instance B 的后端容器（`CLIENTGET_INSTANCE_ID=instance_b` + 独立 `CLIENTGET_JWT_SECRET` + EngageLab 凭证等环境变量）
-- [ ] 10.10 在 Sealos 创建 Instance B 的 admin 前端容器（`--build-arg` 指向 Instance B 后端 URL）
-- [ ] 10.11 在 Sealos 创建 Instance B 的 tenant 前端容器（`--build-arg` 指向 Instance B 后端 URL）
+- [ ] 10.9 在 Sealos 创建 Instance B 的后端容器（`CLIENTGET_INSTANCE_ID=instance_b` + 独立 `CLIENTGET_JWT_SECRET` + EngageLab 凭证 + `COOKIE_DOMAIN=<Instance B 域名>` 等环境变量）
+- [ ] 10.10 构建并部署 Instance B 的 admin 前端容器（GitHub Actions `workflow_dispatch` 的 `api_url` 输入指向 Instance B 后端 URL，建议自定义 tag 区分实例）
+- [ ] 10.11 构建并部署 Instance B 的 tenant 前端容器（同上，`api_url` 指向 Instance B 后端 URL）
 - [ ] 10.12 在 Sealos 创建 Instance B 的 Worker 容器（`CLIENTGET_INSTANCE_ID=instance_b` + Worker 启动脚本）
 - [ ] 10.13 执行 Instance B 初始化脚本（设置 `INIT_ADMIN_PASSWORD` 环境变量），创建管理员和平台配置
 - [ ] 10.14 Instance B 端到端验收：管理员登录 → 创建租户 → 创建用户 → 租户登录 → 配置域名 → 发送测试邮件

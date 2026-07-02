@@ -16,6 +16,14 @@ router = APIRouter(prefix="/auth", tags=["admin-auth"])
 service = AuthService()
 
 
+def _cookie_domain() -> str | None:
+    settings = get_settings()
+    if settings.cookie_domain:
+        return settings.cookie_domain
+    is_prod = settings.app_env.lower() in ("prod", "production")
+    return ".xinanpcb.com" if is_prod else None
+
+
 def _set_refresh_cookie(response: JSONResponse, token: str) -> None:
     settings = get_settings()
     is_prod = settings.app_env.lower() in ("prod", "production")
@@ -27,7 +35,7 @@ def _set_refresh_cookie(response: JSONResponse, token: str) -> None:
         samesite="lax",
         path="/admin/api/v1/auth",
         max_age=settings.refresh_token_expire_days * 86400,
-        domain=".xinanpcb.com" if is_prod else None,
+        domain=_cookie_domain(),
     )
 
 
@@ -43,12 +51,10 @@ async def login(
 
 
 def _delete_refresh_cookie(response: JSONResponse) -> None:
-    settings = get_settings()
-    is_prod = settings.app_env.lower() in ("prod", "production")
     response.delete_cookie(
         key="refresh_token",
         path="/admin/api/v1/auth",
-        domain=".xinanpcb.com" if is_prod else None,
+        domain=_cookie_domain(),
     )
 
 
