@@ -48,12 +48,12 @@
 
 ### D3: 百分比计算
 
-后端自行计算，以 sent 为分母（避免除零）：
-- `delivered_percent` = delivered / sent * 100（保留两位小数）
-- `total_open_percent` = total_opens / sent * 100
-- `open_percent` = opens / sent * 100
+> **口径修订（2026-05-30，提交 544820f）**：打开率分母从 sent 改为 delivered——打开这个动作只可能发生在送达的邮件上，与 `tenant_messaging_service` 的举报率/退订率口径保持一致（同为 delivered 分母）。原"全部以 sent 为分母"的初始设计作废。
 
-sent = 0 时，所有百分比返回 0。
+后端自行计算（保留两位小数，分母为 0 时返回 0）：
+- `delivered_percent` = delivered / sent * 100（分母 sent）
+- `total_open_percent` = total_opens / delivered * 100（分母 delivered）
+- `open_percent` = opens / delivered * 100（分母 delivered）
 
 ### D4: 每日明细查询
 
