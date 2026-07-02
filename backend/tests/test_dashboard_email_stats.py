@@ -96,7 +96,7 @@ class TestEmailStatsByDateRange:
 
     @pytest.mark.asyncio
     async def test_percentage_calculation(self):
-        """百分比计算：以 sent 为分母，保留两位小数"""
+        """百分比计算：送达率以 sent 为分母，打开率以 delivered 为分母（口径见 544820f），保留两位小数"""
         summary = _make_summary_row(
             targets=15, sent=10, delivered=8, total_opens=5, opens=3,
         )
@@ -107,9 +107,24 @@ class TestEmailStatsByDateRange:
         )
 
         s = r["summary"]
-        assert s["delivered_percent"] == 80.0
-        assert s["total_open_percent"] == 50.0
-        assert s["open_percent"] == 30.0
+        assert s["delivered_percent"] == 80.0   # 8 / 10 (sent)
+        assert s["total_open_percent"] == 62.5  # 5 / 8 (delivered)
+        assert s["open_percent"] == 37.5        # 3 / 8 (delivered)
+
+    @pytest.mark.asyncio
+    async def test_delivered_zero_no_division_error(self):
+        """delivered=0 且 sent>0 时打开率为 0，不抛除零错误"""
+        summary = _make_summary_row(targets=5, sent=3, delivered=0, total_opens=0, opens=0)
+        conn = _mock_conn(summary, [])
+
+        r = await TenantQueryService().email_stats_by_date_range(
+            conn, "tenant-001", date(2026, 5, 1), date(2026, 5, 3)
+        )
+
+        s = r["summary"]
+        assert s["delivered_percent"] == 0
+        assert s["total_open_percent"] == 0
+        assert s["open_percent"] == 0
 
     @pytest.mark.asyncio
     async def test_billing_equals_sent(self):
