@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
@@ -50,8 +51,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _require_instance_id_in_production(self) -> Settings:
-        if self.app_env.lower() in {"prod", "production"} and self.instance_id == "default":
-            raise ValueError("生产环境必须显式设置 CLIENTGET_INSTANCE_ID，不能使用默认值 'default'")
+        # 存量数据的 instance_id 均为 'default'（见 20260625_0100 迁移），
+        # 因此 Instance A 生产合法取值就是 'default'；只要求显式设置以防漏配。
+        if self.app_env.lower() in {"prod", "production"} and not os.environ.get(
+            "CLIENTGET_INSTANCE_ID"
+        ):
+            raise ValueError("生产环境必须显式设置 CLIENTGET_INSTANCE_ID 环境变量（Instance A 为 'default'）")
         return self
 
     @model_validator(mode="after")

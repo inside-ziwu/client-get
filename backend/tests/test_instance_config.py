@@ -49,6 +49,11 @@ class TestInstanceId:
         s = _fresh_settings(APP_ENV="production", CLIENTGET_INSTANCE_ID="prod_a")
         assert s.instance_id == "prod_a"
 
+    def test_production_ok_with_explicit_default(self):
+        """Instance A 生产合法配置：显式设置 CLIENTGET_INSTANCE_ID=default（存量数据即 default）"""
+        s = _fresh_settings(APP_ENV="production", CLIENTGET_INSTANCE_ID="default")
+        assert s.instance_id == "default"
+
 
 class TestJwtSecret:
     def test_clientget_jwt_secret_takes_priority(self):
