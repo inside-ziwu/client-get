@@ -80,6 +80,11 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return success_response({"status": "ok"})
 
+    @app.get("/")
+    async def root_health() -> dict:
+        # Sealos 探活/负载均衡周期性请求根路径,返回 200 消除日志里的 404 噪音
+        return {"status": "ok"}
+
     app.include_router(admin_router, prefix="/admin/api/v1", tags=["admin"])
     app.include_router(tenant_router, prefix="/t/{slug}/api/v1", tags=["tenant"])
     app.include_router(internal_router, prefix="/internal/api/v1", tags=["internal"])
