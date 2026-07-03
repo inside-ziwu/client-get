@@ -94,9 +94,13 @@ function balanceStatusLabel(status?: string) {
   return status ? labels[status] ?? status : '-';
 }
 
+// 租户端入口按实例配置(构建期注入);未配置或为空时回退 Instance A 的域名
+const TENANT_PORTAL_BASE_URL =
+  process.env.NEXT_PUBLIC_TENANT_PORTAL_BASE_URL || 'https://tenant.xinanpcb.com';
+
 function getTenantAdminUrl(tenant: Tenant | null) {
   if (!tenant?.slug) return '';
-  return `https://tenant.xinanpcb.com/login?slug=${tenant.slug}`;
+  return `${TENANT_PORTAL_BASE_URL}/login?slug=${tenant.slug}`;
 }
 
 function toEditForm(tenant: Tenant | null): TenantEditForm {
