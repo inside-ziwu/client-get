@@ -14,7 +14,7 @@ class TenantCreateRequest(BaseModel):
     admin_password: str = Field(min_length=8)
     # D-031：创建租户时同步配置发件域名和起始预热档位
     sender_domain: str | None = Field(default=None, max_length=255, description="发件域名，如 mail.example.com")
-    warmup_level: int | None = Field(default=1, ge=1, le=6, description="起始预热档位（1-6，默认 1）")
+    warmup_level: int | None = Field(default=1, ge=1, description="起始预热档位（以当前实例激活预热规则的档位为准，默认 1）")
 
 
 class TenantListItem(APIModel):
