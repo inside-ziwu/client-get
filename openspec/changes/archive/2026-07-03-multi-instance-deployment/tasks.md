@@ -74,17 +74,17 @@
 
 ## 10. 验证与部署
 
-- [ ] 10.1 在开发环境完整测试：Instance A（`INSTANCE_ID=default`）所有功能正常（登录、租户管理、配置管理、邮件发送）——自动化测试 235 项通过；两实例并行的端到端手工验证未做
-- [ ] 10.2 在开发环境完整测试：Instance B（`INSTANCE_ID=instance_b`）独立运行（登录、创建租户、配置域名、发送邮件）——待 Instance B 环境就绪后验证
-- [x] 10.3 验证跨实例隔离：Instance B 管理端无法看到 Instance A 的租户和配置（由 `test_auth_instance_isolation.py` 平台/租户用户 iid 校验测试覆盖）
+- [x] 10.1 Instance A 功能验证：自动化测试(最终 292+ 项)通过;2026-07-03 生产升级后登录、租户管理、配置管理、采集、评分、发送均正常运行(以生产回归替代开发环境手工并行验证)
+- [x] 10.2 Instance B 独立运行验证:以生产环境完整验收替代开发环境(见 10.14)
+- [x] 10.3 验证跨实例隔离：Instance B 管理端无法看到 Instance A 的租户和配置（由 `test_auth_instance_isolation.py` 平台/租户用户 iid 校验测试覆盖;生产 B 管理端租户列表仅见 B 租户,实测确认）
 - [x] 10.4 验证跨实例 token 无法复用：独立 JWT_SECRET 签名验证失败 + iid 缺失/不匹配返回 403（由 `test_jwt.py`、`test_auth_instance_isolation.py` 覆盖）
-- [ ] 10.5 验证 Worker 隔离：Instance B 的 Worker 只处理 Instance B 租户的邮件任务——SQL 过滤已实现并经代码审查确认，运行时验证待 Instance B 部署后进行
+- [x] 10.5 验证 Worker 隔离：运行时确认——B Worker 仅领取 B 租户任务并完成发送(2026-07-03 测试邮件 delivered),A Worker 同期正常处理 A 任务互不干扰
 - [x] 10.6 验证 refresh 端点隔离：跨实例 refresh_token 返回 403（由 `test_auth_refresh.py::TestRefreshInstanceFilter` 覆盖）
 - [x] 10.7 验证 Internal API 隔离：跨实例 service token 返回 403（由 `test_auth_instance_isolation.py::TestServiceTokenIidValidation` 覆盖）
-- [ ] 10.8 部署 Instance A 新版本到生产环境（执行迁移 + 新代码 + **Sealos 显式配置 `CLIENTGET_INSTANCE_ID=default`**，否则生产守卫会阻止启动），确认现有功能不受影响
-- [ ] 10.9 在 Sealos 创建 Instance B 的后端容器（`CLIENTGET_INSTANCE_ID=instance_b` + 独立 `CLIENTGET_JWT_SECRET` + EngageLab 凭证 + `COOKIE_DOMAIN=<Instance B 域名>` 等环境变量）
-- [ ] 10.10 构建并部署 Instance B 的 admin 前端容器（GitHub Actions `workflow_dispatch` 的 `api_url` 输入指向 Instance B 后端 URL，建议自定义 tag 区分实例）；**2026-07-03 补录**：「后台管理地址」的租户端入口原为前端硬编码 A 域名，已改为构建期 `tenant_portal_url` 输入（`NEXT_PUBLIC_TENANT_PORTAL_BASE_URL`，留空回退 A 域名）
-- [ ] 10.11 构建并部署 Instance B 的 tenant 前端容器（同上，`api_url` 指向 Instance B 后端 URL）
-- [ ] 10.12 在 Sealos 创建 Instance B 的 Worker 容器（`CLIENTGET_INSTANCE_ID=instance_b` + Worker 启动脚本）
-- [ ] 10.13 执行 Instance B 初始化脚本（设置 `INIT_ADMIN_PASSWORD` 环境变量），创建管理员和平台配置
-- [ ] 10.14 Instance B 端到端验收：管理员登录 → 创建租户 → 创建用户 → 租户登录 → 配置域名 → 发送测试邮件
+- [x] 10.8 部署 Instance A 到生产（2026-07-03,`CLIENTGET_INSTANCE_ID=default`,迁移 20260625_0100 落库,存量数据零影响;唯一生产事故为 advisory lock int4 溢出,当日热修见 8.7）
+- [x] 10.9 Instance B 后端容器已创建（`CLIENTGET_INSTANCE_ID=instance_b`、独立 `CLIENTGET_JWT_SECRET`、`COOKIE_DOMAIN=<B 后端完整主机名>`、`ALLOWED_ORIGINS=<两个前端 origin>`）;**EngageLab 端点按账户数据中心选择**:B 账户属土耳其数据中心,`ENGAGELAB_BASE_URL=https://emailapi-tr.engagelab.com`(新加坡为 email.api.engagelab.cc,配错数据中心表现为 401 code 30000)
+- [x] 10.10 Instance B admin 前端:`clientget-admin:2026.07.03-instanceB-r3`(构建参数 `api_url` + `tenant_portal_url`);「后台管理地址」的租户端入口已改为构建期 `tenant_portal_url` 输入（`NEXT_PUBLIC_TENANT_PORTAL_BASE_URL`,留空回退 A 域名）
+- [x] 10.11 Instance B tenant 前端:`clientget-tenant:2026.07.03-instanceB-r2`（`api_url` 指向 B 后端）
+- [x] 10.12 Instance B Worker 容器已创建（与 B 后端同镜像同环境变量,公网关闭）
+- [x] 10.13 初始化完成:管理员 sales08@xxhpcb.com + 全套平台配置 7/7 落库（init 脚本 schema 对齐修复后,已在开发库预演验证）
+- [x] 10.14 端到端验收通过（2026-07-03）:B 管理员登录 → 创建租户「刘辉」→ 租户登录 → 配置域名 email.newpcb.net(DNS 验证通过)→ 发送测试邮件 **delivered**,webhook `sent`/`delivered` 事件回流入库;实例隔离、cookie 域、CORS 均实测正常
