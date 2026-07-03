@@ -33,7 +33,7 @@ async def run(args: argparse.Namespace) -> None:
                 service_instance=args.service_instance,
                 idle_poll_seconds=args.idle_poll_seconds,
             )
-            print(json.dumps(result, ensure_ascii=False))
+            print(json.dumps(result, ensure_ascii=False, default=str))
             return
         while True:
             result = await worker.run_once(
@@ -41,7 +41,7 @@ async def run(args: argparse.Namespace) -> None:
                 service_instance=args.service_instance,
                 idle_poll_seconds=args.idle_poll_seconds,
             )
-            print(json.dumps(result, ensure_ascii=False))
+            print(json.dumps(result, ensure_ascii=False, default=str))
 
             loop_count += 1
             if loop_count >= RECONCILE_EVERY_N_LOOPS:

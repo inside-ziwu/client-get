@@ -1,6 +1,6 @@
 import base64
 import json
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -15,6 +15,7 @@ from app.services.ai_usage_log_service import AiUsageLogService
 from app.services.audit_service import AuditService
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 from app.services.tenant_contact_utils import ensure_contacts_from_wmt
+from app.utils.beijing_time import beijing_today
 from app.utils.email_text import text_from_html
 from app.utils.html_sanitizer import sanitize_html, sanitize_plain_text, sanitize_subject
 
@@ -251,7 +252,9 @@ class TenantMessagingService:
             },
         )
 
-    async def get_email_template(self, conn: AsyncConnection, tenant_id: str, template_id: str) -> dict:
+    async def get_email_template(
+        self, conn: AsyncConnection, tenant_id: str, template_id: str
+    ) -> dict:
         result = await conn.execute(
             text(
                 """
@@ -374,7 +377,9 @@ class TenantMessagingService:
             },
         )
 
-    async def preview_email_template(self, conn: AsyncConnection, tenant_id: str, template_id: str) -> dict:
+    async def preview_email_template(
+        self, conn: AsyncConnection, tenant_id: str, template_id: str
+    ) -> dict:
         template = await self.get_email_template(conn, tenant_id, template_id)
         return {
             "id": template["id"],
@@ -524,10 +529,14 @@ class TenantMessagingService:
         candidates = normalized["candidates"]
 
         if lock_recipients and domain["verification_status"] != "verified":
-            raise AppError(code="VALIDATION_ERROR", message="发送域名未验证，不能锁定收件人", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="发送域名未验证，不能锁定收件人", status_code=422
+            )
         eligible_count = sum(1 for item in candidates if item["excluded_reason"] is None)
         if lock_recipients and eligible_count == 0:
-            raise AppError(code="VALIDATION_ERROR", message="该分组没有可发送收件人", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="该分组没有可发送收件人", status_code=422
+            )
 
         plan = await self.create_sending_plan(
             conn,
@@ -563,7 +572,9 @@ class TenantMessagingService:
 
         old_steps = await self.list_plan_steps(conn, tenant_id, plan_id)
         for old_step in old_steps:
-            await self.delete_plan_step(conn, tenant_id=tenant_id, plan_id=plan_id, step_id=old_step["id"])
+            await self.delete_plan_step(
+                conn, tenant_id=tenant_id, plan_id=plan_id, step_id=old_step["id"]
+            )
         for step in steps:
             await self.create_plan_step(conn, tenant_id=tenant_id, plan_id=plan_id, payload=step)
 
@@ -587,7 +598,9 @@ class TenantMessagingService:
             raise AppError(code="NOT_FOUND", message="发送计划不存在", status_code=404)
         plan = self._serialize_plan(row)
         plan["steps_count"] = len(await self.list_plan_steps(conn, tenant_id, plan_id))
-        plan["recipient_country_distribution"] = await self._recipient_country_distribution(conn, tenant_id, plan_id)
+        plan["recipient_country_distribution"] = await self._recipient_country_distribution(
+            conn, tenant_id, plan_id
+        )
         return plan
 
     async def update_sending_plan(
@@ -624,8 +637,12 @@ class TenantMessagingService:
                 "name": payload.get("name"),
                 "description": payload.get("description"),
                 "recipient_source": payload.get("recipient_source"),
-                "recipient_config": self._to_json(payload.get("recipient_config", before["recipient_config"])),
-                "send_strategy": self._to_json(payload.get("send_strategy", before["send_strategy"])),
+                "recipient_config": self._to_json(
+                    payload.get("recipient_config", before["recipient_config"])
+                ),
+                "send_strategy": self._to_json(
+                    payload.get("send_strategy", before["send_strategy"])
+                ),
                 "sender_name": payload.get("sender_name"),
                 "sender_email": payload.get("sender_email"),
                 "domain_id": payload.get("domain_id"),
@@ -685,7 +702,7 @@ class TenantMessagingService:
         scheduled_at: str | None,
     ) -> dict:
         await self.get_sending_plan(conn, tenant_id, plan_id)
-        schedule_dt = self._parse_datetime(scheduled_at) if scheduled_at else datetime.now(timezone.utc)
+        schedule_dt = self._parse_datetime(scheduled_at) if scheduled_at else datetime.now(UTC)
         await conn.execute(
             text(
                 """
@@ -718,19 +735,33 @@ class TenantMessagingService:
     ) -> dict:
         plan = await self._load_plan_row(conn, tenant_id, plan_id, for_update=True)
         if plan["status"] not in {"draft", "scheduled", "paused"}:
-            raise AppError(code="VALIDATION_ERROR", message="当前状态不能启动发送计划", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="当前状态不能启动发送计划", status_code=422
+            )
         if not plan["domain_id"]:
             raise AppError(code="VALIDATION_ERROR", message="发送计划未绑定域名", status_code=422)
         domain = await self._load_domain(conn, tenant_id, str(plan["domain_id"]))
         if domain["verification_status"] != "verified":
-            raise AppError(code="VALIDATION_ERROR", message="发送域名未验证，不能启动计划", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="发送域名未验证，不能启动计划", status_code=422
+            )
 
         steps = await self.list_plan_steps(conn, tenant_id, plan_id)
         if not steps:
-            raise AppError(code="VALIDATION_ERROR", message="发送计划至少需要一个步骤", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="发送计划至少需要一个步骤", status_code=422
+            )
         first_step = steps[0]
-        if first_step["step_number"] != 1 or first_step["condition_type"] != "always" or first_step["delay_days"] != 0:
-            raise AppError(code="VALIDATION_ERROR", message="第一步必须为 always 且 delay_days=0", status_code=422)
+        if (
+            first_step["step_number"] != 1
+            or first_step["condition_type"] != "always"
+            or first_step["delay_days"] != 0
+        ):
+            raise AppError(
+                code="VALIDATION_ERROR",
+                message="第一步必须为 always 且 delay_days=0",
+                status_code=422,
+            )
 
         locked = await self.list_plan_recipients(conn, tenant_id, plan_id)
         if not locked:
@@ -740,7 +771,7 @@ class TenantMessagingService:
         if not eligible:
             raise AppError(code="VALIDATION_ERROR", message="计划没有可发送收件人", status_code=422)
 
-        next_due = plan["scheduled_at"] or datetime.now(timezone.utc)
+        next_due = plan["scheduled_at"] or datetime.now(UTC)
         for recipient in eligible:
             await conn.execute(
                 text(
@@ -804,7 +835,9 @@ class TenantMessagingService:
         )
         return started
 
-    async def pause_plan(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, user_id: str) -> dict:
+    async def pause_plan(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, user_id: str
+    ) -> dict:
         await self._update_plan_status(conn, tenant_id, plan_id, "paused")
         await conn.execute(
             text(
@@ -828,7 +861,9 @@ class TenantMessagingService:
         )
         return plan
 
-    async def resume_plan(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, user_id: str) -> dict:
+    async def resume_plan(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, user_id: str
+    ) -> dict:
         await self._update_plan_status(conn, tenant_id, plan_id, "running")
         await conn.execute(
             text(
@@ -854,7 +889,9 @@ class TenantMessagingService:
         )
         return plan
 
-    async def cancel_plan(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, user_id: str) -> dict:
+    async def cancel_plan(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, user_id: str
+    ) -> dict:
         await self._update_plan_status(conn, tenant_id, plan_id, "cancelled", completed=True)
         await conn.execute(
             text(
@@ -878,7 +915,9 @@ class TenantMessagingService:
         )
         return plan
 
-    async def preview_plan_recipients(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str) -> list[dict]:
+    async def preview_plan_recipients(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str
+    ) -> list[dict]:
         plan = await self._load_plan_row(conn, tenant_id, plan_id)
         candidates = await self._build_recipient_candidates(
             conn,
@@ -888,7 +927,9 @@ class TenantMessagingService:
         )
         return candidates
 
-    async def preview_recipients_for_group(self, conn: AsyncConnection, tenant_id: str, group_id: str) -> dict:
+    async def preview_recipients_for_group(
+        self, conn: AsyncConnection, tenant_id: str, group_id: str
+    ) -> dict:
         """按群组预览收件人：按公司分组返回候选人列表和汇总统计"""
         await self._validate_recipient_config(conn, tenant_id, "group", {"group_id": group_id})
         candidates = await self._build_recipient_candidates(
@@ -927,7 +968,9 @@ class TenantMessagingService:
             },
         }
 
-    async def list_plan_recipients(self, conn: AsyncConnection, tenant_id: str, plan_id: str) -> list[dict]:
+    async def list_plan_recipients(
+        self, conn: AsyncConnection, tenant_id: str, plan_id: str
+    ) -> list[dict]:
         result = await conn.execute(
             text(
                 """
@@ -966,7 +1009,9 @@ class TenantMessagingService:
                 "contact_email": row["contact_email"],
                 "enrollment_status": row["enrollment_status"],
                 "current_step": row["current_step"],
-                "next_step_due_at": row["next_step_due_at"].isoformat() if row["next_step_due_at"] else None,
+                "next_step_due_at": row["next_step_due_at"].isoformat()
+                if row["next_step_due_at"]
+                else None,
                 "country_iso3": row["country_iso3"],
                 "timezone": row["timezone"],
                 "last_skip_reason": row["last_skip_reason"],
@@ -1014,7 +1059,9 @@ class TenantMessagingService:
             for row in result.mappings().all()
         ]
 
-    async def lock_plan_recipients(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str) -> dict:
+    async def lock_plan_recipients(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str
+    ) -> dict:
         candidates = await self.preview_plan_recipients(conn, tenant_id=tenant_id, plan_id=plan_id)
         eligible = [c for c in candidates if not c["excluded_reason"] and c["tenant_contact_id"]]
         inserted = 0
@@ -1049,7 +1096,9 @@ class TenantMessagingService:
             inserted = len(result.fetchall())
         total = (
             await conn.execute(
-                text("SELECT count(*) FROM sending_plan_recipients WHERE tenant_id = :tenant_id AND plan_id = :plan_id"),
+                text(
+                    "SELECT count(*) FROM sending_plan_recipients WHERE tenant_id = :tenant_id AND plan_id = :plan_id"
+                ),
                 {"tenant_id": tenant_id, "plan_id": plan_id},
             )
         ).scalar_one()
@@ -1140,17 +1189,23 @@ class TenantMessagingService:
                     )
         total = (
             await conn.execute(
-                text("SELECT count(*) FROM sending_plan_recipients WHERE tenant_id = :tenant_id AND plan_id = :plan_id"),
+                text(
+                    "SELECT count(*) FROM sending_plan_recipients WHERE tenant_id = :tenant_id AND plan_id = :plan_id"
+                ),
                 {"tenant_id": tenant_id, "plan_id": plan_id},
             )
         ).scalar_one()
         await conn.execute(
-            text("UPDATE sending_plans SET total_recipients = :total, updated_at = now() WHERE tenant_id = :tenant_id AND id = :plan_id"),
+            text(
+                "UPDATE sending_plans SET total_recipients = :total, updated_at = now() WHERE tenant_id = :tenant_id AND id = :plan_id"
+            ),
             {"tenant_id": tenant_id, "plan_id": plan_id, "total": total},
         )
         return {"appended_count": appended, "total_recipients": total}
 
-    async def list_plan_steps(self, conn: AsyncConnection, tenant_id: str, plan_id: str) -> list[dict]:
+    async def list_plan_steps(
+        self, conn: AsyncConnection, tenant_id: str, plan_id: str
+    ) -> list[dict]:
         result = await conn.execute(
             text(
                 """
@@ -1205,12 +1260,18 @@ class TenantMessagingService:
                 "step_number": payload["step_number"],
                 "template_id": payload["template_id"],
                 "delay_days": payload.get("delay_days", 0),
-                "condition_type": payload.get("condition_type", "always" if payload["step_number"] == 1 else "no_reply"),
+                "condition_type": payload.get(
+                    "condition_type", "always" if payload["step_number"] == 1 else "no_reply"
+                ),
                 "use_ai_personalization": payload.get("use_ai_personalization", False),
                 "ai_instructions": payload.get("ai_instructions"),
             },
         )
-        return next(item for item in await self.list_plan_steps(conn, tenant_id, plan_id) if item["id"] == step_id)
+        return next(
+            item
+            for item in await self.list_plan_steps(conn, tenant_id, plan_id)
+            if item["id"] == step_id
+        )
 
     async def update_plan_step(
         self,
@@ -1221,7 +1282,14 @@ class TenantMessagingService:
         step_id: str,
         payload: dict,
     ) -> dict:
-        existing = next((item for item in await self.list_plan_steps(conn, tenant_id, plan_id) if item["id"] == step_id), None)
+        existing = next(
+            (
+                item
+                for item in await self.list_plan_steps(conn, tenant_id, plan_id)
+                if item["id"] == step_id
+            ),
+            None,
+        )
         if existing is None:
             raise AppError(code="NOT_FOUND", message="发送步骤不存在", status_code=404)
         await conn.execute(
@@ -1250,11 +1318,19 @@ class TenantMessagingService:
                 "ai_instructions": payload.get("ai_instructions"),
             },
         )
-        return next(item for item in await self.list_plan_steps(conn, tenant_id, plan_id) if item["id"] == step_id)
+        return next(
+            item
+            for item in await self.list_plan_steps(conn, tenant_id, plan_id)
+            if item["id"] == step_id
+        )
 
-    async def delete_plan_step(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, step_id: str) -> None:
+    async def delete_plan_step(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str, step_id: str
+    ) -> None:
         await conn.execute(
-            text("DELETE FROM sequence_steps WHERE tenant_id = :tenant_id AND plan_id = :plan_id AND id = :step_id"),
+            text(
+                "DELETE FROM sequence_steps WHERE tenant_id = :tenant_id AND plan_id = :plan_id AND id = :step_id"
+            ),
             {"tenant_id": tenant_id, "plan_id": plan_id, "step_id": step_id},
         )
 
@@ -1269,10 +1345,14 @@ class TenantMessagingService:
             "eligible_recipients": sum(1 for item in recipients if item["excluded_reason"] is None),
         }
 
-    async def sample_emails(self, conn: AsyncConnection, *, tenant_id: str, plan_id: str) -> list[dict]:
+    async def sample_emails(
+        self, conn: AsyncConnection, *, tenant_id: str, plan_id: str
+    ) -> list[dict]:
         preview = await self.preview_plan(conn, tenant_id=tenant_id, plan_id=plan_id)
         steps = preview["steps"]
-        recipients = [item for item in preview["recipients_preview"] if item["excluded_reason"] is None][:3]
+        recipients = [
+            item for item in preview["recipients_preview"] if item["excluded_reason"] is None
+        ][:3]
         if not steps or not recipients:
             return []
         first_template = await self.get_email_template(conn, tenant_id, steps[0]["template_id"])
@@ -1281,7 +1361,9 @@ class TenantMessagingService:
             items.append(
                 {
                     "tenant_contact_id": recipient["tenant_contact_id"],
-                    "subject": sanitize_subject(self._render_text(first_template["subject"], recipient)),
+                    "subject": sanitize_subject(
+                        self._render_text(first_template["subject"], recipient)
+                    ),
                     "body_text": sanitize_plain_text(
                         self._render_text(first_template["body_text"] or "", recipient)
                     ),
@@ -1304,7 +1386,9 @@ class TenantMessagingService:
             cursor_data = self._decode_email_cursor(cursor)
             params["cursor_created_at"] = cursor_data["created_at"]
             params["cursor_id"] = cursor_data["id"]
-            cursor_clause = "AND (e.created_at, e.id) < (:cursor_created_at, CAST(:cursor_id AS uuid))"
+            cursor_clause = (
+                "AND (e.created_at, e.id) < (:cursor_created_at, CAST(:cursor_id AS uuid))"
+            )
         plan_clause = ""
         if plan_id:
             params["plan_id"] = plan_id
@@ -1417,7 +1501,9 @@ class TenantMessagingService:
         if delivered > 0:
             data["open_rate"] = round(int(data.get("opened_unique") or 0) / delivered, 4)
             data["report_spam_rate"] = round(int(data.get("report_spam_count") or 0) / delivered, 4)
-            data["unsubscribed_rate"] = round(int(data.get("unsubscribed_count") or 0) / delivered, 4)
+            data["unsubscribed_rate"] = round(
+                int(data.get("unsubscribed_count") or 0) / delivered, 4
+            )
         else:
             data["open_rate"] = 0
             data["report_spam_rate"] = 0
@@ -1465,7 +1551,10 @@ class TenantMessagingService:
             ),
             {"tenant_id": tenant_id},
         )
-        return [{"template_id": str(row["template_id"]), "name": row["name"], "total": row["total"]} for row in result.mappings().all()]
+        return [
+            {"template_id": str(row["template_id"]), "name": row["name"], "total": row["total"]}
+            for row in result.mappings().all()
+        ]
 
     async def email_stats_by_step(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
         result = await conn.execute(
@@ -1480,7 +1569,10 @@ class TenantMessagingService:
             ),
             {"tenant_id": tenant_id},
         )
-        return [{"step_number": row["step_number"], "total": row["total"]} for row in result.mappings().all()]
+        return [
+            {"step_number": row["step_number"], "total": row["total"]}
+            for row in result.mappings().all()
+        ]
 
     async def email_stats_trend(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
         result = await conn.execute(
@@ -1521,7 +1613,9 @@ class TenantMessagingService:
         if total == 0:
             summary.append("当前还没有发送记录，无法进行 AI 分析。")
         else:
-            summary.append(f"当前总发送 {total} 封，回复率 {reply_rate:.1%}，退信率 {bounce_rate:.1%}。")
+            summary.append(
+                f"当前总发送 {total} 封，回复率 {reply_rate:.1%}，退信率 {bounce_rate:.1%}。"
+            )
             if bounce_rate > 0.05:
                 summary.append("退信偏高，建议优先检查域名验证、联系人邮箱质量和发送频率。")
             if reply_rate < 0.02:
@@ -1558,9 +1652,11 @@ class TenantMessagingService:
         limit: int,
         domain_id: str | None = None,
         timezone_config: dict | None = None,
+        now_utc: datetime | None = None,
     ) -> dict:
         timezone_config = timezone_config or await self.load_timezone_config(conn)
         candidate_limit = max(limit * 5, 20)
+        usage_date = beijing_today(now_utc)
         result = await conn.execute(
             text(
                 """
@@ -1591,7 +1687,11 @@ class TenantMessagingService:
                 FOR UPDATE OF e SKIP LOCKED
                 """
             ),
-            {"domain_id": domain_id, "candidate_limit": candidate_limit, "instance_id": get_settings().instance_id},
+            {
+                "domain_id": domain_id,
+                "candidate_limit": candidate_limit,
+                "instance_id": get_settings().instance_id,
+            },
         )
         claimed = []
         for row in result.mappings().all():
@@ -1599,7 +1699,9 @@ class TenantMessagingService:
                 break
             if not await self._step_condition_satisfied(conn, row):
                 continue
-            sendable, skip_reason, next_sendable_at = self.is_sendable_now(row["country_iso3"], timezone_config)
+            sendable, skip_reason, next_sendable_at = self.is_sendable_now(
+                row["country_iso3"], timezone_config
+            )
             if not sendable:
                 await conn.execute(
                     text(
@@ -1648,7 +1750,12 @@ class TenantMessagingService:
             if inserted.mappings().first() is None:
                 continue
             try:
-                await self.reserve_domain_quota(conn, domain_id=str(row["domain_id"]), count=1)
+                await self.reserve_domain_quota(
+                    conn,
+                    domain_id=str(row["domain_id"]),
+                    count=1,
+                    usage_date=usage_date,
+                )
             except AppError as exc:
                 if exc.code != "QUOTA_EXCEEDED":
                     raise
@@ -1663,19 +1770,31 @@ class TenantMessagingService:
                     {"enrollment_id": row["enrollment_id"], "step_id": row["step_id"]},
                 )
                 break
-            created_at = datetime.now(timezone.utc)
+            created_at = datetime.now(UTC)
             email_id = str(new_uuid())
             body_html = self._render_text(
                 row["body_html"],
-                {"company_name": row["company_name"], "contact_name": row["contact_name"], "sender_name": row["sender_name"]},
+                {
+                    "company_name": row["company_name"],
+                    "contact_name": row["contact_name"],
+                    "sender_name": row["sender_name"],
+                },
             )
             body_text = self._render_text(
                 row["body_text"] or "",
-                {"company_name": row["company_name"], "contact_name": row["contact_name"], "sender_name": row["sender_name"]},
+                {
+                    "company_name": row["company_name"],
+                    "contact_name": row["contact_name"],
+                    "sender_name": row["sender_name"],
+                },
             )
             subject = self._render_text(
                 row["subject"],
-                {"company_name": row["company_name"], "contact_name": row["contact_name"], "sender_name": row["sender_name"]},
+                {
+                    "company_name": row["company_name"],
+                    "contact_name": row["contact_name"],
+                    "sender_name": row["sender_name"],
+                },
             )
             body_html = sanitize_html(body_html) or ""
             body_text = self._body_text_with_fallback(body_text, body_html)
@@ -1781,12 +1900,19 @@ class TenantMessagingService:
             }
             for row in countries_result.mappings().all()
         }
-        holidays_result = await conn.execute(text("SELECT country_iso3, date FROM country_holidays"))
+        holidays_result = await conn.execute(
+            text("SELECT country_iso3, date FROM country_holidays")
+        )
         holidays = {
             (row["country_iso3"], row["date"].isoformat())
             for row in holidays_result.mappings().all()
         }
-        return {"rules": rules, "default_rule": default_rule, "countries": countries, "holidays": holidays}
+        return {
+            "rules": rules,
+            "default_rule": default_rule,
+            "countries": countries,
+            "holidays": holidays,
+        }
 
     def is_sendable_now(
         self,
@@ -1799,18 +1925,32 @@ class TenantMessagingService:
             return True, None, None
 
         local_tz = ZoneInfo(timezone_name)
-        now = now_utc or datetime.now(timezone.utc)
+        now = now_utc or datetime.now(UTC)
         local_now = now.astimezone(local_tz)
         matched_start_date = self._matched_segment_start_date(local_now, rule["time_segments"])
         if matched_start_date is None:
-            return False, "当地非工作时间", self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config)
+            return (
+                False,
+                "当地非工作时间",
+                self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config),
+            )
         if matched_start_date.weekday() not in rule["work_days"]:
-            return False, "当地非工作日", self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config)
+            return (
+                False,
+                "当地非工作日",
+                self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config),
+            )
         if self._is_holiday(holiday_country, matched_start_date, timezone_config):
-            return False, "当地假日", self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config)
+            return (
+                False,
+                "当地假日",
+                self._next_sendable_at(local_now, local_tz, rule, holiday_country, timezone_config),
+            )
         return True, None, None
 
-    def _rule_for_country(self, country_iso3: str | None, timezone_config: dict) -> tuple[dict | None, str, str | None]:
+    def _rule_for_country(
+        self, country_iso3: str | None, timezone_config: dict
+    ) -> tuple[dict | None, str, str | None]:
         default_rule = timezone_config.get("default_rule")
         if not country_iso3:
             return default_rule, "UTC", None
@@ -1842,7 +1982,9 @@ class TenantMessagingService:
         holiday_country: str | None,
         timezone_config: dict,
     ) -> datetime:
-        segments = sorted(rule["time_segments"], key=lambda item: self._segment_minute(item["start"]))
+        segments = sorted(
+            rule["time_segments"], key=lambda item: self._segment_minute(item["start"])
+        )
         for offset in range(15):
             candidate_date = local_now.date() + timedelta(days=offset)
             if candidate_date.weekday() not in rule["work_days"]:
@@ -1856,11 +1998,16 @@ class TenantMessagingService:
                     tzinfo=local_tz,
                 )
                 if candidate > local_now:
-                    return candidate.astimezone(timezone.utc)
-        return (local_now + timedelta(hours=1)).astimezone(timezone.utc)
+                    return candidate.astimezone(UTC)
+        return (local_now + timedelta(hours=1)).astimezone(UTC)
 
-    def _is_holiday(self, country_iso3: str | None, local_date: date, timezone_config: dict) -> bool:
-        return bool(country_iso3 and (country_iso3, local_date.isoformat()) in timezone_config.get("holidays", set()))
+    def _is_holiday(
+        self, country_iso3: str | None, local_date: date, timezone_config: dict
+    ) -> bool:
+        return bool(
+            country_iso3
+            and (country_iso3, local_date.isoformat()) in timezone_config.get("holidays", set())
+        )
 
     def _segment_minute(self, value: str) -> int:
         hour, minute = value.split(":")
@@ -1888,7 +2035,9 @@ class TenantMessagingService:
                 "email_id": email["id"],
                 "created_at": email["created_at"],
                 "engagelab_message_id": payload.get("engagelab_message_id"),
-                "sent_at": self._parse_datetime(payload.get("sent_at")) if payload.get("sent_at") else None,
+                "sent_at": self._parse_datetime(payload.get("sent_at"))
+                if payload.get("sent_at")
+                else None,
             },
         )
         await conn.execute(
@@ -2099,6 +2248,69 @@ class TenantMessagingService:
             "send_attempt_count": next_attempts,
         }
 
+    async def defer_email_for_quota(
+        self,
+        conn: AsyncConnection,
+        *,
+        email_id: str,
+        resume_at: datetime,
+        now_utc: datetime | None = None,
+    ) -> dict:
+        usage_date = beijing_today(now_utc)
+        email = await self._load_email(conn, email_id)
+        if email.get("sent_at") is not None or email.get("engagelab_message_id") is not None:
+            raise AppError(
+                code="INVALID_STATE",
+                message="已发送邮件不能按配额错误推迟",
+                status_code=409,
+            )
+
+        await conn.execute(
+            text(
+                """
+                DELETE FROM emails
+                WHERE id = :email_id AND created_at = :created_at
+                """
+            ),
+            {"email_id": email["id"], "created_at": email["created_at"]},
+        )
+        await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET status = 'released',
+                    email_id = NULL,
+                    email_created_at = NULL,
+                    released_at = now()
+                WHERE email_id = :email_id
+                """
+            ),
+            {"email_id": email_id},
+        )
+        await self._release_reserved_quota(
+            conn,
+            domain_id=None,
+            plan_id=email["plan_id"],
+            usage_date=usage_date,
+        )
+        await conn.execute(
+            text(
+                """
+                UPDATE sequence_enrollments
+                SET status = 'active',
+                    next_step_due_at = :resume_at,
+                    updated_at = now()
+                WHERE id = :enrollment_id
+                """
+            ),
+            {"enrollment_id": email["enrollment_id"], "resume_at": resume_at},
+        )
+        return {
+            "email_id": email_id,
+            "status": "deferred_for_quota",
+            "resume_at": resume_at.isoformat(),
+        }
+
     async def recover_stale_locks(
         self,
         conn: AsyncConnection,
@@ -2178,7 +2390,10 @@ class TenantMessagingService:
         *,
         domain_id: str | None,
         plan_id,
+        usage_date: date | None = None,
+        now_utc: datetime | None = None,
     ) -> None:
+        quota_usage_date = usage_date or beijing_today(now_utc)
         resolved_domain_id = domain_id
         if not resolved_domain_id:
             result = await conn.execute(
@@ -2196,10 +2411,10 @@ class TenantMessagingService:
                 SET reserved_count = GREATEST(reserved_count - 1, 0),
                     updated_at = now()
                 WHERE domain_id = CAST(:domain_id AS uuid)
-                  AND usage_date = CURRENT_DATE
+                  AND usage_date = :usage_date
                 """
             ),
-            {"domain_id": resolved_domain_id},
+            {"domain_id": resolved_domain_id, "usage_date": quota_usage_date},
         )
 
     async def _update_contact_for_permanent_failure(
@@ -2229,7 +2444,16 @@ class TenantMessagingService:
             {"tenant_contact_id": tenant_contact_id, "contact_status": next_status},
         )
 
-    async def reserve_domain_quota(self, conn: AsyncConnection, *, domain_id: str, count: int) -> dict:
+    async def reserve_domain_quota(
+        self,
+        conn: AsyncConnection,
+        *,
+        domain_id: str,
+        count: int,
+        usage_date: date | None = None,
+        now_utc: datetime | None = None,
+    ) -> dict:
+        quota_usage_date = usage_date or beijing_today(now_utc)
         usage = await conn.execute(
             text(
                 """
@@ -2237,17 +2461,19 @@ class TenantMessagingService:
                 SET reserved_count = reserved_count + :count,
                     updated_at = now()
                 WHERE domain_id = :domain_id
-                  AND usage_date = CURRENT_DATE
+                  AND usage_date = :usage_date
                   AND reserved_count + :count <= daily_limit
                 RETURNING id, domain_id, usage_date, daily_limit, reserved_count, sent_count, failed_count
                 """
             ),
-            {"domain_id": domain_id, "count": count},
+            {"domain_id": domain_id, "count": count, "usage_date": quota_usage_date},
         )
         row = usage.mappings().first()
         if row is None:
             domain = await conn.execute(
-                text("SELECT tenant_id, daily_limit FROM domain_warmup_status WHERE id = :domain_id"),
+                text(
+                    "SELECT tenant_id, daily_limit FROM domain_warmup_status WHERE id = :domain_id"
+                ),
                 {"domain_id": domain_id},
             )
             domain_row = domain.mappings().first()
@@ -2259,7 +2485,7 @@ class TenantMessagingService:
                     INSERT INTO domain_daily_usage
                       (id, tenant_id, domain_id, usage_date, daily_limit, reserved_count, sent_count, failed_count)
                     VALUES
-                      (:id, :tenant_id, :domain_id, CURRENT_DATE, :daily_limit, 0, 0, 0)
+                      (:id, :tenant_id, :domain_id, :usage_date, :daily_limit, 0, 0, 0)
                     ON CONFLICT (domain_id, usage_date) DO NOTHING
                     """
                 ),
@@ -2267,6 +2493,7 @@ class TenantMessagingService:
                     "id": str(new_uuid()),
                     "tenant_id": domain_row["tenant_id"],
                     "domain_id": domain_id,
+                    "usage_date": quota_usage_date,
                     "daily_limit": domain_row["daily_limit"],
                 },
             )
@@ -2277,12 +2504,12 @@ class TenantMessagingService:
                     SET reserved_count = reserved_count + :count,
                         updated_at = now()
                     WHERE domain_id = :domain_id
-                      AND usage_date = CURRENT_DATE
+                      AND usage_date = :usage_date
                       AND reserved_count + :count <= daily_limit
                     RETURNING id, domain_id, usage_date, daily_limit, reserved_count, sent_count, failed_count
                     """
                 ),
-                {"domain_id": domain_id, "count": count},
+                {"domain_id": domain_id, "count": count, "usage_date": quota_usage_date},
             )
             row = usage.mappings().first()
         if row is None:
@@ -2328,7 +2555,9 @@ class TenantMessagingService:
             candidates.append(
                 {
                     "tenant_company_id": str(row["tenant_company_id"]),
-                    "tenant_contact_id": str(row["tenant_contact_id"]) if row["tenant_contact_id"] else None,
+                    "tenant_contact_id": str(row["tenant_contact_id"])
+                    if row["tenant_contact_id"]
+                    else None,
                     "company_name": row["company_name"],
                     "company_domain": row["company_domain"],
                     "contact_name": row["contact_name"],
@@ -2343,7 +2572,9 @@ class TenantMessagingService:
             )
         return candidates
 
-    async def _normalize_complete_plan_payload(self, conn: AsyncConnection, tenant_id: str, payload: dict) -> dict:
+    async def _normalize_complete_plan_payload(
+        self, conn: AsyncConnection, tenant_id: str, payload: dict
+    ) -> dict:
         if not isinstance(payload, dict):
             raise AppError(code="VALIDATION_ERROR", message="请求参数非法", status_code=422)
         plan = payload.get("plan")
@@ -2351,7 +2582,9 @@ class TenantMessagingService:
             raise AppError(code="VALIDATION_ERROR", message="缺少发送计划配置", status_code=422)
         steps = payload.get("steps")
         if not isinstance(steps, list) or not steps:
-            raise AppError(code="VALIDATION_ERROR", message="发送计划至少需要一个步骤", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="发送计划至少需要一个步骤", status_code=422
+            )
 
         normalized_plan = dict(plan)
         for field, message in {
@@ -2382,9 +2615,15 @@ class TenantMessagingService:
             domain = await self._load_domain(conn, tenant_id, str(normalized_plan["domain_id"]))
         except AppError as exc:
             if exc.code == "NOT_FOUND":
-                raise AppError(code="VALIDATION_ERROR", message="发送域名不存在或不属于当前租户", status_code=422) from exc
+                raise AppError(
+                    code="VALIDATION_ERROR",
+                    message="发送域名不存在或不属于当前租户",
+                    status_code=422,
+                ) from exc
             raise
-        await self._validate_recipient_config(conn, tenant_id, recipient_source, normalized_plan["recipient_config"])
+        await self._validate_recipient_config(
+            conn, tenant_id, recipient_source, normalized_plan["recipient_config"]
+        )
 
         normalized_steps = self._normalize_complete_plan_steps(steps)
         await self._validate_step_templates(conn, tenant_id, normalized_steps)
@@ -2409,20 +2648,28 @@ class TenantMessagingService:
             if not isinstance(raw, dict):
                 raise AppError(code="VALIDATION_ERROR", message="发送步骤配置非法", status_code=422)
             if raw.get("step_number") is None:
-                raise AppError(code="VALIDATION_ERROR", message="发送步骤编号不能为空", status_code=422)
+                raise AppError(
+                    code="VALIDATION_ERROR", message="发送步骤编号不能为空", status_code=422
+                )
             step_number = int(raw["step_number"])
             if step_number in seen:
-                raise AppError(code="VALIDATION_ERROR", message="发送步骤编号不能重复", status_code=422)
+                raise AppError(
+                    code="VALIDATION_ERROR", message="发送步骤编号不能重复", status_code=422
+                )
             seen.add(step_number)
             template_id = raw.get("template_id")
             if not template_id:
-                raise AppError(code="VALIDATION_ERROR", message="发送步骤模板不能为空", status_code=422)
+                raise AppError(
+                    code="VALIDATION_ERROR", message="发送步骤模板不能为空", status_code=422
+                )
             normalized.append(
                 {
                     "step_number": step_number,
                     "template_id": str(template_id),
                     "delay_days": int(raw.get("delay_days", 0)),
-                    "condition_type": raw.get("condition_type", "always" if step_number == 1 else "no_reply"),
+                    "condition_type": raw.get(
+                        "condition_type", "always" if step_number == 1 else "no_reply"
+                    ),
                     "use_ai_personalization": bool(raw.get("use_ai_personalization", False)),
                     "ai_instructions": raw.get("ai_instructions"),
                 }
@@ -2432,13 +2679,25 @@ class TenantMessagingService:
         expected = list(range(1, len(normalized) + 1))
         actual = [item["step_number"] for item in normalized]
         if actual != expected:
-            raise AppError(code="VALIDATION_ERROR", message="发送步骤编号必须从 1 开始连续", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="发送步骤编号必须从 1 开始连续", status_code=422
+            )
         first = normalized[0]
-        if first["step_number"] != 1 or first["delay_days"] != 0 or first["condition_type"] != "always":
-            raise AppError(code="VALIDATION_ERROR", message="第一步必须为 always 且 delay_days=0", status_code=422)
+        if (
+            first["step_number"] != 1
+            or first["delay_days"] != 0
+            or first["condition_type"] != "always"
+        ):
+            raise AppError(
+                code="VALIDATION_ERROR",
+                message="第一步必须为 always 且 delay_days=0",
+                status_code=422,
+            )
         return normalized
 
-    async def _validate_step_templates(self, conn: AsyncConnection, tenant_id: str, steps: list[dict]) -> None:
+    async def _validate_step_templates(
+        self, conn: AsyncConnection, tenant_id: str, steps: list[dict]
+    ) -> None:
         template_ids = {item["template_id"] for item in steps}
         result = await conn.execute(
             text(
@@ -2454,7 +2713,11 @@ class TenantMessagingService:
         )
         found = {str(row["id"]) for row in result.mappings().all()}
         if found != template_ids:
-            raise AppError(code="VALIDATION_ERROR", message="发送步骤模板不存在或不属于当前租户", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR",
+                message="发送步骤模板不存在或不属于当前租户",
+                status_code=422,
+            )
 
     async def _validate_recipient_config(
         self,
@@ -2481,9 +2744,13 @@ class TenantMessagingService:
             {"tenant_id": tenant_id, "group_id": str(group_id)},
         )
         if result.mappings().first() is None:
-            raise AppError(code="VALIDATION_ERROR", message="收件人分组不存在或不属于当前租户", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="收件人分组不存在或不属于当前租户", status_code=422
+            )
 
-    async def _recipients_from_group(self, conn: AsyncConnection, tenant_id: str, config: dict) -> list[dict]:
+    async def _recipients_from_group(
+        self, conn: AsyncConnection, tenant_id: str, config: dict
+    ) -> list[dict]:
         if not config.get("group_id"):
             return []
         gm_result = await conn.execute(
@@ -2556,7 +2823,9 @@ class TenantMessagingService:
         )
         return result.mappings().all()
 
-    async def _recipients_from_manual(self, conn: AsyncConnection, tenant_id: str, config: dict) -> list[dict]:
+    async def _recipients_from_manual(
+        self, conn: AsyncConnection, tenant_id: str, config: dict
+    ) -> list[dict]:
         contact_ids = config.get("tenant_contact_ids", [])
         company_ids = config.get("tenant_company_ids", [])
         rows = []
@@ -2609,7 +2878,9 @@ class TenantMessagingService:
             rows.extend(result.mappings().all())
         return rows
 
-    async def _recipients_from_filter(self, conn: AsyncConnection, tenant_id: str, config: dict) -> list[dict]:
+    async def _recipients_from_filter(
+        self, conn: AsyncConnection, tenant_id: str, config: dict
+    ) -> list[dict]:
         params = {
             "tenant_id": tenant_id,
             "business_status": config.get("business_status"),
@@ -2668,7 +2939,9 @@ class TenantMessagingService:
 
     def _is_blacklisted(self, row, blacklist: list[dict]) -> bool:
         for item in blacklist:
-            if item["shared_company_id"] and str(item["shared_company_id"]) == str(row.get("shared_company_id", "")):
+            if item["shared_company_id"] and str(item["shared_company_id"]) == str(
+                row.get("shared_company_id", "")
+            ):
                 return True
             if item["match_domain"] and item["match_domain"] == row["company_domain"]:
                 return True
@@ -2721,7 +2994,9 @@ class TenantMessagingService:
         )
         row = result.mappings().first()
         if row is None:
-            raise AppError(code="VALIDATION_ERROR", message="当前未配置可用 AI 模型", status_code=422)
+            raise AppError(
+                code="VALIDATION_ERROR", message="当前未配置可用 AI 模型", status_code=422
+            )
         return {"id": str(row["id"]), "display_name": row["display_name"]}
 
     async def _update_plan_status(
@@ -2809,7 +3084,9 @@ class TenantMessagingService:
             "name": row["name"],
             "category": row["category"],
             "source_type": row["source_type"],
-            "platform_template_id": str(row["platform_template_id"]) if row["platform_template_id"] else None,
+            "platform_template_id": str(row["platform_template_id"])
+            if row["platform_template_id"]
+            else None,
             "subject": row["subject"],
             "body_html": row["body_html"],
             "body_text": row["body_text"],
@@ -2887,7 +3164,9 @@ class TenantMessagingService:
         }
 
     def _encode_email_cursor(self, *, created_at: datetime, email_id: str) -> str:
-        raw = json.dumps({"created_at": created_at.isoformat(), "id": email_id}, ensure_ascii=False).encode("utf-8")
+        raw = json.dumps(
+            {"created_at": created_at.isoformat(), "id": email_id}, ensure_ascii=False
+        ).encode("utf-8")
         return base64.urlsafe_b64encode(raw).decode("ascii")
 
     def _decode_email_cursor(self, cursor: str) -> dict:
@@ -2958,12 +3237,18 @@ class TenantMessagingService:
         body_text = self._render_text(tpl.get("body_text", "") or "", test_vars)
 
         client = EngageLabClient()
-        await client.send_email({
-            "from_email": domain_row["sender_email"],
-            "to_email": test_email,
-            "subject": subject,
-            "body_html": body_html,
-            "body_text": body_text,
-        })
+        await client.send_email(
+            {
+                "from_email": domain_row["sender_email"],
+                "to_email": test_email,
+                "subject": subject,
+                "body_html": body_html,
+                "body_text": body_text,
+            }
+        )
 
-        return {"success": True, "test_email": test_email, "message": f"测试邮件已发送到 {test_email}"}
+        return {
+            "success": True,
+            "test_email": test_email,
+            "message": f"测试邮件已发送到 {test_email}",
+        }

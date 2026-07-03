@@ -1,19 +1,25 @@
 """仪表盘 email-stats 本地 DB 聚合测试 — TDD 驱动"""
 
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.tenant_query_service import TenantQueryService
-
+from app.services.tenant_query_service import SENT_SCOPE_FILTER, TenantQueryService
 
 # ── 辅助工具 ──────────────────────────────────────────────
 
 
 def _make_summary_row(
-    targets=0, sent=0, delivered=0, invalid_email=0, soft_bounce=0,
-    total_opens=0, opens=0, report_spam=0, unsubscribe=0,
+    targets=0,
+    sent=0,
+    delivered=0,
+    invalid_email=0,
+    soft_bounce=0,
+    total_opens=0,
+    opens=0,
+    report_spam=0,
+    unsubscribe=0,
 ):
     """构造汇总查询返回的 MappingResult 行"""
     return {
@@ -33,12 +39,14 @@ def _make_daily_rows(*rows):
     """构造每日明细查询返回的 MappingResult 行列表"""
     result = []
     for r in rows:
-        result.append({
-            "date": r[0],
-            "sent": r[1],
-            "delivered": r[2],
-            "opens": r[3],
-        })
+        result.append(
+            {
+                "date": r[0],
+                "sent": r[1],
+                "delivered": r[2],
+                "opens": r[3],
+            }
+        )
     return result
 
 
@@ -70,8 +78,15 @@ class TestEmailStatsByDateRange:
     async def test_normal_data(self):
         """正常数据：各 FILTER 计数正确"""
         summary = _make_summary_row(
-            targets=20, sent=15, delivered=12, invalid_email=2,
-            soft_bounce=1, total_opens=30, opens=8, report_spam=1, unsubscribe=1,
+            targets=20,
+            sent=15,
+            delivered=12,
+            invalid_email=2,
+            soft_bounce=1,
+            total_opens=30,
+            opens=8,
+            report_spam=1,
+            unsubscribe=1,
         )
         daily = _make_daily_rows(
             (date(2026, 5, 1), 8, 7, 5),
@@ -96,9 +111,13 @@ class TestEmailStatsByDateRange:
 
     @pytest.mark.asyncio
     async def test_percentage_calculation(self):
-        """百分比计算：送达率以 sent 为分母，打开率以 delivered 为分母（口径见 544820f），保留两位小数"""
+        """百分比计算：送达率以 sent 为分母，打开率以 delivered 为分母。"""
         summary = _make_summary_row(
-            targets=15, sent=10, delivered=8, total_opens=5, opens=3,
+            targets=15,
+            sent=10,
+            delivered=8,
+            total_opens=5,
+            opens=3,
         )
         conn = _mock_conn(summary, [])
 
@@ -107,9 +126,30 @@ class TestEmailStatsByDateRange:
         )
 
         s = r["summary"]
-        assert s["delivered_percent"] == 80.0   # 8 / 10 (sent)
+        assert s["delivered_percent"] == 80.0  # 8 / 10 (sent)
         assert s["total_open_percent"] == 62.5  # 5 / 8 (delivered)
-        assert s["open_percent"] == 37.5        # 3 / 8 (delivered)
+        assert s["open_percent"] == 37.5  # 3 / 8 (delivered)
+
+    @pytest.mark.asyncio
+    async def test_failed_is_excluded_from_sent_and_billing_scope(self):
+        """覆盖 AE16/AE17：sent/billing 口径剔除 failed，百分比用新 sent 分母。"""
+        summary = _make_summary_row(targets=100, sent=80, delivered=60)
+        daily = _make_daily_rows((date(2026, 5, 1), 80, 60, 10))
+        conn = _mock_conn(summary, daily)
+
+        result = await TenantQueryService().email_stats_by_date_range(
+            conn, "tenant-001", date(2026, 5, 1), date(2026, 5, 1)
+        )
+
+        assert result["summary"]["targets"] == 100
+        assert result["summary"]["sent"] == 80
+        assert result["summary"]["billing"] == 80
+        assert result["summary"]["delivered_percent"] == 75.0
+
+        summary_sql = str(conn.execute.call_args_list[0].args[0])
+        daily_sql = str(conn.execute.call_args_list[1].args[0])
+        assert SENT_SCOPE_FILTER in summary_sql
+        assert SENT_SCOPE_FILTER in daily_sql
 
     @pytest.mark.asyncio
     async def test_delivered_zero_no_division_error(self):
@@ -205,8 +245,8 @@ class TestEmailStatsByDateRange:
 
         args = conn.execute.call_args_list[0]
         params = args[0][1] if len(args[0]) > 1 else args[1].get("parameters", {})
-        assert str(params["start_date"]) == "2026-05-10"
-        assert str(params["end_exclusive"]) == "2026-05-21"
+        assert params["start_date"] == datetime(2026, 5, 10, tzinfo=UTC)
+        assert params["end_exclusive"] == datetime(2026, 5, 21, tzinfo=UTC)
 
     @pytest.mark.asyncio
     async def test_tenant_isolation(self):
@@ -225,10 +265,19 @@ class TestEmailStatsByDateRange:
 # ── 13 字段完整性断言 ──────────────────────────────────────────
 
 EXPECTED_SUMMARY_KEYS = {
-    "targets", "sent", "delivered", "delivered_percent",
-    "invalid_email", "soft_bounce", "billing",
-    "total_opens", "total_open_percent", "opens", "open_percent",
-    "report_spam", "unsubscribe",
+    "targets",
+    "sent",
+    "delivered",
+    "delivered_percent",
+    "invalid_email",
+    "soft_bounce",
+    "billing",
+    "total_opens",
+    "total_open_percent",
+    "opens",
+    "open_percent",
+    "report_spam",
+    "unsubscribe",
 }
 
 
@@ -251,7 +300,6 @@ class TestSummaryFieldCompleteness:
 class TestDashboardEmailStatsRoute:
     @pytest.fixture
     def app(self):
-        from unittest.mock import patch
 
         from app.main import create_app
         from app.security.dependencies import TenantAuthContext, get_current_tenant_user
@@ -259,8 +307,15 @@ class TestDashboardEmailStatsRoute:
         application = create_app()
 
         summary = _make_summary_row(
-            targets=20, sent=15, delivered=12, invalid_email=2,
-            soft_bounce=1, total_opens=30, opens=8, report_spam=1, unsubscribe=1,
+            targets=20,
+            sent=15,
+            delivered=12,
+            invalid_email=2,
+            soft_bounce=1,
+            total_opens=30,
+            opens=8,
+            report_spam=1,
+            unsubscribe=1,
         )
         daily = _make_daily_rows(
             (date(2026, 5, 1), 8, 7, 5),
@@ -337,8 +392,18 @@ class TestDashboardEmailStatsRoute:
 
         s = resp.json()["data"]["summary"]
         assert set(s.keys()) == EXPECTED_SUMMARY_KEYS
-        for k in ("targets", "sent", "delivered", "invalid_email", "soft_bounce",
-                   "billing", "total_opens", "opens", "report_spam", "unsubscribe"):
+        for k in (
+            "targets",
+            "sent",
+            "delivered",
+            "invalid_email",
+            "soft_bounce",
+            "billing",
+            "total_opens",
+            "opens",
+            "report_spam",
+            "unsubscribe",
+        ):
             assert isinstance(s[k], int), f"{k} 应为 int"
         for k in ("delivered_percent", "total_open_percent", "open_percent"):
             assert isinstance(s[k], (int, float)), f"{k} 应为数值"

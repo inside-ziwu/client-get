@@ -75,9 +75,13 @@ class _Service:
         self.domains = ["domain-a"] if domains is None else domains
         self.items = items if items is not None else [_claimed_item("domain-a")]
         self.failed_payloads = []
+        self.deferred_payloads = []
         self.sent_payloads = []
         self.recover_calls = 0
         self.claim_calls = []
+        self.defer_error: Exception | None = None
+        self.fail_error: Exception | None = None
+        self.failed_status = "retry_scheduled"
 
     async def recover_stale_locks(self, conn):
         self.recover_calls += 1
@@ -98,8 +102,22 @@ class _Service:
         return {"email_id": email_id, "status": "sent"}
 
     async def mark_email_failed(self, conn, *, email_id, payload):
+        if self.fail_error:
+            raise self.fail_error
         self.failed_payloads.append(payload)
-        return {"email_id": email_id, "status": "retry_scheduled", "send_attempt_count": 1}
+        return {"email_id": email_id, "status": self.failed_status, "send_attempt_count": 1}
+
+    async def defer_email_for_quota(self, conn, *, email_id, resume_at, now_utc=None):
+        if self.defer_error:
+            raise self.defer_error
+        self.deferred_payloads.append(
+            {"email_id": email_id, "resume_at": resume_at, "now_utc": now_utc}
+        )
+        return {
+            "email_id": email_id,
+            "status": "deferred_for_quota",
+            "resume_at": resume_at.isoformat(),
+        }
 
 
 def _claimed_item(domain_id: str) -> dict:
@@ -284,6 +302,404 @@ async def test_worker_treats_422_as_invalid_permanent_failure():
 
 
 @pytest.mark.asyncio
+async def test_quota_error_opens_circuit_defers_email_and_skips_domain_until_resume():
+    """覆盖 AE5：配额错误触发域名熔断，后续轮次不领取、不调用服务商。"""
+    clock = _Clock()
+    logs = []
+    service = _Service(items=[_claimed_item("domain-a")])
+    provider = _Provider(
+        error=EngageLabSendError("your account balance is not enough", status_code=400)
+    )
+    worker = SendingWorker(
+        service=service,
+        provider=provider,
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=logs.append,
+    )
+
+    result = await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert result["items"][0]["provider_status"] == "quota_deferred"
+    assert service.deferred_payloads[0]["email_id"] == "email-001"
+    assert service.failed_payloads == []
+    assert worker.domain_quota_paused["domain-a"] == datetime(2026, 5, 30, 16, 0, tzinfo=UTC)
+    assert logs[-1]["event"] == "quota_circuit_open"
+    assert logs[-1]["domain_id"] == "domain-a"
+    assert logs[-1]["paused_until"] == datetime(2026, 5, 30, 16, 0, tzinfo=UTC)
+
+    await worker.run_once(_Engine(), service_instance="worker-1", idle_poll_seconds=5)
+
+    assert len(service.claim_calls) == 1
+    assert len(provider.payloads) == 1
+    assert logs[-1]["event"] == "all_domains_quota_paused"
+
+
+@pytest.mark.asyncio
+async def test_quota_deferred_run_once_result_is_json_safe():
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("余额不足", status_code=400)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    result = await worker.run_once(_Engine(), service_instance="worker-1")
+
+    json.dumps(result)
+
+
+@pytest.mark.asyncio
+async def test_quota_circuit_closes_after_next_beijing_midnight():
+    """覆盖 AE6：北京零点后下一轮领取被动恢复并记录 closed 日志。"""
+    clock = _Clock()
+    logs = []
+    service = _Service(items=[_claimed_item("domain-a")])
+    provider = _Provider(
+        error=EngageLabSendError("your account balance is not enough", status_code=400)
+    )
+    worker = SendingWorker(
+        service=service,
+        provider=provider,
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=logs.append,
+    )
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+    provider.error = None
+    clock.value = datetime(2026, 5, 30, 16, 0, 1, tzinfo=UTC)
+
+    result = await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert result["items"][0]["provider_status"] == "sent"
+    assert "domain-a" not in worker.domain_quota_paused
+    assert any(record["event"] == "quota_circuit_closed" for record in logs)
+
+
+@pytest.mark.asyncio
+async def test_quota_circuit_only_skips_triggering_domain():
+    """覆盖 AE7：域名 A 熔断时，域名 B 仍可正常发送。"""
+    clock = _Clock()
+    service = _Service(domains=["domain-a", "domain-b"], items=[_claimed_item("domain-a")])
+    provider = _Provider(
+        error=EngageLabSendError("your account balance is not enough", status_code=400)
+    )
+    worker = SendingWorker(
+        service=service,
+        provider=provider,
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+    provider.error = None
+    service.items = [_claimed_item("domain-b")]
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert service.claim_calls[1]["domain_id"] == "domain-b"
+    assert provider.payloads[-1]["to_email"] == "buyer@example.com"
+
+
+@pytest.mark.asyncio
+async def test_worker_restart_rebuilds_quota_circuit_on_first_rejected_email():
+    """覆盖 AE8：重启丢失熔断态后，首封配额错误重新熔断并 defer。"""
+    clock = _Clock()
+    service = _Service(items=[_claimed_item("domain-a")])
+    provider = _Provider(
+        error=EngageLabSendError("your account balance is not enough", status_code=400)
+    )
+    worker = SendingWorker(
+        service=service,
+        provider=provider,
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    restarted_service = _Service(items=[_claimed_item("domain-a")])
+    restarted_provider = _Provider(
+        error=EngageLabSendError("your account balance is not enough", status_code=400)
+    )
+    restarted = SendingWorker(
+        service=restarted_service,
+        provider=restarted_provider,
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    await restarted.run_once(_Engine(), service_instance="worker-1")
+
+    assert restarted_service.deferred_payloads
+    assert restarted_service.failed_payloads == []
+    assert "domain-a" in restarted.domain_quota_paused
+
+
+@pytest.mark.asyncio
+async def test_single_rate_limit_uses_retry_chain_without_circuit():
+    """覆盖 AE2：单次 429 走临时失败重试链，不熔断。"""
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("too many requests", status_code=429)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert service.failed_payloads[0]["is_permanent"] is False
+    assert service.deferred_payloads == []
+    assert worker.domain_quota_paused == {}
+
+
+@pytest.mark.asyncio
+async def test_third_rate_limit_in_ten_minutes_upgrades_to_quota_circuit():
+    """覆盖 AE3：10 分钟内第 3 次限流升级为当天熔断。"""
+    clock = _Clock()
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("too many requests", status_code=429)),
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+    await worker.run_once(_Engine(), service_instance="worker-1")
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert len(service.failed_payloads) == 2
+    assert len(service.deferred_payloads) == 1
+    assert "domain-a" in worker.domain_quota_paused
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_window_drops_old_hits_before_upgrade():
+    """覆盖 AE3：限流命中滑出 10 分钟窗口后不升级熔断。"""
+    clock = _Clock()
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("too many requests", status_code=429)),
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+    clock.advance(11 * 60)
+    await worker.run_once(_Engine(), service_instance="worker-1")
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert len(service.failed_payloads) == 3
+    assert service.deferred_payloads == []
+    assert worker.domain_quota_paused == {}
+
+
+@pytest.mark.asyncio
+async def test_fourth_consecutive_quota_error_downgrades_to_temporary_failure():
+    """覆盖 AE13：连续 3 次 defer 后，第 4 次配额错误降级为临时失败。"""
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("余额不足", status_code=400)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+    worker.enrollment_quota_defer_counts["enrollment-001"] = 3
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert service.deferred_payloads == []
+    assert service.failed_payloads[0]["is_permanent"] is False
+    # 降级路径不熔断域名：毒药防护——误判的永久错误不得连续多日封锁整域；
+    # 真实额度耗尽时，下一封 count<3 的邮件会立即重新熔断。
+    assert "domain-a" not in worker.domain_quota_paused
+    assert "enrollment-001" not in worker.enrollment_quota_defer_counts
+
+
+@pytest.mark.asyncio
+async def test_successful_send_clears_quota_defer_count():
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+    worker.enrollment_quota_defer_counts["enrollment-001"] = 2
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert "enrollment-001" not in worker.enrollment_quota_defer_counts
+
+
+@pytest.mark.asyncio
+async def test_temporary_failure_does_not_clear_quota_defer_count():
+    service = _Service(items=[_claimed_item("domain-a")])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("server unavailable", status_code=503)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+    worker.enrollment_quota_defer_counts["enrollment-001"] = 3
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert worker.enrollment_quota_defer_counts["enrollment-001"] == 3
+
+
+@pytest.mark.asyncio
+async def test_terminal_temporary_failure_clears_quota_defer_count():
+    service = _Service(items=[_claimed_item("domain-a")])
+    service.failed_status = "failed"
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("server unavailable", status_code=503)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+    worker.enrollment_quota_defer_counts["enrollment-001"] = 2
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert "enrollment-001" not in worker.enrollment_quota_defer_counts
+
+
+@pytest.mark.asyncio
+async def test_all_domains_quota_paused_sleeps_without_crashing():
+    sleep = AsyncMock()
+    clock = _Clock()
+    logs = []
+    service = _Service(domains=["domain-a", "domain-b"], items=[])
+    provider = _Provider()
+    worker = SendingWorker(
+        service=service,
+        provider=provider,
+        clock=clock,
+        sleep=sleep,
+        log_sink=logs.append,
+    )
+    paused_until = clock.value + timedelta(hours=1)
+    worker.domain_quota_paused = {"domain-a": paused_until, "domain-b": paused_until}
+
+    result = await worker.run_once(_Engine(), service_instance="worker-1", idle_poll_seconds=5)
+
+    assert result == {"claimed_count": 0, "processed_count": 0, "items": []}
+    assert service.claim_calls == []
+    assert provider.payloads == []
+    sleep.assert_awaited_once_with(5)
+    assert logs[-1]["event"] == "all_domains_quota_paused"
+
+
+@pytest.mark.asyncio
+async def test_quota_defer_error_falls_back_to_temporary_failure():
+    service = _Service(items=[_claimed_item("domain-a")])
+    service.defer_error = RuntimeError("defer failed")
+    logs = []
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("余额不足", status_code=400)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=logs.append,
+    )
+
+    result = await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert result["items"][0]["provider_status"] == "failed"
+    assert service.failed_payloads[0]["is_permanent"] is False
+    assert service.failed_payloads[0]["status_code"] == 400
+    assert service.deferred_payloads == []
+    assert "domain-a" in worker.domain_quota_paused
+    assert any(record["event"] == "quota_defer_failed" for record in logs)
+    assert any(record["event"] == "send_failed" for record in logs)
+
+
+@pytest.mark.asyncio
+async def test_quota_defer_and_fallback_errors_do_not_escape_run_once():
+    service = _Service(items=[_claimed_item("domain-a")])
+    service.defer_error = RuntimeError("defer failed")
+    service.fail_error = RuntimeError("fallback failed")
+    logs = []
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(error=EngageLabSendError("余额不足", status_code=400)),
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=logs.append,
+    )
+
+    result = await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert result["items"][0]["provider_status"] == "failed"
+    assert result["items"][0]["status"] == "quota_defer_fallback_failed"
+    assert any(record["event"] == "quota_defer_fallback_failed" for record in logs)
+    assert any(record["event"] == "send_failed" for record in logs)
+
+
+@pytest.mark.asyncio
+async def test_paused_domain_state_survives_running_domain_gap():
+    clock = _Clock()
+    service = _Service(domains=["domain-b"], items=[])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(),
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+    worker.domain_quota_paused["domain-a"] = clock.value + timedelta(hours=1)
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert "domain-a" in worker.domain_quota_paused
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_hits_survive_running_domain_gap_until_expired():
+    clock = _Clock()
+    service = _Service(domains=["domain-b"], items=[])
+    worker = SendingWorker(
+        service=service,
+        provider=_Provider(),
+        clock=clock,
+        sleep=AsyncMock(),
+        random_between=lambda low, high: 0,
+        log_sink=lambda record: None,
+    )
+    worker.domain_rate_limit_hits["domain-a"] = [clock.value]
+
+    await worker.run_once(_Engine(), service_instance="worker-1")
+
+    assert worker.domain_rate_limit_hits["domain-a"] == [clock.value]
+
+
+
+@pytest.mark.asyncio
 async def test_worker_recovers_stale_locks_only_once():
     service = _Service(items=[])
     worker = SendingWorker(
@@ -305,18 +721,21 @@ async def test_mark_email_failed_schedules_incremental_retry():
     conn = AsyncMock()
     conn.execute = AsyncMock(return_value=_result(first={"send_attempt_count": 0}))
 
-    with patch.object(
-        svc,
-        "_load_email",
-        new_callable=AsyncMock,
-        return_value={
-            "id": "email-001",
-            "created_at": datetime.now(UTC),
-            "enrollment_id": "enrollment-001",
-            "tenant_contact_id": "contact-001",
-            "plan_id": "plan-001",
-        },
-    ), patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock):
+    with (
+        patch.object(
+            svc,
+            "_load_email",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "email-001",
+                "created_at": datetime.now(UTC),
+                "enrollment_id": "enrollment-001",
+                "tenant_contact_id": "contact-001",
+                "plan_id": "plan-001",
+            },
+        ),
+        patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock),
+    ):
         result = await svc.mark_email_failed(
             conn,
             email_id="email-001",
@@ -334,18 +753,21 @@ async def test_mark_email_failed_exhausts_after_fourth_temporary_failure():
     conn = AsyncMock()
     conn.execute = AsyncMock(return_value=_result(first={"send_attempt_count": 3}))
 
-    with patch.object(
-        svc,
-        "_load_email",
-        new_callable=AsyncMock,
-        return_value={
-            "id": "email-001",
-            "created_at": datetime.now(UTC),
-            "enrollment_id": "enrollment-001",
-            "tenant_contact_id": "contact-001",
-            "plan_id": "plan-001",
-        },
-    ), patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock):
+    with (
+        patch.object(
+            svc,
+            "_load_email",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "email-001",
+                "created_at": datetime.now(UTC),
+                "enrollment_id": "enrollment-001",
+                "tenant_contact_id": "contact-001",
+                "plan_id": "plan-001",
+            },
+        ),
+        patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock),
+    ):
         result = await svc.mark_email_failed(
             conn,
             email_id="email-001",
@@ -362,20 +784,24 @@ async def test_mark_email_failed_updates_invalid_contact_for_422():
     conn = AsyncMock()
     conn.execute = AsyncMock(return_value=_result(first={"send_attempt_count": 0}))
 
-    with patch.object(
-        svc,
-        "_load_email",
-        new_callable=AsyncMock,
-        return_value={
-            "id": "email-001",
-            "created_at": datetime.now(UTC),
-            "enrollment_id": "enrollment-001",
-            "tenant_contact_id": "contact-001",
-            "plan_id": "plan-001",
-        },
-    ), patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock), patch.object(
-        svc, "_update_contact_for_permanent_failure", new_callable=AsyncMock
-    ) as update_contact:
+    with (
+        patch.object(
+            svc,
+            "_load_email",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "email-001",
+                "created_at": datetime.now(UTC),
+                "enrollment_id": "enrollment-001",
+                "tenant_contact_id": "contact-001",
+                "plan_id": "plan-001",
+            },
+        ),
+        patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock),
+        patch.object(
+            svc, "_update_contact_for_permanent_failure", new_callable=AsyncMock
+        ) as update_contact,
+    ):
         result = await svc.mark_email_failed(
             conn,
             email_id="email-001",
@@ -450,12 +876,15 @@ async def test_claim_due_emails_uses_domain_filter_and_skips_blocking_candidate(
         ]
     )
 
-    with patch.object(
-        svc,
-        "_step_condition_satisfied",
-        new_callable=AsyncMock,
-        side_effect=[False, True],
-    ), patch.object(svc, "reserve_domain_quota", new_callable=AsyncMock):
+    with (
+        patch.object(
+            svc,
+            "_step_condition_satisfied",
+            new_callable=AsyncMock,
+            side_effect=[False, True],
+        ),
+        patch.object(svc, "reserve_domain_quota", new_callable=AsyncMock),
+    ):
         result = await svc.claim_due_emails(
             conn,
             service_instance="worker-1",
