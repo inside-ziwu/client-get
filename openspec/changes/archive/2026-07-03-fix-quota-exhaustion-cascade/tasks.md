@@ -36,5 +36,5 @@
 
 ## 7. 部署（开发验证通过后，用户触发）
 
-- [ ] 7.1 代码推 GitHub，GitHub Actions `workflow_dispatch` 构建 backend 镜像（service: backend）推送 ACR
-- [ ] 7.2 Sealos 控制台更新 backend 服务与 sending worker 的镜像 tag（**Instance A 与 Instance B 两套服务都要更新**，避免未修复实例的 worker 在配额耗尽时重演事故行为）。重启后正反两向核对：正向观察 `quota_circuit_open/closed` 日志与仪表盘数值（已发送应剔除 failed）；**反向核对检测漏判**——若出现短窗内连续/批量 4xx `send_failed` 而无对应 `quota_circuit_open`，判定识别规则漏判，立即回读日志补充 `QUOTA_STATUS_CODES`/`QUOTA_KEYWORDS` 并发版
+- [x] 7.1 已完成（2026-07-03）：PR #21 合并入 main，Actions run 28648574476 构建成功，镜像 `clientget-backend:2026.07.03-r3` 推送 ACR
+- [x] 7.2 已完成（2026-07-03）：Sealos A/B 两实例 backend + sending worker 均更新至 2026.07.03-r3；正向核对通过（worker 心跳正常、英国流量正常发送、无新增 failed 风暴）；反向漏判核对为持续观察项（下一窗口：07-06 13:00Z 美国波峰）。原要求：更新（**Instance A 与 Instance B 两套服务都要更新**，避免未修复实例的 worker 在配额耗尽时重演事故行为）。重启后正反两向核对：正向观察 `quota_circuit_open/closed` 日志与仪表盘数值（已发送应剔除 failed）；**反向核对检测漏判**——若出现短窗内连续/批量 4xx `send_failed` 而无对应 `quota_circuit_open`，判定识别规则漏判，立即回读日志补充 `QUOTA_STATUS_CODES`/`QUOTA_KEYWORDS` 并发版
