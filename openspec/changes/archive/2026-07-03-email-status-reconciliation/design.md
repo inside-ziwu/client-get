@@ -55,3 +55,9 @@ EngageLab webhook 推送丢失约 50% 的 delivered/bounced 事件，导致邮�
 - [EngageLab API 限流] → 分批查询（每批 20 ID），且 10 分钟间隔降低频率
 - [和 webhook 同时写入同一封邮件] → 30 分钟窗口避免竞争；即使并发写入，delivered/bounced 是幂等操作（sent → delivered 无论谁先写都正确）
 - [EngageLab API 返回 status=18（发送中）] → 跳过，下一轮再查
+
+## 实施勘正（2026-07-03 归档时补记）
+
+实际落地形态与原设计有一处偏离：对账未做成独立 worker 容器，而是**内联在 sending worker 主循环**（`run_sending_worker.py` 每 120 轮≈10 分钟调用 `ReconciliationWorker.run_once`，异常捕获记「对账异常」日志、不影响发送节奏），省去一个常驻进程与 Sealos 部署项。仅在 `total > 0` 时输出对账统计日志。
+
+生产验证状态：机制随 2026-07-03 镜像上线 A/B 双实例；因近期 webhook 健康（7.9 万条自然回调事件）且 6 月人工修复清过存量，补录路径尚未被真实触发。遗留 1 封 2026-06-24 的 stuck 邮件超出 EngageLab API 可查窗口，按 spec「API 未返回该记录 → 跳过」属预期行为，可人工处置或留观。
