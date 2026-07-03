@@ -259,23 +259,47 @@ class TenantService:
         )
 
         # D-031：创建租户时同步初始化发件域名预热记录
-        # 若 payload 带有 sender_domain，则在 domain_warmup_status 中建立初始行
+        # 若 payload 带有 sender_domain，则在 domain_warmup_status 中建立初始行；
+        # 档位与日发送上限以当前实例激活预热规则（warmup_rules + warmup_rule_levels）为准，
+        # 档位不存在时整体报错回滚，不做静默降档
         sender_domain = (payload.get("sender_domain") or "").strip()
         warmup_level = int(payload.get("warmup_level") or 1)
-        # 确保预热档位合法（1-6）
-        warmup_level = max(1, min(6, warmup_level))
-        # 每档对应的默认日发送上限
-        _warmup_daily_limits = {1: 50, 2: 100, 3: 200, 4: 500, 5: 1000, 6: 2000}
-        daily_limit = _warmup_daily_limits.get(warmup_level, 50)
 
         if sender_domain:
+            level_result = await conn.execute(
+                text(
+                    """
+                    SELECT wr.id AS rule_id, wrl.daily_limit
+                    FROM warmup_rules wr
+                    JOIN warmup_rule_levels wrl ON wrl.rule_id = wr.id
+                    WHERE wr.instance_id = :instance_id
+                      AND wr.is_active = true
+                      AND wrl.level = :warmup_level
+                    ORDER BY wr.updated_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"instance_id": get_settings().instance_id, "warmup_level": warmup_level},
+            )
+            level_row = level_result.mappings().first()
+            if level_row is None:
+                raise AppError(
+                    code="VALIDATION_ERROR",
+                    message=(
+                        f"预热档位 {warmup_level} 在当前实例激活预热规则中不存在，"
+                        "请检查预热规则配置后重试"
+                    ),
+                    status_code=422,
+                )
             await conn.execute(
                 text(
                     """
                     INSERT INTO domain_warmup_status
-                      (id, tenant_id, domain, verification_status, warmup_level, daily_limit)
+                      (id, tenant_id, domain, verification_status,
+                       warmup_rule_id, warmup_level, daily_limit, level_changed_at)
                     VALUES
-                      (:id, :tenant_id, :domain, 'pending', :warmup_level, :daily_limit)
+                      (:id, :tenant_id, :domain, 'pending',
+                       :warmup_rule_id, :warmup_level, :daily_limit, now())
                     ON CONFLICT (tenant_id, domain) DO NOTHING
                     """
                 ),
@@ -283,8 +307,9 @@ class TenantService:
                     "id": str(new_uuid()),
                     "tenant_id": tenant_id,
                     "domain": sender_domain,
+                    "warmup_rule_id": str(level_row["rule_id"]),
                     "warmup_level": warmup_level,
-                    "daily_limit": daily_limit,
+                    "daily_limit": level_row["daily_limit"],
                 },
             )
 
