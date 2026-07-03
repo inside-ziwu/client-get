@@ -20,6 +20,11 @@ on:
         required: false
         type: string
         default: 'https://api.xinanpcb.com'
+      tenant_portal_url:
+        description: '租户端入口地址（仅 admin 生效，用于「后台管理地址」展示；留空用 Instance A 默认值）'
+        required: false
+        type: string
+        default: ''
 
 env:
   REGISTRY: crpi-q6fqloatvalw3jr2.cn-beijing.personal.cr.aliyuncs.com
@@ -71,6 +76,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             ${{ inputs.service == 'admin' && format('NEXT_PUBLIC_ADMIN_API_BASE_URL={0}', inputs.api_url || 'https://api.xinanpcb.com') || '' }}
+            ${{ inputs.service == 'admin' && format('NEXT_PUBLIC_TENANT_PORTAL_BASE_URL={0}', inputs.tenant_portal_url) || '' }}
             ${{ inputs.service == 'tenant' && format('NEXT_PUBLIC_API_BASE_URL={0}', inputs.api_url || 'https://api.xinanpcb.com') || '' }}
 
       - name: 输出结果
