@@ -47,7 +47,9 @@ def main() -> None:
     instance_id = _require_env("CLIENTGET_INSTANCE_ID")
 
     if instance_id == "default":
-        print("错误：CLIENTGET_INSTANCE_ID 不能为 'default'，请使用有意义的实例标识", file=sys.stderr)
+        print(
+            "错误：CLIENTGET_INSTANCE_ID 不能为 'default'，请使用有意义的实例标识", file=sys.stderr
+        )
         sys.exit(1)
 
     db_url = _build_sync_database_url()
@@ -214,9 +216,9 @@ def main() -> None:
             text(
                 """
                 INSERT INTO ai_models
-                  (id, provider, model_id, display_name, model_type, input_price, output_price, is_active, config, instance_id)
+                  (id, provider, model_id, display_name, is_active, config, instance_id)
                 VALUES
-                  (:id, 'openrouter', 'openai/gpt-4.1-mini', 'GPT-4.1 Mini', 'general', 0.0005, 0.0015, true, '{}'::jsonb, :instance_id)
+                  (:id, 'openrouter', 'openai/gpt-4.1-mini', 'GPT-4.1 Mini', true, '{}'::jsonb, :instance_id)
                 ON CONFLICT (instance_id, provider, model_id) DO NOTHING
                 """
             ),
@@ -230,8 +232,8 @@ def main() -> None:
             conn.execute(
                 text(
                     """
-                    INSERT INTO ai_scene_defaults (id, scene, model_id, fallback_model_ids, config, instance_id)
-                    VALUES (:id, :scene, :model_id, '[]'::jsonb, '{}'::jsonb, :instance_id)
+                    INSERT INTO ai_scene_defaults (id, scene, model_id, config, instance_id)
+                    VALUES (:id, :scene, :model_id, '{}'::jsonb, :instance_id)
                     ON CONFLICT (instance_id, scene) DO NOTHING
                     """
                 ),
