@@ -1,15 +1,18 @@
 import logging
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.services.company_filter_sql import append_employee_count_range
 from app.services.collection_source import KEYWORD_TAG_JSONB, compute_collection_type
+from app.services.company_filter_sql import append_employee_count_range
 from app.services.tenant_ai_provider_service import TenantAiProviderService
+from app.utils.beijing_time import beijing_day_bounds
 
 logger = logging.getLogger(__name__)
+
+SENT_SCOPE_FILTER = "status NOT IN ('draft', 'pending', 'queued', 'failed')"
 
 
 class TenantQueryService:
@@ -26,9 +29,13 @@ class TenantQueryService:
         try:
             return date.fromisoformat(value)
         except ValueError:
-            raise AppError(code="INVALID_FILTER", message="日期筛选格式应为 YYYY-MM-DD", status_code=400) from None
+            raise AppError(
+                code="INVALID_FILTER", message="日期筛选格式应为 YYYY-MM-DD", status_code=400
+            ) from None
 
-    async def dashboard_overview(self, conn: AsyncConnection, tenant_id: str, is_admin: bool) -> dict:
+    async def dashboard_overview(
+        self, conn: AsyncConnection, tenant_id: str, is_admin: bool
+    ) -> dict:
         counts = await conn.execute(
             text(
                 """
@@ -193,7 +200,9 @@ class TenantQueryService:
             params["offset"] = offset
 
         if keyword:
-            where_clauses.append("(wc.company_name ILIKE :keyword OR wc.domain ILIKE :keyword OR wc.website ILIKE :keyword)")
+            where_clauses.append(
+                "(wc.company_name ILIKE :keyword OR wc.domain ILIKE :keyword OR wc.website ILIKE :keyword)"
+            )
             params["keyword"] = f"%{keyword}%"
 
         if min_score is not None:
@@ -220,19 +229,27 @@ class TenantQueryService:
             params["data_status"] = data_status
 
         if country_iso3:
-            where_clauses.append("COALESCE(NULLIF(wc.country_iso3, ''), wc.country) = :country_iso3")
+            where_clauses.append(
+                "COALESCE(NULLIF(wc.country_iso3, ''), wc.country) = :country_iso3"
+            )
             params["country_iso3"] = country_iso3
         if countries:
             placeholders = ", ".join(f":country_{i}" for i in range(len(countries)))
-            where_clauses.append(f"COALESCE(NULLIF(wc.country_iso3, ''), wc.country) IN ({placeholders})")
+            where_clauses.append(
+                f"COALESCE(NULLIF(wc.country_iso3, ''), wc.country) IN ({placeholders})"
+            )
             for i, c in enumerate(countries):
                 params[f"country_{i}"] = c
 
         if industry_tags:
-            where_clauses.append("(wc.industry = ANY(:industry_tags) OR wc.sub_industry = ANY(:industry_tags))")
+            where_clauses.append(
+                "(wc.industry = ANY(:industry_tags) OR wc.sub_industry = ANY(:industry_tags))"
+            )
             params["industry_tags"] = industry_tags
         if sub_industries:
-            where_clauses.append("(wc.industry = ANY(:sub_industries) OR wc.sub_industry = ANY(:sub_industries))")
+            where_clauses.append(
+                "(wc.industry = ANY(:sub_industries) OR wc.sub_industry = ANY(:sub_industries))"
+            )
             params["sub_industries"] = sub_industries
 
         if product_tags:
@@ -266,10 +283,16 @@ class TenantQueryService:
         if collection_type == "keyword":
             where_clauses.append(f"wc.data_source_tags @> {KEYWORD_TAG_JSONB}")
         elif collection_type == "reverse":
-            where_clauses.append(f"(wc.data_source_tags IS NULL OR NOT wc.data_source_tags @> {KEYWORD_TAG_JSONB})")
+            where_clauses.append(
+                f"(wc.data_source_tags IS NULL OR NOT wc.data_source_tags @> {KEYWORD_TAG_JSONB})"
+            )
 
-        effective_contact_count_min = contact_count_min if contact_count_min is not None else contacts_count_min
-        effective_contact_count_max = contact_count_max if contact_count_max is not None else contacts_count_max
+        effective_contact_count_min = (
+            contact_count_min if contact_count_min is not None else contacts_count_min
+        )
+        effective_contact_count_max = (
+            contact_count_max if contact_count_max is not None else contacts_count_max
+        )
         if effective_contact_count_min is not None:
             where_clauses.append("wc.contacts_count >= :contact_count_min")
             params["contact_count_min"] = effective_contact_count_min
@@ -317,12 +340,16 @@ class TenantQueryService:
 
         group_join_sql = ""
         if group_id:
-            group_join_sql = "JOIN group_members gm ON gm.tenant_company_id = tc.id AND gm.group_id = :group_id"
+            group_join_sql = (
+                "JOIN group_members gm ON gm.tenant_company_id = tc.id AND gm.group_id = :group_id"
+            )
             params["group_id"] = group_id
 
         where_sql = " AND ".join(where_clauses)
 
-        cs_join_sql = "LEFT JOIN company_scores cs ON cs.tenant_company_id = tc.id AND cs.is_retry = false"
+        cs_join_sql = (
+            "LEFT JOIN company_scores cs ON cs.tenant_company_id = tc.id AND cs.is_retry = false"
+        )
 
         total_result = await conn.execute(
             text(
@@ -416,7 +443,9 @@ class TenantQueryService:
                 "wmt_score": float(row["wmt_score"]) if row["wmt_score"] is not None else None,
                 "founded_year": row["founded_year"],
                 "phone": row["phone"],
-                "trade_amount_3y_usd": float(row["trade_amount_3y_usd"]) if row["trade_amount_3y_usd"] is not None else None,
+                "trade_amount_3y_usd": float(row["trade_amount_3y_usd"])
+                if row["trade_amount_3y_usd"] is not None
+                else None,
                 "trade_count": row["trade_count"],
                 "description": row["description"],
                 "data_source_tags": list(row["data_source_tags"] or []),
@@ -424,7 +453,9 @@ class TenantQueryService:
                 "company_size": row["company_size"],
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
-                "model_score": float(row["model_score"]) if row["model_score"] is not None else None,
+                "model_score": float(row["model_score"])
+                if row["model_score"] is not None
+                else None,
                 "score": float(row["score"]) if row["score"] is not None else None,
                 "note": row["note"],
                 "tags": list(row["tags"] or []),
@@ -433,13 +464,17 @@ class TenantQueryService:
                 "source_competitor": row["source_competitor"],
                 "source_competitor_cn": row["source_competitor_cn"],
                 "system_grade": row["system_grade"],
-                "system_score": float(row["system_score"]) if row["system_score"] is not None else None,
+                "system_score": float(row["system_score"])
+                if row["system_score"] is not None
+                else None,
             }
             for row in result.mappings().all()
         ]
         return rows, total
 
-    async def v3_company_detail(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str) -> dict:
+    async def v3_company_detail(
+        self, conn: AsyncConnection, tenant_id: str, clean_company_id: str
+    ) -> dict:
         company_id = self._parse_clean_company_id(clean_company_id)
         result = await conn.execute(
             text(
@@ -529,7 +564,9 @@ class TenantQueryService:
             "product_tags": list(row["product_tags"] or []),
             "grade": row["grade"],
             "wmt_score": float(row["wmt_score"]) if row["wmt_score"] is not None else None,
-            "trade_amount_3y_usd": float(row["trade_amount_3y_usd"]) if row["trade_amount_3y_usd"] is not None else None,
+            "trade_amount_3y_usd": float(row["trade_amount_3y_usd"])
+            if row["trade_amount_3y_usd"] is not None
+            else None,
             "trade_count": row["trade_count"],
             "contacts_count": row["contacts_count"],
             "phone": row["phone"],
@@ -558,15 +595,21 @@ class TenantQueryService:
             "trade_summary": row["trade_summary"],
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
             "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
-            "tenant_created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
-            "tenant_updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
+            "tenant_created_at": row["tenant_created_at"].isoformat()
+            if row["tenant_created_at"]
+            else None,
+            "tenant_updated_at": row["tenant_updated_at"].isoformat()
+            if row["tenant_updated_at"]
+            else None,
             "source_competitor": row["source_competitor"],
             "source_competitor_cn": row["source_competitor_cn"],
             "system_grade": row["system_grade"],
             "system_score": float(row["system_score"]) if row["system_score"] is not None else None,
         }
 
-    async def v3_company_contacts(self, conn: AsyncConnection, tenant_id: str, clean_company_id: str) -> list[dict]:
+    async def v3_company_contacts(
+        self, conn: AsyncConnection, tenant_id: str, clean_company_id: str
+    ) -> list[dict]:
         company_id = self._parse_clean_company_id(clean_company_id)
         await self.v3_company_detail(conn, tenant_id, company_id)
         result = await conn.execute(
@@ -620,8 +663,12 @@ class TenantQueryService:
                 "tenant_contact_state": {
                     "contact_status": row["contact_status"],
                     "is_sendable": row["is_sendable"],
-                    "created_at": row["tenant_created_at"].isoformat() if row["tenant_created_at"] else None,
-                    "updated_at": row["tenant_updated_at"].isoformat() if row["tenant_updated_at"] else None,
+                    "created_at": row["tenant_created_at"].isoformat()
+                    if row["tenant_created_at"]
+                    else None,
+                    "updated_at": row["tenant_updated_at"].isoformat()
+                    if row["tenant_updated_at"]
+                    else None,
                 },
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                 "updated_at": None,
@@ -742,7 +789,9 @@ class TenantQueryService:
                 "name": row["company_name"],
                 "country_iso3": row["country_iso3"],
                 "score": float(row["score"]) if row["score"] is not None else None,
-                "model_score": float(row["model_score"]) if row["model_score"] is not None else None,
+                "model_score": float(row["model_score"])
+                if row["model_score"] is not None
+                else None,
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
                 "created_at": row["created_at"].isoformat(),
@@ -824,15 +873,18 @@ class TenantQueryService:
         self, conn: AsyncConnection, tenant_id: str, start_date: date, end_date: date
     ) -> dict:
         """仪表盘邮件统计：本地 emails 表聚合查询"""
-        end_exclusive = end_date + timedelta(days=1)
-        params = {"tenant_id": tenant_id, "start_date": start_date, "end_exclusive": end_exclusive}
+        start_at = datetime.combine(start_date, time.min, tzinfo=UTC)
+        end_exclusive = datetime.combine(end_date + timedelta(days=1), time.min, tzinfo=UTC)
+        params = {"tenant_id": tenant_id, "start_date": start_at, "end_exclusive": end_exclusive}
 
         summary_result = await conn.execute(
-            text("""
+            text(f"""
                 SELECT
                   COUNT(*) AS targets,
-                  COUNT(*) FILTER (WHERE status NOT IN ('draft','pending','queued')) AS sent,
-                  COUNT(*) FILTER (WHERE status IN ('delivered','opened','clicked','replied')) AS delivered,
+                  COUNT(*) FILTER (WHERE {SENT_SCOPE_FILTER}) AS sent,
+                  COUNT(*) FILTER (
+                    WHERE status IN ('delivered','opened','clicked','replied')
+                  ) AS delivered,
                   COUNT(*) FILTER (WHERE invalid_email = true) AS invalid_email,
                   COUNT(*) FILTER (WHERE soft_bounce = true) AS soft_bounce,
                   COALESCE(SUM(open_count), 0) AS total_opens,
@@ -850,8 +902,12 @@ class TenantQueryService:
 
         sent = row["sent"]
         delivered = row["delivered"]
-        pct_sent = lambda x: round(x / sent * 100, 2) if sent > 0 else 0
-        pct_delivered = lambda x: round(x / delivered * 100, 2) if delivered > 0 else 0
+
+        def pct_sent(x):
+            return round(x / sent * 100, 2) if sent > 0 else 0
+
+        def pct_delivered(x):
+            return round(x / delivered * 100, 2) if delivered > 0 else 0
 
         summary = {
             **row,
@@ -862,10 +918,12 @@ class TenantQueryService:
         }
 
         daily_result = await conn.execute(
-            text("""
+            text(f"""
                 SELECT DATE(created_at) AS date,
-                       COUNT(*) FILTER (WHERE status NOT IN ('draft','pending','queued')) AS sent,
-                       COUNT(*) FILTER (WHERE status IN ('delivered','opened','clicked','replied')) AS delivered,
+                       COUNT(*) FILTER (WHERE {SENT_SCOPE_FILTER}) AS sent,
+                       COUNT(*) FILTER (
+                         WHERE status IN ('delivered','opened','clicked','replied')
+                       ) AS delivered,
                        COUNT(*) FILTER (WHERE first_opened_at IS NOT NULL) AS opens
                 FROM emails
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
@@ -914,10 +972,10 @@ class TenantQueryService:
             params["plan_id"] = plan_id
             email_result = await conn.execute(
                 text(
-                    """
+                    f"""
                     SELECT
                       count(*) FILTER (WHERE status = 'draft') AS emails_drafted,
-                      count(*) FILTER (WHERE status NOT IN ('draft', 'pending', 'queued')) AS emails_sent
+                      count(*) FILTER (WHERE {SENT_SCOPE_FILTER}) AS emails_sent
                     FROM emails
                     WHERE tenant_id = :tenant_id AND plan_id = :plan_id
                     """
@@ -927,10 +985,10 @@ class TenantQueryService:
         else:
             email_result = await conn.execute(
                 text(
-                    """
+                    f"""
                     SELECT
                       count(*) FILTER (WHERE status = 'draft') AS emails_drafted,
-                      count(*) FILTER (WHERE status NOT IN ('draft', 'pending', 'queued')) AS emails_sent
+                      count(*) FILTER (WHERE {SENT_SCOPE_FILTER}) AS emails_sent
                     FROM emails
                     WHERE tenant_id = :tenant_id
                     """
@@ -962,10 +1020,15 @@ class TenantQueryService:
             "plans": plans,
         }
 
-    async def daily_quota(self, conn: AsyncConnection, tenant_id: str) -> dict:
+    async def daily_quota(
+        self,
+        conn: AsyncConnection,
+        tenant_id: str,
+        *,
+        now_utc=None,
+    ) -> dict:
         """仪表盘每日发送配额：域名 daily_limit 汇总 + 今日已发送"""
-        today = date.today()
-        tomorrow = today + timedelta(days=1)
+        today, tomorrow = beijing_day_bounds(now_utc)
 
         # 域名配额汇总
         limit_result = await conn.execute(
@@ -983,11 +1046,11 @@ class TenantQueryService:
         # 今日已发送
         used_result = await conn.execute(
             text(
-                """
+                f"""
                 SELECT count(*) AS used
                 FROM emails
                 WHERE tenant_id = :tenant_id
-                  AND status NOT IN ('draft', 'pending', 'queued')
+                  AND {SENT_SCOPE_FILTER}
                   AND created_at >= :today
                   AND created_at < :tomorrow
                 """
@@ -1004,7 +1067,9 @@ class TenantQueryService:
 
     async def llm_balance(self, conn: AsyncConnection, tenant_id: str) -> dict:
         """仪表盘 LLM 余额：复用 AI provider 配置"""
-        provider_state = await self.ai_provider.get_config(conn, tenant_id=tenant_id, refresh_if_stale=True)
+        provider_state = await self.ai_provider.get_config(
+            conn, tenant_id=tenant_id, refresh_if_stale=True
+        )
         balance = provider_state["balance"]
         return {
             "is_configured": provider_state["is_configured"],
@@ -1014,8 +1079,12 @@ class TenantQueryService:
             "balance_status": balance["status"],
         }
 
-    async def ai_capabilities(self, conn: AsyncConnection, tenant_id: str, roles: list[str]) -> dict:
-        provider_state = await self.ai_provider.get_config(conn, tenant_id=tenant_id, refresh_if_stale=True)
+    async def ai_capabilities(
+        self, conn: AsyncConnection, tenant_id: str, roles: list[str]
+    ) -> dict:
+        provider_state = await self.ai_provider.get_config(
+            conn, tenant_id=tenant_id, refresh_if_stale=True
+        )
         balance = provider_state["balance"]
         can_mutate_ai = any(role in {"admin", "operator"} for role in roles)
         is_configured = provider_state["is_configured"]
@@ -1035,17 +1104,23 @@ class TenantQueryService:
                 {
                     "feature": "email_generate",
                     "available": can_mutate_ai and is_available,
-                    "reason": None if can_mutate_ai and is_available else self._capability_reason(can_mutate_ai, is_configured, status),
+                    "reason": None
+                    if can_mutate_ai and is_available
+                    else self._capability_reason(can_mutate_ai, is_configured, status),
                 },
                 {
                     "feature": "email_analysis",
                     "available": can_mutate_ai and is_available,
-                    "reason": None if can_mutate_ai and is_available else self._capability_reason(can_mutate_ai, is_configured, status),
+                    "reason": None
+                    if can_mutate_ai and is_available
+                    else self._capability_reason(can_mutate_ai, is_configured, status),
                 },
                 {
                     "feature": "intelligence_summary",
                     "available": is_available,
-                    "reason": None if is_available else self._provider_reason(is_configured, status),
+                    "reason": None
+                    if is_available
+                    else self._provider_reason(is_configured, status),
                 },
             ],
         }
