@@ -217,8 +217,10 @@ async def run_wmt_lineage_repair_once(engine: AsyncEngine) -> dict:
 async def run_wmt_lineage_repair_on_connection(conn) -> dict:
     """在已有事务/连接内执行 repair，主要供测试和脚本复用。"""
     instance_id = get_settings().instance_id
+    # key 必须显式转 bigint:hashtext 返回 int4,int4 + int4 仍按 int4 求和,
+    # 2026052101 + hashtext('default')=822708183 会超出 int4 上限直接报错。
     locked = await conn.scalar(
-        text("SELECT pg_try_advisory_xact_lock(:key + pg_catalog.hashtext(:instance_id))"),
+        text("SELECT pg_try_advisory_xact_lock(CAST(:key AS bigint) + pg_catalog.hashtext(:instance_id))"),
         {"key": _ADVISORY_LOCK_KEY, "instance_id": instance_id},
     )
     if not locked:

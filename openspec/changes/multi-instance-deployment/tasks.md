@@ -63,7 +63,7 @@
 - [x] 8.4 修改 `tenant_messaging_service.py`：`recover_stale_locks` 加 `JOIN tenants WHERE instance_id = :instance_id`（只释放本实例的 stale lock）
 - [x] 8.5 修改 `email_reconciliation_service.py`：`reconcile_once` 查询加 instance_id 过滤
 - [x] 8.6 修改 `wmt_lineage_repair.py`：fan-out 查询加 `WHERE tenants.instance_id = :instance_id`
-- [x] 8.7 修改 `wmt_lineage_repair.py`：advisory lock key 加入 `pg_catalog.hashtext(instance_id)` 组合（实例级 lock）
+- [x] 8.7 修改 `wmt_lineage_repair.py`：advisory lock key 加入 `pg_catalog.hashtext(instance_id)` 组合（实例级 lock）；**2026-07-03 生产修正**：key 需 `CAST(:key AS bigint)`——hashtext 返回 int4，int4 相加溢出（生产报 `integer out of range`，仅影响 lineage repair 后台循环，已修复并验证）
 - [x] 8.8 确认 `tenant_ops_service.py` 的 advisory lock 保持全局互锁（保护 clean_* 表去重，不加 instance_id）
 
 ## 9. Instance B 初始化

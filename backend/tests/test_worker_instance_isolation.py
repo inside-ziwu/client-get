@@ -267,6 +267,10 @@ class TestAdvisoryLockInstanceScoped:
         assert "hashtext" in sql
         assert "instance_id" in sql
         assert params["instance_id"] == INSTANCE_ID
+        # key 必须在 bigint 域求和:hashtext 返回 int4,int4+int4 溢出
+        # (2026052101 + hashtext('default')=822708183 > int4 上限,生产曾报
+        # NumericValueOutOfRangeError: integer out of range)
+        assert "CAST(:key AS bigint)" in sql
 
     @pytest.mark.asyncio
     async def test_tenant_ops_advisory_lock_unchanged(self):
