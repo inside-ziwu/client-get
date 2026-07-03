@@ -6,6 +6,6 @@
 
 ## 2. 发布
 
-- [ ] 2.1 合入 main 后重建 Instance B admin 镜像(api_url 指向 B 后端)并更新容器
-- [ ] 2.2 重建 Instance A admin 镜像(默认 api_url)供 A 更新
-- [ ] 2.3 在 B 管理端确认预热档位下拉可滚动、19 档全部可选
+- [x] 2.1 B admin 镜像已重建并部署(instanceB-r2,后由 instanceB-r3 迭代取代)
+- [x] 2.2 A admin 镜像 `2026.07.03-r1` 已构建并部署
+- [x] 2.3 生产实测通过:B 管理端 19 档滚动可选(实际操作中选中过 14/18 档)
