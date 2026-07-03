@@ -51,7 +51,7 @@ export default function OnboardingPage() {
           </div>
           <Button onClick={() => completeMutation.mutate()} disabled={completeMutation.isPending}>
             <CheckCircle2 className="h-4 w-4" />
-            完成并进入工作台
+            进入工作台
           </Button>
         </CardContent>
       </Card>

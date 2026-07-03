@@ -324,20 +324,8 @@ class TenantSettingsService:
         return {"id": rule_id, "name": name, "rules": payload["rules"], "version": version}
 
     async def complete_onboarding(self, conn: AsyncConnection, *, tenant_id: str) -> None:
-        keyword_count = (
-            await conn.execute(
-                text(
-                    """
-                    SELECT count(*)
-                    FROM tenant_keyword
-                    WHERE tenant_id = :tenant_id AND status = 'active'
-                    """
-                ),
-                {"tenant_id": tenant_id},
-            )
-        ).scalar_one()
-        if keyword_count < 1:
-            raise AppError(code="VALIDATION_ERROR", message="至少需要一个有效关键词才能完成向导", status_code=422)
+        # 引导页仅作提示,不设进入门槛(2026-07-03 移除关键词前置校验,
+        # 见 openspec change update-onboarding-remove-keyword-gate)
         await conn.execute(
             text(
                 """
