@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.config import get_settings
+from app.services.collection_source import compute_collection_type
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +121,17 @@ def _match_condition(condition: dict, company_data: dict) -> bool:
         return any(target in str(t) for t in all_tags)
 
     if ctype == "has_china_pcb_supplier":
-        # pcb_suppliers 数据在 clean_companies 表，当前无法从 waimaotong_clean_companies 直接获取
-        logger.warning("has_china_pcb_supplier 条件无法在当前数据模型下匹配，得分 0")
-        return False
+        # 业务口径（2026-07-03 确认）：采集类型为「精准反推」(reverse) ⇔ 有中国 PCB 供应商。
+        # 采集类型判定复用 collection_source.compute_collection_type 单一真源。
+        tags = company_data.get("data_source_tags")
+        if isinstance(tags, str):
+            import json as _json
+
+            try:
+                tags = _json.loads(tags)
+            except (ValueError, TypeError):
+                tags = None
+        return compute_collection_type(tags) == "reverse"
 
     logger.warning("未知评分条件类型: %s，该维度得分 0", ctype)
     return False
