@@ -136,7 +136,7 @@ git add <文件>  →  git commit  →  git push
 - ✅ `fix-engagelab-provider-event-id-length`（14/14）→ 主 spec `docs/specs/engagelab-email-event-ingestion/`
 - ✅ `update-email-send-interval-1s`（11/11）→ 主 spec `docs/specs/email-send-interval/`
 
-`openspec/changes/company-list-index-optimization`（3/7，改 `tenant-companies-list`）暂停，待用 docs/plans 重评估是否重启。其余 active changes（`2026-05-16-local-verify-setup` 等）与 3 个 ✓Complete 未归档 change 就地封存，不再推进。
+✅ `company-list-index-optimization`（7/7）已收尾：纯索引性能优化，迁移随 head 上线；2026-07-05 生产 EXPLAIN ANALYZE 实测 `lixiaoyun` 走 Index Scan、6.5ms（优化前 3.6s），spec delta 已并入 `docs/specs/tenant-companies-list`。其余 active changes（`2026-05-16-local-verify-setup` 等）与 3 个 ✓Complete 未归档 change 就地封存，不再推进。
 
 ## 8. 镜像构建与推送快捷命令
 
