@@ -13,6 +13,7 @@
 | `docs/brainstorms/`、`docs/plans/`、`docs/superpowers/`、`docs/handovers/` | 当前工作流产物（需求 / 设计 / 执行脚本 / 交接记录） | 可改（由工作流 skill 按流程写入） |
 | `docs/specs/` | 系统行为规格（能力域 Given/When/Then，系统行为真相；原 `openspec/specs/`，2026-07-05 迁入） | 只读参考：不再经流程自动更新，行为变更后由实施者手工同步对应 spec |
 | `docs/solutions/` | 已沉淀的解决方案（bug 修复 / 最佳实践 / 工作流方法论），按 category 组织 + YAML frontmatter（`module` / `tags` / `problem_type`）；由 `/ce:compound` skill 创建。**实施或调试涉及已有解决方案的领域时可参考。** | 可改（仅限 `ce:compound` / `ce:compound-refresh` 添加） |
+| `docs/tech-debt.md` | 技术债 / 待改进台账（已发现未即时修的缺陷、功能缺口、隐患），编号 `TD-N` 递增追加；修复走当前工作流。**发现值得单独修的问题即登记。** | 可改（发现即登记，解决后标注） |
 | `docs/` 其余（会议、原始资料、research、session-records、mock 等） | 历史文档 | **只读，禁止修改/删除/移动** |
 | `openspec/` | **已退役**（2026-07-05）：仅保留归档 changes 与 config.yaml 作历史参考，不再新建 change | 只读参考 |
 
