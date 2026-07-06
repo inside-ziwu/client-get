@@ -4,13 +4,13 @@
 
 ## 1. 行动入口
 
-- 实施类任务必须先确认当前 `openspec/changes/<change-id>/`；没有合适 change，不得直接改代码或写新文档。
-- 若用户未指定 change，先用 `openspec list` 查看 active changes，再判断是否需要创建或补齐 change。
+- 实施类任务必须先确认当前对应的 plan 产物（`docs/plans/…-plan.md` 或 `docs/superpowers/plans/…`）；没有对应 plan，不得直接改代码或写新文档。
+- 若尚无 plan，按 `~/Projects/CLAUDE.md`「AI 编程工作流」路径 A/B：`ce-brainstorm` →（路径 B 加 `ce-plan`）→ `writing-plans` 产出后再实施。工作流细则见 [AGENTS.md](AGENTS.md) §3/§6。
 
 ## 2. 与 Skill 的协作
 
-- bugfix、需求、行为调整、重构、部署变更都必须走 OpenSpec（`openspec/changes/`）。
-- 实施前如有歧义、冲突、缺口或验收标准不清，必须先使用 AskUserQuestion 工具澄清；用户确认后写入当前 OpenSpec change。
+- bugfix、需求、行为调整、重构、部署变更都必须走当前工作流（compound-engineering + superpowers 主链，见 [AGENTS.md](AGENTS.md) §3）；非功能开发的轻量改动除外。
+- 实施前如有歧义、冲突、缺口或验收标准不清，必须先使用 AskUserQuestion 工具澄清；用户确认后写入当前 plan 产物。
 - 收尾前必须调用 `verification-before-completion` skill，并输出「原始需求 → 已实现/未实现」对照。
 
 ## 3. 输出语言
@@ -19,14 +19,14 @@
 
 ## 4. 不要做的事
 
-- 不要移动或重命名 `docs/`下的任何文件。
+- 不要移动或重命名 `docs/` 下的历史文档与 `docs/specs/`（工作流产物目录 `docs/plans`、`docs/brainstorms`、`docs/superpowers`、`docs/handovers` 由对应 skill 正常写入，不在此列）。
 - 不要凭记忆引用文件路径；先 grep / read 再说。
-- 不要把历史文档、现状代码、口头推测直接当作实施命令；必须先沉淀到当前 OpenSpec change。
-- 不要在当前 OpenSpec change 之外写过程性决策、计划、调研；
+- 不要把历史文档、现状代码、口头推测直接当作实施命令；必须先沉淀到当前 plan 产物。
+- 不要在当前 plan 产物之外写过程性决策、计划、调研。
 
 ## 5. 模块说明
 
-单一 monorepo，所有代码和 PM 资产在同一个 git 历史中。入口以实际目录和当前 OpenSpec change 为准；
+单一 monorepo，所有代码和 PM 资产在同一个 git 历史中。入口以实际目录和当前 plan 产物为准；
 
 - 前端：[`frontend/apps/tenant/`](frontend/apps/tenant/)（租户端）+ [`frontend/apps/admin/`](frontend/apps/admin/)（管理端）+ [`frontend/packages/`](frontend/packages/) 共享包
 - 后端 API：[`backend/app/main.py`](backend/app/main.py)，路由分布在 [`backend/app/api/`](backend/app/api/)

@@ -1,3 +1,5 @@
+# ⚠️ 已退役（2026-07-05）：OpenSpec 工作流已停用，改用 docs/plans（compound-engineering + superpowers）主链。
+# 本文件仅作历史参考；项目背景 / 技术栈 / 代码规范已上移至 AGENTS.md §11。不要再依据本文件新建 change。
 schema: spec-driven
 
 context: |

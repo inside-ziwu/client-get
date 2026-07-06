@@ -10,43 +10,42 @@
 | --- | --- | --- |
 | `frontend/` | 前端代码（pnpm monorepo：tenant + admin + packages/ 共享包） | 可改 |
 | `backend/` | 后端代码 | 可改 |
-| `docs/` | 历史文档：会议、原始资料、归档、计划（`docs/solutions/` 除外，见下行） | **只读，禁止修改/删除/移动** |
+| `docs/brainstorms/`、`docs/plans/`、`docs/superpowers/`、`docs/handovers/` | 当前工作流产物（需求 / 设计 / 执行脚本 / 交接记录） | 可改（由工作流 skill 按流程写入） |
+| `docs/specs/` | 系统行为规格（能力域 Given/When/Then，系统行为真相；原 `openspec/specs/`，2026-07-05 迁入） | 只读参考：不再经流程自动更新，行为变更后由实施者手工同步对应 spec |
 | `docs/solutions/` | 已沉淀的解决方案（bug 修复 / 最佳实践 / 工作流方法论），按 category 组织 + YAML frontmatter（`module` / `tags` / `problem_type`）；由 `/ce:compound` skill 创建。**实施或调试涉及已有解决方案的领域时可参考。** | 可改（仅限 `ce:compound` / `ce:compound-refresh` 添加） |
-| `openspec/` | 规范驱动开发（OpenSpec skill 识别） | 可改 |
+| `docs/` 其余（会议、原始资料、research、session-records、mock 等） | 历史文档 | **只读，禁止修改/删除/移动** |
+| `openspec/` | **已退役**（2026-07-05）：仅保留归档 changes 与 config.yaml 作历史参考，不再新建 change | 只读参考 |
 
 ## 2. 任务前置判断
 
-开始前先判断任务是否会修改代码/文档/配置：
-- **不修改**（只读分析、review、咨询）：直接读取必要上下文即可，无需绑定 OpenSpec change
-- **修改代码/文档/配置**：必须进入下方行动顺序，绑定 OpenSpec change 后再实施
-- **上线 / 生产副作用**：必须由用户显式触发（见 §7 镜像推送）
+开始前先判断任务会不会修改代码/文档/配置：
+- **不修改**（只读分析、review、咨询、运维查询）：直接读取必要上下文即可，无需走工作流
+- **修改代码/文档/配置**：进入 §3 行动顺序，按当前工作流推进
+- **上线 / 生产副作用**：必须由用户显式触发（见 §8 镜像推送）
 
 ## 3. 行动顺序（硬性）
 
-任何实施类任务开始前，按以下顺序确认上下文：
+bugfix、需求、行为调整、重构、部署变更都必须走当前工作流（主链权威定义见 `~/Projects/CLAUDE.md`「AI 编程工作流」），不得跳过：
 
-1. 先确认当前任务对应的 OpenSpec change：
-   - 若用户已指定 change，读取该 change 的 `proposal.md` / `design.md`（如有）/ `tasks.md` / `specs/*`（如有）
-   - 若用户未指定 change，先用 `openspec list` 查看当前 active changes
-   - 若 active changes 中无法唯一匹配当前任务，必须暂停并询问用户指定 change；不得自行选择相近 change
-   - 若没有合适 change，不得实施；必须先创建或补齐 change
+- **路径 A（常规）**：`ce-brainstorm`（产 `docs/brainstorms/…` 需求）→ `writing-plans`（产 `docs/superpowers/plans/…` 的 checkbox-TDD 执行脚本）→ `subagent-driven-development` 或 `executing-plans` 执行
+- **路径 B（复杂 / 跨模块 / 仓库耦合深）**：在 A 中间插 `ce-plan` 做架构设计（产 `docs/plans/…-plan.md`）；`writing-plans` 以该 implementation-ready plan 为输入，只降海拔、不重做架构
+- **校验 gate**：需求 / spec 定型后跑 `ce-doc-review`；设计定型后（仅路径 B）跑 `gstack-plan-eng-review`
+- **坑**：`ce-plan` 收尾会提议 handoff 到 `ce-work`——必须拒绝，手动起 `writing-plans`，否则丢 checkbox-TDD 红绿纪律
 
-2. 最后读取相关代码、测试、配置与当前 change 指向的材料。
-
-禁止在未确认当前 OpenSpec change 的情况下直接改代码。
+实施前先读相关代码、测试、配置与当前 plan 指向的材料；不得把历史文档、现状代码、口头推测直接当实施命令。
+文档、注释、配置、样式微调等非功能开发改动，按 §5.1 直接实施即可，不强制全链路。
 
 ## 4. 硬性禁止
 
-- **禁止移动或剪切** `docs/` 与 `blueprint/` 下的任何文件
-- **禁止在未确认当前 OpenSpec change 的情况下** 直接改代码或写新文档
-- **禁止跳过必要上下文读取**——OpenSpec change 必读，`_control/` 仅按当前 change 引用或任务需要读取
-- **禁止凭印象写代码**——当前实施事实以 active OpenSpec change 为准；`_control/` 仅提供输入、证据和历史归档
-- **禁止跳过 OpenSpec 流程**——bugfix、需求、行为调整、重构、部署变更都必须走 `openspec/changes/`
+- **禁止移动 / 剪切 / 删除** `docs/` 下的历史文档与 `docs/specs/`（工作流产物目录 `docs/plans`、`docs/brainstorms`、`docs/superpowers`、`docs/handovers` 由对应 skill 正常写入，不在此列）
+- **禁止跳过当前工作流** 直接改代码或写新文档（触发范围见 §3；非功能开发的轻量改动除外）
+- **禁止凭印象 / 凭记忆写代码或引用路径**——先 grep / read 确认；系统行为以 `docs/specs/` 现状与代码为准
+- **禁止把历史文档、现状代码、口头推测直接当实施命令**——必须先沉淀进当前 plan 产物
 
 ## 5. 提交与改动准则
 
 - 简洁优先（KISS），不做过度防御性设计
-- 改动前发现疑点时，必须先用 AskUserQuestion 澄清；用户确认后写入当前 OpenSpec change
+- 改动前发现疑点时，必须先用 AskUserQuestion 澄清；用户确认后写入当前 plan 产物（`docs/plans/` 或 `docs/superpowers/plans/`）
 - 中文沟通，注释与提交信息同样使用中文
 
 ### 5.1 Git 分支与推送策略
@@ -55,7 +54,7 @@
 
 | 方式 | 适用场景 | 示例 |
 | --- | --- | --- |
-| **直接推 main** | 非功能开发的改动 | 文档、注释、配置、样式微调、OpenSpec 文档 |
+| **直接推 main** | 非功能开发的改动 | 文档、注释、配置、样式微调、工作流 plan 文档 |
 | **分支 → PR → 合并** | 所有功能开发 | 新功能、bug 修复、重构、数据库迁移、API 变更 |
 
 **分支命名**：`feat/<简短描述>`、`fix/<简短描述>`、`refactor/<简短描述>`。
@@ -81,62 +80,63 @@ git add <文件>  →  git commit  →  git push
 
 **合并时机**：分支上的功能完整可用、本地验证通过即可合并。不需要等到完美，但不能破坏现有功能。
 
-## 6. OpenSpec 变更驱动原则（最高优先级）
+## 6. 工作流驱动原则（最高优先级）
 
-> 用户决策（2026-05-10）：本工作区不再维护单一静态真源。
-> 不管是 bug、需求、行为调整、重构、部署变更，都必须先走 OpenSpec，生成 `openspec/changes/<change-id>/` 后再实施。
+> 用户决策（2026-07-05）：OpenSpec 退役，改用 compound-engineering（定需求 / 设计）+ superpowers（管执行 / 纪律）主链。主链权威定义见 `~/Projects/CLAUDE.md`「AI 编程工作流」。
+> 不管是 bug、需求、行为调整、重构、部署变更，都必须先走该工作流，产出对应 plan 产物后再实施。
 
 ### 6.1 执行权威
 
-当前实施任务的最高执行权威是对应的 OpenSpec change：
+当前实施任务的最高执行权威是对应的 plan 产物：
 
-- `openspec/changes/<change-id>/proposal.md`
-- `openspec/changes/<change-id>/design.md`（如存在）
-- `openspec/changes/<change-id>/tasks.md`
-- `openspec/changes/<change-id>/specs/*`（如存在）
+- `docs/brainstorms/…`（需求，ce-brainstorm 产出）
+- `docs/plans/…-plan.md`（架构设计源，路径 B，ce-plan 产出）
+- `docs/superpowers/plans/…`（checkbox-TDD 执行脚本，writing-plans 产出）
+- `docs/specs/<capability>/spec.md`（系统行为规格 / 行为真相；只读参考，非本次改动产物）
 
-没有 OpenSpec change，不得直接改代码实施。
+功能类改动没有对应 plan 产物，不得直接改代码实施。
 
 ### 6.2 冲突与缺口处理
 
-- change 内已明确裁决的，以当前 change 为准
-- change 没有明确裁决的，不允许 AI 自行补完、选边或平均
+- plan 内已明确裁决的，以当前 plan 为准
+- plan 没有明确裁决的，不允许 AI 自行补完、选边或平均
 - 遇到冲突、缺口、范围不清、验收标准不清时，必须暂停实施，并使用 AskUserQuestion 工具向用户提问
 - 提问方式应采用苏格拉底式澄清：一次聚焦一个关键不确定点，给出事实背景、影响范围和可选判断，帮助用户把需求补完整
-- 用户确认后，必须先把结论更新进当前 OpenSpec change 的 proposal / design / tasks / specs，再继续实施
+- 用户确认后，需求变更改 `docs/plans/…-plan.md` 再重跑 `writing-plans` 翻译；不要绕过设计源直接改执行脚本
 
 ### 6.3 AI 行为约束
 
-- 实施前必须确认当前工作对应哪个 `openspec/changes/<change-id>/`
-- bugfix、需求、行为调整、重构、部署变更都必须有 change；不能因为“只是修 bug”跳过 OpenSpec
-- 不得把任何历史文档、现状代码、口头推测直接当作实施命令；必须先沉淀到当前 change
-- 如果发现当前 change 与新决策不一致，必须暂停、提问、更新 change，再继续
+- 实施前必须确认当前工作对应哪份 plan 产物
+- bugfix、需求、行为调整、重构、部署变更都必须有 plan 产物；不能因为“只是修 bug”跳过工作流
+- 不得把任何历史文档、现状代码、口头推测直接当作实施命令；必须先沉淀到当前 plan
+- 如果发现当前 plan 与新决策不一致，必须暂停、提问、更新 plan，再继续
 
-## 7. OpenSpec 实施门禁
+## 7. 实施门禁与迁移过渡
 
-> 本节约束 OpenSpec change 从实施到收尾的最低门槛。
+> 本节约束从实施到收尾的最低门槛，并登记 OpenSpec 退役期的过渡例外。
 
-### 7.1 实施前
+### 7.1 实施中
 
-- 必须存在当前任务对应的 `openspec/changes/<change-id>/`
-- change 必须至少包含 `proposal.md` 与 `tasks.md`
-- 涉及架构、数据模型、跨模块流程、外部服务、部署的 change，必须补 `design.md`
-- `tasks.md` 必须能拆到可执行步骤，不能只有一句泛泛目标
-- change 中存在冲突、缺口或验收标准不清时，必须先 AskUserQuestion 澄清并更新 change
-
-### 7.2 实施中
-
-- 代码改动必须严格落在当前 change 范围内
-- 新发现的需求变化、技术约束、范围变化，必须先更新 change，再继续实施
+- 代码改动必须严格落在当前 plan 范围内
+- 新发现的需求变化、技术约束、范围变化，必须先更新 plan，再继续实施
 - 涉及数据库、worker、邮件、tenant 权限、部署、生产数据的改动，必须做额外 review
 
-### 7.3 收尾前
+### 7.2 收尾前
 
-- 必须完成当前 change 的 `tasks.md` 勾选或明确标注未完成项
+- 必须完成当前执行脚本的 checkbox 勾选或明确标注未完成项（TDD 红绿纪律由 `writing-plans` 的 checkbox 承载，`executing-plans` 只机械执行）
 - 必须运行与改动匹配的验证：测试、构建、lint、E2E、或手工验收记录
-- 涉及真实业务链路的 change，不能只靠单元测试，必须有端到端验证或明确记录未验证原因
-- 涉及上线的 change，必须有 release / rollback / secrets 检查
+- 涉及真实业务链路的改动，不能只靠单元测试，必须有端到端验证或明确记录未验证原因
+- 涉及上线的改动，必须有 release / rollback / secrets 检查
 - 汇报完成前必须调用 `verification-before-completion` skill，并输出「原始需求 → 已实现/未实现」对照
+
+### 7.3 OpenSpec 退役过渡例外（2026-07-05）
+
+以下 2 个 in-flight change 按老流程做完：完成各自 `tasks.md` 的代码任务 + 验证即可，**无需 `opsx:archive`**；完成后把其最终 spec 手工放进 `docs/specs/`：
+
+- `openspec/changes/fix-engagelab-provider-event-id-length`（11/14）→ 新 spec 落 `docs/specs/engagelab-email-event-ingestion/`
+- `openspec/changes/update-email-send-interval-1s`（9/11）→ 新 spec 落 `docs/specs/email-send-interval/`
+
+`openspec/changes/company-list-index-optimization`（3/7，改 `tenant-companies-list`）暂停，待用 docs/plans 重评估是否重启。其余 active changes（`2026-05-16-local-verify-setup` 等）与 3 个 ✓Complete 未归档 change 就地封存，不再推进。
 
 ## 8. 镜像构建与推送快捷命令
 
@@ -240,40 +240,17 @@ docker build -f Dockerfile.tenant --build-arg NEXT_PUBLIC_API_BASE_URL=https://a
 
 - 当前 backend 镜像的 `/start.sh` 会先执行 `alembic upgrade head` 再启动服务；若已更新并重启 `clientget-backend`，通常迁移会自动跑完。手动迁移只在需要确认或补跑时执行。
 
-## 11. 开发工作流（按任务规模分档）
+## 11. 项目架构与代码规范速览
 
-按任务规模选择对应流程。每步只用一个技能/工具。
+> 原 `openspec/config.yaml` 的项目背景随 OpenSpec 退役上移至此，作为实施参考。
 
-### S 级：小任务（< 2h，低风险）
-
-适用：文案、小 bug、局部样式、单文件小改、低风险脚本调整。
-
-```
-ce:plan → ce:work → verification-before-completion → gstack ship
-```
-
-S 级不强制 OpenSpec，不强制 QA，不强制经验沉淀。
-
-### M 级：常规功能（半天~2天）
-
-适用：常规功能、常规重构、影响用户路径但范围清楚。
-
-```
-ce:brainstorm → ce:plan → gstack plan-eng-review → ce:work → verification-before-completion → gstack qa → gstack ship
-```
-
-### L 级：大功能/高风险（多天，跨模块）
-
-适用：多天任务、跨模块改动、产品方向不确定、多人协作、需要长期维护。
-
-```
-ce:brainstorm → opsx:propose → opsx:verify → ce:plan → gstack plan-eng-review → ce:work → verification-before-completion → gstack qa → ce:review → gstack ship → gstack land-and-deploy → opsx:archive → ce:compound
-```
-
-### 补充说明
-
-- `using-superpowers` 是隐含会话纪律，不列为执行步骤
-- `gstack autoplan` 不是默认步骤，仅在需要全视角自动总审时使用（"帮我完整审一遍"）
-- `ce:compound` 只在踩坑、形成可复用模式、或有长期价值时使用
-- 纯修 bug 时，M 级第 1 步可替换为 `systematic-debugging`
-- 非 Web 项目，`gstack qa` 替换为 `gstack health`
+- **产品**：ClientGet — B2B 外贸客户智能平台（采集 → 清洗 → 评分 → 邮件触达 全链路）
+- **技术栈**：前端 pnpm monorepo（apps/tenant + apps/admin + packages/ 共享包，shadcn/ui + Tailwind，GrapeJS 邮件编辑器）；后端 Python / FastAPI / SQLAlchemy(async)；PostgreSQL + Alembic；Worker `backend/app/workers/`（collection / scheduler / scoring / sending）；部署 Sealos + 阿里云 ACR
+- **外部服务**：EngageLab（邮件通道）、Tendata（数据采集）
+- **后端路由前缀**：`/admin/api/v1`（管理端）、`/t/{slug}/api/v1`（租户端）、`/internal/api/v1`（内部 worker）、`/webhooks`
+- **认证与隔离**：JWT + RLS（`set_current_tenant` 实现租户隔离）
+- **前端状态**：React Query（服务端状态）+ Zustand（认证状态）
+- **后端分层**：api（路由 + 参数 + 权限）→ services（业务逻辑 + 手写 SQL via AsyncConnection，无 ORM 实体层）→ db/pools（连接池 + RLS）；route 层不写业务逻辑；新增入参优先 Pydantic schema，避免 `payload: dict`；新增静态路由必须放在动态 `/{id}` 路由之前
+- **命名**：Python snake_case，TypeScript camelCase 变量 / PascalCase 组件
+- **迁移**：Alembic auto-generate，每次变更一个 revision；涉及前端 API 调用时同步更新 `packages/shared-api`
+- **准则**：简洁优先（KISS），避免过度防御性设计；中文沟通 / 注释 / 提交信息

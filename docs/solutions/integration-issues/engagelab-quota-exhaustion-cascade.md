@@ -61,5 +61,5 @@ tags: [engagelab, quota, circuit-breaker, sending-worker, cascade, defer]
 ## Related Issues
 
 - openspec 归档：`openspec/changes/archive/2026-07-03-fix-quota-exhaustion-cascade/`（含 U6 冒烟记录）与 `2026-07-03-restore-quota-incident-enrollments/`（13,941 个序列的数据修复）
-- 主 spec：`openspec/specs/sending-quota-circuit-breaker/spec.md`、`openspec/specs/quota-incident-data-repair/spec.md`
+- 主 spec：`docs/specs/sending-quota-circuit-breaker/spec.md`、`docs/specs/quota-incident-data-repair/spec.md`
 - 相邻经验：`docs/solutions/workflow-issues/sealos-victorialogs-log-search-pitfalls.md`（本次取证签名时踩的日志检索坑）
