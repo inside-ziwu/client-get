@@ -17,6 +17,6 @@
 
 ## 4. 验证与生产准备
 
-- [ ] 4.1 本地只读确认 migration 后 `sending_plans` 默认值与既有数据为 `[1,1]`
+- [x] 4.1 本地只读确认（2026-07-05 dev：`sending_plans.send_strategy` 默认 `{"interval_seconds":[1,1]}`，既有 3 条计划全为 `[1,1]`）
 - [x] 4.2 记录生产执行方式：后端镜像启动自动执行 `alembic upgrade head`，或用户明确触发后手动迁移
-- [ ] 4.3 生产迁移后只读确认既有发送计划已更新为 `[1,1]`
+- [x] 4.3 生产只读确认（2026-07-05 prod：`sending_plans.send_strategy` 默认 `[1,1]`，既有 24 条计划全为 `[1,1]`）

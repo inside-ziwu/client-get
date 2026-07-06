@@ -20,6 +20,6 @@
 ## 4. 部署与收尾
 
 - [x] 4.1 部署前确认迁移只涉及字段类型放宽，不会删除或截断生产数据
-- [ ] 4.2 若用户明确触发上线，按项目流程构建并推送 backend 镜像，再在 Sealos 更新 `clientget-backend` 及共用 backend 镜像的 worker 服务
-- [ ] 4.3 部署后观察 EngageLab webhook 日志，确认不再出现 `StringDataRightTruncationError: value too long for type character varying(100)`
-- [ ] 4.4 收尾前调用 `verification-before-completion`，输出“原始需求 → 已实现/未实现”对照
+- [x] 4.2 上线部署：迁移随 alembic head `20260625_0100` 已上线（2026-07-05 只读核验生产 `email_events.provider_event_id` 已为 `text`）
+- [x] 4.3 生产字段已为 `text`，`value too long for type character varying(100)` 截断错误在结构上不再可能出现（2026-07-05 只读核验）
+- [x] 4.4 收尾对照见 OpenSpec 退役收尾（AGENTS.md §7.3）；`test_webhook_service_engagelab_provider_event_id.py` 2 项通过

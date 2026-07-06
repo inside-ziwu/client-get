@@ -131,10 +131,10 @@ git add <文件>  →  git commit  →  git push
 
 ### 7.3 OpenSpec 退役过渡例外（2026-07-05）
 
-以下 2 个 in-flight change 按老流程做完：完成各自 `tasks.md` 的代码任务 + 验证即可，**无需 `opsx:archive`**；完成后把其最终 spec 手工放进 `docs/specs/`：
+以下 2 个 in-flight change 已按老流程收尾（代码早已合并上线；2026-07-05 补跑专属测试 + dev/prod 只读核验 + 落主 spec，未走 `opsx:archive`）：
 
-- `openspec/changes/fix-engagelab-provider-event-id-length`（11/14）→ 新 spec 落 `docs/specs/engagelab-email-event-ingestion/`
-- `openspec/changes/update-email-send-interval-1s`（9/11）→ 新 spec 落 `docs/specs/email-send-interval/`
+- ✅ `fix-engagelab-provider-event-id-length`（14/14）→ 主 spec `docs/specs/engagelab-email-event-ingestion/`
+- ✅ `update-email-send-interval-1s`（11/11）→ 主 spec `docs/specs/email-send-interval/`
 
 `openspec/changes/company-list-index-optimization`（3/7，改 `tenant-companies-list`）暂停，待用 docs/plans 重评估是否重启。其余 active changes（`2026-05-16-local-verify-setup` 等）与 3 个 ✓Complete 未归档 change 就地封存，不再推进。
 
