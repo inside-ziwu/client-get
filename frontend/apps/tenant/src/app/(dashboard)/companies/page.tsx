@@ -20,10 +20,15 @@ import CompanyDetail from './company-detail';
 import CompanyFilters, { type FilterValues, EMPTY_FILTERS, buildParams, countryZh } from '@/components/company-filters';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 500, 1000] as const;
+const EMPLOYEE_SIZE_COLUMN_CLASS = 'w-[88px] min-w-[88px] max-w-[88px] whitespace-nowrap px-2 py-2';
 
 function dash(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return '-';
   return String(value);
+}
+
+function tableHeaderClass(header: string) {
+  return header === '员工规模' ? EMPLOYEE_SIZE_COLUMN_CLASS : 'whitespace-nowrap px-3 py-2';
 }
 
 function collectionTypeLabel(value: Company['collection_type']) {
@@ -129,7 +134,7 @@ export default function CompaniesPage() {
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
                   {['公司名', '国家', '采集类型', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '来源同行', '来源同行（中文名）', '联系人数', '操作', '入库时间'].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
+                    <th key={h} className={tableHeaderClass(h)}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -153,7 +158,9 @@ export default function CompaniesPage() {
                     <td className="whitespace-nowrap px-3 py-2">{collectionTypeLabel(row.collection_type)}</td>
                     <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
                     <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
-                    <td className="whitespace-nowrap px-3 py-2">{dash(row.employee_num)}</td>
+                    <td className={EMPLOYEE_SIZE_COLUMN_CLASS}>
+                      <span className="block truncate">{dash(row.employee_num)}</span>
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2">{dash(row.founded_year)}</td>
                     <td className="px-3 py-2">
                       {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}
