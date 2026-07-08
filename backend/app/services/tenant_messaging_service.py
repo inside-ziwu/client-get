@@ -13,6 +13,7 @@ from app.core.ids import new_uuid
 from app.integrations.engagelab import EngageLabClient
 from app.services.ai_usage_log_service import AiUsageLogService
 from app.services.audit_service import AuditService
+from app.services.sending_plan_completion import complete_running_plan_if_finished
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 from app.services.tenant_contact_utils import ensure_contacts_from_wmt
 from app.utils.beijing_time import beijing_today
@@ -2075,6 +2076,7 @@ class TenantMessagingService:
             {"plan_id": email["plan_id"], "next_step_number": email["step_number"] + 1},
         )
         next_row = next_step.mappings().first()
+        should_check_plan_completion = False
         if next_row is None:
             await conn.execute(
                 text(
@@ -2091,6 +2093,7 @@ class TenantMessagingService:
                 ),
                 {"enrollment_id": email["enrollment_id"]},
             )
+            should_check_plan_completion = True
         else:
             await conn.execute(
                 text(
@@ -2120,6 +2123,8 @@ class TenantMessagingService:
             ),
             {"plan_id": email["plan_id"]},
         )
+        if should_check_plan_completion:
+            await complete_running_plan_if_finished(conn, plan_id=email["plan_id"])
         return {"email_id": email_id, "status": "sent"}
 
     async def mark_email_failed(
@@ -2191,6 +2196,7 @@ class TenantMessagingService:
                 status_code=status_code,
                 error_category=error_category,
             )
+            await complete_running_plan_if_finished(conn, plan_id=email["plan_id"])
             return {
                 "email_id": email_id,
                 "status": "failed",
@@ -2241,6 +2247,7 @@ class TenantMessagingService:
                 "send_attempt_count": next_attempts,
             },
         )
+        await complete_running_plan_if_finished(conn, plan_id=email["plan_id"])
         return {
             "email_id": email_id,
             "status": "failed",
