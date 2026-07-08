@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
 from app.core.ids import new_uuid
+from app.services.sending_plan_completion import complete_running_plan_if_finished
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class WebhookService:
         email_result = await conn.execute(
             text(
                 """
-                SELECT id, created_at, tenant_id, enrollment_id, tenant_contact_id, to_email, status,
+                SELECT id, created_at, tenant_id, plan_id, enrollment_id, tenant_contact_id, to_email, status,
                        open_count, first_opened_at
                 FROM emails
                 WHERE engagelab_message_id = :message_id
@@ -112,6 +113,8 @@ class WebhookService:
                     "occurred_at": occurred_at_dt,
                 },
             )
+            if email["plan_id"]:
+                await complete_running_plan_if_finished(conn, plan_id=email["plan_id"])
         # 联系人状态联动
         if event_type in {"replied", "bounced", "unsubscribed"} and email["tenant_contact_id"]:
             await conn.execute(

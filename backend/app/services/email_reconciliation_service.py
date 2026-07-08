@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.config import get_settings
 from app.integrations.engagelab import EngageLabClient
+from app.services.sending_plan_completion import complete_running_plan_if_finished
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class EmailReconciliationService:
         rows = await conn.execute(
             text(
                 """
-                SELECT e.id, e.created_at, e.sent_at, e.tenant_id, e.enrollment_id,
+                SELECT e.id, e.created_at, e.sent_at, e.tenant_id, e.plan_id, e.enrollment_id,
                        e.tenant_contact_id, e.to_email, e.engagelab_message_id
                 FROM emails e
                 JOIN tenants t ON t.id = e.tenant_id
@@ -166,6 +167,8 @@ class EmailReconciliationService:
                 ),
                 {"enrollment_id": email["enrollment_id"], "occurred_at": occurred_at},
             )
+            if email["plan_id"]:
+                await complete_running_plan_if_finished(conn, plan_id=email["plan_id"])
         if email["tenant_contact_id"]:
             await conn.execute(
                 text(
