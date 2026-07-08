@@ -1083,7 +1083,7 @@ CREATE TABLE sending_plans (
   status varchar(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','scheduled','running','paused','completed','cancelled')),
   recipient_source varchar(20) NOT NULL CHECK (recipient_source IN ('group','manual','filter')),
   recipient_config jsonb NOT NULL,
-  send_strategy jsonb NOT NULL DEFAULT '{"interval_seconds":[30,120]}',
+  send_strategy jsonb NOT NULL DEFAULT '{"interval_seconds":[3,3]}',
   sender_name varchar(200),
   sender_email varchar(255),
   domain_id uuid REFERENCES domain_warmup_status(id),
