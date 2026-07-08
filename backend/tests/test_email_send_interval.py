@@ -7,21 +7,21 @@ from app.services.tenant_messaging_service import TenantMessagingService
 from app.workers.sending import SendingWorker
 
 
-def test_worker_delay_uses_fixed_one_second_interval():
+def test_worker_delay_uses_fixed_three_second_interval():
     worker = SendingWorker(random_between=lambda low, high: low)
 
-    assert worker._delay_seconds({"interval_seconds": [1, 1]}) == 1
+    assert worker._delay_seconds({"interval_seconds": [3, 3]}) == 3
 
 
-def test_worker_delay_falls_back_to_one_second_for_missing_or_invalid_interval():
+def test_worker_delay_falls_back_to_three_seconds_for_missing_or_invalid_interval():
     worker = SendingWorker(random_between=lambda low, high: low)
 
-    assert worker._delay_seconds(None) == 1
-    assert worker._delay_seconds({"interval_seconds": ["bad"]}) == 1
+    assert worker._delay_seconds(None) == 3
+    assert worker._delay_seconds({"interval_seconds": ["bad"]}) == 3
 
 
 @pytest.mark.asyncio
-async def test_create_sending_plan_defaults_to_one_second_interval():
+async def test_create_sending_plan_defaults_to_three_second_interval():
     svc = TenantMessagingService()
     conn = AsyncMock()
 
@@ -45,4 +45,4 @@ async def test_create_sending_plan_defaults_to_one_second_interval():
         )
 
     params = conn.execute.await_args.args[1]
-    assert json.loads(params["send_strategy"]) == {"interval_seconds": [1, 1]}
+    assert json.loads(params["send_strategy"]) == {"interval_seconds": [3, 3]}
