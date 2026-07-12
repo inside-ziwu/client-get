@@ -105,7 +105,7 @@
 ## E. 清理与定位
 
 ### T-19 · 死代码与失效配置清理 — P3
-- **清单**：`shared-api/src/tenant/prospects.ts`（幽灵 API，零 UI 消费）、`shared-ui/components/form.tsx` 若 T-16 决策移除、`shared-hooks/usePermission.ts`（零消费）、`app/workers/fan_out.py` 的 FanOutWorker class（死封装）、`wmt_lineage.py` 与 `wmt_lineage_repair.py` 两份近重复 SQL（合并为单一来源）、admin 本地 `lib/utils.ts` 的 cn() 副本、tenant `test:contract` 死脚本、`components.json`（shadcn 配置与实际组件路径不符）、`.claude/` 与 `.codex/` 下的 openspec 系列 skill/command 定义（openspec-propose/explore/archive/verify/apply 与 opsx 命令，指向已删除的 openspec/ 目录，工作流已退役——2026-07-11 文档清理时发现，属清单外遗留，处置前需用户确认）。
+- **清单**：`shared-api/src/tenant/prospects.ts`（幽灵 API，零 UI 消费）、`shared-ui/components/form.tsx` 若 T-16 决策移除、`shared-hooks/usePermission.ts`（零消费）、`app/workers/fan_out.py` 的 FanOutWorker class（死封装）、`wmt_lineage.py` 与 `wmt_lineage_repair.py` 两份近重复 SQL（合并为单一来源）、admin 本地 `lib/utils.ts` 的 cn() 副本、tenant `test:contract` 死脚本、`components.json`（shadcn 配置与实际组件路径不符）。
 - **验收**：逐项删除或合并，grep 零残留。
 
 ### T-20 · 租户硬删除工具定位 — P3
@@ -120,3 +120,4 @@
 |---|---|
 | TODOS.md #2「收件人筛选 NOT IN 应含 invalid」 | **已修复**：`tenant_messaging_service.py` 收件人筛选已排除 invalid（2026-07-11 代码核实），原台账未销账属文档滞后 |
 | TODOS.md #3「Webhook 回填定时任务候补」 | **已被实现覆盖**：对账 worker（`app/workers/reconciliation.py`）已常态化兜底 webhook 丢失，比原设想的每日回填更实时 |
+| T-19 部分项「openspec 系列 skill/command 定义」 | **已删除**（2026-07-11 用户授权）：`.claude/commands/opsx/`、`.claude/skills/openspec-*`、`.codex/skills/openspec-*` 共 15 个 tracked 文件，另清理 `.agents/skills/source-command-opsx-*` 5 个 untracked 镜像；`settings.local.json` 内 3 行 openspec CLI 权限白名单属用户本地设置，未动 |
