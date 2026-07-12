@@ -88,19 +88,32 @@
 
 ### T-15 · 无错误边界与路由级 loading — P2
 - **缺口**：两端零 `error.tsx`；`loading.tsx` 全仓仅 admin 一处。运行时异常无恢复 UI。
-- **验收**：两端补路由级 error/loading；统一 `<Skeleton>`/`<EmptyState>` 组件收编 13 处手写 pulse 与 34 处硬编码空文案。
+- **验收**：两端补路由级 error/loading。
+- 备注：原范围中「统一 Skeleton/EmptyState 收编空态」部分已并入 T-23（由 TableState 组件承载），本条只剩路由级错误边界。
 
 ### T-16 · 表单基建「装了没通电」— P2
 - **缺口**：admin 已声明 react-hook-form + zod + resolvers，shared-ui 已导出 Form 封装，但**全仓零消费**；所有表单为 useState + 手写校验。
 - **验收**：挑 2~3 个高频表单（租户创建、发送计划向导、登录）迁移到 RHF+zod 立标杆，后续新表单一律走该模式；或明确决策移除这套依赖（二选一，不允许继续「装着不用」）。
 
 ### T-17 · 数据层纪律收敛 — P2
-- **缺口**：query-keys 工厂 92 处调用仅 5 文件采用（其余手写数组，靠约定碰巧对齐 SSR hydration）；`useCursorPagination` 零消费、8 个文件复制同一套手写分页；tenant 登录页绕开统一 client 手写 axios；tenant 无服务端路由守卫（admin 有 middleware，tenant 直输 URL 闪白）。
-- **验收**：query key 全量走工厂；分页收敛到共享 hook；登录页回归 `tenantApi.auth`；tenant 补 middleware 或明确接受 CSR 守卫并记录原因。
+- **缺口**：query-keys 工厂 92 处调用仅 5 文件采用（其余手写数组，靠约定碰巧对齐 SSR hydration）；tenant 登录页绕开统一 client 手写 axios；tenant 无服务端路由守卫（admin 有 middleware，tenant 直输 URL 闪白）。
+- **验收**：query key 全量走工厂；登录页回归 `tenantApi.auth`；tenant 补 middleware 或明确接受 CSR 守卫并记录原因。
+- 备注：原范围中「手写分页 9 处收敛」已并入 T-23（Pagination 组件）。
 
 ### T-18 · 拆分 984 行巨型组件 — P2
 - **缺口**：`apps/admin/src/app/(dashboard)/tenants/client-page.tsx` 单文件承载列表+创建+四标签详情，且是全仓唯一用 useEffect 把 query data 拷贝进本地 state 的反模式点。
 - **验收**：按 Tab 拆子组件、移除本地拷贝 state、行为不变。
+- 备注：建议在 T-23 Phase C 迁移 tenants 页时顺手完成。
+
+### T-23 · 列表页设计系统（DESIGN.md + Pattern 五件套）— P1（2026-07-12 方案已确认）
+- **来源**：2026-07-12 列表页一致性盘点（20 页 × 8 维度差异矩阵）：列宽 6 种策略并存、`max-w` 出现 11 个随机像素值、手写「上一页/下一页」分页被复制 9 次且两端 disabled 逻辑已分叉、loading 文案 11 种、3 页无加载/空态区分、数字列右对齐 0/20、同一 `is_active` 字段 Badge/Switch 随机二选一。根因：shared-ui 原子层完备、Pattern 层空白（无 DataTable/Pagination/FilterBar/空态组件）。
+- **方案两层**：
+  ① **DESIGN.md**（仓库根，Google Stitch 格式，结构借鉴 VoltAgent/awesome-design-md：frontmatter token + components 引用 + Do's/Don'ts + Iteration Guide）：现有 shared-ui token 成文化 + 本次 Pattern 规范；AGENTS.md 增加「改 UI 前先读 DESIGN.md」；美学参照 Linear vs Cal.com 对比稿已出（2026-07-12，Artifact），**待用户选定后写入 token**。
+  ② **shared-ui Pattern 五件套**：DataTable（列类型驱动展示：text/number/date/status/boolean/actions；列宽 token 四档 col-sm/md/lg/xl，禁止任意 px；sticky 表头默认开；密度统一 px-3 py-2）、FilterBar（声明式 schema，「查询+重置」标准交互，按钮文案统一「查询」）、Pagination（现有 9 份手写原样上移成组件并统一两端逻辑）、TableState（参数化「正在加载{实体}…/暂无{实体}」）、ListPage 骨架（清除 3 处 space-y 叠加）。
+- **已确认默认值**：数字列右对齐+等宽数字；宽表操作列右侧固定；删除确认统一内联 AlertDialogTrigger；布尔状态可交互用 Switch、只读用 Badge；loading 用文字提示、骨架屏不强制。
+- **实施顺序**：T-21 完成后启动（少迁 collection-tasks/data-sources 两页）；Phase A 组件+token（纯新增零风险）→ Phase B 打样 2 页验证 API（tenant companies + 一个 admin 简单页）→ Phase C 存量约 16 页分批迁移（每页迁移为净删代码）。
+- **吸收关系**：T-15 的空态/骨架部分、T-17 的分页收敛部分已并入本条；T-18 随 Phase C 顺手完成。
+- **验收**：DESIGN.md 通过 `npx @google/design.md lint`；五件套上线且打样 2 页通过用户走查；全量迁移后 grep 无手写 `<table>`、无手写分页、无 space-y 叠加容器。
 
 ## E. 清理与定位
 
