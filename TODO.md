@@ -133,18 +133,25 @@
 - **范围 D（正名）**：admin 导航「采集」组改名（4 个数据浏览页保留）；HANDBOOK 功能矩阵、口径表与 §2 业务主链同步改写（「⑨ 订阅关键词」环节移除，改为「公司数据按租户行业全量下发，当前仅 PCB」）。
 - **范围 E（关键词订阅摘除与分发通道收敛，2026-07-12 深查后定稿）**：背景——订阅链路结构性死亡（血缘桥 2026-05-15 迁移后冻结，新词永远零匹配）、175 个关键词 98.9% 为零匹配孤儿、生产仅 3 条订阅且两个月无人使用；**但 reverse（精准反推）公司 4,103 家仅靠订阅通道分发**（曾造成租户间 3~4 千家供给差异：订两个词的租户比订一个词的多看约 1,100 家）。用户拍板（2026-07-12）：reverse 数据可向全部 PCB 租户全量下发。
   - 摘除：tenant `/settings/keywords` 页 + keywords API（4 路由）+ `tenant_settings_service` 关键词四方法 + `keyword_service.py` + `fan_out.py` 整文件 + `wmt_lineage_repair.py` 内关键词 fan-out 与血缘回填 SQL（normalize/clean_path/raw_fallback 三段）+ `scripts/repair_wmt_lineage.py` + `scripts/rebuild_tenant_companies.py` + seed 的 `ensure_keywords` + dashboard `plan_overview.keyword_count` 改写 + 对应测试（test_fan_out_no_visibility、test_settings_no_hide 等，详见 2026-07-12 精查报告连带清单）。
-  - 修改：`_SQL_FAN_OUT_INDUSTRY` 放宽为行业内**全池**下发（去掉「外贸通关键词采集」标签限定；保留 ON CONFLICT DO UPDATE data_status 以承接原订阅通道的状态刷新职责）；onboarding Step 2「建立客户采集关键词」文案改为真实能力描述。
+  - 修改：`_SQL_FAN_OUT_INDUSTRY` 放宽为行业内**全池**下发（去掉「外贸通关键词采集」标签限定；保留 ON CONFLICT DO UPDATE data_status 以承接原订阅通道的状态刷新职责），**且必须追加排除租户私有行的条件 `wc.source_id NOT LIKE 'manual-%'`**——租户手动新增的公司寄生在共享池中（生产现有 2 家，A/B 实例各 1 家），现状不外流纯靠「无标签无血缘」的巧合且无任何测试保护，放宽标签限定后若不排除将跨租户、跨实例泄露私有数据（2026-07-12 隔离精查确认）；**同步补一条测试断言该排除条件存在**。`recovered-` 前缀行为历史共享资产，不排除。onboarding Step 2「建立客户采集关键词」文案改为真实能力描述。
   - DROP：`tenant_keyword`（3 行，dump 留档）；`keyword_master`（175 行）本次保留不动（lixiaoyun_api_* 历史列仍引用）。
-  - 300 秒循环终态：行业全池下发 + 失效清理 + 补打分三件事。
-  - 预期效果：4 个租户供给对齐全池（约 40,464 家，补齐零订阅租户约 4,100 家 reverse 缺口）；反推链未来重启后新公司自动分发，无断供。
+  - 300 秒循环终态：行业全池下发（排除私有行）+ 失效清理 + 补打分三件事。
+  - 预期效果：4 个租户供给对齐**全池共享部分**（约 40,464 家减去租户私有 manual 行，补齐零订阅租户约 4,100 家 reverse 缺口）；反推链未来重启后新公司自动分发，无断供；私有录入公司仍仅录入者可见。
 - **安全边界**：10 张外部写入表（raw 6 张 + waimaotong_clean_* 2 张 + lixiaoyun_api_* 2 张）表结构与数据零接触（范围 E 仅停止回填 `wc.keyword_master_ids` 列，不改表）；消费者中仅 `wmt_lineage_repair.py` 按范围 E 定向修改，发送、评分、公司列表查询等其余消费者零接触；DROP 前对全部被删表 dump 留档。
 - **验收**：全仓 grep 被删符号零残留（含 `tenant_keyword`）；4 个数据浏览页、发送计划、评分、公司列表回归正常；放宽后首轮循环内 4 租户公司数对齐全池；pytest 全绿 + type-check 通过。
 
 ### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
 - **来源**：同上调研。系统核心数据由外部流程直写 10 张表，其中 clean 层 4 张（`waimaotong_clean_companies` 86 列 / `waimaotong_clean_contacts` 20 列 / `lixiaoyun_api_companies` 49 列 / `lixiaoyun_api_clean_companies` 53 列）连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
-- **缺口**：① 契约入 HANDBOOK：10 张表清单、4 张脱管表的结构快照（2026-07-12 已从生产取得）、「系统仅回写 system_grade/system_score/keyword_master_ids 等少数列」的边界声明、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
+- **缺口**：① 契约入 HANDBOOK：10 张表清单、4 张脱管表的结构快照（2026-07-12 已从生产取得）、「系统仅回写 system_grade/system_score/keyword_master_ids 等少数列」的边界声明、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）、**租户私有行寄生风险**——租户手动新增的公司（`source_id LIKE 'manual-%'`，现 2 家）及其手填联系人寄生在外部管理的 `waimaotong_clean_companies`/`waimaotong_clean_contacts` 中，外部流程若全量重建这两张表将无声丢失租户数据，需在契约中与外部约定保留，或长期迁移至自有表；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
 - **验收**：契约章节入 HANDBOOK；外贸通线告警可触达。
 - **备注**：反推链停滞原因已确认为**计划内**（2026-07-12 外部答复：同行数据已采集完毕，励销云止于 5-26 / 腾道 raw 止于 6-09 均为正常收尾）；该线不设告警，如未来重启同行采集需同步启用监控。
+
+## F. 数据隔离
+
+### T-24 · 手动新增公司的联系人跨租户外溢 — P2
+- **来源**：2026-07-12 手动新增公司隔离精查（`tenant_ops_service.create_company` 逐段核对）
+- **缺口**：租户手动新增公司时若 domain/名称命中池中已有行（含其他租户先前手动建的行），手填联系人会写入共享 `sys_company_id` 下的 `waimaotong_clean_contacts`——此后任何关联该公司的租户都会经 `ensure_contacts_from_wmt`（按 sys_company_id 物化）拿到这条「别的租户手填的联系人」。联系人属商业敏感数据；此外溢面为既有行为，与 T-21 无关，现状因 manual 行仅 2 家且无共享而未实际发生。
+- **验收**：手填联系人与外部采集联系人隔离（方案待定：私有联系人表 / 租户归属标记），或明确决策接受共享并把口径写入 HANDBOOK。
 
 ---
 
