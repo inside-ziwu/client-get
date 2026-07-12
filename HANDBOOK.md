@@ -41,7 +41,7 @@
 |---|---|---|
 | 数据源与采集账号管理 | 🟡 | CRUD 完整、凭证加密；**但 `source_type` 存在 `tendata`/`tengdao` 两种写法并存，CHECK 约束已删**（T-07）。`backend/app/services/admin_collection_service.py`、admin `/data-sources` |
 | 外贸通/客户数据展示 | ✅ | 原始与清洗数据浏览、采集类型筛选。admin `/collection/*` |
-| 同行公司数据浏览 | ✅ | admin `/collection/peers*` 两页正常，读的是外部写入的 `lixiaoyun_api_*` 表。注意：仓库内的 peer 清洗管线（`peer_company_*_service.py`）2026-05-14 跑过一次后即被遗弃，产物 `peer_*` 4 表零消费者（三方验证，详见 TODO T-21 范围 C） |
+| 同行公司数据浏览 | ✅ | admin `/collection/peers*` 两页正常，读的是外部写入的 `lixiaoyun_api_*` 表（**静态存量**：同行采集已于 2026-05 完成，计划内停更，2026-07-12 外部确认）。注意：仓库内的 peer 清洗管线（`peer_company_*_service.py`）2026-05-14 跑过一次后即被遗弃，产物 `peer_*` 4 表零消费者（三方验证，详见 TODO T-21 范围 C） |
 | 联系人职位分类体系 | ✅ | 分级关键词已数据化可维护。admin `/contact-classification` |
 | 评分模板配置 | ✅ | admin `/scoring-templates` |
 | 工作日历（国家/节假日/规则集） | ✅ | 供时区感知发送使用。admin `/work-schedule` |
