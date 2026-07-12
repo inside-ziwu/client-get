@@ -130,9 +130,15 @@
 - **范围 A（死壳）**：admin `/collection-tasks` 整页（触发/历史按钮对应后端路由不存在，状态/进度字段为硬编码假数据）；`shared-api/collection.ts` 12 个死方法；后端假数据与孤儿端点（`/collection-keywords`、`/collection/dashboard`、`/collection/cleanup-health`、`/clean/companies`、`master-check`、peer 3 个无消费浏览 API）；死脚本 `backfill_tendata_raw_contacts.py`（import 已删模块必报错）；死文件 `app/workers/wmt_lineage.py`；死方法 `get_data_source_credential_secret`；DROP 4 张冻结旧表 `clean_companies`/`clean_contacts`/`clean_company_sources`/`clean_company_keywords`（生产数据均止于 2026-05-14）并同步修改 `admin_collection_service`/`keyword_service` 中的引用。
 - **范围 B（凭证体系）**：admin `/data-sources` 整页（admin 首页 `redirect('/data-sources')` 需改指向）；后端 data_sources/credentials CRUD 与 internal 凭证端点（`GET /internal/api/v1/collection/credentials/{source_type}`）；DROP `data_sources` + `data_source_credentials`（生产仅 6+2 行，credentials 止于 5-07）；`DATA_SOURCE_ENCRYPTION_KEY` 从必填配置退役。**完成后 T-07 随之销账**；运营手册「02 配数据源采集账号」整节同步作废（需知会运营）。
 - **范围 C（peer 死代码与表）**：`peer_company_cleaning_service.py`、`peer_company_backfill_service.py`、`scripts/peer_backfill_runner.py` 三个整文件，加 peer-companies 系列 3 个只读 API 及 shared-api 对应方法与类型。2026-07-12 三方独立验证结论一致（仓库代码清查 × 外部调查 × 生产 DB 依赖核查）：数据为 2026-05-14 08:19–08:58 一次性生成后遗弃（规则版本 `peer-cleaning-v1`，**生成程序就是仓库内这套代码**，「peer-cleaning-v2」只是当年工程修复变更的名字而非第二套规则）；今日零活路径（前端零调用、无自动触发、pg_stat 自统计以来零写入）；DB 层零外部依赖（无反向外键/视图/函数引用），结构上可干净 DROP。**处置已定（2026-07-12 用户拍板）：dump 留档后随本任务 DROP 全部 4 张表**（约 12 万行冻结数据；DROP 走新增迁移，按 contacts/sources/keywords → peer_companies 顺序，不改历史迁移 `20260514_0040`）。
-- **范围 D（正名）**：admin 导航「采集」组改名（4 个数据浏览页保留）；tenant 关键词页文案去掉「采集」；HANDBOOK 功能矩阵与口径表同步改写。
-- **安全边界**：10 张外部写入表（raw 6 张 + waimaotong_clean_* 2 张 + lixiaoyun_api_* 2 张）及其全部消费者（发送、评分、公司列表、fan-out、血缘修复）零接触；DROP 前对被删表 dump 留档。
-- **验收**：全仓 grep 被删符号零残留；4 个数据浏览页、发送计划、评分、公司列表回归正常；pytest 全绿 + type-check 通过。
+- **范围 D（正名）**：admin 导航「采集」组改名（4 个数据浏览页保留）；HANDBOOK 功能矩阵、口径表与 §2 业务主链同步改写（「⑨ 订阅关键词」环节移除，改为「公司数据按租户行业全量下发，当前仅 PCB」）。
+- **范围 E（关键词订阅摘除与分发通道收敛，2026-07-12 深查后定稿）**：背景——订阅链路结构性死亡（血缘桥 2026-05-15 迁移后冻结，新词永远零匹配）、175 个关键词 98.9% 为零匹配孤儿、生产仅 3 条订阅且两个月无人使用；**但 reverse（精准反推）公司 4,103 家仅靠订阅通道分发**（曾造成租户间 3~4 千家供给差异：订两个词的租户比订一个词的多看约 1,100 家）。用户拍板（2026-07-12）：reverse 数据可向全部 PCB 租户全量下发。
+  - 摘除：tenant `/settings/keywords` 页 + keywords API（4 路由）+ `tenant_settings_service` 关键词四方法 + `keyword_service.py` + `fan_out.py` 整文件 + `wmt_lineage_repair.py` 内关键词 fan-out 与血缘回填 SQL（normalize/clean_path/raw_fallback 三段）+ `scripts/repair_wmt_lineage.py` + `scripts/rebuild_tenant_companies.py` + seed 的 `ensure_keywords` + dashboard `plan_overview.keyword_count` 改写 + 对应测试（test_fan_out_no_visibility、test_settings_no_hide 等，详见 2026-07-12 精查报告连带清单）。
+  - 修改：`_SQL_FAN_OUT_INDUSTRY` 放宽为行业内**全池**下发（去掉「外贸通关键词采集」标签限定；保留 ON CONFLICT DO UPDATE data_status 以承接原订阅通道的状态刷新职责）；onboarding Step 2「建立客户采集关键词」文案改为真实能力描述。
+  - DROP：`tenant_keyword`（3 行，dump 留档）；`keyword_master`（175 行）本次保留不动（lixiaoyun_api_* 历史列仍引用）。
+  - 300 秒循环终态：行业全池下发 + 失效清理 + 补打分三件事。
+  - 预期效果：4 个租户供给对齐全池（约 40,464 家，补齐零订阅租户约 4,100 家 reverse 缺口）；反推链未来重启后新公司自动分发，无断供。
+- **安全边界**：10 张外部写入表（raw 6 张 + waimaotong_clean_* 2 张 + lixiaoyun_api_* 2 张）表结构与数据零接触（范围 E 仅停止回填 `wc.keyword_master_ids` 列，不改表）；消费者中仅 `wmt_lineage_repair.py` 按范围 E 定向修改，发送、评分、公司列表查询等其余消费者零接触；DROP 前对全部被删表 dump 留档。
+- **验收**：全仓 grep 被删符号零残留（含 `tenant_keyword`）；4 个数据浏览页、发送计划、评分、公司列表回归正常；放宽后首轮循环内 4 租户公司数对齐全池；pytest 全绿 + type-check 通过。
 
 ### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
 - **来源**：同上调研。系统核心数据由外部流程直写 10 张表，其中 clean 层 4 张（`waimaotong_clean_companies` 86 列 / `waimaotong_clean_contacts` 20 列 / `lixiaoyun_api_companies` 49 列 / `lixiaoyun_api_clean_companies` 53 列）连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
