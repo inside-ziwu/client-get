@@ -1,7 +1,0 @@
-schema: spec-driven
-created: 2026-05-19
-status: archived
-archived: 2026-05-20
-outcome: |
-  已上线。血缘回写 502 条，tenant_companies 全清重建（t-019dc236: 317, t-019dc238: 502），
-  819/819 JOIN wmt 正常，0 悬空。快照保存在 _tenant_companies_snapshot。

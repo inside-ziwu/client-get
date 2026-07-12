@@ -1,85 +1,25 @@
-# ClientGet Web
+# ClientGet Frontend
 
-ClientGet 前端包含两个 Vite 应用：
+pnpm monorepo（Next.js 15 + React 19）：`apps/tenant`（租户端，端口 3001）+ `apps/admin`（管理端，端口 3000）+ `packages/*` 共享包（shared-ui / shared-api / shared-hooks / shared-types）。**完整文档见根目录 [HANDBOOK.md](../HANDBOOK.md)**（架构 §4、本地开发 §8）。
 
-- `apps/admin`：平台管理端
-- `apps/tenant`：租户端
-
-两个应用都通过 `@shared/api` 访问后端真实接口，不再依赖页面内 mock 数据。
-
-## 安装与本地运行
+## 快速开始
 
 ```bash
 pnpm install
-pnpm dev:admin
-pnpm dev:tenant
+pnpm dev:admin     # http://localhost:3000
+pnpm dev:tenant    # http://localhost:3001
+pnpm type-check    # 全 workspace tsc
 ```
-
-默认端口：
-
-- Admin: `http://localhost:3000`
-- Tenant: `http://localhost:3001`
 
 ## 环境变量
 
-两个应用都需要：
+- `apps/tenant/.env` → `NEXT_PUBLIC_API_BASE_URL`
+- `apps/admin/.env` → `NEXT_PUBLIC_ADMIN_API_BASE_URL`
 
-- `VITE_API_BASE_URL`
+本地开发均指向 `http://localhost:8000`；生产地址在镜像构建时经 `--build-arg` 注入，不走 .env。
 
-开发环境示例已经放在：
+## 要点
 
-- [apps/admin/.env.example](apps/admin/.env.example)
-- [apps/tenant/.env.example](apps/tenant/.env.example)
-
-开发时默认值：
-
-```bash
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-生产时填写后端 API 根域名，例如：
-
-```bash
-VITE_API_BASE_URL=https://api.example.com
-```
-
-前端会在运行时自动拼接：
-
-- Admin: `${VITE_API_BASE_URL}/admin/api/v1/*`
-- Tenant: `${VITE_API_BASE_URL}/t/{slug}/api/v1/*`
-
-Tenant 前端路由本身不带 slug；slug 只来自登录输入和 JWT payload。
-
-## OpenRouter 配置
-
-- 不再存在“租户余额充值”入口
-- OpenRouter API key 为租户级配置
-- 平台管理员可在 Admin `租户详情 -> OpenRouter` 配置
-- 租户管理员可在 Tenant `设置 -> OpenRouter` 配置
-- 页面仅展示掩码、状态、余额与用量，不回显明文 key
-
-## 构建校验
-
-```bash
-pnpm type-check
-pnpm build
-```
-
-## 联调账号
-
-后端执行 `backend/scripts/seed_demo_data.py` 后可使用：
-
-- `globex-pcb` / `owner@globex.example.com` / `ChangeMe123!`
-- `acme-pcb` / `owner@acme.example.com` / `ChangeMe123!`
-
-其中：
-
-- `globex-pcb` 用于主路径联调
-- `acme-pcb` 用于 onboarding 联调
-
-## 发布前核对
-
-- `VITE_API_BASE_URL` 指向正确的后端域名
-- Admin/Tenant 域名已加入后端 `ALLOWED_ORIGINS`
-- 浏览器可完成 Admin 登录与 Tenant 登录
-- Tenant 页面无 mock 列表残留
+- API 前缀由 `@shared/api` 统一拼接：admin 走 `/admin/api/v1`，tenant 走 `/t/{slug}/api/v1`；**tenant 前端路由本身不带 slug，slug 只来自登录输入与 JWT payload**。
+- 联调账号：先跑 `backend/scripts/seed_demo_data.py`（见 backend/README）。
+- `pnpm lint` 当前不可用（eslint 从未安装，已登记 [TODO](../TODO.md) T-10）。
