@@ -112,6 +112,21 @@
 - **缺口**：`tenant_hard_delete_service.py` 未挂任何 API，唯一出口是按具体客户命名的一次性脚本（`hard_delete_zhaokui_test_data.py`），无使用文档。
 - **验收**：决定定位（参数化运维脚本 / admin API + 二次确认），沉淀使用说明进 HANDBOOK §9。
 
+### T-21 · 采集子系统摘除（方案已定稿 2026-07-12）— P1
+- **来源**：2026-07-12 采集子系统调研（代码双线调研 + 生产库只读核查）+ 用户三项拍板：凭证链已废（外部流程自管凭证，不回调系统）、外部清洗产物确认为 `lixiaoyun_api_clean_companies`、peer_* 表处置待定。背景：采集执行管线 2026-05-19 已删且从未重建，采集数据全部由外部流程直接写库。
+- **范围 A（死壳）**：admin `/collection-tasks` 整页（触发/历史按钮对应后端路由不存在，状态/进度字段为硬编码假数据）；`shared-api/collection.ts` 12 个死方法；后端假数据与孤儿端点（`/collection-keywords`、`/collection/dashboard`、`/collection/cleanup-health`、`/clean/companies`、`master-check`、peer 3 个无消费浏览 API）；死脚本 `backfill_tendata_raw_contacts.py`（import 已删模块必报错）；死文件 `app/workers/wmt_lineage.py`；死方法 `get_data_source_credential_secret`；DROP 4 张冻结旧表 `clean_companies`/`clean_contacts`/`clean_company_sources`/`clean_company_keywords`（生产数据均止于 2026-05-14）并同步修改 `admin_collection_service`/`keyword_service` 中的引用。
+- **范围 B（凭证体系）**：admin `/data-sources` 整页（admin 首页 `redirect('/data-sources')` 需改指向）；后端 data_sources/credentials CRUD 与 internal 凭证端点（`GET /internal/api/v1/collection/credentials/{source_type}`）；DROP `data_sources` + `data_source_credentials`（生产仅 6+2 行，credentials 止于 5-07）；`DATA_SOURCE_ENCRYPTION_KEY` 从必填配置退役。**完成后 T-07 随之销账**；运营手册「02 配数据源采集账号」整节同步作废（需知会运营）。
+- **范围 C（peer 死代码）**：`peer_company_cleaning_service.py`、`peer_company_backfill_service.py`、`scripts/peer_backfill_runner.py`（产物无任何消费者，数据止于 5-14）。**peer_* 4 张表保留不 DROP**（约 12 万行，处置待定——用户 2026-07-12 拍板）。
+- **范围 D（正名）**：admin 导航「采集」组改名（4 个数据浏览页保留）；tenant 关键词页文案去掉「采集」；HANDBOOK 功能矩阵与口径表同步改写。
+- **安全边界**：10 张外部写入表（raw 6 张 + waimaotong_clean_* 2 张 + lixiaoyun_api_* 2 张）及其全部消费者（发送、评分、公司列表、fan-out、血缘修复）零接触；DROP 前对被删表 dump 留档。
+- **验收**：全仓 grep 被删符号零残留；4 个数据浏览页、发送计划、评分、公司列表回归正常；pytest 全绿 + type-check 通过。
+
+### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
+- **来源**：同上调研。系统核心数据由外部流程直写 10 张表，其中 clean 层 4 张（`waimaotong_clean_companies` 86 列 / `waimaotong_clean_contacts` 20 列 / `lixiaoyun_api_companies` 49 列 / `lixiaoyun_api_clean_companies` 53 列）连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
+- **缺口**：① 契约入 HANDBOOK：10 张表清单、4 张脱管表的结构快照（2026-07-12 已从生产取得）、「系统仅回写 system_grade/system_score/keyword_master_ids 等少数列」的边界声明；② 新鲜度监控：两条管道的 max(created_at) 停滞告警——外贸通线（活跃，7-12 仍在写）、同行/反推线（止于 5-26，停滞原因未确认），阈值宽松起步。
+- **验收**：契约章节入 HANDBOOK；告警可触达；反推线停滞原因经外部流程侧确认后收紧阈值。
+- **备注**：反推链停滞 1.5 个月（励销云 5-26 / 腾道 raw 6-09）是否计划内，需用户向外部流程维护方确认（2026-07-12 状态：不确定）。
+
 ---
 
 ## 已销账（本次核对确认，留档防止重复登记）
