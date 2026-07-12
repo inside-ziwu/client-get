@@ -69,6 +69,7 @@
 - **来源**：原 TODOS.md #4；2026-07-11 审计发现已有漂移（`SendingPlanStep` 的 step_order/step_number 并存、`status as never` 强转、多个端点返回 `Record<string, unknown>`）
 - **缺口**：后端 224 端点中 `response_model` 使用为 0、schemas 层仅 112 行；前端 shared-types 全手写。
 - **验收**：后端核心端点补 Pydantic 响应模型 → OpenAPI 质量达标 → 接入 `openapi-typescript` 生成前端类型替换手写 → 删除强转。
+- **文档定位（2026-07-12 决策）**：API 文档 = FastAPI 自动生成的 OpenAPI（Swagger UI `/docs` 即人类可读入口），**禁止另行手工维护端点清单**（docs/specs 的死法不再重演）；本条完成后追加「`openapi.json` 快照随 CI 导出入仓」，使 API 变更在 PR diff 中可见。
 
 ### T-12 · 测试覆盖缺口 — P2
 - **来源**：原 TODOS.md #1、#5
@@ -158,7 +159,7 @@
 
 ### T-25 · Schema 主权收复（仓库大扫除）— P2（2026-07-12 拍板：做，清单先给外部）
 - **来源**：2026-07-12 schema 全景盘点（生产 information_schema 全量 × alembic 68 迁移考古双线）
-- **范围**：① **23 张备份表清理**——第一步：清单已生成、待用户转交外部确认（其中 7-09 的 `waimaotong_clean_companies_ai_label_backup` 为外部程序所建，必须确认）→ 确认后逐张 dump 留档 → DROP；② `tenant_companies.score_adjustment` **幽灵列转正**（生产存在、代码在用、不在任何迁移——0034 重建时抹掉后被带外加回；补一条对齐迁移，同批核实 `score_adjusted_at/by/reason` 三列的代码引用是否报错，`tenant_ops_service.py:428` 附近）；③ `shared_contacts`/`competitor_companies`/`competitor_contacts` 残留清理（三表已被带外删除，蓝图与代码引用需同步移除，注意 `internal_ops_service.batch_upsert_competitors` 若引用已消失的表则该端点必炸）；④ **schema.sql 蓝图重建**：从生产 `pg_dump --schema-only` 重新生成 + 人工标注外部表段落（修复 8 处图有实无、9+ 处实有图无、6 处 FK 列类型标错、1 处视图定义过时）；⑤ 活表零使用索引清理（`idx_wmt_clean_name`、`idx_tenant_companies_tags` 等）；⑥ 移除代码对恒空列 `email_priority` 的读取。
+- **范围**：① **23 张备份表清理**——第一步：清单已生成、待用户转交外部确认（其中 7-09 的 `waimaotong_clean_companies_ai_label_backup` 为外部程序所建，必须确认）→ 确认后逐张 dump 留档 → DROP；② `tenant_companies.score_adjustment` **幽灵列转正**（生产存在、代码在用、不在任何迁移——0034 重建时抹掉后被带外加回；补一条对齐迁移，同批核实 `score_adjusted_at/by/reason` 三列的代码引用是否报错，`tenant_ops_service.py:428` 附近）；③ `shared_contacts`/`competitor_companies`/`competitor_contacts` 残留清理（三表已被带外删除，蓝图与代码引用需同步移除，注意 `internal_ops_service.batch_upsert_competitors` 若引用已消失的表则该端点必炸）；④ **schema.sql 蓝图重建并机制化**（2026-07-12 决策：schema 文档一律生成、禁止手工维护）：一次性从生产 `pg_dump --schema-only` 重新生成 + 人工标注外部表段落（修复 8 处图有实无、9+ 处实有图无、6 处 FK 列类型标错、1 处视图定义过时）；随后落一个重生成脚本——每次迁移合并后重跑并与上版 diff，**diff 即带外变更探测器**（外部新建/重建表会自动现形，衔接 T-22 契约监督）；同时从 information_schema 自动生成按业务域分组的 ER 图（mermaid/DBML，供业务视角查阅）；⑤ 活表零使用索引清理（`idx_wmt_clean_name`、`idx_tenant_companies_tags` 等）；⑥ 移除代码对恒空列 `email_priority` 的读取。
 - **验收**：备份表清零（dump 档可查）；照新蓝图建库结构与生产一致；grep 无三张已删表的残留引用。
 
 ### T-26 · 公司列表↔公司池的对账机制 — P2【方向待拍板】
