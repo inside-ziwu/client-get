@@ -16,6 +16,7 @@
 - **来源**：2026-07-11 全量审计
 - **缺口**：RLS policy 已在约 20 张表定义，但 `FORCE ROW LEVEL SECURITY` 从未执行（schema.sql 中仅存注释），且应用使用单一连接角色（疑似表 owner，owner 默认绕过 RLS）。实际隔离完全依赖 service 层手写 `tenant_id` 过滤——漏写一处即跨租户泄露，数据库层无兜底。
 - **验收**：创建低权限应用角色 + 对全部租户表启用 FORCE RLS；用现有 no_visibility 测试系列验证；生产连接串切换到新角色。
+- **实施路径修正（2026-07-12 生产盘点）**：30 张 RLS 表中 **21 张零 policy**（enabled + 无 policy = 对非 owner 角色全拒）——直接切低权限角色会让这 21 张表查询全挂。必须三步走：① 迁移为 21 张表补齐 policy → ② 建低权限角色并切换 → ③ FORCE。工作量比原估大一档。
 - 备注：需先连库核实当前连接角色的实际权限。
 
 ### T-02 · 团队管理缺最后管理员保护与自操作拦截 — P0（工作量极小）
@@ -141,8 +142,8 @@
 - **验收**：全仓 grep 被删符号零残留（含 `tenant_keyword`）；4 个数据浏览页、发送计划、评分、公司列表回归正常；放宽后首轮循环内 4 租户公司数对齐全池；pytest 全绿 + type-check 通过。
 
 ### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
-- **来源**：同上调研。系统核心数据由外部流程直写 10 张表，其中 clean 层 4 张（`waimaotong_clean_companies` 86 列 / `waimaotong_clean_contacts` 20 列 / `lixiaoyun_api_companies` 49 列 / `lixiaoyun_api_clean_companies` 53 列）连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
-- **缺口**：① 契约入 HANDBOOK：10 张表清单、4 张脱管表的结构快照（2026-07-12 已从生产取得）、「系统仅回写 system_grade/system_score/keyword_master_ids 等少数列」的边界声明、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）、**租户私有行寄生风险**——租户手动新增的公司（`source_id LIKE 'manual-%'`，现 2 家）及其手填联系人寄生在外部管理的 `waimaotong_clean_companies`/`waimaotong_clean_contacts` 中，外部流程若全量重建这两张表将无声丢失租户数据，需在契约中与外部约定保留，或长期迁移至自有表；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
+- **来源**：同上调研 + 2026-07-12 schema 全景盘点。系统核心数据由外部流程直写的表实测为 **14 张**（原知 10 张 + 盘点新发现 4 张隐形区域：`waimaotong_keyword_raw_companies`/`_contacts`（389 万行 / 6.7GB，全库最大，代码零引用）、`waimaotong_clean_source_links`、`crawl_progress`（曾被迁移 0054 DROP、外部又重建，22,674 行））；clean 层 4 张连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
+- **缺口**：① 契约入 HANDBOOK：**14 张表清单**、4 张脱管 clean 表的结构快照（2026-07-12 已从生产取得）、「系统仅回写 system_grade/system_score/keyword_master_ids 等少数列」的边界声明、**「schema 变更双方知会」条款**（外部曾重建被系统删除的表、曾新建系统不知情的巨表——单方面变更已实际发生）、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）、**资料卡瘦身声明**（wc 86 列中 10 列恒空、15 列填充率 <5%，声明系统不消费这些列）、**租户私有行寄生风险**——租户手动新增的公司（`source_id LIKE 'manual-%'`，现 2 家）及其手填联系人寄生在外部管理的 `waimaotong_clean_companies`/`waimaotong_clean_contacts` 中，外部流程若全量重建这两张表将无声丢失租户数据，需在契约中与外部约定保留，或长期迁移至自有表；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
 - **验收**：契约章节入 HANDBOOK；外贸通线告警可触达。
 - **备注**：反推链停滞原因已确认为**计划内**（2026-07-12 外部答复：同行数据已采集完毕，励销云止于 5-26 / 腾道 raw 止于 6-09 均为正常收尾）；该线不设告警，如未来重启同行采集需同步启用监控。
 
@@ -152,6 +153,18 @@
 - **来源**：2026-07-12 手动新增公司隔离精查（`tenant_ops_service.create_company` 逐段核对）
 - **缺口**：租户手动新增公司时若 domain/名称命中池中已有行（含其他租户先前手动建的行），手填联系人会写入共享 `sys_company_id` 下的 `waimaotong_clean_contacts`——此后任何关联该公司的租户都会经 `ensure_contacts_from_wmt`（按 sys_company_id 物化）拿到这条「别的租户手填的联系人」。联系人属商业敏感数据；此外溢面为既有行为，与 T-21 无关，现状因 manual 行仅 2 家且无共享而未实际发生。
 - **验收**：手填联系人与外部采集联系人隔离（方案待定：私有联系人表 / 租户归属标记），或明确决策接受共享并把口径写入 HANDBOOK。
+
+## G. Schema 治理（2026-07-12 全景盘点立项）
+
+### T-25 · Schema 主权收复（仓库大扫除）— P2（2026-07-12 拍板：做，清单先给外部）
+- **来源**：2026-07-12 schema 全景盘点（生产 information_schema 全量 × alembic 68 迁移考古双线）
+- **范围**：① **23 张备份表清理**——第一步：清单已生成、待用户转交外部确认（其中 7-09 的 `waimaotong_clean_companies_ai_label_backup` 为外部程序所建，必须确认）→ 确认后逐张 dump 留档 → DROP；② `tenant_companies.score_adjustment` **幽灵列转正**（生产存在、代码在用、不在任何迁移——0034 重建时抹掉后被带外加回；补一条对齐迁移，同批核实 `score_adjusted_at/by/reason` 三列的代码引用是否报错，`tenant_ops_service.py:428` 附近）；③ `shared_contacts`/`competitor_companies`/`competitor_contacts` 残留清理（三表已被带外删除，蓝图与代码引用需同步移除，注意 `internal_ops_service.batch_upsert_competitors` 若引用已消失的表则该端点必炸）；④ **schema.sql 蓝图重建**：从生产 `pg_dump --schema-only` 重新生成 + 人工标注外部表段落（修复 8 处图有实无、9+ 处实有图无、6 处 FK 列类型标错、1 处视图定义过时）；⑤ 活表零使用索引清理（`idx_wmt_clean_name`、`idx_tenant_companies_tags` 等）；⑥ 移除代码对恒空列 `email_priority` 的读取。
+- **验收**：备份表清零（dump 档可查）；照新蓝图建库结构与生产一致；grep 无三张已删表的残留引用。
+
+### T-26 · 公司列表↔公司池的对账机制 — P2【方向待拍板】
+- **来源**：同上盘点。`tenant_companies.clean_company_id`、`tenant_contacts.clean_contact_id/clean_company_id` 三条核心 FK 于迁移 0045 **故意删除**（避免阻碍外部整表重建 wc），现由 `wmt_lineage_repair` 每 300 秒 `DELETE ... WHERE NOT EXISTS` 模拟级联清理——应用层轮询替代数据库约束，轮询窗口内存在悬空引用（公司详情打不开）风险，且无监控无测试。
+- **选项**：A 维持轮询 + 加监控（每轮删除行数指标与异常暴增告警），待外部答复「是否还会整表重建公司池」后再决定是否升级；B 恢复三条 FK 自动对账（前提：外部承诺不再整表重建）。
+- **状态**：2026-07-12 用户未拍板；「是否还会整表重建」已并入待问外部清单（与 T-25 备份清单同一次转发）。
 
 ---
 
