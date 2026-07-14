@@ -138,6 +138,8 @@ client_get/
 
 同一套代码 + 共享底层数据库，按 `CLIENTGET_INSTANCE_ID` 区分实例：
 
+> **硬性声明：A、B 共用同一个物理 PostgreSQL `clientget` 数据库，不是两套独立数据库。** `instance_id` 只提供逻辑数据边界；repair、评分、发送和所有批量操作仍竞争同一套连接、CPU、I/O 与锁。即使只操作 B，也必须同时审计 A 的在途发送负载，不能把 B 当成无影响的测试库。
+
 - 每实例独立 JWT secret，token 带 `iid` claim；管理员、租户、认证、worker 任务按实例隔离
 - `waimaotong_clean_companies`/`waimaotong_clean_contacts` 公池跨实例共享；`tenant_companies` 关系按实例的租户隔离，手工录入行不跨租户分发
 - 新实例初始化：`backend/scripts/init_instance.py`（创建实例管理员）
@@ -198,7 +200,7 @@ pnpm type-check    # 全 workspace tsc
 
 1. 发布 Phase A 后端前，由用户在目标实例手动设置现有变量 `WMT_LINEAGE_REPAIR_ENABLED=false`；本仓库不修改 `.env`。
 2. 仅发布代码并确认 API 健康，此时不会执行全池 fan-out。
-3. 激活前做生产只读基数、`EXPLAIN` 和关系差异快照；再展示准确影响量与写入 SQL，取得针对该操作的明确批准。
+3. 激活前做生产只读基数、`EXPLAIN`、关系差异及 **A 实例在途发送负载**快照；再展示准确影响量与写入 SQL，取得针对该操作的明确批准。A/B 共用物理数据库，只按 `instance_id` 逻辑隔离。
 4. 每次只激活一个实例，观察至少两个 300 秒周期的 `fan_out/deleted_stale/score_*` 统计；异常时立即关闭开关。
 5. Phase B 删表不属于此流程，必须另行备份、恢复演练与审批。
 

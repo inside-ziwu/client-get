@@ -117,10 +117,11 @@
 - **缺口**：`tenant_hard_delete_service.py` 未挂任何 API，唯一出口是按具体客户命名的一次性脚本（`hard_delete_zhaokui_test_data.py`），无使用文档。
 - **验收**：决定定位（参数化运维脚本 / admin API + 二次确认），沉淀使用说明进 HANDBOOK §9。
 
-### T-21 · 采集子系统摘除（Phase A 本地完成、待发布门禁；Phase B 未开始）— P1
+### T-21 · 采集子系统摘除（Phase A 已部署 B、repair 关闭；A 未发布；Phase B 未开始）— P1
 - **来源**：2026-07-12 采集子系统调研（代码双线调研 + 生产库只读核查）+ 2026-07-14 完整 autoplan 审查。用户已拍板 G-A（平台不做全局评分，Tenant 按自己的当前模板评分）与 P-R（manual > keyword > reverse > unknown）；PCB 活跃租户共享全池但排除手工私有行。背景：采集执行管线 2026-05-19 已删且从未重建，采集数据全部由外部流程直接写库。
-- **执行分期**：Phase A 只做运行时摘除、全池关系 repair、Tenant 评分、前端正名与文档同步，不迁移数据库、不部署、不写生产；Phase B 才做被退役表的 dump、恢复演练与 DROP，需单独方案和明确审批。
-- **Phase A 本地证据（2026-07-14）**：后端 309 passed/1 skipped，真实 PostgreSQL 回滚集成测试 1 passed；Tenant 33 tests；全 workspace type-check、Admin/Tenant production build、改动文件 Ruff F/I 与 `git diff --check` 全绿。尚未部署，未执行生产写入。
+- **执行分期**：Phase A 只做运行时摘除、全池关系 repair、Tenant 评分、前端正名与文档同步，不迁移数据库；2026-07-14 已部署 B 的 Backend/Admin/Tenant，但 repair 保持关闭，尚未产生全池写入，A 尚未发布。Phase B 才做被退役表的 dump、恢复演练与 DROP，需单独方案和明确审批。
+- **Phase A 本地证据（2026-07-14）**：后端 309 passed/1 skipped，真实 PostgreSQL 回滚集成测试 1 passed；Tenant 33 tests；全 workspace type-check、Admin/Tenant production build、改动文件 Ruff F/I 与 `git diff --check` 全绿。本地验收阶段未执行生产写入；后续 B 发布状态见下一条。
+- **B 发布与只读审计证据（2026-07-14）**：三端健康与退役路由契约验收通过；A/B 确认共用同一个 14 GB `clientget` 物理数据库，仅靠 `instance_id` 逻辑隔离。共享池 41,350 行，其中 manual 2、可共享 41,348；B 当前缺 4,120（keyword 6 + reverse 4,114），无 stale、无状态刷新。B 当前模板 v6 另有 30,256 条既有关系未评分，投放后预计 backlog 34,376，至少 69 个 300 秒周期。同期 A 有 3 个 running 计划、8,745 个到期 active enrollment，因此 **B repair 继续关闭，未批准生产写入**。
 - **范围 A（死壳）**：Phase A 删除 admin `/collection-tasks`、shared-api 死方法、后端假数据与孤儿端点、`backfill_tendata_raw_contacts.py`、重复 `wmt_lineage.py`、`get_data_source_credential_secret`；Phase B 才 DROP 4 张冻结旧表 `clean_companies`/`clean_contacts`/`clean_company_sources`/`clean_company_keywords`（生产数据均止于 2026-05-14）。
 - **范围 B（凭证体系）**：Phase A 摘除 admin `/data-sources` 页面、路由与 internal 凭证端点（`GET /internal/api/v1/collection/credentials/{source_type}`），admin 首页改指向用户管理；Phase B 再清理残余 service CRUD 并 DROP `data_sources` + `data_source_credentials`（生产仅 6+2 行，credentials 止于 5-07）。`DATA_SOURCE_ENCRYPTION_KEY` **不得退役或轮换**：名称虽旧，仍用于 Tenant OpenRouter Key 与存量密文。Phase B 完成后 T-07 随之销账；运营手册「02 配数据源采集账号」已改为「确认共享客户池」。
 - **范围 C（peer 死代码与表）**：Phase A 删除 `peer_company_cleaning_service.py`、`peer_company_backfill_service.py`、`scripts/peer_backfill_runner.py`，并退役 peer-companies API 与前端契约。2026-07-12 三方独立验证结论一致：约 12 万行数据在 2026-05-14 一次性生成后遗弃，今日零活路径且无 DB 外部依赖。Phase B 经 dump 与恢复演练后再按 contacts/sources/keywords → peer_companies 顺序 DROP 4 表，不改历史迁移 `20260514_0040`。
@@ -130,8 +131,8 @@
   - 修改：单一 `_SQL_FAN_OUT_FULL_POOL` 向当前实例的活跃 PCB 租户下发全池，去掉关键词标签限定，保留状态刷新，并用 `(wc.source_id IS NULL OR wc.source_id NOT LIKE 'manual-%')` 排除手工私有行；`recovered-` 仍视为共享历史资产。onboarding 改为「筛选目标公司」。
   - Phase B DROP：`tenant_keyword`（3 行，dump 留档）；`keyword_master`（175 行）继续保留（外部表历史列仍引用）。
   - 300 秒循环终态：行业全池下发（排除私有行）+ 失效清理 + 补打分三件事。
-  - 预期效果：4 个租户供给对齐**全池共享部分**（约 40,464 家减去租户私有 manual 行，补齐零订阅租户约 4,100 家 reverse 缺口）；反推链未来重启后新公司自动分发，无断供；私有录入公司仍仅录入者可见。
-- **安全边界**：Phase A 对外部写入表结构与数据零接触，也不执行任何生产写入；repair 默认沿用现有开关，部署前先关闭。Phase B 的任何 DROP 都必须先逐表 dump、验证恢复并再次审批。
+  - 预期效果：各租户供给对齐**全池共享部分**（2026-07-14 实测 41,348 家，另保留各自 manual 私有关系）；反推链未来重启后新公司自动分发，无断供；私有录入公司仍仅录入者可见。
+- **安全边界**：A/B 共用同一个物理 PostgreSQL 数据库，`instance_id` 只隔离数据范围、不隔离数据库资源；任何 B repair/评分写入都必须同时审计 A 的发送负载。Phase A 对外部写入表结构与数据零接触；repair 部署前关闭，启用需再次批准。Phase B 的任何 DROP 都必须先逐表 dump、验证恢复并再次审批。
 - **Phase A 验收**：退役页面/API 不再出现在运行时；保留 4 个只读数据浏览契约；P-R 分类、PCB 全池、manual 排除、实例边界、幂等与 Tenant 当前模板补评分均有测试；发送计划、公司列表、双端 build、pytest、type-check 全绿。部署与生产首轮对齐另走门禁，不因本地代码完成自动执行。
 
 ### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
