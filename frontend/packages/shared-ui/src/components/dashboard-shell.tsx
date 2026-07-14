@@ -128,7 +128,7 @@ export function DashboardShell({
         <div className="flex">
           <aside
             className={cn(
-              'relative hidden h-screen shrink-0 border-r border-border bg-white transition-all duration-200 lg:block',
+              'sticky top-0 hidden h-screen shrink-0 self-start border-r border-border bg-white transition-all duration-200 lg:block',
               collapsed ? 'w-16' : 'w-64',
             )}
             onMouseEnter={() => collapsed && setHovered(true)}
