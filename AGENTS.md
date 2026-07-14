@@ -8,7 +8,7 @@
 | --- | --- |
 | [HANDBOOK.md](HANDBOOK.md) | **唯一事实源入口**：产品、业务流程、功能现状矩阵、行为口径、架构、部署、本地开发、运维脚本 |
 | [TODO.md](TODO.md) | **唯一债务与需求台账**（技术债 + 未实现需求，编号 `T-NN` 稳定不复用） |
-| [DESIGN.md](DESIGN.md) | **前端视觉与交互规范**：改 Admin/Tenant UI 前必读；`status: proposed` 表示目标尚未全部落地，不得据此零散替换全局主题 |
+| [DESIGN.md](DESIGN.md) | **前端视觉与交互规范**：改 Admin/Tenant UI 前必读；`proposed`/`adopting` 均不代表全量落地，不得据此零散替换全局主题 |
 | `docs/solutions/` | 踩坑知识库（带 YAML frontmatter，按类目组织）。实施或调试涉及相关领域前先检索 |
 | `docs/handovers/2026-07-06-b-instance-operations-manual.md` | B 实例运营操作手册（面向运营的活文档） |
 
