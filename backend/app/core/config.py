@@ -91,14 +91,6 @@ class Settings(BaseSettings):
     engagelab_api_user: str | None = Field(default=None, alias="ENGAGELAB_API_USER")
     engagelab_credential: str | None = Field(default=None, alias="ENGAGELAB_CREDENTIAL")
     # 注：from_email 不在全局配置；发件地址来自 send_plans.sender_email（各租户自己的暖域名）
-    collection_scheduler_sleep_seconds: int = Field(default=30, alias="COLLECTION_SCHEDULER_SLEEP_SECONDS")
-    collection_worker_sleep_seconds: int = Field(default=10, alias="COLLECTION_WORKER_SLEEP_SECONDS")
-    collection_task_lease_seconds: int = Field(default=300, alias="COLLECTION_TASK_LEASE_SECONDS")
-    collection_worker_limit: int = Field(default=20, alias="COLLECTION_WORKER_LIMIT")
-    collection_heartbeat_interval_seconds: int = Field(
-        default=30,
-        alias="COLLECTION_HEARTBEAT_INTERVAL_SECONDS",
-    )
     wmt_lineage_repair_enabled: bool = Field(default=True, alias="WMT_LINEAGE_REPAIR_ENABLED")
     wmt_lineage_repair_interval_seconds: int = Field(
         default=300,

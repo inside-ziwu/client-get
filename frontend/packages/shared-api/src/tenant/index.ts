@@ -8,7 +8,6 @@ import { emailTemplatesApi } from './email-templates';
 import { sendingPlansApi } from './sending-plans';
 import { emailsApi } from './emails';
 import { intelligenceApi } from './intelligence';
-import { keywordsApi } from './keywords';
 import { onboardingApi } from './onboarding';
 import { scoringApi } from './scoring';
 import { aiProviderApi } from './ai-provider';
@@ -27,7 +26,6 @@ export function createTenantApi(client: AxiosInstance) {
     sendingPlans: sendingPlansApi(client),
     emails: emailsApi(client),
     intelligence: intelligenceApi(client),
-    keywords: keywordsApi(client),
     onboarding: onboardingApi(client),
     scoring: scoringApi(client),
     aiProvider: aiProviderApi(client),

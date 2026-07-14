@@ -1,6 +1,6 @@
-"""collection_type 筛选 SQL 的 NULL 安全测试。"""
+"""collection_type 筛选 SQL 的共享口径测试。"""
 
-from app.services.collection_source import KEYWORD_TAG_JSONB
+from app.services.collection_source import KEYWORD_TAG_JSONB, build_collection_type_filter
 
 
 class TestCollectionTypeFilter:
@@ -16,18 +16,14 @@ class TestCollectionTypeFilter:
         assert "@>" in where_parts[0]
         assert KEYWORD_TAG_JSONB in where_parts[0]
 
-    def test_filter_sql_reverse_includes_null(self):
-        """验证 reverse 过滤条件包含 IS NULL 处理"""
-        collection_type = "reverse"
-        where_parts = []
-        if collection_type == "reverse":
-            where_parts.append(
-                f"(data_source_tags IS NULL OR NOT data_source_tags @> {KEYWORD_TAG_JSONB})"
-            )
-        assert len(where_parts) == 1
-        assert "IS NULL" in where_parts[0]
-        assert "NOT" in where_parts[0]
-        assert KEYWORD_TAG_JSONB in where_parts[0]
+    def test_filter_sql_reverse_requires_positive_evidence(self):
+        """验证 reverse 过滤条件不再使用非关键词补集。"""
+        sql = build_collection_type_filter("reverse")
+        assert "manual-%" in sql
+        assert KEYWORD_TAG_JSONB in sql
+        assert "waimaotong_raw_companies" in sql
+        assert "source_competitor" in sql
+        assert "data_source_tags IS NULL OR NOT" not in sql
 
     def test_no_filter_when_empty(self):
         """collection_type 为空时不应添加过滤条件"""

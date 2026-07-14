@@ -293,7 +293,6 @@ export interface EmailStatsResponse {
 
 // 仪表盘计划概览
 export interface PlanOverviewResponse {
-  keyword_count: number;
   companies_collected: number;
   companies_scored: number;
   contacts_total: number;

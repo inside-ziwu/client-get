@@ -204,7 +204,7 @@ export default function CuratedCustomersPage() {
                     <table className="w-full min-w-[1240px] text-sm">
                       <thead className="sticky top-0 z-10 border-b bg-muted/90 text-left text-xs text-muted-foreground shadow-sm">
                         <tr>
-                          {['公司名', '国家', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
+                          {['公司名', '国家', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '模板评级', '模板评分', '细分行业', '联系人数', '操作', '入库时间'].map((h) => (
                             <th key={h} className={tableHeaderClass(h)}>{h}</th>
                           ))}
                         </tr>

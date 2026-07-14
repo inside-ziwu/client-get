@@ -62,10 +62,6 @@ export const queryKeys = {
     all: () => ['tenant', tenantScope(), 'notifications'] as const,
     unread: () => [...queryKeys.notifications.all(), 'unread'] as const,
   },
-  keywords: {
-    all: () => ['tenant', tenantScope(), 'keywords'] as const,
-    list: () => [...queryKeys.keywords.all(), 'list'] as const,
-  },
   scoring: {
     all: () => ['tenant', tenantScope(), 'scoring'] as const,
   },
@@ -76,11 +72,6 @@ export const queryKeys = {
 
   // ── Admin keys ──
   admin: {
-    dataSources: {
-      all: () => ['admin', 'dataSources'] as const,
-      list: () => [...queryKeys.admin.dataSources.all(), 'list'] as const,
-      credentials: (type: string) => [...queryKeys.admin.dataSources.all(), 'credentials', type] as const,
-    },
     scoringTemplates: {
       all: () => ['admin', 'scoringTemplates'] as const,
       list: () => [...queryKeys.admin.scoringTemplates.all(), 'list'] as const,

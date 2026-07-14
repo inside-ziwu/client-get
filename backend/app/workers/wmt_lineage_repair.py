@@ -1,11 +1,9 @@
-"""WMT 血缘与 tenant 可见关系自愈。
+"""WMT 客户池关系修复与租户评分补齐。
 
-外部流程可能重建 waimaotong_clean_companies，导致 tenant_companies
-仍指向过期的 WMT bigint id。本 worker 幂等执行四类自愈动作：
-1. 规范并回填关键词血缘（clean path → raw fallback）
-2. 关键词 fan-out（tenant_keyword 订阅匹配）
-3. 行业 fan-out（批次标签 → PCB 租户）
-4. 清理 stale 关系
+外部流程可能重建 ``waimaotong_clean_companies``，因此本 worker 定期：
+1. 向当前实例的活跃 PCB 租户分发客户公池（排除手工私有行）。
+2. 删除当前实例中指向已不存在公司的关系。
+3. 在关系事务提交后，分别用租户的活跃模板补齐评分。
 """
 
 from __future__ import annotations
@@ -13,255 +11,266 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import suppress
+from time import monotonic
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.config import get_settings
-from app.services.collection_source import KEYWORD_TAG_JSONB
 
 logger = logging.getLogger(__name__)
 
 _ADVISORY_LOCK_KEY = 2_026_052_101
-
-# 批次标签 → 行业 的硬编码规则；第二行业出现时再数据化。
-# 新租户行业写法若不在别名表内会漏推，新增行业别名需同步登记此处。
 _PCB_INDUSTRY_ALIASES = ["pcb", "电路板"]
+_SCORING_BATCH_SIZE = 500
 
 
-_SQL_NORMALIZE_KEYWORD_MASTER_IDS = text("""
-    UPDATE waimaotong_clean_companies
-    SET keyword_master_ids = '{}'::uuid[]
-    WHERE keyword_master_ids IS NULL
-""")
-
-_SQL_BACKFILL_CLEAN_PATH = text("""
-    UPDATE waimaotong_clean_companies wc
-    SET keyword_master_ids = sub.km_ids
-    FROM (
-        SELECT
-            wc2.id AS wmt_clean_id,
-            array_agg(DISTINCT unnested_km) AS km_ids
-        FROM waimaotong_clean_companies wc2
-        JOIN waimaotong_raw_companies wr
-            ON wr.sys_company_id = wc2.sys_company_id
-        JOIN lixiaoyun_api_clean_companies lxc
-            ON lower(trim(lxc.entname_eng)) = lower(trim(wr.source_competitor))
-        , unnest(lxc.keyword_master_ids) AS unnested_km
-        WHERE wc2.sys_company_id IS NOT NULL
-          AND wr.source_competitor IS NOT NULL
-          AND wr.source_competitor != ''
-          AND lxc.keyword_master_ids IS NOT NULL
-          AND lxc.keyword_master_ids != '{}'
-        GROUP BY wc2.id
-    ) sub
-    WHERE wc.id = sub.wmt_clean_id
-      AND wc.keyword_master_ids IS DISTINCT FROM sub.km_ids
-""")
-
-_SQL_BACKFILL_RAW_FALLBACK = text("""
-    UPDATE waimaotong_clean_companies wc
-    SET keyword_master_ids = sub.km_ids
-    FROM (
-        SELECT
-            wc2.id AS wmt_clean_id,
-            array_agg(DISTINCT lxr.keyword_master_id) AS km_ids
-        FROM waimaotong_clean_companies wc2
-        JOIN waimaotong_raw_companies wr
-            ON wr.sys_company_id = wc2.sys_company_id
-        JOIN lixiaoyun_api_companies lxr
-            ON lower(trim(lxr.entname_eng)) = lower(trim(wr.source_competitor))
-        WHERE wc2.keyword_master_ids = '{}'
-          AND wc2.sys_company_id IS NOT NULL
-          AND wr.source_competitor IS NOT NULL
-          AND wr.source_competitor != ''
-          AND lxr.keyword_master_id IS NOT NULL
-        GROUP BY wc2.id
-    ) sub
-    WHERE wc.id = sub.wmt_clean_id
-      AND wc.keyword_master_ids IS DISTINCT FROM sub.km_ids
-""")
-
-_SQL_FAN_OUT_ACTIVE_KEYWORDS = text("""
+_SQL_FAN_OUT_FULL_POOL = text("""
     INSERT INTO tenant_companies
       (tenant_id, clean_company_id, business_status, data_status)
-    SELECT DISTINCT
-      tk.tenant_id,
-      wc.id,
-      'new',
-      CASE
-        WHEN COALESCE(wc.contacts_count, 0) = 0 THEN 'missing_contacts'
-        WHEN (
-          wc.domain IS NULL
-          AND wc.industry IS NULL
-          AND wc.product_tags IS NULL
-        ) THEN 'insufficient_data'
-        ELSE 'ready'
-      END
-    FROM tenant_keyword tk
-    JOIN tenants t ON t.id = tk.tenant_id
-    JOIN waimaotong_clean_companies wc
-      ON wc.keyword_master_ids @> ARRAY[tk.keyword_master_id]::uuid[]
-    WHERE tk.status = 'active'
-      AND t.instance_id = :instance_id
-    ON CONFLICT (tenant_id, clean_company_id) DO UPDATE
-    SET data_status = EXCLUDED.data_status,
-        updated_at = CASE
-            WHEN tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
-            THEN now()
-            ELSE tenant_companies.updated_at
-        END
-    WHERE tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
-    RETURNING id
-""")
-
-_SQL_FAN_OUT_INDUSTRY = text(f"""
-    INSERT INTO tenant_companies
-      (tenant_id, clean_company_id, business_status, data_status)
-    SELECT DISTINCT
+    SELECT
       t.id,
       wc.id,
       'new',
       CASE
         WHEN COALESCE(wc.contacts_count, 0) = 0 THEN 'missing_contacts'
-        WHEN (
-          wc.domain IS NULL
-          AND wc.industry IS NULL
-          AND wc.product_tags IS NULL
-        ) THEN 'insufficient_data'
+        WHEN wc.domain IS NULL AND wc.industry IS NULL AND wc.product_tags IS NULL
+          THEN 'insufficient_data'
         ELSE 'ready'
       END
     FROM tenants t
     JOIN waimaotong_clean_companies wc
-      ON wc.data_source_tags @> {KEYWORD_TAG_JSONB}
+      ON (wc.source_id IS NULL OR wc.source_id NOT LIKE 'manual-%')
     WHERE t.status = 'active'
       AND lower(trim(t.industry)) = ANY(:industry_aliases)
       AND t.instance_id = :instance_id
     ON CONFLICT (tenant_id, clean_company_id) DO UPDATE
     SET data_status = EXCLUDED.data_status,
-        updated_at = now()
+        updated_at = CASE
+          WHEN tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
+          THEN now()
+          ELSE tenant_companies.updated_at
+        END
     WHERE tenant_companies.data_status IS DISTINCT FROM EXCLUDED.data_status
-    RETURNING id
 """)
 
 _SQL_DELETE_STALE_RELATIONS = text("""
     DELETE FROM tenant_companies tc
-    WHERE NOT EXISTS (
+    USING tenants t
+    WHERE t.id = tc.tenant_id
+      AND t.instance_id = :instance_id
+      AND NOT EXISTS (
         SELECT 1
         FROM waimaotong_clean_companies wc
         WHERE wc.id = tc.clean_company_id
-    )
-    RETURNING id
+      )
 """)
 
-async def _score_new_companies(conn, new_tc_ids: list) -> int:
-    """对新入库的 tenant_companies 执行评分。"""
-    if not new_tc_ids:
-        return 0
-    from app.services.scoring_engine_service import ScoringEngineService
-    engine = ScoringEngineService()
-    scored = 0
-    for row in new_tc_ids:
-        tc_id = row["id"]
-        t = (await conn.execute(text("SELECT tenant_id FROM tenant_companies WHERE id = :id"), {"id": tc_id})).mappings().first()
-        if t:
-            try:
-                await engine.score_tenant_company(conn, tenant_id=str(t["tenant_id"]), tenant_company_id=tc_id)
-                scored += 1
-            except Exception:
-                pass
-    return scored
-
-
-async def _backfill_platform_scores(conn) -> int:
-    """对 system_grade IS NULL 的 clean_companies 用平台模板补评。"""
-    from app.services.scoring_engine_service import ScoringEngineService
-    engine = ScoringEngineService()
-    rows = (await conn.execute(text(
-        "SELECT id FROM waimaotong_clean_companies WHERE system_grade IS NULL LIMIT 500"
-    ))).fetchall()
-    if not rows:
-        return 0
-    scored = 0
-    for r in rows:
-        try:
-            await engine.score_clean_company(conn, clean_company_id=r[0])
-            scored += 1
-        except Exception:
-            pass
-    return scored
-
-
-_SQL_UNRESOLVED_COUNT = text("""
-    SELECT count(*)
-    FROM waimaotong_clean_companies
-    WHERE keyword_master_ids = '{}'
-""")
-
-_SQL_ACTIVE_JOIN_COUNT = text("""
+_SQL_ACTIVE_RELATION_COUNT = text("""
     SELECT count(*)
     FROM tenant_companies tc
+    JOIN tenants t ON t.id = tc.tenant_id
     JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
+    WHERE t.instance_id = :instance_id
+      AND t.status = 'active'
+      AND lower(trim(t.industry)) = ANY(:industry_aliases)
 """)
+
+_SQL_SCORING_BACKLOG = text("""
+    SELECT tc.id, tc.tenant_id
+    FROM tenant_companies tc
+    JOIN tenants t ON t.id = tc.tenant_id
+    JOIN scoring_templates st
+      ON st.tenant_id = tc.tenant_id
+     AND st.is_active = true
+    JOIN LATERAL (
+      SELECT stv.id
+      FROM scoring_template_versions stv
+      WHERE stv.template_id = st.id
+        AND stv.tenant_id = tc.tenant_id
+      ORDER BY stv.version DESC
+      LIMIT 1
+    ) current_version ON true
+    LEFT JOIN company_scores cs
+      ON cs.tenant_company_id = tc.id
+     AND cs.template_version_id = current_version.id
+     AND cs.is_retry = false
+    WHERE t.instance_id = :instance_id
+      AND t.status = 'active'
+      AND lower(trim(t.industry)) = ANY(:industry_aliases)
+      AND cs.id IS NULL
+    ORDER BY tc.id
+    LIMIT :limit
+""")
+
+_SQL_SCORING_REMAINING_COUNT = text("""
+    SELECT count(*)
+    FROM (
+      SELECT tc.id
+      FROM tenant_companies tc
+      JOIN tenants t ON t.id = tc.tenant_id
+      JOIN scoring_templates st
+        ON st.tenant_id = tc.tenant_id
+       AND st.is_active = true
+      JOIN LATERAL (
+        SELECT stv.id
+        FROM scoring_template_versions stv
+        WHERE stv.template_id = st.id
+          AND stv.tenant_id = tc.tenant_id
+        ORDER BY stv.version DESC
+        LIMIT 1
+      ) current_version ON true
+      LEFT JOIN company_scores cs
+        ON cs.tenant_company_id = tc.id
+       AND cs.template_version_id = current_version.id
+       AND cs.is_retry = false
+      WHERE t.instance_id = :instance_id
+        AND t.status = 'active'
+        AND lower(trim(t.industry)) = ANY(:industry_aliases)
+        AND cs.id IS NULL
+    ) backlog
+""")
+
+_SQL_NO_TEMPLATE_COUNT = text("""
+    SELECT count(*)
+    FROM tenant_companies tc
+    JOIN tenants t ON t.id = tc.tenant_id
+    WHERE t.instance_id = :instance_id
+      AND t.status = 'active'
+      AND lower(trim(t.industry)) = ANY(:industry_aliases)
+      AND NOT EXISTS (
+        SELECT 1
+        FROM scoring_templates st
+        WHERE st.tenant_id = tc.tenant_id
+          AND st.is_active = true
+          AND EXISTS (
+            SELECT 1
+            FROM scoring_template_versions stv
+            WHERE stv.template_id = st.id
+              AND stv.tenant_id = tc.tenant_id
+          )
+      )
+""")
+
+
+async def _score_backlog(
+    engine: AsyncEngine,
+    *,
+    instance_id: str,
+    limit: int = _SCORING_BATCH_SIZE,
+) -> dict:
+    """按当前模板版本补评；每家公司使用独立事务。"""
+    params = {
+        "instance_id": instance_id,
+        "industry_aliases": _PCB_INDUSTRY_ALIASES,
+        "limit": limit,
+    }
+    async with engine.connect() as conn:
+        result = await conn.execute(_SQL_SCORING_BACKLOG, params)
+        backlog = result.mappings().all()
+
+    from app.services.scoring_engine_service import ScoringEngineService
+
+    scorer = ScoringEngineService()
+    succeeded = 0
+    failure_ids: list[int] = []
+    for row in backlog:
+        tc_id = int(row["id"])
+        try:
+            async with engine.begin() as conn:
+                async with conn.begin_nested():
+                    score = await scorer.score_tenant_company(
+                        conn,
+                        tenant_id=str(row["tenant_id"]),
+                        tenant_company_id=tc_id,
+                    )
+                    if score is None:
+                        raise RuntimeError("租户无可用评分模板或公司关系已消失")
+            succeeded += 1
+        except Exception:
+            failure_ids.append(tc_id)
+            logger.exception("wmt_lineage_repair: tenant_company_id=%s 补评失败", tc_id)
+
+    metric_params = {
+        "instance_id": instance_id,
+        "industry_aliases": _PCB_INDUSTRY_ALIASES,
+    }
+    async with engine.connect() as conn:
+        remaining = int(await conn.scalar(_SQL_SCORING_REMAINING_COUNT, metric_params) or 0)
+        no_template = int(await conn.scalar(_SQL_NO_TEMPLATE_COUNT, metric_params) or 0)
+
+    return {
+        "score_attempted": len(backlog),
+        "score_succeeded": succeeded,
+        "score_failed": len(failure_ids),
+        "score_failure_ids": failure_ids,
+        "score_remaining": remaining,
+        "score_no_template": no_template,
+    }
 
 
 async def run_wmt_lineage_repair_once(engine: AsyncEngine) -> dict:
-    """执行单轮 WMT lineage repair。
-
-    返回统计信息；如果其他实例已经持有 advisory lock，则跳过本轮。
-    """
+    """执行单轮关系修复，提交后再独立执行补评。"""
+    run_id = uuid4().hex[:12]
+    started_at = monotonic()
     async with engine.begin() as conn:
-        return await run_wmt_lineage_repair_on_connection(conn)
+        stats = await run_wmt_lineage_repair_on_connection(conn)
+
+    if stats["skipped"]:
+        logger.info(
+            "wmt_lineage_repair run_id=%s phase=skipped duration_ms=%d stats=%s",
+            run_id,
+            int((monotonic() - started_at) * 1000),
+            stats,
+        )
+        return stats
+
+    scoring_stats = await _score_backlog(
+        engine,
+        instance_id=get_settings().instance_id,
+    )
+    stats.update(scoring_stats)
+    logger.info(
+        "wmt_lineage_repair run_id=%s phase=complete duration_ms=%d stats=%s",
+        run_id,
+        int((monotonic() - started_at) * 1000),
+        stats,
+    )
+    return stats
 
 
 async def run_wmt_lineage_repair_on_connection(conn) -> dict:
-    """在已有事务/连接内执行 repair，主要供测试和脚本复用。"""
+    """在已有事务中修复关系；不在此事务内执行评分。"""
     instance_id = get_settings().instance_id
-    # key 必须显式转 bigint:hashtext 返回 int4,int4 + int4 仍按 int4 求和,
-    # 2026052101 + hashtext('default')=822708183 会超出 int4 上限直接报错。
     locked = await conn.scalar(
-        text("SELECT pg_try_advisory_xact_lock(CAST(:key AS bigint) + pg_catalog.hashtext(:instance_id))"),
+        text(
+            "SELECT pg_try_advisory_xact_lock("
+            "CAST(:key AS bigint) + pg_catalog.hashtext(:instance_id))"
+        ),
         {"key": _ADVISORY_LOCK_KEY, "instance_id": instance_id},
     )
     if not locked:
-        logger.info("wmt_lineage_repair: another instance holds the lock, skipping")
+        logger.info("wmt_lineage_repair: 其他 worker 正在修复当前实例，跳过本轮")
         return {"skipped": True, "reason": "lock_busy"}
 
-    normalized = await conn.execute(_SQL_NORMALIZE_KEYWORD_MASTER_IDS)
-    clean_path = await conn.execute(_SQL_BACKFILL_CLEAN_PATH)
-    raw_fallback = await conn.execute(_SQL_BACKFILL_RAW_FALLBACK)
-    fan_out = await conn.execute(
-        _SQL_FAN_OUT_ACTIVE_KEYWORDS,
+    params = {
+        "industry_aliases": _PCB_INDUSTRY_ALIASES,
+        "instance_id": instance_id,
+    }
+    fan_out = await conn.execute(_SQL_FAN_OUT_FULL_POOL, params)
+    deleted_stale = await conn.execute(
+        _SQL_DELETE_STALE_RELATIONS,
         {"instance_id": instance_id},
     )
-    fan_out_rows = fan_out.mappings().all()
-    industry_fan_out = await conn.execute(
-        _SQL_FAN_OUT_INDUSTRY,
-        {"industry_aliases": _PCB_INDUSTRY_ALIASES, "instance_id": instance_id},
-    )
-    industry_fan_out_rows = industry_fan_out.mappings().all()
-    deleted_stale = await conn.execute(_SQL_DELETE_STALE_RELATIONS)
+    active_relations = int(await conn.scalar(_SQL_ACTIVE_RELATION_COUNT, params) or 0)
 
-    scored = await _score_new_companies(conn, fan_out_rows)
-    scored += await _score_new_companies(conn, industry_fan_out_rows)
-    platform_scored = await _backfill_platform_scores(conn)
-
-    unresolved = int(await conn.scalar(_SQL_UNRESOLVED_COUNT) or 0)
-    active_join = int(await conn.scalar(_SQL_ACTIVE_JOIN_COUNT) or 0)
-
-    stats = {
+    return {
         "skipped": False,
-        "normalized_keyword_master_ids": normalized.rowcount,
-        "clean_path": clean_path.rowcount,
-        "raw_fallback": raw_fallback.rowcount,
-        "fan_out": len(fan_out_rows),
-        "industry_fan_out": len(industry_fan_out_rows),
-        "deleted_stale": len(deleted_stale.mappings().all()),
-        "unresolved": unresolved,
-        "active_join": active_join,
+        "fan_out": fan_out.rowcount,
+        "deleted_stale": deleted_stale.rowcount,
+        "active_relations": active_relations,
     }
-    logger.info("wmt_lineage_repair: %s", stats)
-    return stats
 
 
 async def run_wmt_lineage_repair_loop(

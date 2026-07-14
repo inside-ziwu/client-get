@@ -134,7 +134,7 @@ export default function AddCompanyModal({ groupId, open, onClose }: Props) {
                   <th className="w-10 px-3 py-2">
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
-                  {['公司名', '国家', '域名', '行业', '员工规模', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '联系人数', '状态'].map((h) => (
+                  {['公司名', '国家', '域名', '行业', '员工规模', '大模型评级', '大模型评分', '模板评级', '模板评分', '细分行业', '联系人数', '状态'].map((h) => (
                     <th key={h} className="whitespace-nowrap px-3 py-2">{h}</th>
                   ))}
                 </tr>

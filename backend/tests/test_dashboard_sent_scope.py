@@ -39,10 +39,9 @@ class FakePlanOverviewConn:
         sql = str(statement)
         self.executions.append((sql, params or {}))
 
-        if "tenant_keyword" in sql:
+        if "companies_collected" in sql:
             return FakeMappingResult(
                 row={
-                    "keyword_count": 1,
                     "companies_collected": 2,
                     "companies_scored": 1,
                     "contacts_total": 3,
@@ -77,6 +76,12 @@ async def test_plan_overview_tenant_sent_scope_excludes_failed():
     result = await TenantQueryService().plan_overview(conn, TENANT_ID)
 
     assert result["emails_sent"] == 80
+    assert "keyword_count" not in result
+    counts_sql = [sql for sql, _ in conn.executions if "companies_collected" in sql][0]
+    assert "tenant_keyword" not in counts_sql
+    assert "scoring_templates" in counts_sql
+    assert "scoring_template_versions" in counts_sql
+    assert "company_scores" in counts_sql
     email_sql = [sql for sql, _ in conn.executions if "FROM emails" in sql][0]
     assert SENT_SCOPE_FILTER in email_sql
 

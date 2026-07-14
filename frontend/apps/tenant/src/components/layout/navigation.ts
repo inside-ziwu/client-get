@@ -3,7 +3,6 @@ import {
   Bot,
   Building2,
   Gauge,
-  KeyRound,
   Mail,
   Newspaper,
   Send,
@@ -32,7 +31,6 @@ export const tenantNavigationGroups = [
   {
     label: '设置',
     items: [
-      { href: '/settings/keywords', label: '关键词', icon: KeyRound },
       { href: '/settings/scoring', label: '评分配置', icon: Settings },
       { href: '/settings/ai-provider', label: 'AI 提供商', icon: Bot },
       { href: '/settings/team', label: '团队管理', icon: Users },

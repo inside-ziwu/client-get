@@ -44,6 +44,8 @@ def _list_row(**overrides):
         "trade_count": 10,
         "description": "A test company",
         "data_source_tags": ["外贸通关键词采集"],
+        "source_id": "wmt-001",
+        "has_source_competitor": False,
         "company_size": "medium",
         "business_status": "active",
         "data_status": "complete",
@@ -93,19 +95,22 @@ class TestTenantCompaniesCollectionTypeFilter:
         rows, total, sql = await _run_companies_page(collection_type="keyword")
         assert total == 1
         assert rows[0]["collection_type"] == "keyword"
-        assert "wc.data_source_tags @>" in sql
+        assert "COALESCE(wc.data_source_tags, '[]'::jsonb) @>" in sql
         assert """'["外贸通关键词采集"]'::jsonb""" in sql
 
     @pytest.mark.asyncio
-    async def test_reverse_filter_includes_null_and_not_contains(self):
-        """collection_type=reverse 时包含 NULL 与 NOT @> 条件。"""
+    async def test_reverse_filter_requires_positive_evidence(self):
+        """collection_type=reverse 仅匹配腾道标签或反推公司证据。"""
         rows, _total, sql = await _run_companies_page(
             collection_type="reverse",
-            row=_list_row(data_source_tags=[]),
+            row=_list_row(data_source_tags=["腾道"]),
         )
         assert rows[0]["collection_type"] == "reverse"
-        assert "wc.data_source_tags IS NULL" in sql
-        assert "NOT wc.data_source_tags @>" in sql
+        assert "wc.source_id" in sql
+        assert "manual-%" in sql
+        assert "waimaotong_raw_companies" in sql
+        assert "source_competitor" in sql
+        assert "wc.data_source_tags IS NULL" not in sql
 
     @pytest.mark.asyncio
     async def test_none_filter_does_not_add_collection_type_where(self):

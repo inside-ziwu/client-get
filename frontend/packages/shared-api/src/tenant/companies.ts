@@ -32,7 +32,7 @@ export interface Company {
   contacts_count?: number;
   description?: string;
   data_source_tags?: string[];
-  collection_type: 'keyword' | 'reverse';
+  collection_type: 'manual' | 'keyword' | 'reverse' | 'unknown';
   sources?: string[];
   full_address?: string;
   matched_keywords?: string[];

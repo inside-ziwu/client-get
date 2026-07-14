@@ -93,30 +93,9 @@ def main() -> None:
                 "instance_id": instance_id,
             },
         )
-        print(f"[1/7] platform_users: {admin_email} (instance_id={instance_id})")
+        print(f"[1/6] platform_users: {admin_email} (instance_id={instance_id})")
 
-        # ── 2. data_sources ────────────────────────────────────────────────
-        conn.execute(
-            text(
-                """
-                INSERT INTO data_sources (id, source_type, name, alias_code, purpose, config, landing_rules, instance_id)
-                VALUES
-                  (:id1, 'waimao_tong', '外贸通', 'A01', '关键词直接搜索海外公司', '{}'::jsonb, '{}'::jsonb, :instance_id),
-                  (:id2, 'tengdao', '腾道', 'B01', '海关采购商数据搜索', '{}'::jsonb, '{}'::jsonb, :instance_id),
-                  (:id3, 'lixiaoyun', '励销云', 'C01', '同行反查精准客户', '{}'::jsonb, '{}'::jsonb, :instance_id)
-                ON CONFLICT (instance_id, source_type) DO NOTHING
-                """
-            ),
-            {
-                "id1": str(new_uuid()),
-                "id2": str(new_uuid()),
-                "id3": str(new_uuid()),
-                "instance_id": instance_id,
-            },
-        )
-        print("[2/7] data_sources: waimao_tong, tengdao, lixiaoyun")
-
-        # ── 3. warmup_rules + warmup_rule_levels ───────────────────────────
+        # ── 2. warmup_rules + warmup_rule_levels ───────────────────────────
         conn.execute(
             text(
                 """
@@ -145,9 +124,9 @@ def main() -> None:
                     "daily_limit": daily_limit,
                 },
             )
-        print("[3/7] warmup_rules + warmup_rule_levels")
+        print("[2/6] warmup_rules + warmup_rule_levels")
 
-        # ── 4. platform_scoring_templates + versions ───────────────────────
+        # ── 3. platform_scoring_templates + versions ───────────────────────
         conn.execute(
             text(
                 """
@@ -186,9 +165,9 @@ def main() -> None:
                 "grade_thresholds": '{"S":90,"A":80,"B":60,"C":40,"D":0}',
             },
         )
-        print("[4/7] platform_scoring_templates + versions")
+        print("[3/6] platform_scoring_templates + versions")
 
-        # ── 5. platform_email_templates ────────────────────────────────────
+        # ── 4. platform_email_templates ────────────────────────────────────
         conn.execute(
             text(
                 """
@@ -209,9 +188,9 @@ def main() -> None:
             ),
             {"id": email_template_id, "instance_id": instance_id},
         )
-        print("[5/7] platform_email_templates")
+        print("[4/6] platform_email_templates")
 
-        # ── 6. ai_models ──────────────────────────────────────────────────
+        # ── 5. ai_models ──────────────────────────────────────────────────
         conn.execute(
             text(
                 """
@@ -224,9 +203,9 @@ def main() -> None:
             ),
             {"id": ai_model_id, "instance_id": instance_id},
         )
-        print("[6/7] ai_models")
+        print("[5/6] ai_models")
 
-        # ── 7. ai_scene_defaults ───────────────────────────────────────────
+        # ── 6. ai_scene_defaults ───────────────────────────────────────────
         scenes = ["scoring", "email_generation", "intelligence_summary", "data_analysis"]
         for scene in scenes:
             conn.execute(
@@ -244,7 +223,7 @@ def main() -> None:
                     "instance_id": instance_id,
                 },
             )
-        print("[7/7] ai_scene_defaults")
+        print("[6/6] ai_scene_defaults")
 
     engine.dispose()
     print(f"\n初始化完成：instance_id={instance_id}, admin_email={admin_email}")

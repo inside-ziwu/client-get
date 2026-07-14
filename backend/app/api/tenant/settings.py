@@ -3,61 +3,18 @@ from fastapi import APIRouter, Depends
 from app.core.responses import paginated_response, success_response
 from app.schemas.ai_provider import OpenRouterConfigRequest
 from app.schemas.tenant_settings import (
-    KeywordCreateRequest,
-    KeywordUpdateRequest,
     ScoringTemplateUpdateRequest,
 )
-from app.security.dependencies import TenantAuthContext, get_current_tenant_user, require_tenant_roles
+from app.security.dependencies import (
+    TenantAuthContext,
+    require_tenant_roles,
+)
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 from app.services.tenant_settings_service import TenantSettingsService
 
 router = APIRouter(tags=["tenant-settings"])
 service = TenantSettingsService()
 ai_provider_service = TenantAiProviderService()
-
-
-@router.get("/keywords")
-async def list_keywords(context: TenantAuthContext = Depends(get_current_tenant_user)) -> dict:
-    items = await service.list_keywords(context.connection, context.tenant_id)
-    return paginated_response(items, total=len(items))
-
-
-@router.post("/keywords")
-async def create_keyword(
-    payload: KeywordCreateRequest,
-    context: TenantAuthContext = Depends(require_tenant_roles("admin")),
-) -> dict:
-    item = await service.create_keyword(
-        context.connection,
-        tenant_id=context.tenant_id,
-        user_id=context.user_id,
-        payload=payload.model_dump(),
-    )
-    return success_response(item)
-
-
-@router.patch("/keywords/{keyword_id}")
-async def update_keyword(
-    keyword_id: str,
-    payload: KeywordUpdateRequest,
-    context: TenantAuthContext = Depends(require_tenant_roles("admin")),
-) -> dict:
-    item = await service.update_keyword(
-        context.connection,
-        tenant_id=context.tenant_id,
-        keyword_id=keyword_id,
-        payload=payload.model_dump(exclude_none=True),
-    )
-    return success_response(item)
-
-
-@router.delete("/keywords/{keyword_id}")
-async def delete_keyword(
-    keyword_id: str,
-    context: TenantAuthContext = Depends(require_tenant_roles("admin")),
-) -> dict:
-    await service.delete_keyword(context.connection, tenant_id=context.tenant_id, keyword_id=keyword_id)
-    return success_response({"deleted": True})
 
 
 @router.get("/scoring-templates")

@@ -4,7 +4,6 @@ type Role = 'admin' | 'operator' | 'viewer';
 
 const PERMISSIONS: Record<string, Role[]> = {
   // Page-level
-  'settings.keywords': ['admin'],
   'settings.scoring': ['admin'],
   'settings.contact-rules': ['admin'],
   'settings.team': ['admin'],

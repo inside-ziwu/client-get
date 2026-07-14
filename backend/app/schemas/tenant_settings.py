@@ -1,13 +1,4 @@
-from pydantic import BaseModel, Field
-
-
-class KeywordCreateRequest(BaseModel):
-    keyword: str = Field(min_length=1)
-
-
-class KeywordUpdateRequest(BaseModel):
-    keyword: str | None = None
-    status: str | None = None
+from pydantic import BaseModel
 
 
 class ScoringTemplateUpdateRequest(BaseModel):
