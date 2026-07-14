@@ -88,4 +88,11 @@ describe('DashboardShell', () => {
     fireEvent.click(screen.getByRole('button', { name: '收起侧边栏' }));
     expect(localStorage.getItem('sidebar-collapsed')).toBe('true');
   });
+
+  it('桌面侧栏固定在可视区域', () => {
+    renderShell();
+
+    const desktopNavigation = screen.getByRole('navigation', { name: '桌面主导航' });
+    expect(desktopNavigation.closest('aside')).toHaveClass('sticky', 'top-0');
+  });
 });
