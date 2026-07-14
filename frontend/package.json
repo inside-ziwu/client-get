@@ -2,9 +2,10 @@
   "name": "client-get-web",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.28.1",
   "engines": {
     "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
+    "pnpm": "10.28.1"
   },
   "scripts": {
     "dev:admin": "pnpm --filter @apps/admin dev",
@@ -16,10 +17,5 @@
     "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
     "type-check": "pnpm -r type-check",
     "clean": "pnpm -r clean && rm -rf node_modules"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }

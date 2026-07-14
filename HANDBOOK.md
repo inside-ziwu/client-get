@@ -174,7 +174,7 @@ uv run pytest -q                            # 42 个测试文件
 uv run python scripts/run_sending_worker.py --once   # 发送 worker 单轮
 uv run python scripts/seed_demo_data.py     # 演示数据（demo 租户）
 
-# 前端（pnpm ≥9，Node ≥20）
+# 前端（pnpm 10.28.1，Node ≥20）
 cd frontend
 pnpm install
 pnpm dev:admin     # http://localhost:3000
