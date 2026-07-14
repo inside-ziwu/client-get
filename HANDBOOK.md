@@ -83,6 +83,7 @@
 |---|---|---|
 | 多实例部署 | ✅ | 详见 §6，已生产运行 |
 | 多租户隔离 | 🟡 | 应用层过滤 + 测试锁定可用；**数据库层 RLS 未强制（无 FORCE、单一 owner 连接），属单点防线**（T-01） |
+| 前端布局与路由反馈 | ✅ | Admin/Tenant 共用 shared-ui `DashboardShell`；小屏使用左侧抽屉导航，桌面保留折叠侧栏；应用级与 dashboard 级错误边界提供重试/刷新，dashboard 路由提供统一 loading 骨架 |
 
 已废弃：本地一键验证脚本（openspec 时代承诺，30 项任务只完成 4 项，核心脚本从未创建，判定放弃）。
 
@@ -198,7 +199,7 @@ pnpm type-check    # 全 workspace tsc
 ## 10. 测试与质量现状
 
 - 后端：42 个测试文件（≈7.4k 行、232 个测试函数），重点锁定跨租户不可见性（no_visibility 系列）、实例隔离、发送计划生命周期、认证；`ruff` 已配置，**无 mypy**
-- 前端：tenant 有 vitest 基建但仅覆盖 settings/team 一个模块；admin 零测试
+- 前端：tenant 有 vitest 基建但仅覆盖 settings/team 一个模块；shared-ui 有最小 vitest 基建，覆盖布局交互与路由反馈 7 个测试；admin 零测试
 - **CI 现状：GitHub Actions 只构建镜像，不跑任何测试或 lint**——质量门禁缺失是已登记的头部债务（T-10）
 - 类型契约：前端 shared-types 为手写，与后端 Pydantic 无自动同步（已发现漂移实例，T-11）
 

@@ -5,6 +5,11 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./route-error-state": "./src/components/route-error-state.tsx",
+    "./route-loading-state": "./src/components/route-loading-state.tsx"
+  },
   "scripts": {
     "test": "vitest run",
     "type-check": "tsc --noEmit",

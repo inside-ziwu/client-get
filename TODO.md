@@ -83,16 +83,6 @@
 
 ## D. 前端体验
 
-### T-14 · 移动端导航完全不可用（双端同款 bug）— P1
-- **来源**：2026-07-11 审计
-- **缺口**：两端侧栏 `hidden lg:block`（<1024px 不可见），而 app-shell 的汉堡按钮（`aria-label="打开导航"`）**没有 onClick**——小屏下主导航不可达。`apps/tenant/src/components/layout/app-shell.tsx:46`、admin 同款 :47。
-- **验收**：小屏点汉堡出抽屉导航（shared-ui 已有 Sheet 组件可用）；顺手把两端重复的 284/287 行布局壳抽到共享包。
-
-### T-15 · 无错误边界与路由级 loading — P2
-- **缺口**：两端零 `error.tsx`；`loading.tsx` 全仓仅 admin 一处。运行时异常无恢复 UI。
-- **验收**：两端补路由级 error/loading。
-- 备注：原范围中「统一 Skeleton/EmptyState 收编空态」部分已并入 T-23（由 TableState 组件承载），本条只剩路由级错误边界。
-
 ### T-16 · 表单基建「装了没通电」— P2
 - **缺口**：admin 已声明 react-hook-form + zod + resolvers，shared-ui 已导出 Form 封装，但**全仓零消费**；所有表单为 useState + 手写校验。
 - **验收**：挑 2~3 个高频表单（租户创建、发送计划向导、登录）迁移到 RHF+zod 立标杆，后续新表单一律走该模式；或明确决策移除这套依赖（二选一，不允许继续「装着不用」）。
@@ -175,4 +165,6 @@
 |---|---|
 | TODOS.md #2「收件人筛选 NOT IN 应含 invalid」 | **已修复**：`tenant_messaging_service.py` 收件人筛选已排除 invalid（2026-07-11 代码核实），原台账未销账属文档滞后 |
 | TODOS.md #3「Webhook 回填定时任务候补」 | **已被实现覆盖**：对账 worker（`app/workers/reconciliation.py`）已常态化兜底 webhook 丢失，比原设想的每日回填更实时 |
+| T-14「移动端导航完全不可用」 | **已修复**：双端接入 shared-ui `DashboardShell`；375px 实测抽屉打开、链接/Escape 关闭，1440px 桌面侧栏与折叠状态正常；shared-ui 交互测试 + 双端 build 通过 |
+| T-15「无错误边界与路由级 loading」 | **已修复**：双端应用级与 dashboard 级 `error.tsx`、dashboard `loading.tsx` 已接入；临时故障注入验证两级恢复 UI 与流式加载骨架；shared-ui 状态测试 + 双端 build 通过 |
 | T-19 部分项「openspec 系列 skill/command 定义」 | **已删除**（2026-07-11 用户授权）：`.claude/commands/opsx/`、`.claude/skills/openspec-*`、`.codex/skills/openspec-*` 共 15 个 tracked 文件，另清理 `.agents/skills/source-command-opsx-*` 5 个 untracked 镜像；`settings.local.json` 内 3 行 openspec CLI 权限白名单属用户本地设置，未动 |
