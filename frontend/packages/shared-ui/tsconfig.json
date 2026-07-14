@@ -5,5 +5,5 @@
       "@shared/types": ["../shared-types/src"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "test", "vitest.config.ts"]
 }
