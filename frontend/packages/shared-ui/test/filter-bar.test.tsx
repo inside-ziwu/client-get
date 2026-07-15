@@ -65,6 +65,33 @@ function ControlledFilterBar({
 }
 
 describe('FilterBar', () => {
+  it('新筛选控件显式消费 ui 尺寸、圆角、焦点与主操作 token', () => {
+    const fields: ReadonlyArray<FilterField<Draft>> = [
+      { name: 'keyword', kind: 'text', label: '关键词' },
+      { name: 'status', kind: 'select', label: '状态', options: [] },
+      { name: 'tags', kind: 'multiSelect', label: '标签', options: [] },
+    ];
+
+    render(<ControlledFilterBar fields={fields} />);
+
+    expect(screen.getByLabelText('关键词')).toHaveClass(
+      'h-10',
+      'rounded-ui-md',
+      'focus-visible:ring-ui-foreground',
+    );
+    expect(screen.getByLabelText('状态')).toHaveClass('h-10', 'rounded-ui-md');
+    expect(within(screen.getByRole('group', { name: '标签' })).getByRole('button')).toHaveClass(
+      'h-10',
+      'rounded-ui-md',
+    );
+    expect(screen.getByRole('button', { name: '查询' })).toHaveClass(
+      'h-10',
+      'rounded-ui-md',
+      'bg-ui-primary',
+      'text-ui-on-primary',
+    );
+  });
+
   it('只更新受控 draft，并在表单提交时把当前 draft 交给父页面', () => {
     const onSubmit = vi.fn();
     const fields: ReadonlyArray<FilterField<Draft>> = [
@@ -217,9 +244,39 @@ describe('FilterBar', () => {
     expect(within(tagsGroup).getByText('暂无可选项')).toBeInTheDocument();
   });
 
+  it('分别表达 select 空状态与 multiSelect 加载状态', () => {
+    const fields: ReadonlyArray<FilterField<Draft>> = [
+      {
+        name: 'status',
+        kind: 'select',
+        label: '状态',
+        options: [],
+        optionState: 'empty',
+      },
+      {
+        name: 'tags',
+        kind: 'multiSelect',
+        label: '标签',
+        options: [],
+        optionState: 'loading',
+      },
+    ];
+
+    render(<ControlledFilterBar fields={fields} />);
+
+    expect(screen.getByLabelText('状态')).toBeDisabled();
+    expect(screen.getByText('暂无可选项')).toBeInTheDocument();
+    const tagsGroup = screen.getByRole('group', { name: '标签' });
+    expect(within(tagsGroup).getByRole('button')).toBeDisabled();
+    expect(within(tagsGroup).getByText('正在加载选项…')).toBeInTheDocument();
+  });
+
   it('提交中禁用筛选控件和操作，并把 disabled 传给 custom 字段', () => {
     const fields: ReadonlyArray<FilterField<Draft>> = [
       { name: 'keyword', kind: 'text', label: '关键词' },
+      { name: 'status', kind: 'select', label: '状态', options: [] },
+      { name: 'tags', kind: 'multiSelect', label: '标签', options: [] },
+      { name: 'date', kind: 'date', label: '创建日期', advanced: true },
       {
         name: 'custom',
         kind: 'custom',
@@ -231,8 +288,28 @@ describe('FilterBar', () => {
     render(<ControlledFilterBar fields={fields} isSubmitting />);
 
     expect(screen.getByLabelText('关键词')).toBeDisabled();
+    expect(screen.getByLabelText('状态')).toBeDisabled();
+    expect(within(screen.getByRole('group', { name: '标签' })).getByRole('button')).toBeDisabled();
+    expect(screen.getByRole('button', { name: '更多条件' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '查询中…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '重置' })).toBeDisabled();
     expect(screen.getByText('自定义条件已禁用')).toBeInTheDocument();
+  });
+
+  it('advanced 条件展开后可以再次收起', () => {
+    render(
+      <ControlledFilterBar
+        fields={[{ name: 'date', kind: 'date', label: '创建日期', advanced: true }]}
+      />,
+    );
+
+    const toggle = screen.getByRole('button', { name: '更多条件' });
+    const advancedFields = screen.getByTestId('filter-bar-advanced-fields');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: '收起更多条件' }));
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(advancedFields).toHaveClass('hidden', 'sm:grid');
   });
 });

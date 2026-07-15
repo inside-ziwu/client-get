@@ -19,7 +19,17 @@ describe('Pagination', () => {
 
     expect(screen.getByText('共 0 条')).toBeInTheDocument();
     expect(screen.getByText('第 1/1 页')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '每页条数' })).toHaveClass(
+      'h-10',
+      'rounded-ui-md',
+    );
+    expect(screen.getByLabelText('跳转页码')).toHaveClass(
+      'h-10',
+      'rounded-ui-md',
+      'focus-visible:ring-ui-foreground',
+    );
     expect(screen.getByRole('button', { name: '上一页' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '上一页' })).toHaveClass('h-10', 'w-10');
     expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
   });
 
@@ -79,6 +89,39 @@ describe('Pagination', () => {
     expect(onChange).toHaveBeenCalledWith({ page: 1, pageSize: 20 });
   });
 
+  it('unknownTotal 第一页禁用上一页，并在还有下一页时允许前进', () => {
+    const onChange = vi.fn();
+    render(
+      <Pagination
+        mode="unknownTotal"
+        hasNextPage
+        value={{ page: 1, pageSize: 50 }}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '上一页' })).toBeDisabled();
+    const nextButton = screen.getByRole('button', { name: '下一页' });
+    expect(nextButton).toBeEnabled();
+    fireEvent.click(nextButton);
+    expect(onChange).toHaveBeenCalledWith({ page: 2, pageSize: 50 });
+  });
+
+  it('total 模式可以显式隐藏跳页控件', () => {
+    render(
+      <Pagination
+        mode="total"
+        total={100}
+        showPageJump={false}
+        value={{ page: 2, pageSize: 20 }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText('跳转页码')).not.toBeInTheDocument();
+    expect(screen.getByText('第 2/5 页')).toBeInTheDocument();
+  });
+
   it('跳页会 clamp 到合法范围，且 Enter 后的 blur 不重复提交', () => {
     const onChange = vi.fn();
     render(
@@ -120,6 +163,38 @@ describe('Pagination', () => {
     fireEvent.blur(input);
     expect(input).toHaveValue('2');
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('跳页向下 clamp，跳到当前页不回调，并同步外部页码更新', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <Pagination
+        mode="total"
+        total={95}
+        value={{ page: 2, pageSize: 20 }}
+        onChange={onChange}
+      />,
+    );
+
+    const input = screen.getByLabelText('跳转页码');
+    fireEvent.change(input, { target: { value: '-8' } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith({ page: 1, pageSize: 20 });
+
+    onChange.mockClear();
+    fireEvent.change(input, { target: { value: '2' } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+
+    rerender(
+      <Pagination
+        mode="total"
+        total={95}
+        value={{ page: 4, pageSize: 20 }}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByLabelText('跳转页码')).toHaveValue('4');
   });
 
   it('isDisabled 会禁用所有分页控件', () => {

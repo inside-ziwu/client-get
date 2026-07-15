@@ -18,6 +18,7 @@ describe('TableState', () => {
 
     const status = screen.getByRole('status');
     expect(status).toHaveTextContent('正在加载公司…');
+    expect(status.parentElement).toHaveClass('sticky', 'left-0', 'w-[100cqw]');
     expect(status.closest('td')).toHaveAttribute('colspan', '4');
     expect(status.closest('tr')).toBeInTheDocument();
   });

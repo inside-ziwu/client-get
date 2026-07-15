@@ -105,7 +105,15 @@ describe('DataTable', () => {
     const actionHeader = screen.getByRole('columnheader', { name: '操作' });
     expect(actionHeader).toHaveClass('sticky', 'right-0');
     expect(screen.getByRole('columnheader', { name: '公司' })).toHaveClass('sticky', 'top-0');
-    expect(table.closest('[data-data-table-scroll]')).toHaveClass('overflow-x-auto');
+    expect(table.closest('[data-data-table-scroll]')).toHaveClass(
+      'overflow-x-auto',
+      '[container-type:inline-size]',
+    );
+    expect(screen.getByRole('columnheader', { name: '公司' })).toHaveClass(
+      'px-ui-sm',
+      'py-ui-xs',
+    );
+    expect(screen.getByText('远航科技').closest('td')).toHaveClass('px-ui-sm', 'py-ui-xs');
   });
 
   it('关闭 sticky header 时仍能独立固定 actions 列', () => {
@@ -209,7 +217,12 @@ describe('DataTable', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('switch', { name: '远航科技可用状态' }));
+    const enabledSwitch = screen.getByRole('switch', { name: '远航科技可用状态' });
+    expect(enabledSwitch).toHaveClass(
+      'data-[state=checked]:bg-ui-primary',
+      'focus-visible:ring-ui-foreground',
+    );
+    fireEvent.click(enabledSwitch);
     expect(onBooleanChange).toHaveBeenCalledOnce();
     expect(onBooleanChange).toHaveBeenCalledWith(rows[0], false);
     expect(screen.getByRole('switch', { name: '公司可用状态' })).toBeDisabled();
@@ -243,6 +256,10 @@ describe('DataTable', () => {
     );
 
     const selectPage = screen.getByRole('checkbox', { name: '选择当前页公司' });
+    expect(selectPage).toHaveClass(
+      'data-[state=checked]:bg-ui-primary',
+      'focus-visible:ring-ui-foreground',
+    );
     expect(selectPage).toHaveAttribute('data-state', 'indeterminate');
     fireEvent.click(selectPage);
     expect(onTogglePage).toHaveBeenCalledWith([firstRow, selectableSecondRow]);
@@ -251,6 +268,137 @@ describe('DataTable', () => {
     expect(onToggleRow).toHaveBeenCalledWith(firstRow);
     expect(screen.getByRole('checkbox', { name: '选择公司 company-2' })).toBeEnabled();
     expect(screen.getByRole('checkbox', { name: '选择公司 company-3' })).toBeDisabled();
+  });
+
+  it('当前页选择框区分全选、全不选和无可选行', () => {
+    const onTogglePage = vi.fn();
+    const onToggleRow = vi.fn();
+    const { rerender } = render(
+      <DataTable
+        columns={columns.slice(0, 1)}
+        data={rows}
+        entityName="公司"
+        getRowId={(row) => row.id}
+        selection={{
+          selectedKeys: new Set(rows.map((row) => row.id)),
+          onTogglePage,
+          onToggleRow,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('checkbox', { name: '选择当前页公司' })).toHaveAttribute(
+      'data-state',
+      'checked',
+    );
+
+    rerender(
+      <DataTable
+        columns={columns.slice(0, 1)}
+        data={rows}
+        entityName="公司"
+        getRowId={(row) => row.id}
+        selection={{
+          selectedKeys: new Set(),
+          onTogglePage,
+          onToggleRow,
+        }}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: '选择当前页公司' })).toHaveAttribute(
+      'data-state',
+      'unchecked',
+    );
+
+    rerender(
+      <DataTable
+        columns={columns.slice(0, 1)}
+        data={rows}
+        entityName="公司"
+        getRowId={(row) => row.id}
+        selection={{
+          selectedKeys: new Set(),
+          isRowDisabled: () => true,
+          onTogglePage,
+          onToggleRow,
+        }}
+      />,
+    );
+    expect(screen.getByRole('checkbox', { name: '选择当前页公司' })).toBeDisabled();
+  });
+
+  it('selection 存在时状态行覆盖选择列与数据列', () => {
+    render(
+      <DataTable
+        columns={columns.slice(0, 2)}
+        data={[]}
+        entityName="公司"
+        getRowId={(row) => row.id}
+        state={{ kind: 'loading' }}
+        selection={{
+          selectedKeys: new Set(),
+          onTogglePage: vi.fn(),
+          onToggleRow: vi.fn(),
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('cell')).toHaveAttribute('colspan', '3');
+  });
+
+  it('关闭 stickyActions 时操作列表头只保留 sticky header，数据单元格不再固定', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={rows.slice(0, 1)}
+        entityName="公司"
+        getRowId={(row) => row.id}
+        stickyActions={false}
+      />,
+    );
+
+    const actionHeader = screen.getByRole('columnheader', { name: '操作' });
+    const actionCell = screen.getByRole('button', { name: '编辑 company-1' }).closest('td');
+    expect(actionHeader).toHaveClass('sticky', 'top-0');
+    expect(actionHeader).not.toHaveClass('right-0');
+    expect(actionCell).not.toHaveClass('sticky', 'right-0');
+  });
+
+  it('支持函数 value、date render-only，并为 number 默认值保持右对齐与等宽数字', () => {
+    const rendererColumns: readonly DataTableColumn<CompanyRow>[] = [
+      {
+        id: 'name',
+        header: '公司',
+        width: 'lg',
+        type: 'text',
+        value: (row) => `${row.id}:${row.name ?? '未命名'}`,
+      },
+      {
+        id: 'createdAt',
+        header: '创建时间',
+        width: 'md',
+        type: 'date',
+        value: 'createdAt',
+        render: (row) => `渲染日期：${row.createdAt}`,
+      },
+      { id: 'score', header: '评分', width: 'sm', type: 'number', value: 'score' },
+    ];
+
+    render(
+      <DataTable
+        columns={rendererColumns}
+        data={rows}
+        entityName="公司"
+        getRowId={(row) => row.id}
+      />,
+    );
+
+    expect(screen.getByText('company-1:远航科技')).toBeInTheDocument();
+    expect(screen.getByText('渲染日期：2026-07-14')).toBeInTheDocument();
+    expect(screen.getByText('98')).toBeInTheDocument();
+    const emptyNumberCell = screen.getByText('-').closest('td');
+    expect(screen.getByRole('columnheader', { name: '评分' })).toHaveClass('text-right');
+    expect(emptyNumberCell).toHaveClass('text-right', 'tabular-nums');
   });
 
   it('保留旧行并用弱提示表达刷新中', () => {

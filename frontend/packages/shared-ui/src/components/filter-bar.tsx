@@ -23,6 +23,9 @@ export type KeysMatching<T, V> = {
 
 type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 
+const uiControlClasses =
+  'h-10 rounded-ui-md border-ui-border bg-ui-canvas text-ui-body focus-visible:border-ui-foreground focus-visible:ring-2 focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-surface-soft';
+
 export interface FilterFieldRenderContext<T extends FilterDraftShape<T>> {
   values: T;
   setValue: <K extends keyof T>(name: K, value: T[K]) => void;
@@ -114,6 +117,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
       <div className="space-y-2" role="group" aria-labelledby={labelId}>
         <Label id={labelId}>{field.label}</Label>
         <MultiSelect
+          className={uiControlClasses}
           value={value}
           options={field.options}
           onChange={(next) =>
@@ -140,7 +144,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
           onValueChange={(next) => setValue(field.name, next as T[typeof field.name])}
           disabled={disabled || state !== 'ready'}
         >
-          <SelectTrigger id={id}>
+          <SelectTrigger className={uiControlClasses} id={id}>
             <SelectValue placeholder={optionPlaceholder(state, field.placeholder)} />
           </SelectTrigger>
           <SelectContent>
@@ -159,6 +163,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
     <div className="space-y-2">
       <Label htmlFor={id}>{field.label}</Label>
       <Input
+        className={uiControlClasses}
         id={id}
         type={field.kind}
         value={value}
@@ -218,7 +223,7 @@ export function FilterBar<T extends FilterDraftShape<T>>({
           <Button
             type="button"
             variant="ghost"
-            className="mt-3 sm:hidden"
+            className="mt-3 h-10 rounded-ui-md focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas sm:hidden"
             aria-controls={advancedId}
             aria-expanded={advancedOpen}
             onClick={() => setAdvancedOpen((current) => !current)}
@@ -241,10 +246,20 @@ export function FilterBar<T extends FilterDraftShape<T>>({
       ) : null}
 
       <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onReset} disabled={isSubmitting}>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 rounded-ui-md border-ui-border bg-ui-canvas px-ui-md text-ui-body-strong hover:bg-ui-surface-card focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas"
+          onClick={onReset}
+          disabled={isSubmitting}
+        >
           重置
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-body-strong text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-primary-disabled disabled:text-ui-body disabled:opacity-100"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? '查询中…' : '查询'}
         </Button>
       </div>

@@ -43,8 +43,8 @@ export function TableState({ state, entityName, colSpan }: TableStateProps) {
 
   return (
     <tr>
-      <td colSpan={colSpan} className="px-ui-md py-12 text-center text-ui-body text-ui-muted-foreground">
-        {content}
+      <td colSpan={colSpan} className="p-0 text-ui-body text-ui-muted-foreground">
+        <div className="sticky left-0 w-[100cqw] px-ui-md py-12 text-center">{content}</div>
       </td>
     </tr>
   );

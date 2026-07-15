@@ -36,6 +36,15 @@ describe('Badge', () => {
     expect(screen.getByText('旧状态')).toHaveClass('border-border', 'text-foreground');
   });
 
+  it.each([
+    ['secondary', 'bg-secondary', 'text-secondary-foreground'],
+    ['destructive', 'bg-destructive', 'text-destructive-foreground'],
+  ] as const)('保留旧 %s variant 行为', (variant, backgroundClass, foregroundClass) => {
+    render(<Badge variant={variant}>旧状态</Badge>);
+
+    expect(screen.getByText('旧状态')).toHaveClass(backgroundClass, foregroundClass);
+  });
+
   it('类型上禁止同时传 tone 与 legacy variant', () => {
     type BadgeProps = ComponentProps<typeof Badge>;
     const toneProps: BadgeProps = { tone: 'success' };
@@ -71,7 +80,12 @@ describe('AlertDialogAction', () => {
   it('destructive variant 使用危险按钮样式', () => {
     renderAction('destructive');
 
-    expect(screen.getByRole('button', { name: '确认' })).toHaveClass('bg-destructive');
+    expect(screen.getByRole('button', { name: '确认' })).toHaveClass(
+      'h-10',
+      'rounded-ui-md',
+      'bg-ui-danger-foreground',
+      'text-ui-on-primary',
+    );
   });
 });
 

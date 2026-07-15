@@ -168,6 +168,7 @@ function renderCell<T>(column: DataTableColumn<T>, row: T): React.ReactNode {
       return (
         <Switch
           aria-label={label}
+          className="focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas data-[state=checked]:bg-ui-primary"
           checked={checked}
           disabled={column.isBooleanDisabled?.(row)}
           onCheckedChange={(next) => column.onBooleanChange(row, next)}
@@ -209,7 +210,7 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        'relative overflow-x-auto rounded-ui-lg border border-ui-border bg-ui-canvas',
+        'relative overflow-x-auto rounded-ui-lg border border-ui-border bg-ui-canvas [container-type:inline-size]',
         className,
       )}
       data-data-table-scroll
@@ -233,17 +234,18 @@ export function DataTable<T>({
           ))}
         </colgroup>
         <thead>
-          <tr className="border-b border-ui-border bg-ui-surface-soft">
+          <tr className="h-9 border-b border-ui-border bg-ui-surface-soft">
             {selection ? (
               <th
                 className={cn(
-                  'w-12 min-w-12 px-ui-sm py-ui-sm text-center',
+                  'w-12 min-w-12 px-ui-sm py-ui-xs text-center',
                   stickyHeader && 'sticky top-0 z-20 bg-ui-surface-soft',
                 )}
                 scope="col"
               >
                 <Checkbox
                   aria-label={`选择当前页${entityName}`}
+                  className="border-ui-foreground focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas data-[state=checked]:bg-ui-primary data-[state=checked]:text-ui-on-primary"
                   checked={allSelected ? true : partiallySelected ? 'indeterminate' : false}
                   disabled={selectableRows.length === 0}
                   onCheckedChange={() => selection.onTogglePage(selectableRows)}
@@ -256,7 +258,7 @@ export function DataTable<T>({
                 <th
                   className={cn(
                     columnWidthClasses[column.width],
-                    'px-ui-md py-ui-sm text-ui-caption font-semibold text-ui-muted-foreground',
+                    'px-ui-sm py-ui-xs text-ui-caption text-ui-muted-foreground',
                     columnAlignment(column),
                     stickyHeader && 'sticky top-0 z-10 bg-ui-surface-soft',
                     stickyAction &&
@@ -277,11 +279,12 @@ export function DataTable<T>({
             ? data.map((row) => {
                 const rowId = getRowId(row);
                 return (
-                  <tr className="border-b border-ui-border-soft last:border-b-0" key={rowId}>
+                  <tr className="h-10 border-b border-ui-border-soft last:border-b-0" key={rowId}>
                     {selection ? (
-                      <td className="w-12 min-w-12 px-ui-sm py-ui-sm text-center">
+                      <td className="w-12 min-w-12 px-ui-sm py-ui-xs text-center">
                         <Checkbox
                           aria-label={`选择${entityName} ${rowId}`}
+                          className="border-ui-foreground focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas data-[state=checked]:bg-ui-primary data-[state=checked]:text-ui-on-primary"
                           checked={selection.selectedKeys.has(rowId)}
                           disabled={selection.isRowDisabled?.(row)}
                           onCheckedChange={() => selection.onToggleRow(row)}
@@ -294,7 +297,7 @@ export function DataTable<T>({
                         <td
                           className={cn(
                             columnWidthClasses[column.width],
-                            'px-ui-md py-ui-sm align-middle text-ui-body',
+                            'px-ui-sm py-ui-xs align-middle text-ui-body',
                             columnAlignment(column),
                             column.type === 'number' && 'tabular-nums',
                             column.type === 'date' && 'whitespace-nowrap',

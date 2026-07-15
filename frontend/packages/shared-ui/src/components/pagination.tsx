@@ -85,7 +85,10 @@ export function Pagination(props: PaginationProps) {
             onChange({ page: 1, pageSize: Number(nextPageSize) })
           }
         >
-          <SelectTrigger className="w-auto min-w-28" aria-label="每页条数">
+          <SelectTrigger
+            className="h-10 w-auto min-w-28 rounded-ui-md border-ui-border bg-ui-canvas focus:ring-ui-foreground focus:ring-offset-2 focus:ring-offset-ui-canvas"
+            aria-label="每页条数"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -104,7 +107,7 @@ export function Pagination(props: PaginationProps) {
             <span>跳至</span>
             <Input
               aria-label="跳转页码"
-              className="w-16 text-center tabular-nums"
+              className="h-10 w-16 rounded-ui-md border-ui-border bg-ui-canvas text-center tabular-nums focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas"
               disabled={isDisabled}
               inputMode="numeric"
               value={jumpValue}
@@ -131,6 +134,7 @@ export function Pagination(props: PaginationProps) {
           type="button"
           variant="outline"
           size="icon"
+          className="h-10 w-10 rounded-ui-md border-ui-border bg-ui-canvas hover:bg-ui-surface-card focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas"
           aria-label="上一页"
           disabled={previousDisabled}
           onClick={() => onChange({ page: value.page - 1, pageSize: value.pageSize })}
@@ -141,6 +145,7 @@ export function Pagination(props: PaginationProps) {
           type="button"
           variant="outline"
           size="icon"
+          className="h-10 w-10 rounded-ui-md border-ui-border bg-ui-canvas hover:bg-ui-surface-card focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas"
           aria-label="下一页"
           disabled={nextDisabled}
           onClick={() => onChange({ page: value.page + 1, pageSize: value.pageSize })}
