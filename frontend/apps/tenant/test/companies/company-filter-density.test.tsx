@@ -31,10 +31,10 @@ describe('公司列表筛选密度', () => {
       );
     }
     expect(screen.getByRole('group', { name: '细分行业' })).toHaveClass(
-      'sm:w-ui-control-medium',
+      'sm:w-ui-control-small',
     );
     expect(screen.getByRole('group', { name: '产品标签' })).toHaveClass(
-      'sm:w-ui-control-medium',
+      'sm:w-ui-control-small',
     );
     for (const label of ['进口额', '进口次数', '联系人', '成立年份']) {
       const range = screen.getByRole('group', { name: label });

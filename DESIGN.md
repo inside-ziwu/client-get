@@ -862,7 +862,7 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 - 用 ListPage、FilterBar、DataTable、TableState、Pagination 替换页面壳、raw table 和手写分页。
 - 业务包装层复用现有 `FilterValues`、`EMPTY_FILTERS`、`buildParams`、`countryZh`；暂不改 `components/company-filters.tsx` 的现有 UI，因为 curated-customers 仍在消费。
 - 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`；进口额、进口次数、联系人、成立年份的起止字段分别合并为 4 个一体式范围控件，界面共呈现 12 个业务控件，底层参数不变。
-- 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。关键词为 224px；国家、采集类型、群组状态、大模型评级、模板评级为 160px；细分行业、产品标签为 224px；范围控件为 256px。移动端全部全宽，范围内部两端始终并排。
+- 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。关键词为 224px；国家、细分行业、产品标签、采集类型、群组状态、大模型评级、模板评级为 160px；范围控件为 256px。移动端全部全宽，范围内部两端始终并排。
 - “重置 / 查询”参与筛选区同一换行流并跟随最后一个条件；1920px 主工作区中基础条件占第一排，范围条件与操作按钮占第二排。
 - 未选择统一显示“不限”；multiSelect 弹层分别使用“搜索国家 / 搜索细分行业 / 搜索产品标签 / 搜索评级”。远程选项加载中允许打开查看状态，空数组显示“暂无可选项”。
 - 父页分持 draft/applied；submit/reset/pageSize/page change 原子更新页码并清空 selection。
