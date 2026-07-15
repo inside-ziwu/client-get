@@ -3,7 +3,7 @@
 import type { IntelligenceSource } from '@shared/api';
 import type { ImportResult } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
-import { Edit2, FileJson, Plus, Trash2 } from 'lucide-react';
+import { FileJson, Plus } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -14,16 +14,24 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
   AlertDialogTrigger,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  Input,
+  Label,
+  ListPage,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  Switch,
+  Textarea,
 } from '@shared/ui';
-import { Badge } from '@shared/ui';
-import { Button } from '@shared/ui';
-import { Card, CardContent } from '@shared/ui';
-import { Input } from '@shared/ui';
-import { Label } from '@shared/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@shared/ui';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
-import { Switch } from '@shared/ui';
-import { Textarea } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
@@ -58,14 +66,16 @@ function formatJson(value: unknown) {
   return JSON.stringify(value ?? {}, null, 2);
 }
 
-function sourceTypeLabel(type: IntelligenceSource['source_type']) {
-  return SOURCE_TYPES.find((item) => item.value === type)?.label ?? type;
-}
+const SOURCE_TYPE_STATUS_MAP: Record<string, { label: string; tone: 'neutral' }> = {
+  rss: { label: 'RSS', tone: 'neutral' },
+  website: { label: '网站', tone: 'neutral' },
+  manual: { label: '手工', tone: 'neutral' },
+};
 
 export function IntelligenceSourcesPage() {
-  const [items, setItems] = useState<IntelligenceSource[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [updatingIds, setUpdatingIds] = useState<ReadonlySet<string>>(() => new Set());
   const [editing, setEditing] = useState<IntelligenceSource | null>(null);
   const [sourceForm, setSourceForm] = useState<SourceFormValues>(EMPTY_SOURCE);
   const [importOpen, setImportOpen] = useState(false);
@@ -80,14 +90,13 @@ export function IntelligenceSourcesPage() {
     await query.refetch();
   };
 
+  const items = query.data?.data ?? [];
+
   useEffect(() => {
     if (query.isError) {
       toast.error('加载情报源失败');
-      return;
     }
-
-    setItems(query.data?.data ?? []);
-  }, [query.data, query.isError]);
+  }, [query.isError]);
 
   const openCreate = () => {
     setEditing(null);
@@ -152,22 +161,19 @@ export function IntelligenceSourcesPage() {
   };
 
   const updateStatus = async (record: IntelligenceSource, checked: boolean) => {
+    setUpdatingIds((current) => new Set(current).add(record.id));
     try {
       await adminApi.intelligenceSources.update(record.id, { is_active: checked });
       toast.success('状态已更新');
       await load();
     } catch {
       toast.error('状态更新失败');
-    }
-  };
-
-  const deleteSource = async (id: string) => {
-    try {
-      await adminApi.intelligenceSources.delete(id);
-      toast.success('情报源已删除');
-      await load();
-    } catch {
-      toast.error('删除失败');
+    } finally {
+      setUpdatingIds((current) => {
+        const next = new Set(current);
+        next.delete(record.id);
+        return next;
+      });
     }
   };
 
@@ -205,13 +211,83 @@ export function IntelligenceSourcesPage() {
     }
   };
 
-  return (
-    <div className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <h1 className="admin-page-title">情报源管理</h1>
-          <p className="admin-page-description">仅保留后端支持的来源类型、启停、导入和删除。</p>
+  const columns: ReadonlyArray<DataTableColumn<IntelligenceSource>> = [
+    {
+      id: 'name',
+      header: '名称',
+      type: 'text',
+      value: 'name',
+      render: (item) => <span className="font-medium">{item.name}</span>,
+    },
+    {
+      id: 'sourceType',
+      header: '类型',
+      width: 'small',
+      type: 'status',
+      value: 'source_type',
+      statusMap: SOURCE_TYPE_STATUS_MAP,
+    },
+    { id: 'url', header: 'URL', width: 'large', type: 'text', value: 'url' },
+    {
+      id: 'active',
+      header: '状态',
+      width: 'small',
+      type: 'boolean',
+      value: 'is_active',
+      booleanMode: 'interactive',
+      getBooleanLabel: (item) => `${item.name}${item.is_active ? '已启用' : '已停用'}`,
+      onBooleanChange: (item, checked) => void updateStatus(item, checked),
+      isBooleanDisabled: (item) => updatingIds.has(item.id),
+    },
+    {
+      id: 'lastFetchedAt',
+      header: '最后采集',
+      type: 'date',
+      value: 'last_fetched_at',
+      format: (value) => value ? formatDateTime(String(value)) : '从未',
+    },
+    {
+      id: 'updatedAt',
+      header: '更新时间',
+      type: 'date',
+      value: 'updated_at',
+      format: (value) => formatDateTime(String(value)),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      width: 'medium',
+      align: 'center',
+      type: 'actions',
+      render: (item) => (
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            onClick={() => openEdit(item)}
+          >
+            编辑
+          </Button>
+          <DeleteSourceAction source={item} onDeleted={load} />
         </div>
+      ),
+    },
+  ];
+
+  const tableState = query.isLoading
+    ? { kind: 'loading' as const }
+    : query.isError
+      ? { kind: 'error' as const, description: '加载情报源失败', onRetry: () => void query.refetch() }
+      : items.length === 0
+        ? { kind: 'empty' as const }
+        : undefined;
+
+  return (
+    <ListPage
+      className="admin-page"
+      title="情报源管理"
+      description="仅保留后端支持的来源类型、启停、导入和删除。"
+      primaryAction={(
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setImportOpen(true)}>
             <FileJson className="h-4 w-4" />
@@ -222,77 +298,19 @@ export function IntelligenceSourcesPage() {
             新增情报源
           </Button>
         </div>
-      </div>
+      )}
+    >
+      <DataTable
+        columns={columns}
+        data={items}
+        entityName="情报源"
+        getRowId={(item) => item.id}
+        state={tableState}
+        isRefreshing={query.isFetching && !query.isLoading}
+      />
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">名称</th>
-                  <th className="w-24 px-4 py-3">类型</th>
-                  <th className="px-4 py-3">URL</th>
-                  <th className="w-24 px-4 py-3">启用</th>
-                  <th className="w-40 px-4 py-3">最后采集</th>
-                  <th className="w-40 px-4 py-3">更新时间</th>
-                  <th className="w-28 px-4 py-3 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="secondary">{sourceTypeLabel(item.source_type)}</Badge>
-                    </td>
-                    <td className="max-w-[320px] truncate px-4 py-3 text-xs text-muted-foreground">
-                      {item.url || '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Switch checked={item.is_active} onCheckedChange={(checked) => void updateStatus(item, checked)} />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {item.last_fetched_at ? formatDateTime(item.last_fetched_at) : '从未'}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDateTime(item.updated_at)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="编辑情报源" onClick={() => openEdit(item)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" aria-label="删除情报源">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogTitle>确认删除该情报源？</AlertDialogTitle>
-                            <AlertDialogDescription>删除后该情报源不会再参与采集。</AlertDialogDescription>
-                            <div className="flex justify-end gap-2">
-                              <AlertDialogCancel>取消</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => void deleteSource(item.id)}>删除</AlertDialogAction>
-                            </div>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!items.length && (
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                {query.isLoading ? '正在加载情报源...' : '暂无情报源'}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent className="p-0">
+      <Sheet open={drawerOpen} onOpenChange={(next) => !saving && setDrawerOpen(next)}>
+        <SheetContent className="max-w-xl overflow-y-auto p-0">
           <div className="border-b px-5 py-4">
             <SheetTitle>{editing ? `编辑情报源 - ${editing.name}` : '新增情报源'}</SheetTitle>
             <SheetDescription>配置来源类型、URL 与后端抓取参数。</SheetDescription>
@@ -348,28 +366,33 @@ export function IntelligenceSourcesPage() {
                   }
                 />
               </div>
-              <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                <Label htmlFor="source-active">启用</Label>
-                <Switch
-                  id="source-active"
-                  checked={sourceForm.is_active}
-                  onCheckedChange={(checked) => setSourceForm((current) => ({ ...current, is_active: checked }))}
-                />
+              <div className="flex h-10 items-center gap-4">
+                <Label className="shrink-0" htmlFor="source-active">状态</Label>
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id="source-active"
+                    checked={sourceForm.is_active}
+                    onCheckedChange={(checked) => setSourceForm((current) => ({ ...current, is_active: checked }))}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {sourceForm.is_active ? '启用' : '停用'}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2 border-t p-4">
-              <Button type="button" variant="outline" onClick={() => setDrawerOpen(false)}>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => setDrawerOpen(false)}>
                 取消
               </Button>
               <Button type="submit" disabled={saving}>
-                保存
+                {saving ? '保存中…' : '保存'}
               </Button>
             </div>
           </form>
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={importOpen} onOpenChange={setImportOpen}>
+      <AlertDialog open={importOpen} onOpenChange={(next) => !importing && setImportOpen(next)}>
         <AlertDialogContent className="max-w-2xl">
           <AlertDialogTitle>批量导入情报源</AlertDialogTitle>
           <AlertDialogDescription>粘贴 JSON 数组后导入到后端。</AlertDialogDescription>
@@ -386,12 +409,73 @@ export function IntelligenceSourcesPage() {
           </div>
           <div className="flex justify-end gap-2">
             <AlertDialogCancel disabled={importing}>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void saveImport()} disabled={importing}>
-              开始导入
+            <AlertDialogAction
+              disabled={importing}
+              onClick={(event) => {
+                event.preventDefault();
+                void saveImport();
+              }}
+            >
+              {importing ? '导入中…' : '开始导入'}
             </AlertDialogAction>
           </div>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ListPage>
+  );
+}
+
+function DeleteSourceAction({
+  source,
+  onDeleted,
+}: {
+  source: IntelligenceSource;
+  onDeleted: () => Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteSource = async () => {
+    setDeleting(true);
+    try {
+      await adminApi.intelligenceSources.delete(source.id);
+      toast.success('情报源已删除');
+      await onDeleted();
+      setOpen(false);
+    } catch {
+      toast.error('删除失败');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !deleting && setOpen(next)}>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="link"
+          className="h-8 px-ui-xxs text-ui-foreground hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
+        >
+          删除
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogTitle>确认删除「{source.name}」？</AlertDialogTitle>
+        <AlertDialogDescription>删除后该情报源不会再参与采集。</AlertDialogDescription>
+        <div className="flex justify-end gap-2">
+          <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={deleting}
+            onClick={(event) => {
+              event.preventDefault();
+              void deleteSource();
+            }}
+          >
+            {deleting ? '删除中…' : '删除'}
+          </AlertDialogAction>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
