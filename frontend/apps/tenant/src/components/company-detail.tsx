@@ -273,14 +273,14 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
                 </tr>
               </thead>
               <tbody>
-                {contacts.map((ct: Record<string, unknown>, i: number) => (
-                  <tr key={i} className="border-b">
-                    <td className="px-2 py-1.5">{dash(ct.name as string)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.title as string)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.department as string)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.email as string)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.email_status as string)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.phone as string)}</td>
+                {contacts.map((ct) => (
+                  <tr key={ct.id} className="border-b">
+                    <td className="px-2 py-1.5">{dash(ct.name)}</td>
+                    <td className="px-2 py-1.5">{dash(ct.position)}</td>
+                    <td className="px-2 py-1.5">{dash(ct.department)}</td>
+                    <td className="px-2 py-1.5">{dash(ct.email)}</td>
+                    <td className="px-2 py-1.5">{dash(ct.email_status)}</td>
+                    <td className="px-2 py-1.5">{dash(ct.phone)}</td>
                   </tr>
                 ))}
               </tbody>
