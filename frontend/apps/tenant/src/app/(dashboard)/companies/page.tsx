@@ -130,11 +130,11 @@ export default function CompaniesPage() {
     { id: 'contacts', header: '联系人数', width: 'small', align: 'center', type: 'number', value: 'contacts_count' },
     { id: 'createdAt', header: '入库时间', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
     {
-      id: 'actions', header: '操作', width: 'large', align: 'center', type: 'actions',
+      id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
       render: (row) => (
-        <div className="flex items-center justify-center gap-ui-xs">
-          <Button variant="outline" size="sm" onClick={() => setDetailId(row.id)}>详情</Button>
-          <Button variant="outline" size="sm" onClick={() => setGroupTarget({ tcIds: [row.tc_id], label: row.name })}>群组</Button>
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button variant="link" size="sm" className="h-8 px-ui-xxs text-ui-body font-normal" onClick={() => setDetailId(row.id)}>详情</Button>
+          <Button variant="link" size="sm" className="h-8 px-ui-xxs text-ui-body font-normal" onClick={() => setGroupTarget({ tcIds: [row.tc_id], label: row.name })}>群组</Button>
           <BlacklistAction row={row} onSuccess={invalidateList} />
         </div>
       ),
@@ -340,9 +340,9 @@ function BlacklistAction({ row, onSuccess }: {
     <AlertDialog open={open} onOpenChange={(next) => !mutation.isPending && setOpen(next)}>
       <AlertDialogTrigger asChild>
         <Button
-          variant="outline"
+          variant="link"
           size="sm"
-          className="border-ui-danger-foreground/20 bg-ui-danger-surface text-ui-danger-foreground hover:border-ui-danger-foreground/40 hover:bg-ui-danger-foreground/10"
+          className="h-8 px-ui-xxs text-ui-body font-normal hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
         >
           拉黑
         </Button>
