@@ -233,9 +233,17 @@ export function EmailTemplatesPage() {
               <Label>变量（点击插入）</Label>
               <div className="flex flex-wrap gap-1">
                 {parseVariables(form.variables_text).map((variable) => (
-                  <Badge key={variable.name} variant="outline" className="cursor-pointer" onClick={() => editorRef.current?.insertVariable(`{{${variable.name}}}`)}>
-                    {`{{${variable.name}}}`} {variable.label}
-                  </Badge>
+                  <button
+                    key={variable.name}
+                    type="button"
+                    aria-label={`插入变量 ${variable.label}`}
+                    className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    onClick={() => editorRef.current?.insertVariable(`{{${variable.name}}}`)}
+                  >
+                    <Badge variant="outline">
+                      {`{{${variable.name}}}`} {variable.label}
+                    </Badge>
+                  </button>
                 ))}
               </div>
             </div>
