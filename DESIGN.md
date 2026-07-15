@@ -445,10 +445,10 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
 - draft 中 text/select/number/date 一律保存 string，multiSelect 保存 string[]；number 在提交时由页面校验并转换，date 使用 `YYYY-MM-DD`。空值统一为 `""` 或 `[]`。
 - Enter 等同“查询”；“重置”同时清空 draft、applied filters、页码和 selection，只触发一次新查询。
 - 默认 `advanced=true` 的字段在窄屏收起；入口展示已应用条件数量。高频业务页可显式设置 `collapseAdvanced=false`，全部条件在同一容器常驻，不允许按桌面/移动端暗中改变业务可见性。
-- `layout="compact"` 按字段语义限制宽度并自动换行：文本 320px、select/multiSelect 224px、number/date 192px；`<640px` 统一占满容器，不产生页面级横向滚动。
+- `layout="compact"` 按字段语义限制宽度并自动换行：文本 320px、select/multiSelect 224px、number/date 192px、custom 默认 256px；`<640px` 统一占满容器，不产生页面级横向滚动。
 - 每个 select/multiSelect 自己声明 option loading/empty，与列表 loading/empty 分开表达。multiSelect 可通过 `searchPlaceholder` 区分触发器占位与弹层搜索对象。
 - `optionStateMode="inspectable"` 时，loading/empty 不禁用 multiSelect 触发器：弹层显示转圈加“正在加载选项…”或“暂无可选项”，ready 数据返回后在已打开弹层原位更新；默认 `disabled` 模式保持向后兼容。
-- `custom` 是范围输入等复杂字段的逃生口，不允许借此在页面重建整套 FilterBar。
+- `custom` 是范围输入等复杂字段的逃生口，不允许借此在页面重建整套 FilterBar。min/max 等同一业务维度应优先合并为单标签、单边框的范围控件，同时保留两个独立的可访问名称和底层查询字段。
 
 ### DataTable
 
@@ -848,8 +848,8 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 
 - 用 ListPage、FilterBar、DataTable、TableState、Pagination 替换页面壳、raw table 和手写分页。
 - 业务包装层复用现有 `FilterValues`、`EMPTY_FILTERS`、`buildParams`、`countryZh`；暂不改 `components/company-filters.tsx` 的现有 UI，因为 curated-customers 仍在消费。
-- 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`。
-- 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。
+- 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`；进口额、进口次数、联系人、成立年份的起止字段分别合并为 4 个一体式范围控件，界面共呈现 12 个业务控件，底层参数不变。
+- 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。范围控件桌面宽 256px、移动端全宽，内部两端始终并排。
 - 未选择统一显示“不限”；multiSelect 弹层分别使用“搜索国家 / 搜索细分行业 / 搜索产品标签 / 搜索评级”。远程选项加载中允许打开查看状态，空数组显示“暂无可选项”。
 - 父页分持 draft/applied；submit/reset/pageSize/page change 原子更新页码并清空 selection。
 - 保留 selection + 17 个数据列、详情 Sheet、新增公司、群组与拉黑能力；selection key 统一使用 `tc_id`，详情请求继续使用业务需要的 `id`。
