@@ -384,11 +384,12 @@ interface ListPageProps {
 ```ts
 type FilterDraftValue = string | readonly string[];
 type FilterDraft = Record<string, FilterDraftValue>;
+type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 type KeysMatching<T, V> = {
   [K in keyof T]-?: T[K] extends V ? Extract<K, string> : never;
 }[keyof T];
 
-interface FilterFieldRenderContext<T extends FilterDraft> {
+interface FilterFieldRenderContext<T extends FilterDraftShape<T>> {
   values: T;
   setValue: <K extends keyof T>(name: K, value: T[K]) => void;
   disabled: boolean;
@@ -400,7 +401,7 @@ interface BaseFilterField {
   advanced?: boolean;
 }
 
-type FilterField<T extends FilterDraft> =
+type FilterField<T extends FilterDraftShape<T>> =
   | (BaseFilterField & {
       name: KeysMatching<T, string>;
       kind: "text" | "number" | "date";
@@ -423,7 +424,7 @@ type FilterField<T extends FilterDraft> =
       render: (context: FilterFieldRenderContext<T>) => React.ReactNode;
     });
 
-interface FilterBarProps<T extends FilterDraft> {
+interface FilterBarProps<T extends FilterDraftShape<T>> {
   values: T;
   fields: ReadonlyArray<FilterField<T>>;
   onChange: (next: T) => void;
@@ -748,7 +749,7 @@ T-21 合并 ─► rebase ─► 页面/API 复扫 ──────┘        
 
 - TableState 先于 DataTable；Badge、Switch、Checkbox、Tooltip 先于类型列渲染。
 - DataTable 自己拥有唯一 scroll shell 和原生语义 table；不复用当前自带 wrapper 的 `Table`，避免双边框与双滚动。
-- 首版只允许一个 actions 列；开发环境发现多个 actions 列时给出明确错误。
+- 首版只允许一个 actions 列；发现多个 actions 列时立即给出明确错误。
 - FilterBar 不接请求、不构造 API params；option error/retry 先由业务包装层表达，打样后再决定是否进入公共 API。
 - `FilterDraft = Record<string, ...>` 先做最小 TypeScript compile spike；若具体对象类型不满足约束，应修订为映射/自引用约束并同步本文件，禁止用 `any` 绕过。
 - Pagination 的 Enter + blur 必须去重；DataTable 的全选必须排除 disabled rows。
