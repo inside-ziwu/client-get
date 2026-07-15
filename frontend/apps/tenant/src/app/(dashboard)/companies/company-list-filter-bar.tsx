@@ -117,6 +117,8 @@ export function CompanyListFilterBar({
       onReset={onReset}
       isSubmitting={isSubmitting}
       appliedCount={appliedCount}
+      layout="compact"
+      collapseAdvanced={false}
     />
   );
 }

@@ -74,6 +74,21 @@ export interface FilterBarProps<T extends FilterDraftShape<T>> {
   onReset: () => void;
   isSubmitting?: boolean;
   appliedCount?: number;
+  layout?: 'grid' | 'compact';
+  collapseAdvanced?: boolean;
+}
+
+function filterFieldClassName(
+  kind: FilterField<FilterDraft>['kind'],
+  layout: NonNullable<FilterBarProps<FilterDraft>['layout']>,
+) {
+  if (layout !== 'compact') return 'space-y-2';
+  if (kind === 'text') return 'w-full flex-none space-y-2 sm:w-80';
+  if (kind === 'number' || kind === 'date') return 'w-full flex-none space-y-2 sm:w-48';
+  if (kind === 'select' || kind === 'multiSelect') {
+    return 'w-full flex-none space-y-2 sm:w-56';
+  }
+  return 'w-full flex-none space-y-2 sm:w-64';
 }
 
 function optionPlaceholder(
@@ -91,18 +106,26 @@ function FilterControl<T extends FilterDraftShape<T>>({
   setValue,
   disabled,
   id,
+  layout,
 }: {
   field: FilterField<T>;
   values: T;
   setValue: FilterFieldRenderContext<T>['setValue'];
   disabled: boolean;
   id: string;
+  layout: NonNullable<FilterBarProps<FilterDraft>['layout']>;
 }) {
   const labelId = `${id}-label`;
+  const fieldClassName = filterFieldClassName(field.kind, layout);
 
   if (field.kind === 'custom') {
     return (
-      <div className="space-y-2" role="group" aria-labelledby={labelId}>
+      <div
+        className={fieldClassName}
+        data-filter-kind={field.kind}
+        role="group"
+        aria-labelledby={labelId}
+      >
         <Label id={labelId}>{field.label}</Label>
         {field.render({ values, setValue, disabled })}
       </div>
@@ -114,7 +137,12 @@ function FilterControl<T extends FilterDraftShape<T>>({
     const value = values[field.name] as readonly string[];
 
     return (
-      <div className="space-y-2" role="group" aria-labelledby={labelId}>
+      <div
+        className={fieldClassName}
+        data-filter-kind={field.kind}
+        role="group"
+        aria-labelledby={labelId}
+      >
         <Label id={labelId}>{field.label}</Label>
         <MultiSelect
           className={uiControlClasses}
@@ -137,7 +165,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
     const state = field.optionState ?? 'ready';
 
     return (
-      <div className="space-y-2">
+      <div className={fieldClassName} data-filter-kind={field.kind}>
         <Label htmlFor={id}>{field.label}</Label>
         <Select
           value={value}
@@ -160,7 +188,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
   }
 
   return (
-    <div className="space-y-2">
+    <div className={fieldClassName} data-filter-kind={field.kind}>
       <Label htmlFor={id}>{field.label}</Label>
       <Input
         className={uiControlClasses}
@@ -185,12 +213,18 @@ export function FilterBar<T extends FilterDraftShape<T>>({
   onReset,
   isSubmitting = false,
   appliedCount = 0,
+  layout = 'grid',
+  collapseAdvanced = true,
 }: FilterBarProps<T>) {
   const id = useId();
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const basicFields = fields.filter((field) => !field.advanced);
   const advancedFields = fields.filter((field) => field.advanced);
   const advancedId = `${id}-advanced`;
+  const fieldContainerClassName =
+    layout === 'compact'
+      ? 'flex flex-wrap items-end gap-3'
+      : 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4';
   const setValue: FilterFieldRenderContext<T>['setValue'] = (name, value) => {
     onChange({ ...values, [name]: value });
   };
@@ -203,6 +237,7 @@ export function FilterBar<T extends FilterDraftShape<T>>({
         setValue={setValue}
         disabled={isSubmitting}
         id={`${id}-${field.name}`}
+        layout={layout}
       />
     ));
 
@@ -214,11 +249,11 @@ export function FilterBar<T extends FilterDraftShape<T>>({
         onSubmit(values);
       }}
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {renderFields(basicFields)}
+      <div data-testid="filter-bar-fields" className={fieldContainerClassName}>
+        {renderFields(collapseAdvanced ? basicFields : fields)}
       </div>
 
-      {advancedFields.length > 0 ? (
+      {collapseAdvanced && advancedFields.length > 0 ? (
         <>
           <Button
             type="button"
@@ -236,8 +271,9 @@ export function FilterBar<T extends FilterDraftShape<T>>({
             id={advancedId}
             data-testid="filter-bar-advanced-fields"
             className={cn(
-              'mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4',
-              !advancedOpen && 'hidden sm:grid',
+              'mt-3',
+              fieldContainerClassName,
+              !advancedOpen && (layout === 'compact' ? 'hidden sm:flex' : 'hidden sm:grid'),
             )}
           >
             {renderFields(advancedFields)}
