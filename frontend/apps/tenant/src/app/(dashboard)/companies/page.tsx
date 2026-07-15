@@ -133,8 +133,8 @@ export default function CompaniesPage() {
       id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
       render: (row) => (
         <div className="flex items-center justify-center gap-ui-xxs">
-          <Button variant="link" size="sm" className="h-8 px-ui-xxs text-ui-body font-normal" onClick={() => setDetailId(row.id)}>详情</Button>
-          <Button variant="link" size="sm" className="h-8 px-ui-xxs text-ui-body font-normal" onClick={() => setGroupTarget({ tcIds: [row.tc_id], label: row.name })}>群组</Button>
+          <Button variant="link" size="sm" className="h-8 px-ui-xxs text-ui-body-strong" onClick={() => setDetailId(row.id)}>详情</Button>
+          <Button variant="link" size="sm" className="h-8 px-ui-xxs text-ui-body-strong" onClick={() => setGroupTarget({ tcIds: [row.tc_id], label: row.name })}>群组</Button>
           <BlacklistAction row={row} onSuccess={invalidateList} />
         </div>
       ),
@@ -342,7 +342,7 @@ function BlacklistAction({ row, onSuccess }: {
         <Button
           variant="link"
           size="sm"
-          className="h-8 px-ui-xxs text-ui-body font-normal hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
+          className="h-8 px-ui-xxs text-ui-body-strong hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
         >
           拉黑
         </Button>
