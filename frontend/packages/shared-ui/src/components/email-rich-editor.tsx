@@ -72,6 +72,7 @@ export const EmailRichEditor = forwardRef<
       <div className="flex gap-1 border-b p-1">
         <Button
           type="button"
+          aria-label="加粗"
           variant="ghost"
           size="icon"
           className={`h-8 w-8 ${editor.isActive('bold') ? 'bg-accent' : ''}`}
@@ -81,6 +82,7 @@ export const EmailRichEditor = forwardRef<
         </Button>
         <Button
           type="button"
+          aria-label="斜体"
           variant="ghost"
           size="icon"
           className={`h-8 w-8 ${editor.isActive('italic') ? 'bg-accent' : ''}`}
@@ -90,6 +92,7 @@ export const EmailRichEditor = forwardRef<
         </Button>
         <Button
           type="button"
+          aria-label="有序列表"
           variant="ghost"
           size="icon"
           className={`h-8 w-8 ${editor.isActive('orderedList') ? 'bg-accent' : ''}`}
@@ -99,6 +102,7 @@ export const EmailRichEditor = forwardRef<
         </Button>
         <Button
           type="button"
+          aria-label="无序列表"
           variant="ghost"
           size="icon"
           className={`h-8 w-8 ${editor.isActive('bulletList') ? 'bg-accent' : ''}`}
