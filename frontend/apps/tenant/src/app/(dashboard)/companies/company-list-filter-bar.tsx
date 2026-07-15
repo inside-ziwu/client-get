@@ -101,7 +101,7 @@ function RangeFilterControl({
     prefix: string,
   ) => (
     <div
-      className="flex w-1/2 min-w-0 items-center sm:w-48"
+      className="flex w-1/2 min-w-0 items-center"
       data-filter-kind="number"
     >
       <span
@@ -152,13 +152,12 @@ export function CompanyListFilterBar({
       kind: 'text',
       label: '关键词',
       placeholder: '公司名 / 域名搜索',
-      compactWidth: 'medium',
     },
     {
       name: 'countries',
       kind: 'multiSelect',
       label: '国家',
-      compactWidth: 'narrow',
+      width: 'small',
       placeholder: '不限',
       searchPlaceholder: '搜索国家',
       options: toOptions(options?.countries ?? [], countryZh),
@@ -186,7 +185,7 @@ export function CompanyListFilterBar({
       name: 'collection_type',
       kind: 'select',
       label: '采集类型',
-      compactWidth: 'narrow',
+      width: 'small',
       placeholder: '不限',
       options: [
         { value: 'keyword', label: '关键词采集' },
@@ -199,7 +198,7 @@ export function CompanyListFilterBar({
       name: 'business_status',
       kind: 'select',
       label: '群组状态',
-      compactWidth: 'narrow',
+      width: 'small',
       placeholder: '不限',
       options: [
         { value: 'not_new', label: '已入群' },
@@ -210,7 +209,7 @@ export function CompanyListFilterBar({
       name: 'grades',
       kind: 'multiSelect',
       label: '大模型评级',
-      compactWidth: 'narrow',
+      width: 'small',
       placeholder: '不限',
       searchPlaceholder: '搜索大模型评级',
       options: toOptions(options?.grades ?? []),
@@ -220,7 +219,7 @@ export function CompanyListFilterBar({
       name: 'system_grades',
       kind: 'multiSelect',
       label: '模板评级',
-      compactWidth: 'narrow',
+      width: 'small',
       placeholder: '不限',
       searchPlaceholder: '搜索模板评级',
       options: toOptions(SYSTEM_GRADES),
@@ -229,6 +228,7 @@ export function CompanyListFilterBar({
       name: config.startName,
       kind: 'custom',
       label: config.label,
+      width: { custom: 256 },
       advanced: true,
       render: (context) => (
         <RangeFilterControl config={config} {...context} />

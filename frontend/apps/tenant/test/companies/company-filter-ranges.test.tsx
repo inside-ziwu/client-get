@@ -30,9 +30,15 @@ describe('公司列表范围筛选', () => {
 
     for (const label of ['进口额', '进口次数', '联系人', '成立年份']) {
       const group = screen.getByRole('group', { name: label });
-      expect(within(group).getAllByRole('spinbutton')).toHaveLength(2);
+      const inputs = within(group).getAllByRole('spinbutton');
+      expect(inputs).toHaveLength(2);
+      for (const input of inputs) {
+        expect(input.closest('[data-filter-kind="number"]')).toHaveClass('w-1/2', 'min-w-0');
+        expect(input.closest('[data-filter-kind="number"]')).not.toHaveClass('sm:w-48');
+      }
       expect(group).toHaveAttribute('data-filter-kind', 'custom');
-      expect(group).toHaveClass('w-full', 'sm:w-64');
+      expect(group).toHaveClass('w-full', 'sm:w-[var(--filter-field-width)]');
+      expect(group.style.getPropertyValue('--filter-field-width')).toBe('256px');
       expect(group.querySelector('[data-range-control]')).toHaveClass(
         'border',
         'rounded-ui-md',

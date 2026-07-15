@@ -147,11 +147,11 @@ export function EmailTemplatesPage() {
   };
 
   const columns: ReadonlyArray<DataTableColumn<PlatformEmailTemplate>> = [
-    { id: 'name', header: '模板', width: 'md', type: 'text', value: 'name' },
-    { id: 'industry', header: '行业', width: 'md', type: 'text', value: 'industry' },
-    { id: 'subject', header: '主题', width: 'lg', type: 'text', value: 'subject' },
+    { id: 'name', header: '模板', type: 'text', value: 'name' },
+    { id: 'industry', header: '行业', type: 'text', value: 'industry' },
+    { id: 'subject', header: '主题', width: 'large', type: 'text', value: 'subject' },
     {
-      id: 'variables', header: '变量', width: 'lg', type: 'text', value: 'variables',
+      id: 'variables', header: '变量', width: 'large', type: 'text', value: 'variables',
       render: (item) => (
         <div className="flex flex-wrap gap-ui-xxs">
           {(item.variables ?? []).slice(0, 3).map((variable) => (
@@ -160,10 +160,10 @@ export function EmailTemplatesPage() {
         </div>
       ),
     },
-    { id: 'status', header: '状态', width: 'sm', type: 'boolean', value: 'is_active', booleanMode: 'readOnly', getBooleanLabel: (item) => item.is_active ? '启用' : '停用' },
-    { id: 'updatedAt', header: '更新时间', width: 'md', type: 'date', value: 'updated_at', format: (value) => formatDateTime(value as string) },
+    { id: 'status', header: '状态', width: 'small', type: 'boolean', value: 'is_active', booleanMode: 'readOnly', getBooleanLabel: (item) => item.is_active ? '启用' : '停用' },
+    { id: 'updatedAt', header: '更新时间', type: 'date', value: 'updated_at', format: (value) => formatDateTime(value as string) },
     {
-      id: 'actions', header: '操作', width: 'md', type: 'actions',
+      id: 'actions', header: '操作', type: 'actions',
       render: (item) => (
         <div className="flex items-center justify-end gap-ui-xs">
           <Button variant="ghost" size="icon" aria-label={`编辑模板 ${item.name}`} onClick={() => void openEdit(item)}>

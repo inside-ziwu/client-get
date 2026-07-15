@@ -11,6 +11,7 @@ export * from './components/calendar';
 export * from './components/card';
 export * from './components/checkbox';
 export * from './components/collapsible';
+export * from './components/component-width';
 export * from './components/date-picker';
 export * from './components/data-table';
 export * from './components/dashboard-shell';

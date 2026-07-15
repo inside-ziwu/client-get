@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import { cn } from '../lib/utils';
 import { Button } from './button';
+import { isCustomWidth, type WidthPreset, type WidthSpec } from './component-width';
 import { Input } from './input';
 import { Label } from './label';
 import { MultiSelect } from './multi-select';
@@ -26,11 +27,11 @@ type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 const uiControlClasses =
   'h-10 rounded-ui-md border-ui-border bg-ui-canvas text-ui-body focus-visible:border-ui-foreground focus-visible:ring-2 focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-surface-soft';
 
-const compactWidthClassNames = {
-  narrow: 'sm:!w-40',
-  medium: 'sm:!w-56',
-  wide: 'sm:!w-80',
-} as const;
+const filterWidthClassNames: Record<WidthPreset, string> = {
+  small: 'sm:w-ui-control-small',
+  medium: 'sm:w-ui-control-medium',
+  large: 'sm:w-ui-control-large',
+};
 
 export interface FilterFieldRenderContext<T extends FilterDraftShape<T>> {
   values: T;
@@ -42,7 +43,7 @@ interface BaseFilterField {
   label: string;
   placeholder?: string;
   advanced?: boolean;
-  compactWidth?: 'narrow' | 'medium' | 'wide';
+  width?: WidthSpec;
 }
 
 interface FilterOption {
@@ -89,17 +90,22 @@ export interface FilterBarProps<T extends FilterDraftShape<T>> {
 }
 
 function filterFieldClassName(
-  kind: FilterField<FilterDraft>['kind'],
   layout: NonNullable<FilterBarProps<FilterDraft>['layout']>,
-  compactWidth: BaseFilterField['compactWidth'],
+  width: WidthSpec = 'medium',
 ) {
   if (layout !== 'compact') return 'space-y-2';
-  let defaultWidth = 'sm:w-64';
-  if (kind === 'text') defaultWidth = 'sm:w-80';
-  if (kind === 'number' || kind === 'date') defaultWidth = 'sm:w-48';
-  if (kind === 'select' || kind === 'multiSelect') defaultWidth = 'sm:w-56';
-  const widthOverride = compactWidth ? compactWidthClassNames[compactWidth] : undefined;
-  return cn('w-full flex-none space-y-2', defaultWidth, widthOverride);
+  const widthClassName = isCustomWidth(width)
+    ? 'sm:w-[var(--filter-field-width)]'
+    : filterWidthClassNames[width];
+  return cn('w-full flex-none space-y-2', widthClassName);
+}
+
+function filterFieldStyle(
+  layout: NonNullable<FilterBarProps<FilterDraft>['layout']>,
+  width: WidthSpec = 'medium',
+) {
+  if (layout !== 'compact' || !isCustomWidth(width)) return undefined;
+  return { '--filter-field-width': `${width.custom}px` } as React.CSSProperties;
 }
 
 function optionPlaceholder(
@@ -129,12 +135,14 @@ function FilterControl<T extends FilterDraftShape<T>>({
   optionStateMode: NonNullable<FilterBarProps<FilterDraft>['optionStateMode']>;
 }) {
   const labelId = `${id}-label`;
-  const fieldClassName = filterFieldClassName(field.kind, layout, field.compactWidth);
+  const fieldClassName = filterFieldClassName(layout, field.width);
+  const fieldStyle = filterFieldStyle(layout, field.width);
 
   if (field.kind === 'custom') {
     return (
       <div
         className={fieldClassName}
+        style={fieldStyle}
         data-filter-kind={field.kind}
         role="group"
         aria-labelledby={labelId}
@@ -153,6 +161,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
     return (
       <div
         className={fieldClassName}
+        style={fieldStyle}
         data-filter-kind={field.kind}
         role="group"
         aria-labelledby={labelId}
@@ -183,7 +192,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
     const state = field.optionState ?? 'ready';
 
     return (
-      <div className={fieldClassName} data-filter-kind={field.kind}>
+      <div className={fieldClassName} data-filter-kind={field.kind} style={fieldStyle}>
         <Label htmlFor={id}>{field.label}</Label>
         <Select
           value={value}
@@ -206,7 +215,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
   }
 
   return (
-    <div className={fieldClassName} data-filter-kind={field.kind}>
+    <div className={fieldClassName} data-filter-kind={field.kind} style={fieldStyle}>
       <Label htmlFor={id}>{field.label}</Label>
       <Input
         className={uiControlClasses}

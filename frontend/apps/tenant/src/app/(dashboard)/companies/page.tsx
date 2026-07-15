@@ -107,30 +107,30 @@ export default function CompaniesPage() {
 
   const columns: ReadonlyArray<DataTableColumn<Company>> = [
     {
-      id: 'name', header: '公司名', width: 'lg', type: 'text', value: 'name',
+      id: 'name', header: '公司名', width: 'large', type: 'text', value: 'name',
       render: (row) => (
         <button className="text-left font-medium text-ui-foreground hover:underline" onClick={() => setDetailId(row.id)}>
           {dash(row.name)}
         </button>
       ),
     },
-    { id: 'country', header: '国家', width: 'md', type: 'text', value: 'country_iso3', format: (value) => countryZh(value as string | undefined) },
-    { id: 'collectionType', header: '采集类型', width: 'md', type: 'text', value: 'collection_type', format: (value) => collectionTypeLabel(value as Company['collection_type']) },
-    { id: 'domain', header: '域名', width: 'lg', type: 'text', value: 'domain' },
-    { id: 'industry', header: '行业', width: 'lg', type: 'text', value: 'industry_desc' },
-    { id: 'employees', header: '员工规模', width: 'md', type: 'text', value: 'employee_num' },
-    { id: 'foundedYear', header: '成立', width: 'sm', type: 'number', value: 'founded_year' },
-    { id: 'modelGrade', header: '大模型评级', width: 'sm', type: 'text', value: 'grade', render: (row) => row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-' },
-    { id: 'modelScore', header: '大模型评分', width: 'sm', type: 'number', value: 'wmt_score' },
-    { id: 'systemGrade', header: '模板评级', width: 'sm', type: 'text', value: 'system_grade', render: (row) => row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-' },
-    { id: 'systemScore', header: '模板评分', width: 'sm', type: 'number', value: 'system_score' },
-    { id: 'subIndustry', header: '细分行业', width: 'md', type: 'text', value: 'sub_industry' },
-    { id: 'sourceCompetitor', header: '来源同行', width: 'md', type: 'text', value: 'source_competitor' },
-    { id: 'sourceCompetitorCn', header: '来源同行（中文名）', width: 'md', type: 'text', value: 'source_competitor_cn' },
-    { id: 'contacts', header: '联系人数', width: 'sm', type: 'number', value: 'contacts_count' },
-    { id: 'createdAt', header: '入库时间', width: 'md', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
+    { id: 'country', header: '国家', type: 'text', value: 'country_iso3', format: (value) => countryZh(value as string | undefined) },
+    { id: 'collectionType', header: '采集类型', type: 'text', value: 'collection_type', format: (value) => collectionTypeLabel(value as Company['collection_type']) },
+    { id: 'domain', header: '域名', width: 'large', type: 'text', value: 'domain' },
+    { id: 'industry', header: '行业', width: 'large', type: 'text', value: 'industry_desc' },
+    { id: 'employees', header: '员工规模', type: 'text', value: 'employee_num' },
+    { id: 'foundedYear', header: '成立', width: 'small', type: 'number', value: 'founded_year' },
+    { id: 'modelGrade', header: '大模型评级', width: 'small', type: 'text', value: 'grade', render: (row) => row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-' },
+    { id: 'modelScore', header: '大模型评分', width: 'small', type: 'number', value: 'wmt_score' },
+    { id: 'systemGrade', header: '模板评级', width: 'small', type: 'text', value: 'system_grade', render: (row) => row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-' },
+    { id: 'systemScore', header: '模板评分', width: 'small', type: 'number', value: 'system_score' },
+    { id: 'subIndustry', header: '细分行业', type: 'text', value: 'sub_industry' },
+    { id: 'sourceCompetitor', header: '来源同行', type: 'text', value: 'source_competitor' },
+    { id: 'sourceCompetitorCn', header: '来源同行（中文名）', type: 'text', value: 'source_competitor_cn' },
+    { id: 'contacts', header: '联系人数', width: 'small', type: 'number', value: 'contacts_count' },
+    { id: 'createdAt', header: '入库时间', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
     {
-      id: 'actions', header: '操作', width: 'md', type: 'actions',
+      id: 'actions', header: '操作', type: 'actions',
       render: (row) => (
         <div className="flex items-center justify-end gap-ui-sm">
           <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setDetailId(row.id)}>详情</Button>

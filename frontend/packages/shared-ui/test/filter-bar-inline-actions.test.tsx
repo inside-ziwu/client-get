@@ -17,13 +17,12 @@ const fields: ReadonlyArray<FilterField<Draft>> = [
     name: 'keyword',
     kind: 'text',
     label: '关键词',
-    compactWidth: 'medium',
   },
   {
     name: 'country',
     kind: 'select',
     label: '国家',
-    compactWidth: 'narrow',
+    width: 'small',
     options: [{ label: '中国', value: 'CHN' }],
   },
 ];
@@ -43,10 +42,10 @@ describe('FilterBar 紧凑行内操作区', () => {
     );
 
     expect(screen.getByLabelText('关键词').closest('[data-filter-kind="text"]')).toHaveClass(
-      'sm:!w-56',
+      'sm:w-ui-control-medium',
     );
     expect(screen.getByLabelText('国家').closest('[data-filter-kind="select"]')).toHaveClass(
-      'sm:!w-40',
+      'sm:w-ui-control-small',
     );
   });
 

@@ -20,18 +20,27 @@ describe('公司列表筛选密度', () => {
     );
 
     expect(screen.getByLabelText('关键词').closest('[data-filter-kind="text"]')).toHaveClass(
-      'sm:!w-56',
+      'sm:w-ui-control-medium',
     );
     for (const label of ['国家', '大模型评级', '模板评级']) {
-      expect(screen.getByRole('group', { name: label })).toHaveClass('sm:!w-40');
+      expect(screen.getByRole('group', { name: label })).toHaveClass('sm:w-ui-control-small');
     }
     for (const label of ['采集类型', '群组状态']) {
       expect(screen.getByLabelText(label).closest('[data-filter-kind="select"]')).toHaveClass(
-        'sm:!w-40',
+        'sm:w-ui-control-small',
       );
     }
-    expect(screen.getByRole('group', { name: '细分行业' })).toHaveClass('sm:w-56');
-    expect(screen.getByRole('group', { name: '产品标签' })).toHaveClass('sm:w-56');
+    expect(screen.getByRole('group', { name: '细分行业' })).toHaveClass(
+      'sm:w-ui-control-medium',
+    );
+    expect(screen.getByRole('group', { name: '产品标签' })).toHaveClass(
+      'sm:w-ui-control-medium',
+    );
+    for (const label of ['进口额', '进口次数', '联系人', '成立年份']) {
+      const range = screen.getByRole('group', { name: label });
+      expect(range).toHaveClass('sm:w-[var(--filter-field-width)]');
+      expect(range.style.getPropertyValue('--filter-field-width')).toBe('256px');
+    }
 
     const layout = screen.getByTestId('filter-bar-inline-layout');
     expect(layout.children[1]).toBe(screen.getByTestId('filter-bar-actions'));

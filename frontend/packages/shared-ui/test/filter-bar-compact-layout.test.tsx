@@ -45,7 +45,7 @@ describe('FilterBar 紧凑常驻布局', () => {
     expect(screen.queryByRole('button', { name: /更多条件/ })).not.toBeInTheDocument();
   });
 
-  it('按字段语义限制宽度，小屏仍占满可用空间', () => {
+  it('所有字段默认使用 medium，小屏仍占满可用空间', () => {
     render(
       <FilterBar
         values={values}
@@ -60,14 +60,14 @@ describe('FilterBar 紧凑常驻布局', () => {
 
     expect(screen.getByLabelText('关键词').closest('[data-filter-kind="text"]')).toHaveClass(
       'w-full',
-      'sm:w-80',
+      'sm:w-ui-control-medium',
     );
     expect(
       screen.getByRole('group', { name: '国家' }).closest('[data-filter-kind="multiSelect"]'),
-    ).toHaveClass('w-full', 'sm:w-56');
+    ).toHaveClass('w-full', 'sm:w-ui-control-medium');
     expect(screen.getByLabelText('最低进口额').closest('[data-filter-kind="number"]')).toHaveClass(
       'w-full',
-      'sm:w-48',
+      'sm:w-ui-control-medium',
     );
   });
 });

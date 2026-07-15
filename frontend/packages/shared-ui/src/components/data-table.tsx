@@ -4,17 +4,17 @@ import * as React from 'react';
 import { cn } from '../lib/utils';
 import { Badge, type BadgeTone } from './badge';
 import { Checkbox } from './checkbox';
+import { isCustomWidth, type WidthPreset, type WidthSpec } from './component-width';
 import { Switch } from './switch';
 import { TableState, type TableStateSpec } from './table-state';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
-export type ColumnWidth = 'sm' | 'md' | 'lg' | 'xl';
 export type StatusTone = BadgeTone;
 
 interface BaseDataTableColumn {
   id: string;
   header: React.ReactNode;
-  width: ColumnWidth;
+  width?: WidthSpec;
 }
 
 type ValueColumn<T> = BaseDataTableColumn & {
@@ -82,12 +82,20 @@ export interface DataTableProps<T> {
   className?: string;
 }
 
-const columnWidthClasses: Record<ColumnWidth, string> = {
-  sm: 'w-ui-table-sm min-w-ui-table-sm max-w-ui-table-sm',
-  md: 'w-ui-table-md min-w-ui-table-md max-w-ui-table-md',
-  lg: 'w-ui-table-lg min-w-ui-table-lg max-w-ui-table-lg',
-  xl: 'w-ui-table-xl min-w-ui-table-xl max-w-ui-table-xl',
+const columnWidthClasses: Record<WidthPreset, string> = {
+  small: 'w-ui-table-small min-w-ui-table-small max-w-ui-table-small',
+  medium: 'w-ui-table-medium min-w-ui-table-medium max-w-ui-table-medium',
+  large: 'w-ui-table-large min-w-ui-table-large max-w-ui-table-large',
 };
+
+function columnWidthProps(width: WidthSpec = 'medium'): {
+  className?: string;
+  style?: React.CSSProperties;
+} {
+  if (!isCustomWidth(width)) return { className: columnWidthClasses[width] };
+  const pixels = `${width.custom}px`;
+  return { style: { width: pixels, minWidth: pixels, maxWidth: pixels } };
+}
 
 function resolveValue<T>(column: ValueColumn<T>, row: T): unknown {
   return typeof column.value === 'function' ? column.value(row) : row[column.value];
@@ -231,7 +239,7 @@ export function DataTable<T>({
         <colgroup>
           {selection ? <col className="w-12 min-w-12 max-w-12" /> : null}
           {columns.map((column) => (
-            <col className={columnWidthClasses[column.width]} key={column.id} />
+            <col {...columnWidthProps(column.width)} key={column.id} />
           ))}
         </colgroup>
         <thead>
@@ -255,10 +263,11 @@ export function DataTable<T>({
             ) : null}
             {columns.map((column) => {
               const stickyAction = column.type === 'actions' && stickyActions;
+              const widthProps = columnWidthProps(column.width);
               return (
                 <th
                   className={cn(
-                    columnWidthClasses[column.width],
+                    widthProps.className,
                     'px-ui-sm py-ui-xs text-ui-caption text-ui-muted-foreground',
                     columnAlignment(column),
                     stickyHeader && 'sticky top-0 z-10 bg-ui-surface-soft',
@@ -267,6 +276,7 @@ export function DataTable<T>({
                   )}
                   key={column.id}
                   scope="col"
+                  style={widthProps.style}
                 >
                   {column.header}
                 </th>
@@ -294,10 +304,11 @@ export function DataTable<T>({
                     ) : null}
                     {columns.map((column) => {
                       const stickyAction = column.type === 'actions' && stickyActions;
+                      const widthProps = columnWidthProps(column.width);
                       return (
                         <td
                           className={cn(
-                            columnWidthClasses[column.width],
+                            widthProps.className,
                             'px-ui-sm py-ui-xs align-middle text-ui-body',
                             columnAlignment(column),
                             column.type === 'number' && 'tabular-nums',
@@ -306,6 +317,7 @@ export function DataTable<T>({
                               'sticky right-0 z-10 border-l border-ui-border bg-ui-canvas shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]',
                           )}
                           key={column.id}
+                          style={widthProps.style}
                         >
                           {renderCell(column, row)}
                         </td>

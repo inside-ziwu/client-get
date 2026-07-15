@@ -27,12 +27,12 @@ function collectionTypeLabel(value: Company['collection_type']) {
 }
 
 const contactColumns: ReadonlyArray<DataTableColumn<CompanyContact>> = [
-  { id: 'name', header: '姓名', width: 'md', type: 'text', value: 'name' },
-  { id: 'position', header: '职位', width: 'md', type: 'text', value: 'position' },
-  { id: 'department', header: '部门', width: 'md', type: 'text', value: 'department' },
-  { id: 'email', header: '邮箱', width: 'lg', type: 'text', value: 'email' },
-  { id: 'emailStatus', header: '邮箱状态', width: 'md', type: 'text', value: 'email_status' },
-  { id: 'phone', header: '电话', width: 'md', type: 'text', value: 'phone' },
+  { id: 'name', header: '姓名', type: 'text', value: 'name' },
+  { id: 'position', header: '职位', type: 'text', value: 'position' },
+  { id: 'department', header: '部门', type: 'text', value: 'department' },
+  { id: 'email', header: '邮箱', width: 'large', type: 'text', value: 'email' },
+  { id: 'emailStatus', header: '邮箱状态', type: 'text', value: 'email_status' },
+  { id: 'phone', header: '电话', type: 'text', value: 'phone' },
 ];
 
 interface Props {

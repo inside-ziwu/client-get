@@ -169,14 +169,18 @@ components:
   table-divider-soft:
     backgroundColor: "{colors.border-soft}"
     height: 1px
-  table-column-sm:
-    width: 96px
-  table-column-md:
-    width: 144px
-  table-column-lg:
+  control-width-small:
+    width: 160px
+  control-width-medium:
     width: 224px
-  table-column-xl:
+  control-width-large:
     width: 320px
+  table-column-small:
+    width: 96px
+  table-column-medium:
+    width: 144px
+  table-column-large:
+    width: 224px
   table-state:
     backgroundColor: "{colors.background}"
     textColor: "{colors.muted-foreground}"
@@ -384,6 +388,8 @@ interface ListPageProps {
 ```ts
 type FilterDraftValue = string | readonly string[];
 type FilterDraft = Record<string, FilterDraftValue>;
+type WidthPreset = "small" | "medium" | "large";
+type WidthSpec = WidthPreset | { custom: number };
 type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 type KeysMatching<T, V> = {
   [K in keyof T]-?: T[K] extends V ? Extract<K, string> : never;
@@ -399,6 +405,7 @@ interface BaseFilterField {
   label: string;
   placeholder?: string;
   advanced?: boolean;
+  width?: WidthSpec;
 }
 
 type FilterField<T extends FilterDraftShape<T>> =
@@ -446,7 +453,8 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
 - draft 中 text/select/number/date 一律保存 string，multiSelect 保存 string[]；number 在提交时由页面校验并转换，date 使用 `YYYY-MM-DD`。空值统一为 `""` 或 `[]`。
 - Enter 等同“查询”；“重置”同时清空 draft、applied filters、页码和 selection，只触发一次新查询。
 - 默认 `advanced=true` 的字段在窄屏收起；入口展示已应用条件数量。高频业务页可显式设置 `collapseAdvanced=false`，全部条件在同一容器常驻，不允许按桌面/移动端暗中改变业务可见性。
-- `layout="compact"` 按字段语义限制宽度并自动换行：文本 320px、select/multiSelect 224px、number/date 192px、custom 默认 256px；字段可用 `compactWidth` 覆盖为 narrow 160px、medium 224px、wide 320px。`<640px` 统一占满容器，不产生页面级横向滚动。
+- `layout="compact"` 使用统一宽度契约并自动换行：`small=160px`、`medium=224px`、`large=320px`，字段未声明 `width` 时一律取 `medium`，不再按 text/select/number/custom 类型随机分配默认值。特殊复杂控件可显式使用 `{ custom: number }`，单位固定为 px；`<640px` 统一占满容器，不产生页面级横向滚动。
+- 原始 Input、SelectTrigger 和 MultiSelect 只负责填满字段容器，宽度由 FilterBar 单点拥有；禁止页面传任意 Tailwind 宽度 class 或使用 `!important` 抢占布局。
 - `actionsPlacement="inline"` 仅在全部字段位于同一容器时让“重置 / 查询”参与紧凑换行并跟随最后一个条件；存在独立高级条件区时自动回退到底部操作区。
 - 每个 select/multiSelect 自己声明 option loading/empty，与列表 loading/empty 分开表达。multiSelect 可通过 `searchPlaceholder` 区分触发器占位与弹层搜索对象。
 - `optionStateMode="inspectable"` 时，loading/empty 不禁用 multiSelect 触发器：弹层显示转圈加“正在加载选项…”或“暂无可选项”，ready 数据返回后在已打开弹层原位更新；默认 `disabled` 模式保持向后兼容。
@@ -457,13 +465,14 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
 职责：基于列类型统一对齐、格式、宽度、选择、sticky 行为和状态行。它不做服务端排序、分页、请求和业务 mutation。
 
 ```ts
-type ColumnWidth = "sm" | "md" | "lg" | "xl";
+type WidthPreset = "small" | "medium" | "large";
+type WidthSpec = WidthPreset | { custom: number };
 type StatusTone = "neutral" | "success" | "warning" | "info" | "danger";
 
 interface BaseDataTableColumn {
   id: string;
   header: React.ReactNode;
-  width: ColumnWidth;
+  width?: WidthSpec;
 }
 
 type DataTableColumn<T> =
@@ -531,6 +540,8 @@ interface DataTableProps<T> {
 ```
 
 列类型默认行为：
+
+DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的物理 token：`small=96px`、`medium=144px`、`large=224px`。未声明 `width` 的列默认取 `medium`；少数特殊列可用 `{ custom: number }`，不接受任意宽度 class。相同语义名表示组件族内的相对密度，不强迫表格列与表单控件使用相同像素值。
 
 | type      | 默认行为                                                           |
 | --------- | ------------------------------------------------------------------ |
@@ -724,7 +735,7 @@ T-21 合并 ─► rebase ─► 页面/API 复扫 ──────┘        
 
 修改：
 
-- `src/theme/globals.css`：追加 `--ui-*` 目标变量，覆盖 canvas、surface、border、语义 tone、radius、spacing 和四档列宽；旧变量保持原值。
+- `src/theme/globals.css`：追加 `--ui-*` 目标变量，覆盖 canvas、surface、border、语义 tone、radius、spacing 和三档列宽；旧变量保持原值。
 - `src/theme/tailwind-preset.ts`：追加静态 `ui-*` color、typography、radius、column width alias；保留旧映射。
 
 约束：
