@@ -559,7 +559,7 @@ DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的�
 补充规则：
 
 - 单元格解析优先级固定为 `render > format > 类型默认格式`。`render` 是 RatingTag、链接和组合操作的必要逃生口，但不能覆盖列宽与对齐纪律。
-- 同一行存在两个及以上常驻操作时，采用 Ant ProTable 式轻量文字按钮，文字统一使用 `body-strong=14px/500`，通过 32px 高点击区域和统一间距表达可操作性，禁止退回 `h-auto p-0` 的裸文字。低频操作才进入更多菜单；业务要求常驻的破坏操作默认保持中性色，hover/focus 再切换 danger 色，强危险色保留给二次确认按钮。
+- 同一行存在两个及以上常驻操作时，采用 Ant ProTable 式轻量文字按钮，文字与表格正文共用 14px 基线并使用 500 字重，通过 32px 高点击区域和统一间距表达可操作性。行内操作不得传 `Button size="sm"`，避免重新注入 12px `text-xs`；也禁止退回 `h-auto p-0` 的裸文字。低频操作才进入更多菜单；业务要求常驻的破坏操作默认保持中性色，hover/focus 再切换 danger 色，强危险色保留给二次确认按钮。
 - 默认 sticky header 开启；只有嵌套小表或打印视图可以显式关闭。
 - `stickyActions` 默认开启并覆盖所有断点；嵌套小表可显式关闭。固定列使用不透明背景、边界和轻阴影，不能遮住横向滚动内容。
 - selection 的 key 一律取自 DataTable 的 `getRowId`，避免两套身份函数分叉；它只代表当前页，`onTogglePage` 必须排除 `isRowDisabled` 的行。换页、筛选和 pageSize 变化后的清空策略由父页面在回调中执行。
