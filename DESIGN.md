@@ -554,11 +554,12 @@ DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的�
 | `date`    | 左对齐、不换行；必须由 `format` 或 `render` 明确时区/格式          |
 | `status`  | 居中；从 `statusMap` 输出带文字的语义 Badge；未知值回退 neutral     |
 | `boolean` | 居中；`readOnly` 用 Badge，`interactive` 用 Switch；必须提供可访问 label |
-| `actions` | 右对齐；`render` 必填，是否固定由 DataTable 的 stickyActions 控制  |
+| `actions` | 右对齐；`render` 必填，是否固定由 DataTable 的 stickyActions 控制；业务页可显式覆盖为居中 |
 
 补充规则：
 
 - 单元格解析优先级固定为 `render > format > 类型默认格式`。`render` 是 RatingTag、链接和组合操作的必要逃生口，但不能覆盖列宽与对齐纪律。
+- 同一行存在两个及以上常驻操作时，必须使用 `Button` 提供明确边界和至少 32px 高的点击区域，不能把多个 `link` 变体并排成普通文字。高频非破坏操作使用紧凑中性描边；破坏操作在列表中使用浅色 danger surface，强危险色保留给二次确认按钮。
 - 默认 sticky header 开启；只有嵌套小表或打印视图可以显式关闭。
 - `stickyActions` 默认开启并覆盖所有断点；嵌套小表可显式关闭。固定列使用不透明背景、边界和轻阴影，不能遮住横向滚动内容。
 - selection 的 key 一律取自 DataTable 的 `getRowId`，避免两套身份函数分叉；它只代表当前页，`onTogglePage` 必须排除 `isRowDisabled` 的行。换页、筛选和 pageSize 变化后的清空策略由父页面在回调中执行。
@@ -867,7 +868,7 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 - 业务包装层复用现有 `FilterValues`、`EMPTY_FILTERS`、`buildParams`、`countryZh`；暂不改 `components/company-filters.tsx` 的现有 UI，因为 curated-customers 仍在消费。
 - 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`；进口额、进口次数、联系人、成立年份的起止字段分别合并为 4 个一体式范围控件，界面共呈现 12 个业务控件，底层参数不变。
 - 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。关键词为 224px；国家、细分行业、产品标签、采集类型、群组状态、大模型评级、模板评级为 160px；范围控件为 256px。移动端全部全宽，范围内部两端始终并排。
-- 公司列表长文本列左对齐；国家、采集类型、员工规模、成立、两种评级与评分、联系人数、入库时间和操作列居中。操作列内部按钮组也必须居中，不能只给单元格设置 `text-center` 后仍保留 `justify-end`。
+- 公司列表长文本列左对齐；国家、采集类型、员工规模、成立、两种评级与评分、联系人数、入库时间和操作列居中。操作列使用 `large=224px`，内部以 32px 紧凑按钮常驻展示“详情 / 群组 / 拉黑”：前两项为中性描边，拉黑为浅红 danger surface；按钮组必须居中，不能只给单元格设置 `text-center` 后仍保留 `justify-end`。
 - “重置 / 查询”参与筛选区同一换行流并跟随最后一个条件；1920px 主工作区中基础条件占第一排，范围条件与操作按钮占第二排。
 - 未选择统一显示“不限”；multiSelect 弹层分别使用“搜索国家 / 搜索细分行业 / 搜索产品标签 / 搜索评级”。远程选项加载中允许打开查看状态，空数组显示“暂无可选项”。
 - 父页分持 draft/applied；submit/reset/pageSize/page change 原子更新页码并清空 selection。
