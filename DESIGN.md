@@ -301,7 +301,7 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 ```text
 桌面
 ┌─ 标题 + 描述 ─────────────────────────── 主操作 ┐
-├─ FilterBar：常用条件 / 更多条件 / 查询 / 重置 ─┤
+├─ FilterBar：查询 / 重置；高频页可启用紧凑常驻 ┤
 ├─ 批量操作栏（有选择时出现，不引起横向跳动） ──┤
 ├─ DataTable：sticky header + horizontal scroll ─┤
 └─ Pagination：总数/页大小          跳页/前后页 ─┘
@@ -309,7 +309,7 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 移动端
 ┌─ 标题与描述 ────────────────────────────────┐
 ├─ 主操作（必要时占满一行）───────────────────┤
-├─ FilterBar：一列，更多条件默认收起 ─────────┤
+├─ FilterBar：一列；是否折叠由业务频率显式决定 ┤
 ├─ 批量操作栏，允许换行 ──────────────────────┤
 ├─ DataTable：保留表格语义，横向滚动 ─────────┤
 └─ Pagination：上下两行，不横向挤压 ──────────┘
@@ -320,8 +320,8 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 | 范围         | 规则                                               |
 | ------------ | -------------------------------------------------- |
 | `< 640px`    | 单列筛选；头部操作换行；分页上下堆叠；表格横向滚动 |
-| `640–1023px` | 2 列筛选；保留简化后的分页；详情继续用 Sheet       |
-| `>= 1024px`  | 4 列基础筛选；完整分页；更宽的详情与操作区域       |
+| `640–1023px` | 默认 2 列；紧凑模式按语义宽度自动换行；详情用 Sheet |
+| `>= 1024px`  | 默认 4 列；紧凑模式不拉伸控件；完整分页             |
 
 宽表不转换为信息卡瀑布流，因为公司、联系人和发送计划需要跨行比较。移动端允许横向滚动；selection 始终位于第一列，操作列固定在可见区域右侧。
 
@@ -417,6 +417,7 @@ type FilterField<T extends FilterDraftShape<T>> =
       kind: "multiSelect";
       options: ReadonlyArray<{ label: string; value: string }>;
       optionState?: "ready" | "loading" | "empty";
+      searchPlaceholder?: string;
     })
   | (BaseFilterField & {
       name: Extract<keyof T, string>;
@@ -432,6 +433,9 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
   onReset: () => void;
   isSubmitting?: boolean;
   appliedCount?: number;
+  layout?: "grid" | "compact";
+  collapseAdvanced?: boolean;
+  optionStateMode?: "disabled" | "inspectable";
 }
 ```
 
@@ -440,8 +444,10 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
 - 输入只改变 draft；提交后父页面原子地更新 applied filters、`page=1` 并清空跨页 selection。
 - draft 中 text/select/number/date 一律保存 string，multiSelect 保存 string[]；number 在提交时由页面校验并转换，date 使用 `YYYY-MM-DD`。空值统一为 `""` 或 `[]`。
 - Enter 等同“查询”；“重置”同时清空 draft、applied filters、页码和 selection，只触发一次新查询。
-- `advanced=true` 的字段在窄屏默认收起；入口展示已应用条件数量。
-- 每个 select/multiSelect 自己声明 option loading/empty，与列表 loading/empty 分开表达。
+- 默认 `advanced=true` 的字段在窄屏收起；入口展示已应用条件数量。高频业务页可显式设置 `collapseAdvanced=false`，全部条件在同一容器常驻，不允许按桌面/移动端暗中改变业务可见性。
+- `layout="compact"` 按字段语义限制宽度并自动换行：文本 320px、select/multiSelect 224px、number/date 192px；`<640px` 统一占满容器，不产生页面级横向滚动。
+- 每个 select/multiSelect 自己声明 option loading/empty，与列表 loading/empty 分开表达。multiSelect 可通过 `searchPlaceholder` 区分触发器占位与弹层搜索对象。
+- `optionStateMode="inspectable"` 时，loading/empty 不禁用 multiSelect 触发器：弹层显示转圈加“正在加载选项…”或“暂无可选项”，ready 数据返回后在已打开弹层原位更新；默认 `disabled` 模式保持向后兼容。
 - `custom` 是范围输入等复杂字段的逃生口，不允许借此在页面重建整套 FilterBar。
 
 ### DataTable
@@ -843,6 +849,8 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 - 用 ListPage、FilterBar、DataTable、TableState、Pagination 替换页面壳、raw table 和手写分页。
 - 业务包装层复用现有 `FilterValues`、`EMPTY_FILTERS`、`buildParams`、`countryZh`；暂不改 `components/company-filters.tsx` 的现有 UI，因为 curated-customers 仍在消费。
 - 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`。
+- 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。
+- 未选择统一显示“不限”；multiSelect 弹层分别使用“搜索国家 / 搜索细分行业 / 搜索产品标签 / 搜索评级”。远程选项加载中允许打开查看状态，空数组显示“暂无可选项”。
 - 父页分持 draft/applied；submit/reset/pageSize/page change 原子更新页码并清空 selection。
 - 保留 selection + 17 个数据列、详情 Sheet、新增公司、群组与拉黑能力；selection key 统一使用 `tc_id`，详情请求继续使用业务需要的 `id`。
 - 拉黑改为每行 inline AlertDialogTrigger；destructive pending 时禁止重复提交与关闭。
@@ -886,7 +894,7 @@ npx @google/design.md lint DESIGN.md
 
 人工走查使用 390 / 768 / 1440 三档视口，覆盖：
 
-- 单一横向滚动、sticky header/action、筛选展开收起、分页移动端换行。
+- 单一横向滚动、sticky header/action、筛选常驻/折叠配置、紧凑控件宽度、分页移动端换行。
 - 键盘 focus、Enter 查询/跳页、Space 操作、Tooltip 和 `aria-busy`。
 - initial loading、旧行 refetch、首次空、筛选空、断网重试、慢请求、mutation 连点。
 - companies 的新增/详情/群组/拉黑/编辑；email templates 的创建/编辑/删除/富文本/变量/预览。
@@ -999,6 +1007,6 @@ npx @google/design.md lint DESIGN.md
 
 - Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token，但用户走查尚未完成，`status` 继续保持 `proposed`。确认后才分批替换存量全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
-- Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；筛选选项的错误/重试仍由业务包装层表达，是否进入公共 API 留待 Phase B 打样验证。
+- Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；Phase B 已将 multiSelect 的搜索文案与 loading/empty 可查看状态纳入公共 API，选项请求 error/retry 仍由业务包装层表达。
 - 暗色模式不在本期范围。
 - T-21 已合并且目标页面已删除；Phase B 创建独立分支后仍须基于最新 main 复扫页面与分页数量，再冻结 Phase C 清单。
