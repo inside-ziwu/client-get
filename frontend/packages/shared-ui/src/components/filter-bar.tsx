@@ -172,6 +172,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
           className={uiControlClasses}
           value={value}
           options={field.options}
+          displayMode="summary"
           onChange={(next) =>
             setValue(field.name, next as unknown as T[typeof field.name])
           }

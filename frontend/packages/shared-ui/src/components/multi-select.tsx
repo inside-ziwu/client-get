@@ -17,6 +17,7 @@ export interface MultiSelectProps {
   value: readonly string[];
   options: readonly MultiSelectOption[];
   onChange: (value: string[]) => void;
+  displayMode?: 'badges' | 'summary';
   placeholder?: string;
   searchPlaceholder?: string;
   optionState?: 'ready' | 'loading' | 'empty';
@@ -29,6 +30,7 @@ export function MultiSelect({
   value,
   options,
   onChange,
+  displayMode = 'badges',
   placeholder = '选择或输入',
   searchPlaceholder,
   optionState = 'ready',
@@ -57,6 +59,11 @@ export function MultiSelect({
       : optionState === 'empty'
         ? '暂无可选项'
         : placeholder;
+  const selectedLabels = value.map(
+    (item) => normalizedOptions.find((option) => option.value === item)?.label ?? item,
+  );
+  const selectedSummary =
+    value.length === 1 ? selectedLabels[0] : `已选 ${value.length} 项`;
 
   const toggle = (item: string) => {
     if (disabled || optionState !== 'ready') return;
@@ -75,36 +82,55 @@ export function MultiSelect({
           type="button"
           variant="outline"
           disabled={disabled}
-          className={cn('min-h-9 h-auto w-full justify-between', className)}
+          className={cn(
+            displayMode === 'summary'
+              ? 'h-10 min-h-10 overflow-hidden'
+              : 'min-h-9 h-auto',
+            'w-full justify-between',
+            className,
+          )}
         >
-          <span className="flex min-w-0 flex-wrap gap-1">
+          <span
+            className={cn(
+              'min-w-0',
+              displayMode === 'summary'
+                ? 'flex-1 truncate text-left'
+                : 'flex flex-wrap gap-1',
+            )}
+          >
             {value.length ? (
-              value.map((item) => (
-                <Badge key={item} variant="secondary" className="gap-1">
-                  {normalizedOptions.find((option) => option.value === item)?.label ?? item}
-                  {disabled ? null : (
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`移除 ${item}`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        onChange(value.filter((current) => current !== item));
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
+              displayMode === 'summary' ? (
+                <span className="block truncate" title={selectedLabels.join('、')}>
+                  {selectedSummary}
+                </span>
+              ) : (
+                value.map((item) => (
+                  <Badge key={item} variant="secondary" className="gap-1">
+                    {normalizedOptions.find((option) => option.value === item)?.label ?? item}
+                    {disabled ? null : (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`移除 ${item}`}
+                        onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
                           onChange(value.filter((current) => current !== item));
-                        }
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </span>
-                  )}
-                </Badge>
-              ))
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onChange(value.filter((current) => current !== item));
+                          }
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
+                    )}
+                  </Badge>
+                ))
+              )
             ) : (
               <span className="text-muted-foreground">{triggerPlaceholder}</span>
             )}
@@ -151,10 +177,10 @@ export function MultiSelect({
                       onSelect={() => toggle(item.value)}
                       className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
                     >
-                      <span className="flex h-4 w-4 items-center justify-center rounded-sm border border-input">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-input">
                         {selected.has(item.value) ? <Check className="h-3 w-3" /> : null}
                       </span>
-                      <span className="truncate">{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
                     </Command.Item>
                   ))}
                   {canCreate ? (
