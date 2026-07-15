@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </>
       }
-      homeHref="/data-sources"
+      homeHref="/tenants"
       onPrefetch={(href) => router.prefetch(href)}
       renderLink={renderLink}
       title="后台管理"

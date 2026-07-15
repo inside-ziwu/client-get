@@ -22,7 +22,6 @@ type FilterValues = {
   industry: string;
   size: string;
   collection_type: string;
-  system_grade: string;
   year_min: string;
   year_max: string;
   has_contacts: boolean;
@@ -34,7 +33,6 @@ const EMPTY_FILTERS: FilterValues = {
   industry: '',
   size: '',
   collection_type: '',
-  system_grade: '',
   year_min: '',
   year_max: '',
   has_contacts: false,
@@ -56,6 +54,15 @@ function emptyPage(): PageData {
   return { data: [], pagination: { cursor: null, has_more: false, total: 0 } };
 }
 
+function collectionTypeLabel(value: WmtCleanCompanyRow['collection_type']) {
+  return {
+    manual: '手工录入',
+    keyword: '关键词采集',
+    reverse: '精准反推',
+    unknown: '来源待确认',
+  }[value];
+}
+
 export function CustomerArchivePage() {
   const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterValues>(EMPTY_FILTERS);
@@ -66,10 +73,9 @@ export function CustomerArchivePage() {
 
   const query = useQuery({
     queryKey: ['admin', 'wmt-clean-companies', page, pageSize, appliedFilters],
-    queryFn: async () => {
-      try {
-        return (
-          await adminApi.collection.listWmtCleanCompanies({
+    queryFn: async () =>
+      (
+        await adminApi.collection.listWmtCleanCompanies({
             page,
             page_size: pageSize,
             q: appliedFilters.q.trim() || undefined,
@@ -80,13 +86,8 @@ export function CustomerArchivePage() {
             year_max: appliedFilters.year_max ? Number(appliedFilters.year_max) : undefined,
             has_contacts: appliedFilters.has_contacts || undefined,
             collection_type: appliedFilters.collection_type || undefined,
-            system_grade: appliedFilters.system_grade || undefined,
-          })
-        ).data;
-      } catch {
-        return emptyPage();
-      }
-    },
+        })
+      ).data,
   });
 
   const pageData = query.data ?? emptyPage();
@@ -132,8 +133,8 @@ export function CustomerArchivePage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">客户数据</h1>
-          <p className="admin-page-description">清洗后的公司数据及联系人。</p>
+          <h1 className="admin-page-title">客户池</h1>
+          <p className="admin-page-description">查看租户可用的清洗公司及联系人。</p>
         </div>
       </div>
 
@@ -183,10 +184,12 @@ export function CustomerArchivePage() {
                   <SelectItem value="all">采集类型（不限）</SelectItem>
                   <SelectItem value="keyword">关键词采集</SelectItem>
                   <SelectItem value="reverse">精准反推</SelectItem>
+                  <SelectItem value="manual">手工录入</SelectItem>
+                  <SelectItem value="unknown">来源待确认</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-3 lg:grid-cols-[120px_120px_160px_auto_1fr]">
+            <div className="grid gap-3 lg:grid-cols-[120px_120px_auto_1fr]">
               <Input
                 type="number"
                 placeholder="成立年份(起)"
@@ -199,22 +202,6 @@ export function CustomerArchivePage() {
                 value={filters.year_max}
                 onChange={(e) => setFilters((f) => ({ ...f, year_max: e.target.value }))}
               />
-              <Select
-                value={filters.system_grade || 'all'}
-                onValueChange={(v) => setFilters((f) => ({ ...f, system_grade: v === 'all' ? '' : v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="系统评级（不限）" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">系统评级（不限）</SelectItem>
-                  <SelectItem value="S">S</SelectItem>
-                  <SelectItem value="A">A</SelectItem>
-                  <SelectItem value="B">B</SelectItem>
-                  <SelectItem value="C">C</SelectItem>
-                  <SelectItem value="D">D</SelectItem>
-                </SelectContent>
-              </Select>
               <label className="flex h-9 items-center gap-2 text-sm">
                 <Checkbox
                   checked={filters.has_contacts}
@@ -244,7 +231,7 @@ export function CustomerArchivePage() {
                 <tr>
                   {[
                     '公司名', '国家', '域名', '行业', '员工规模', '成立',
-                    '采集类型', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '联系人数', '操作', '入库时间',
+                    '采集类型', '大模型评级', '大模型评分', '细分行业', '联系人数', '操作', '入库时间',
                   ].map((label) => (
                     <th key={label} className="whitespace-nowrap px-3 py-2">{label}</th>
                   ))}
@@ -253,8 +240,8 @@ export function CustomerArchivePage() {
               <tbody>
                 {pageData.data.length === 0 && (
                   <tr>
-                    <td colSpan={15} className="py-12 text-center text-muted-foreground">
-                      {query.isLoading ? '加载中...' : '暂无数据'}
+                    <td colSpan={13} className="py-12 text-center text-muted-foreground">
+                      {query.isLoading ? '加载中...' : query.isError ? '加载失败，请稍后重试' : '暂无数据'}
                     </td>
                   </tr>
                 )}
@@ -274,16 +261,12 @@ export function CustomerArchivePage() {
                     <td className="px-3 py-2">{dash(row.employee_size)}</td>
                     <td className="w-[60px] px-3 py-2">{dash(row.founded_year)}</td>
                     <td className="px-3 py-2">
-                      {row.collection_type === 'keyword' ? '关键词采集' : '精准反推'}
+                      {collectionTypeLabel(row.collection_type)}
                     </td>
                     <td className="w-[50px] px-3 py-2">
                       {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}
                     </td>
                     <td className="w-[50px] px-3 py-2">{row.score != null ? row.score : '-'}</td>
-                    <td className="w-[50px] px-3 py-2">
-                      {row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-'}
-                    </td>
-                    <td className="w-[50px] px-3 py-2">{row.system_score != null ? row.system_score : '-'}</td>
                     <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
                     <td className="w-[70px] px-3 py-2">{row.contacts_count ?? '-'}</td>
                     <td className="px-3 py-2">
@@ -406,16 +389,6 @@ export function CustomerArchivePage() {
                       <div>
                         <div className="text-xs text-muted-foreground">大模型评分</div>
                         <div className="mt-1 font-medium">{detail.score != null ? detail.score : '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">系统评级</div>
-                        <div className="mt-1">
-                          {detail.system_grade ? <RatingTag grade={detail.system_grade} variant="system" /> : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-muted-foreground">系统评分</div>
-                        <div className="mt-1 font-medium">{detail.system_score != null ? detail.system_score : '-'}</div>
                       </div>
                     </div>
 

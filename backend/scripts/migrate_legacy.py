@@ -2,12 +2,10 @@ import argparse
 import json
 from pathlib import Path
 
-
 EXPECTED_INPUTS = {
     "company_data": "shared_companies + company_sources + tenant_companies",
     "contact_data": "shared_contacts + tenant_contacts",
     "company_analysis": "company_scores + tenant_companies",
-    "keyword_list": "collection_keywords",
     "email_plans": "sending_plans + sequence_steps + sequence_enrollments + emails",
     "system_config": "platform config / encrypted credentials / env",
 }

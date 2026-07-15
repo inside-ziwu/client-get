@@ -3,7 +3,6 @@ import {
   Bot,
   Building2,
   Clock,
-  Database,
   Flame,
   Globe2,
   Mail,
@@ -11,7 +10,6 @@ import {
   Server,
   ShoppingBag,
   Star,
-  Tags,
   Users,
 } from 'lucide-react';
 
@@ -21,14 +19,12 @@ export const adminNavigationGroups = [
     items: [{ href: '/tenants', label: '用户管理', icon: Users }],
   },
   {
-    label: '采集',
+    label: '数据浏览',
     items: [
-      { href: '/data-sources', label: '数据源', icon: Database },
-      { href: '/collection-tasks', label: '关键词', icon: Tags },
-      { href: '/collection/peers', label: '同行公司', icon: Building2 },
-      { href: '/collection/peers-cleaned', label: '同行数据（清洗）', icon: Building2 },
-      { href: '/collection/waimaotong', label: '外贸通', icon: Server },
-      { href: '/collection/customers', label: '客户数据', icon: ShoppingBag },
+      { href: '/collection/peers', label: '同行原始数据', icon: Building2 },
+      { href: '/collection/peers-cleaned', label: '同行清洗数据', icon: Building2 },
+      { href: '/collection/waimaotong', label: '外贸通原始数据', icon: Server },
+      { href: '/collection/customers', label: '客户池', icon: ShoppingBag },
     ],
   },
   {

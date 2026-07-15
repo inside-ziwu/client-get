@@ -66,14 +66,13 @@ export function PlanOverview({
         ) : !data?.plans?.length ? (
           <div className="flex flex-col items-center gap-3 py-8 text-sm text-muted-foreground">
             暂无计划
-            <Button size="sm" onClick={() => router.push('/sending-plans/create')}>
+            <Button size="sm" onClick={() => router.push('/send-plans/new')}>
               去创建
             </Button>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            <StatCard label="关键词" value={data.keyword_count.toLocaleString()} />
-            <StatCard label="已采集公司" value={data.companies_collected.toLocaleString()} />
+            <StatCard label="可用公司" value={data.companies_collected.toLocaleString()} />
             <StatCard label="已评分公司" value={data.companies_scored.toLocaleString()} />
             <StatCard label="联系人总数" value={data.contacts_total.toLocaleString()} />
             <StatCard label="草稿数" value={data.emails_drafted.toLocaleString()} />

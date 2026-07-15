@@ -178,19 +178,12 @@ class TestWmtLineageRepairFanOut:
             yield
 
     @pytest.mark.asyncio
-    async def test_fan_out_keywords_contains_instance_id(self):
-        from app.workers.wmt_lineage_repair import _SQL_FAN_OUT_ACTIVE_KEYWORDS
+    async def test_full_pool_fan_out_contains_instance_id(self):
+        from app.workers.wmt_lineage_repair import _SQL_FAN_OUT_FULL_POOL
 
-        sql = str(_SQL_FAN_OUT_ACTIVE_KEYWORDS.text)
+        sql = str(_SQL_FAN_OUT_FULL_POOL.text)
         assert "instance_id" in sql
-        assert "JOIN tenants" in sql
-
-    @pytest.mark.asyncio
-    async def test_fan_out_industry_contains_instance_id(self):
-        from app.workers.wmt_lineage_repair import _SQL_FAN_OUT_INDUSTRY
-
-        sql = str(_SQL_FAN_OUT_INDUSTRY.text)
-        assert "instance_id" in sql
+        assert "FROM tenants" in sql
 
     @pytest.mark.asyncio
     async def test_run_passes_instance_id_params(self):
@@ -217,21 +210,21 @@ class TestWmtLineageRepairFanOut:
         lock_params = lock_call.args[1]
         assert lock_params["instance_id"] == INSTANCE_ID
 
-        # 检查 fan_out 和 industry_fan_out execute 调用包含 instance_id
+        # 检查全池 fan-out 和 stale cleanup 都传入 instance_id
         fan_out_found = False
-        industry_found = False
+        stale_found = False
         for call in conn.execute.call_args_list:
             if len(call.args) > 1 and isinstance(call.args[1], dict):
                 params = call.args[1]
                 sql = str(call.args[0].text if hasattr(call.args[0], "text") else call.args[0])
-                if "tenant_keyword" in sql and "instance_id" in params:
+                if "INSERT INTO tenant_companies" in sql and "instance_id" in params:
                     assert params["instance_id"] == INSTANCE_ID
                     fan_out_found = True
-                if "industry_aliases" in params and "instance_id" in params:
+                if "DELETE FROM tenant_companies" in sql and "instance_id" in params:
                     assert params["instance_id"] == INSTANCE_ID
-                    industry_found = True
-        assert fan_out_found, "fan_out 关键词查询应包含 instance_id 参数"
-        assert industry_found, "fan_out 行业查询应包含 instance_id 参数"
+                    stale_found = True
+        assert fan_out_found, "全池 fan-out 应包含 instance_id 参数"
+        assert stale_found, "stale cleanup 应包含 instance_id 参数"
 
 
 # ── U27: advisory lock 区分实例级 ──────────────────────────────────────────
@@ -276,6 +269,7 @@ class TestAdvisoryLockInstanceScoped:
     async def test_tenant_ops_advisory_lock_unchanged(self):
         """确认 tenant_ops_service.py 的 advisory lock 未被修改（保持全局互锁）"""
         import inspect
+
         import app.services.tenant_ops_service as mod
 
         source = inspect.getsource(mod)

@@ -4,7 +4,6 @@ from decimal import Decimal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from app.core.config import get_settings
 from app.services.collection_source import compute_collection_type
 
 logger = logging.getLogger(__name__)
@@ -131,7 +130,14 @@ def _match_condition(condition: dict, company_data: dict) -> bool:
                 tags = _json.loads(tags)
             except (ValueError, TypeError):
                 tags = None
-        return compute_collection_type(tags) == "reverse"
+        return (
+            compute_collection_type(
+                tags,
+                source_id=company_data.get("source_id"),
+                has_source_competitor=bool(company_data.get("has_source_competitor")),
+            )
+            == "reverse"
+        )
 
     logger.warning("未知评分条件类型: %s，该维度得分 0", ctype)
     return False
@@ -212,6 +218,13 @@ class ScoringEngineService:
         company = await conn.execute(text("""
             SELECT wc.employee_size, wc.trade_amount_3y_usd, wc.trade_count,
                    wc.contacts_count, wc.data_source_tags, wc.source_tags,
+                   wc.source_id,
+                   EXISTS (
+                     SELECT 1
+                     FROM waimaotong_raw_companies wr_collection_source
+                     WHERE wr_collection_source.sys_company_id = wc.sys_company_id
+                       AND NULLIF(BTRIM(wr_collection_source.source_competitor), '') IS NOT NULL
+                   ) AS has_source_competitor,
                    wc.company_type_analysis, wc.industry
             FROM tenant_companies tc
             JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id
@@ -252,50 +265,6 @@ class ScoringEngineService:
 
         return result
 
-    async def score_clean_company(
-        self,
-        conn: AsyncConnection,
-        *,
-        clean_company_id: int | str,
-    ) -> dict | None:
-        """用平台模板评分，结果写入 waimaotong_clean_companies。"""
-        tmpl = await conn.execute(text("""
-            SELECT dimensions, grade_thresholds
-            FROM platform_scoring_templates
-            WHERE is_active = true
-              AND instance_id = :instance_id
-            ORDER BY updated_at DESC LIMIT 1
-        """), {"instance_id": get_settings().instance_id})
-        tmpl_row = tmpl.mappings().first()
-        if tmpl_row is None:
-            return None
-
-        company = await conn.execute(text("""
-            SELECT employee_size, trade_amount_3y_usd, trade_count,
-                   contacts_count, data_source_tags, source_tags,
-                   company_type_analysis, industry
-            FROM waimaotong_clean_companies
-            WHERE id = CAST(:id AS bigint)
-        """), {"id": int(clean_company_id)})
-        company_row = company.mappings().first()
-        if company_row is None:
-            return None
-
-        company_data = dict(company_row)
-        result = evaluate_company(tmpl_row["dimensions"], tmpl_row["grade_thresholds"], company_data)
-
-        await conn.execute(text("""
-            UPDATE waimaotong_clean_companies
-            SET system_grade = :grade, system_score = :score
-            WHERE id = CAST(:id AS bigint)
-        """), {
-            "grade": result["grade"],
-            "score": result["total_score"],
-            "id": int(clean_company_id),
-        })
-
-        return result
-
     async def rescore_tenant_all(
         self,
         conn: AsyncConnection,
@@ -324,6 +293,13 @@ class ScoringEngineService:
         companies = await conn.execute(text("""
             SELECT tc.id AS tc_id, wc.employee_size, wc.trade_amount_3y_usd, wc.trade_count,
                    wc.contacts_count, wc.data_source_tags, wc.source_tags,
+                   wc.source_id,
+                   EXISTS (
+                     SELECT 1
+                     FROM waimaotong_raw_companies wr_collection_source
+                     WHERE wr_collection_source.sys_company_id = wc.sys_company_id
+                       AND NULLIF(BTRIM(wr_collection_source.source_competitor), '') IS NOT NULL
+                   ) AS has_source_competitor,
                    wc.company_type_analysis, wc.industry
             FROM tenant_companies tc
             JOIN waimaotong_clean_companies wc ON wc.id = tc.clean_company_id

@@ -274,22 +274,6 @@ async def ensure_team_users(conn: AsyncConnection, tenant_id: str, platform_user
         )
 
 
-async def ensure_keywords(conn: AsyncConnection, tenant_id: str, user_id: str) -> None:
-    existing = await tenant_settings_service.list_keywords(conn, tenant_id)
-    if existing:
-        return
-    for keyword in [
-        {"keyword": "PCB", "countries": ["DE", "US"], "source_types": ["waimao_tong", "tengdao"]},
-        {"keyword": "FPC", "countries": ["DE", "JP"], "source_types": ["waimao_tong", "lixiaoyun"]},
-    ]:
-        await tenant_settings_service.create_keyword(
-            conn,
-            tenant_id=tenant_id,
-            user_id=user_id,
-            payload=keyword,
-        )
-
-
 async def ensure_companies(conn: AsyncConnection, tenant_id: str, user_id: str, slug: str) -> list[dict]:
     existing = await tenant_query_service.companies(conn, tenant_id)
     existing_names = {item["name"] for item in existing}
@@ -513,7 +497,6 @@ async def seed_tenant(conn: AsyncConnection, platform_user_id: str, cfg: DemoTen
     await ensure_login_state(conn, tenant_id, admin_user_id, cfg.admin_password, cfg.completed)
     domain = await ensure_domain(conn, tenant_id, platform_user_id, f"mail.{cfg.slug}.demo.example.com")
     await ensure_team_users(conn, tenant_id, platform_user_id, cfg.slug)
-    await ensure_keywords(conn, tenant_id, admin_user_id)
     companies = await ensure_companies(conn, tenant_id, admin_user_id, cfg.slug)
     group = await ensure_group(conn, tenant_id, admin_user_id, companies)
     template = await ensure_template(conn, tenant_id, admin_user_id)

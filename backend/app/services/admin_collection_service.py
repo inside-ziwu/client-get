@@ -6,11 +6,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
+from app.services.collection_source import build_collection_type_filter, compute_collection_type
 from app.services.company_filter_sql import (
     append_employee_count_range,
     pcb_supplier_presence_clause,
 )
-from app.services.collection_source import KEYWORD_TAG_JSONB, compute_collection_type
 
 _BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -64,87 +64,6 @@ def _keyword_like(value: str) -> str:
 
 
 class AdminCollectionService:
-    async def list_collection_keywords(self, conn: AsyncConnection) -> list[dict]:
-        result = await conn.execute(
-            text(
-                """
-                SELECT
-                    km.id AS keyword_master_id,
-                    km.keyword_normalized,
-                    MAX(km.keyword) AS keyword,
-                    jsonb_agg(DISTINCT jsonb_build_object(
-                        'id', t.id::text,
-                        'name', t.name
-                    )) AS tenants
-                FROM keyword_master km
-                JOIN tenant_keyword tk ON tk.keyword_master_id = km.id
-                JOIN tenants t ON t.id = tk.tenant_id
-                WHERE tk.status = 'active'
-                GROUP BY km.id, km.keyword_normalized
-                ORDER BY km.keyword_normalized
-                """
-            ),
-        )
-        _empty_stage = {
-            "status": None,
-            "today_count": 0,
-            "total_count": 0,
-            "daily_limit": None,
-            "last_run_date": None,
-        }
-        _empty_direct = {
-            "status": None,
-            "current_page": 0,
-            "total_pages": 0,
-            "today_pages": 0,
-            "daily_limit": None,
-            "last_run_date": None,
-        }
-        return [
-            {
-                "keyword": r["keyword"],
-                "keyword_normalized": r["keyword_normalized"],
-                "tenants": self._dedupe_tenants(r["tenants"]),
-                "subscription_status": "not_started",
-                "total_companies": 0,
-                "total_contacts": 0,
-                "last_run_date": None,
-                "error_msg": None,
-                "direct": _empty_direct,
-                "reverse_stage1": _empty_stage,
-                "reverse_stage2": _empty_stage,
-            }
-            for r in result.mappings().all()
-        ]
-
-    async def get_dashboard(self, conn) -> dict:
-        today_companies = await self._scalar_int(
-            conn,
-            """
-            SELECT COUNT(*)
-            FROM clean_companies
-            WHERE created_at::date = current_date
-            """,
-        )
-        today_contacts = await self._scalar_int(
-            conn,
-            """
-            SELECT COALESCE(SUM(contacts_count), 0)
-            FROM clean_companies
-            WHERE created_at::date = current_date
-            """,
-        )
-        keywords = await self.list_collection_keywords(conn)
-
-        return {
-            "today_companies": today_companies,
-            "today_contacts": today_contacts,
-            "running_count": 0,
-            "paused_count": 0,
-            "error_count": 0,
-            "keywords": keywords,
-        }
-
     async def list_raw_companies(
         self,
         conn,
@@ -1813,7 +1732,6 @@ COALESCE(
         year_max: int | None = None,
         has_contacts: bool | None = None,
         grade: str | None = None,
-        system_grade: str | None = None,
         collection_type: str | None = None,
     ) -> tuple[list[dict], int]:
         where_parts: list[str] = []
@@ -1858,22 +1776,18 @@ COALESCE(
         if grade:
             where_parts.append("grade = :grade")
             params["grade"] = grade
-        if system_grade:
-            where_parts.append("system_grade = :system_grade")
-            params["system_grade"] = system_grade
-
-        if collection_type == "keyword":
-            where_parts.append(f"data_source_tags @> {KEYWORD_TAG_JSONB}")
-        elif collection_type == "reverse":
-            where_parts.append(
-                f"(data_source_tags IS NULL OR NOT data_source_tags @> {KEYWORD_TAG_JSONB})"
-            )
+        collection_type_filter = build_collection_type_filter(
+            collection_type,
+            company_alias="wc",
+        )
+        if collection_type_filter:
+            where_parts.append(collection_type_filter)
 
         where_clause = f" WHERE {' AND '.join(where_parts)}" if where_parts else ""
 
         total = await self._scalar_int(
             conn,
-            "SELECT COUNT(*) FROM waimaotong_clean_companies" + where_clause,
+            "SELECT COUNT(*) FROM waimaotong_clean_companies wc" + where_clause,
             params,
         )
 
@@ -1885,14 +1799,19 @@ COALESCE(
                        phone, employee_size, company_size, founded_year,
                        website, full_address, description,
                        grade, score, email_priority, company_type_analysis,
-                       system_grade, system_score,
                        product_tags, data_source_tags,
                        has_trade_data, trade_amount_3y_usd, trade_count,
                        contacts_count,
                        detail_status, contacts_status, trade_status,
                        sys_company_id,
+                       EXISTS (
+                         SELECT 1
+                         FROM waimaotong_raw_companies wr_collection_source
+                         WHERE wr_collection_source.sys_company_id = wc.sys_company_id
+                           AND NULLIF(BTRIM(wr_collection_source.source_competitor), '') IS NOT NULL
+                       ) AS has_source_competitor,
                        created_at, updated_at
-                FROM waimaotong_clean_companies
+                FROM waimaotong_clean_companies wc
                 """
                 + where_clause
                 + """
@@ -1908,11 +1827,14 @@ COALESCE(
             item["id"] = str(item["id"])
             item["sys_company_id"] = str(item["sys_company_id"]) if item.get("sys_company_id") else None
             item["score"] = float(item["score"]) if item.get("score") is not None else None
-            item["system_score"] = float(item["system_score"]) if item.get("system_score") is not None else None
             item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
             item["product_tags"] = list(item["product_tags"] or [])
             item["data_source_tags"] = list(item["data_source_tags"] or [])
-            item["collection_type"] = compute_collection_type(item["data_source_tags"])
+            item["collection_type"] = compute_collection_type(
+                item["data_source_tags"],
+                source_id=item.get("source_id"),
+                has_source_competitor=item.pop("has_source_competitor"),
+            )
             item["created_at"] = self._datetime_iso(item.get("created_at"))
             item["updated_at"] = self._datetime_iso(item.get("updated_at"))
             rows.append(item)
@@ -1926,7 +1848,18 @@ COALESCE(
     ) -> dict:
         row = (
             await conn.execute(
-                text("SELECT * FROM waimaotong_clean_companies WHERE id = :id"),
+                text("""
+                    SELECT wc.*,
+                           EXISTS (
+                             SELECT 1
+                             FROM waimaotong_raw_companies wr_collection_source
+                             WHERE wr_collection_source.sys_company_id = wc.sys_company_id
+                               AND NULLIF(BTRIM(wr_collection_source.source_competitor), '')
+                                   IS NOT NULL
+                           ) AS has_source_competitor
+                    FROM waimaotong_clean_companies wc
+                    WHERE wc.id = :id
+                """),
                 {"id": company_id},
             )
         ).mappings().first()
@@ -1939,12 +1872,19 @@ COALESCE(
             )
 
         item = dict(row)
+        item.pop("system_grade", None)
+        item.pop("system_score", None)
         item["id"] = str(item["id"])
         item["sys_company_id"] = str(item["sys_company_id"]) if item.get("sys_company_id") else None
         item["score"] = float(item["score"]) if item.get("score") is not None else None
         item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
         item["product_tags"] = list(item["product_tags"] or [])
         item["data_source_tags"] = list(item["data_source_tags"] or [])
+        item["collection_type"] = compute_collection_type(
+            item["data_source_tags"],
+            source_id=item.get("source_id"),
+            has_source_competitor=item.pop("has_source_competitor"),
+        )
         item["created_at"] = self._datetime_iso(item.get("created_at"))
         item["updated_at"] = self._datetime_iso(item.get("updated_at"))
         return item

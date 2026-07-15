@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.errors import AppError
 from app.core.responses import paginated_response, success_response
-from app.security.dependencies import TenantAuthContext, get_current_tenant_user, require_tenant_roles
+from app.security.dependencies import (
+    TenantAuthContext,
+    get_current_tenant_user,
+    require_tenant_roles,
+)
 from app.services.tenant_ops_service import TenantOpsService
 from app.services.tenant_query_service import TenantQueryService
 from app.services.tenant_scoring_weights_service import TenantScoringWeightsService
@@ -67,7 +71,7 @@ async def list_companies(
     max_score: float | None = Query(None, description="最高分"),
     grade: str | None = Query(None, description="评级筛选（兼容旧参数，单选）"),
     grades: list[str] = Query(default=[], alias="grades[]", description="大模型评级多选 OR"),
-    system_grades: list[str] = Query(default=[], alias="system_grades[]", description="系统评级多选 OR (S/A/B/C/D)"),
+    system_grades: list[str] = Query(default=[], alias="system_grades[]", description="当前模板评级多选 OR (S/A/B/C/D)"),
     group_id: str | None = Query(None, description="群组ID过滤"),
     collection_type: str | None = Query(None, description="采集类型：keyword/reverse"),
     limit: int = Query(50, ge=1, le=1000, description="每页条数"),

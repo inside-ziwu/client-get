@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.services.collection_source import KEYWORD_TAG_JSONB, compute_collection_type
+from app.services.collection_source import build_collection_type_filter, compute_collection_type
 from app.services.company_filter_sql import append_employee_count_range
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 from app.utils.beijing_time import beijing_day_bounds
@@ -280,12 +280,12 @@ class TenantQueryService:
             )
             params["sources"] = sources
 
-        if collection_type == "keyword":
-            where_clauses.append(f"wc.data_source_tags @> {KEYWORD_TAG_JSONB}")
-        elif collection_type == "reverse":
-            where_clauses.append(
-                f"(wc.data_source_tags IS NULL OR NOT wc.data_source_tags @> {KEYWORD_TAG_JSONB})"
-            )
+        collection_type_filter = build_collection_type_filter(
+            collection_type,
+            company_alias="wc",
+        )
+        if collection_type_filter:
+            where_clauses.append(collection_type_filter)
 
         effective_contact_count_min = (
             contact_count_min if contact_count_min is not None else contacts_count_min
@@ -393,6 +393,13 @@ class TenantQueryService:
                   wc.trade_count,
                   wc.description,
                   wc.data_source_tags,
+                  wc.source_id,
+                  EXISTS (
+                    SELECT 1
+                    FROM waimaotong_raw_companies wr_collection_source
+                    WHERE wr_collection_source.sys_company_id = wc.sys_company_id
+                      AND NULLIF(BTRIM(wr_collection_source.source_competitor), '') IS NOT NULL
+                  ) AS has_source_competitor,
                   wc.company_size,
                   cs.grade AS system_grade,
                   cs.total_score AS system_score,
@@ -449,7 +456,11 @@ class TenantQueryService:
                 "trade_count": row["trade_count"],
                 "description": row["description"],
                 "data_source_tags": list(row["data_source_tags"] or []),
-                "collection_type": compute_collection_type(row["data_source_tags"] or []),
+                "collection_type": compute_collection_type(
+                    row["data_source_tags"],
+                    source_id=row["source_id"],
+                    has_source_competitor=row["has_source_competitor"],
+                ),
                 "company_size": row["company_size"],
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
@@ -497,6 +508,13 @@ class TenantQueryService:
                   wc.trade_count,
                   wc.contacts_count,
                   wc.data_source_tags,
+                  wc.source_id,
+                  EXISTS (
+                    SELECT 1
+                    FROM waimaotong_raw_companies wr_collection_source
+                    WHERE wr_collection_source.sys_company_id = wc.sys_company_id
+                      AND NULLIF(BTRIM(wr_collection_source.source_competitor), '') IS NOT NULL
+                  ) AS has_source_competitor,
                   wc.full_address,
                   wc.description,
                   wc.phone,
@@ -574,7 +592,11 @@ class TenantQueryService:
             "full_address": row["full_address"],
             "description": row["description"],
             "sources": list(row["data_source_tags"] or []),
-            "collection_type": compute_collection_type(row["data_source_tags"] or []),
+            "collection_type": compute_collection_type(
+                row["data_source_tags"],
+                source_id=row["source_id"],
+                has_source_competitor=row["has_source_competitor"],
+            ),
             "matched_keywords": [],
             "business_status": row["business_status"],
             "data_status": row["data_status"],
@@ -949,7 +971,7 @@ class TenantQueryService:
     async def plan_overview(
         self, conn: AsyncConnection, tenant_id: str, plan_id: str | None = None
     ) -> dict:
-        """仪表盘计划概览：关键词、公司、联系人、邮件统计 + 可选计划列表"""
+        """仪表盘计划概览：公司、联系人、邮件统计 + 可选计划列表。"""
         params: dict = {"tenant_id": tenant_id}
 
         # 租户级汇总指标
@@ -957,9 +979,27 @@ class TenantQueryService:
             text(
                 """
                 SELECT
-                  (SELECT count(*) FROM tenant_keyword WHERE tenant_id = :tenant_id AND status = 'active') AS keyword_count,
                   (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id) AS companies_collected,
-                  (SELECT count(*) FROM tenant_companies WHERE tenant_id = :tenant_id AND score IS NOT NULL) AS companies_scored,
+                  (
+                    SELECT count(DISTINCT tc.id)
+                    FROM tenant_companies tc
+                    JOIN scoring_templates st
+                      ON st.tenant_id = tc.tenant_id
+                     AND st.is_active = true
+                    JOIN LATERAL (
+                      SELECT stv.id
+                      FROM scoring_template_versions stv
+                      WHERE stv.template_id = st.id
+                        AND stv.tenant_id = tc.tenant_id
+                      ORDER BY stv.version DESC
+                      LIMIT 1
+                    ) current_version ON true
+                    JOIN company_scores cs
+                      ON cs.tenant_company_id = tc.id
+                     AND cs.template_version_id = current_version.id
+                     AND cs.is_retry = false
+                    WHERE tc.tenant_id = :tenant_id
+                  ) AS companies_scored,
                   (SELECT count(*) FROM tenant_contacts WHERE tenant_id = :tenant_id) AS contacts_total
                 """
             ),
@@ -1011,7 +1051,6 @@ class TenantQueryService:
         plans = [{"id": str(r["id"]), "name": r["name"]} for r in plans_result.mappings().all()]
 
         return {
-            "keyword_count": int(counts["keyword_count"]),
             "companies_collected": int(counts["companies_collected"]),
             "companies_scored": int(counts["companies_scored"]),
             "contacts_total": int(counts["contacts_total"]),

@@ -32,7 +32,12 @@ function tableHeaderClass(header: string) {
 }
 
 function collectionTypeLabel(value: Company['collection_type']) {
-  return value === 'keyword' ? '关键词采集' : '精准反推';
+  return {
+    manual: '手工录入',
+    keyword: '关键词采集',
+    reverse: '精准反推',
+    unknown: '来源待确认',
+  }[value];
 }
 
 export default function CompaniesPage() {
@@ -133,7 +138,7 @@ export default function CompaniesPage() {
                   <th className="w-10 px-3 py-2">
                     <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
                   </th>
-                  {['公司名', '国家', '采集类型', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '系统评级', '系统评分', '细分行业', '来源同行', '来源同行（中文名）', '联系人数', '操作', '入库时间'].map((h) => (
+                  {['公司名', '国家', '采集类型', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '模板评级', '模板评分', '细分行业', '来源同行', '来源同行（中文名）', '联系人数', '操作', '入库时间'].map((h) => (
                     <th key={h} className={tableHeaderClass(h)}>{h}</th>
                   ))}
                 </tr>

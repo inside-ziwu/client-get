@@ -1,16 +1,16 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { CheckCircle2, KeyRound, Mail, Settings } from 'lucide-react';
+import { Building2, CheckCircle2, Mail, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent } from '@shared/ui';
 import { toast } from 'sonner';
 import { tenantApi } from '@/lib/api';
 
 const steps = [
-  { title: '确认账号', description: '完成租户账号和登录信息检查。', icon: KeyRound },
-  { title: '配置关键词', description: '建立客户采集关键词。', icon: Settings },
-  { title: '准备邮件', description: '维护模板、域名和发送计划。', icon: Mail },
+  { title: '筛选目标公司', description: '从共享客户池找到适合的潜在客户。', icon: Building2 },
+  { title: '建立客户群组', description: '将目标公司和联系人整理到群组。', icon: Users },
+  { title: '创建发送计划', description: '选择邮件模板并安排发送。', icon: Mail },
 ];
 
 export default function OnboardingPage() {
@@ -19,7 +19,7 @@ export default function OnboardingPage() {
     mutationFn: async () => (await tenantApi.onboarding.complete()).data.data,
     onSuccess: () => {
       toast.success('引导已完成');
-      router.replace('/');
+      router.replace('/companies');
     },
     onError: () => toast.error('提交失败，请稍后重试'),
   });
@@ -51,7 +51,7 @@ export default function OnboardingPage() {
           </div>
           <Button onClick={() => completeMutation.mutate()} disabled={completeMutation.isPending}>
             <CheckCircle2 className="h-4 w-4" />
-            进入工作台
+            浏览公司
           </Button>
         </CardContent>
       </Card>

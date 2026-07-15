@@ -322,22 +322,6 @@ class AdminConfigService:
             old_value=self._serialize_credential(before),
         )
 
-    async def get_data_source_credential_secret(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_type: str,
-        credential_id: str,
-    ) -> dict:
-        row = await self._load_credential_row(conn, source_type, credential_id)
-        return {
-            "id": str(row["id"]),
-            "source_type": row["source_type"],
-            "account_no": row["account_no"],
-            "username": row["username"],
-            "secret": decrypt_secret(row["credentials_encrypted"]),
-        }
-
     async def list_platform_scoring_templates(
         self,
         conn: AsyncConnection,
@@ -1788,14 +1772,10 @@ class AdminConfigService:
         return {
             "active_tenants": row["active_tenants"],
             "total_users": row["total_users"],
-            "running_collection_tasks": 0,
             "running_sending_plans": row["running_sending_plans"],
             "total_articles": row["total_articles"],
             "configured_openrouter_tenants": row["configured_openrouter_tenants"],
         }
-
-    async def get_collection_task_monitor(self, conn: AsyncConnection) -> list[dict]:
-        return []
 
     async def _get_tenant_user(self, conn: AsyncConnection, tenant_id: str, user_id: str) -> dict:
         users = await self.list_tenant_users(conn, tenant_id)

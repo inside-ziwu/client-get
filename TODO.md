@@ -110,31 +110,35 @@
 ## E. 清理与定位
 
 ### T-19 · 死代码与失效配置清理 — P3
-- **清单**：`shared-api/src/tenant/prospects.ts`（幽灵 API，零 UI 消费）、`shared-ui/components/form.tsx` 若 T-16 决策移除、`shared-hooks/usePermission.ts`（零消费）、`app/workers/fan_out.py` 的 FanOutWorker class（死封装）、`wmt_lineage.py` 与 `wmt_lineage_repair.py` 两份近重复 SQL（合并为单一来源）、admin 本地 `lib/utils.ts` 的 cn() 副本、tenant `test:contract` 死脚本、`components.json`（shadcn 配置与实际组件路径不符）。
+- **清单**：`shared-api/src/tenant/prospects.ts`（幽灵 API，零 UI 消费）、`shared-ui/components/form.tsx` 若 T-16 决策移除、`shared-hooks/usePermission.ts`（零消费）、admin 本地 `lib/utils.ts` 的 cn() 副本、tenant `test:contract` 死脚本、`components.json`（shadcn 配置与实际组件路径不符）。`fan_out.py` 与重复 `wmt_lineage.py` 已由 T-21 Phase A 删除。
 - **验收**：逐项删除或合并，grep 零残留。
 
 ### T-20 · 租户硬删除工具定位 — P3
 - **缺口**：`tenant_hard_delete_service.py` 未挂任何 API，唯一出口是按具体客户命名的一次性脚本（`hard_delete_zhaokui_test_data.py`），无使用文档。
 - **验收**：决定定位（参数化运维脚本 / admin API + 二次确认），沉淀使用说明进 HANDBOOK §9。
 
-### T-21 · 采集子系统摘除（方案已定稿 2026-07-12）— P1
-- **来源**：2026-07-12 采集子系统调研（代码双线调研 + 生产库只读核查）+ 用户三项拍板：凭证链已废（外部流程自管凭证，不回调系统）、外部清洗产物确认为 `lixiaoyun_api_clean_companies`、peer_* 表处置待定。背景：采集执行管线 2026-05-19 已删且从未重建，采集数据全部由外部流程直接写库。
-- **范围 A（死壳）**：admin `/collection-tasks` 整页（触发/历史按钮对应后端路由不存在，状态/进度字段为硬编码假数据）；`shared-api/collection.ts` 12 个死方法；后端假数据与孤儿端点（`/collection-keywords`、`/collection/dashboard`、`/collection/cleanup-health`、`/clean/companies`、`master-check`、peer 3 个无消费浏览 API）；死脚本 `backfill_tendata_raw_contacts.py`（import 已删模块必报错）；死文件 `app/workers/wmt_lineage.py`；死方法 `get_data_source_credential_secret`；DROP 4 张冻结旧表 `clean_companies`/`clean_contacts`/`clean_company_sources`/`clean_company_keywords`（生产数据均止于 2026-05-14）并同步修改 `admin_collection_service`/`keyword_service` 中的引用。
-- **范围 B（凭证体系）**：admin `/data-sources` 整页（admin 首页 `redirect('/data-sources')` 需改指向）；后端 data_sources/credentials CRUD 与 internal 凭证端点（`GET /internal/api/v1/collection/credentials/{source_type}`）；DROP `data_sources` + `data_source_credentials`（生产仅 6+2 行，credentials 止于 5-07）；`DATA_SOURCE_ENCRYPTION_KEY` 从必填配置退役。**完成后 T-07 随之销账**；运营手册「02 配数据源采集账号」整节同步作废（需知会运营）。
-- **范围 C（peer 死代码与表）**：`peer_company_cleaning_service.py`、`peer_company_backfill_service.py`、`scripts/peer_backfill_runner.py` 三个整文件，加 peer-companies 系列 3 个只读 API 及 shared-api 对应方法与类型。2026-07-12 三方独立验证结论一致（仓库代码清查 × 外部调查 × 生产 DB 依赖核查）：数据为 2026-05-14 08:19–08:58 一次性生成后遗弃（规则版本 `peer-cleaning-v1`，**生成程序就是仓库内这套代码**，「peer-cleaning-v2」只是当年工程修复变更的名字而非第二套规则）；今日零活路径（前端零调用、无自动触发、pg_stat 自统计以来零写入）；DB 层零外部依赖（无反向外键/视图/函数引用），结构上可干净 DROP。**处置已定（2026-07-12 用户拍板）：dump 留档后随本任务 DROP 全部 4 张表**（约 12 万行冻结数据；DROP 走新增迁移，按 contacts/sources/keywords → peer_companies 顺序，不改历史迁移 `20260514_0040`）。
+### T-21 · 采集子系统摘除（Phase A 已部署 A/B、repair 均关闭；Phase B 未开始）— P1
+- **来源**：2026-07-12 采集子系统调研（代码双线调研 + 生产库只读核查）+ 2026-07-14 完整 autoplan 审查。用户已拍板 G-A（平台不做全局评分，Tenant 按自己的当前模板评分）与 P-R（manual > keyword > reverse > unknown）；PCB 活跃租户共享全池但排除手工私有行。背景：采集执行管线 2026-05-19 已删且从未重建，采集数据全部由外部流程直接写库。
+- **执行分期**：Phase A 只做运行时摘除、全池关系 repair、Tenant 评分、前端正名与文档同步，不迁移数据库；2026-07-14 已部署 A、B 的 Backend/Admin/Tenant，两个实例均已配置 `WMT_LINEAGE_REPAIR_ENABLED=false`，Phase A 发布本身未启用全池写入。Phase B 才做被退役表的 dump、恢复演练与 DROP，需单独方案和明确审批。
+- **Phase A 本地证据（2026-07-14）**：后端 309 passed/1 skipped，真实 PostgreSQL 回滚集成测试 1 passed；Tenant 33 tests；全 workspace type-check、Admin/Tenant production build、改动文件 Ruff F/I 与 `git diff --check` 全绿。本地验收阶段未执行生产写入；后续 A/B 发布状态见下两条。
+- **B 发布与只读审计证据（2026-07-14）**：三端健康与退役路由契约验收通过；A/B 确认共用同一个 14 GB `clientget` 物理数据库，仅靠 `instance_id` 逻辑隔离。共享池 41,350 行，其中 manual 2、可共享 41,348；B 当前缺 4,120（keyword 6 + reverse 4,114），无 stale、无状态刷新。B 当前模板 v6 另有 30,256 条既有关系未评分，投放后预计 backlog 34,376，至少 69 个 300 秒周期。同期 A 有 3 个 running 计划、8,745 个到期 active enrollment，因此 **B repair 继续关闭，未批准生产写入**。
+- **A 发布与只读 Canary 证据（2026-07-14）**：Backend `/health`、Admin health 连续两轮 200；Admin 登录页与 Tenant 无 slug 访问拦截均无控制台错误；生产 OpenAPI 已确认 `collection-tasks`、`data-sources`、internal credentials、Tenant keywords 四组退役契约消失，保留的 raw companies、WMT clean companies 契约仍存在。检查未使用生产账号，不覆盖认证后的页面；A repair 已由用户确认关闭。
+- **范围 A（死壳）**：Phase A 删除 admin `/collection-tasks`、shared-api 死方法、后端假数据与孤儿端点、`backfill_tendata_raw_contacts.py`、重复 `wmt_lineage.py`、`get_data_source_credential_secret`；Phase B 才 DROP 4 张冻结旧表 `clean_companies`/`clean_contacts`/`clean_company_sources`/`clean_company_keywords`（生产数据均止于 2026-05-14）。
+- **范围 B（凭证体系）**：Phase A 摘除 admin `/data-sources` 页面、路由与 internal 凭证端点（`GET /internal/api/v1/collection/credentials/{source_type}`），admin 首页改指向用户管理；Phase B 再清理残余 service CRUD 并 DROP `data_sources` + `data_source_credentials`（生产仅 6+2 行，credentials 止于 5-07）。`DATA_SOURCE_ENCRYPTION_KEY` **不得退役或轮换**：名称虽旧，仍用于 Tenant OpenRouter Key 与存量密文。Phase B 完成后 T-07 随之销账；运营手册「02 配数据源采集账号」已改为「确认共享客户池」。
+- **范围 C（peer 死代码与表）**：Phase A 删除 `peer_company_cleaning_service.py`、`peer_company_backfill_service.py`、`scripts/peer_backfill_runner.py`，并退役 peer-companies API 与前端契约。2026-07-12 三方独立验证结论一致：约 12 万行数据在 2026-05-14 一次性生成后遗弃，今日零活路径且无 DB 外部依赖。Phase B 经 dump 与恢复演练后再按 contacts/sources/keywords → peer_companies 顺序 DROP 4 表，不改历史迁移 `20260514_0040`。
 - **范围 D（正名）**：admin 导航「采集」组改名（4 个数据浏览页保留）；HANDBOOK 功能矩阵、口径表与 §2 业务主链同步改写（「⑨ 订阅关键词」环节移除，改为「公司数据按租户行业全量下发，当前仅 PCB」）。
 - **范围 E（关键词订阅摘除与分发通道收敛，2026-07-12 深查后定稿）**：背景——订阅链路结构性死亡（血缘桥 2026-05-15 迁移后冻结，新词永远零匹配）、175 个关键词 98.9% 为零匹配孤儿、生产仅 3 条订阅且两个月无人使用；**但 reverse（精准反推）公司 4,103 家仅靠订阅通道分发**（曾造成租户间 3~4 千家供给差异：订两个词的租户比订一个词的多看约 1,100 家）。用户拍板（2026-07-12）：reverse 数据可向全部 PCB 租户全量下发。
   - 摘除：tenant `/settings/keywords` 页 + keywords API（4 路由）+ `tenant_settings_service` 关键词四方法 + `keyword_service.py` + `fan_out.py` 整文件 + `wmt_lineage_repair.py` 内关键词 fan-out 与血缘回填 SQL（normalize/clean_path/raw_fallback 三段）+ `scripts/repair_wmt_lineage.py` + `scripts/rebuild_tenant_companies.py` + seed 的 `ensure_keywords` + dashboard `plan_overview.keyword_count` 改写 + 对应测试（test_fan_out_no_visibility、test_settings_no_hide 等，详见 2026-07-12 精查报告连带清单）。
-  - 修改：`_SQL_FAN_OUT_INDUSTRY` 放宽为行业内**全池**下发（去掉「外贸通关键词采集」标签限定；保留 ON CONFLICT DO UPDATE data_status 以承接原订阅通道的状态刷新职责），**且必须追加排除租户私有行的条件 `wc.source_id NOT LIKE 'manual-%'`**——租户手动新增的公司寄生在共享池中（生产现有 2 家，A/B 实例各 1 家），现状不外流纯靠「无标签无血缘」的巧合且无任何测试保护，放宽标签限定后若不排除将跨租户、跨实例泄露私有数据（2026-07-12 隔离精查确认）；**同步补一条测试断言该排除条件存在**。`recovered-` 前缀行为历史共享资产，不排除。onboarding Step 2「建立客户采集关键词」文案改为真实能力描述。
-  - DROP：`tenant_keyword`（3 行，dump 留档）；`keyword_master`（175 行）本次保留不动（lixiaoyun_api_* 历史列仍引用）。
+  - 修改：单一 `_SQL_FAN_OUT_FULL_POOL` 向当前实例的活跃 PCB 租户下发全池，去掉关键词标签限定，保留状态刷新，并用 `(wc.source_id IS NULL OR wc.source_id NOT LIKE 'manual-%')` 排除手工私有行；`recovered-` 仍视为共享历史资产。onboarding 改为「筛选目标公司」。
+  - Phase B DROP：`tenant_keyword`（3 行，dump 留档）；`keyword_master`（175 行）继续保留（外部表历史列仍引用）。
   - 300 秒循环终态：行业全池下发（排除私有行）+ 失效清理 + 补打分三件事。
-  - 预期效果：4 个租户供给对齐**全池共享部分**（约 40,464 家减去租户私有 manual 行，补齐零订阅租户约 4,100 家 reverse 缺口）；反推链未来重启后新公司自动分发，无断供；私有录入公司仍仅录入者可见。
-- **安全边界**：10 张外部写入表（raw 6 张 + waimaotong_clean_* 2 张 + lixiaoyun_api_* 2 张）表结构与数据零接触（范围 E 仅停止回填 `wc.keyword_master_ids` 列，不改表）；消费者中仅 `wmt_lineage_repair.py` 按范围 E 定向修改，发送、评分、公司列表查询等其余消费者零接触；DROP 前对全部被删表 dump 留档。
-- **验收**：全仓 grep 被删符号零残留（含 `tenant_keyword`）；4 个数据浏览页、发送计划、评分、公司列表回归正常；放宽后首轮循环内 4 租户公司数对齐全池；pytest 全绿 + type-check 通过。
+  - 预期效果：各租户供给对齐**全池共享部分**（2026-07-14 实测 41,348 家，另保留各自 manual 私有关系）；反推链未来重启后新公司自动分发，无断供；私有录入公司仍仅录入者可见。
+- **安全边界**：A/B 共用同一个物理 PostgreSQL 数据库，`instance_id` 只隔离数据范围、不隔离数据库资源；任何实例的 repair/评分写入都必须同时审计共享数据库资源与两个实例的在途发送负载。Phase A 对外部写入表结构与数据零接触；repair 部署前关闭，启用需再次批准。Phase B 的任何 DROP 都必须先逐表 dump、验证恢复并再次审批。
+- **Phase A 验收**：退役页面/API 不再出现在运行时；保留 4 个只读数据浏览契约；P-R 分类、PCB 全池、manual 排除、实例边界、幂等与 Tenant 当前模板补评分均有测试；发送计划、公司列表、双端 build、pytest、type-check 全绿。部署与生产首轮对齐另走门禁，不因本地代码完成自动执行。
 
 ### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
 - **来源**：同上调研 + 2026-07-12 schema 全景盘点。系统核心数据由外部流程直写的表实测为 **14 张**（原知 10 张 + 盘点新发现 4 张隐形区域：`waimaotong_keyword_raw_companies`/`_contacts`（389 万行 / 6.7GB，全库最大，代码零引用）、`waimaotong_clean_source_links`、`crawl_progress`（曾被迁移 0054 DROP、外部又重建，22,674 行））；clean 层 4 张连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
-- **缺口**：① 契约入 HANDBOOK：**14 张表清单**、4 张脱管 clean 表的结构快照（2026-07-12 已从生产取得）、「系统仅回写 system_grade/system_score/keyword_master_ids 等少数列」的边界声明、**「schema 变更双方知会」条款**（外部曾重建被系统删除的表、曾新建系统不知情的巨表——单方面变更已实际发生）、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）、**资料卡瘦身声明**（wc 86 列中 10 列恒空、15 列填充率 <5%，声明系统不消费这些列）、**租户私有行寄生风险**——租户手动新增的公司（`source_id LIKE 'manual-%'`，现 2 家）及其手填联系人寄生在外部管理的 `waimaotong_clean_companies`/`waimaotong_clean_contacts` 中，外部流程若全量重建这两张表将无声丢失租户数据，需在契约中与外部约定保留，或长期迁移至自有表；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
+- **缺口**：① 契约入 HANDBOOK：**14 张表清单**、4 张脱管 clean 表的结构快照（2026-07-12 已从生产取得）、「平台不再回写全局评分或关键词血缘，Tenant 评分写入自有 `company_scores`」的边界声明、**「schema 变更双方知会」条款**（外部曾重建被系统删除的表、曾新建系统不知情的巨表——单方面变更已实际发生）、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）、**资料卡瘦身声明**（wc 86 列中 10 列恒空、15 列填充率 <5%，声明系统不消费这些列）、**租户私有行寄生风险**——租户手动新增的公司（`source_id LIKE 'manual-%'`，现 2 家）及其手填联系人寄生在外部管理的 `waimaotong_clean_companies`/`waimaotong_clean_contacts` 中，外部流程若全量重建这两张表将无声丢失租户数据，需在契约中与外部约定保留，或长期迁移至自有表；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
 - **验收**：契约章节入 HANDBOOK；外贸通线告警可触达。
 - **备注**：反推链停滞原因已确认为**计划内**（2026-07-12 外部答复：同行数据已采集完毕，励销云止于 5-26 / 腾道 raw 止于 6-09 均为正常收尾）；该线不设告警，如未来重启同行采集需同步启用监控。
 
@@ -156,6 +160,11 @@
 - **来源**：同上盘点。`tenant_companies.clean_company_id`、`tenant_contacts.clean_contact_id/clean_company_id` 三条核心 FK 于迁移 0045 **故意删除**（避免阻碍外部整表重建 wc），现由 `wmt_lineage_repair` 每 300 秒 `DELETE ... WHERE NOT EXISTS` 模拟级联清理——应用层轮询替代数据库约束，轮询窗口内存在悬空引用（公司详情打不开）风险，且无监控无测试。
 - **选项**：A 维持轮询 + 加监控（每轮删除行数指标与异常暴增告警），待外部答复「是否还会整表重建公司池」后再决定是否升级；B 恢复三条 FK 自动对账（前提：外部承诺不再整表重建）。
 - **状态**：2026-07-12 用户未拍板；「是否还会整表重建」已并入待问外部清单（与 T-25 备份清单同一次转发）。
+
+### T-27 · 空库无法从 Alembic 基线建库 — P1
+- **来源**：2026-07-14 T-21 Phase A PostgreSQL 实库集成测试准备；在全新 `clientget_test` 数据库执行 `alembic upgrade head` 首次发现。
+- **缺口**：首个迁移创建 `company_scores.tenant_company_id uuid`，但被引用的 `tenant_companies.id` 为 `bigint`，PostgreSQL 拒绝创建外键，导致仓库迁移无法从空库建立当前 schema。既有环境因历史带外演进未暴露该问题。
+- **验收**：在全新 PostgreSQL 数据库执行 `alembic upgrade head` 全绿；生成 schema 与当前受支持结构一致；补 CI 空库迁移测试，防止再次漂移。
 
 ---
 

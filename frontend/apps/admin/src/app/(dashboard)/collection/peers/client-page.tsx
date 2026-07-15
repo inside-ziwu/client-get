@@ -62,10 +62,9 @@ export function PeersDataPage() {
 
   const query = useQuery({
     queryKey: ['admin', 'peers', 'raw-lixiaoyun', page, pageSize, appliedFilters],
-    queryFn: async () => {
-      try {
-        return (
-          await adminApi.collection.listLixiaoyunRawCompanies({
+    queryFn: async () =>
+      (
+        await adminApi.collection.listLixiaoyunRawCompanies({
             page,
             page_size: pageSize,
             keyword: appliedFilters.name.trim() || undefined,
@@ -76,12 +75,8 @@ export function PeersDataPage() {
             employee_scale: appliedFilters.employee_scale || undefined,
             has_name_en: appliedFilters.has_name_en || undefined,
             has_domain: appliedFilters.has_domain || undefined,
-          })
-        ).data;
-      } catch {
-        return emptyPage();
-      }
-    },
+        })
+      ).data,
   });
 
   const pageData = query.data ?? emptyPage();
@@ -120,7 +115,7 @@ export function PeersDataPage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">同行公司</h1>
+          <h1 className="admin-page-title">同行原始数据</h1>
           <p className="admin-page-description">励销云采集的中国同行公司原始记录。</p>
         </div>
       </div>
@@ -265,7 +260,7 @@ export function PeersDataPage() {
             </table>
             {!pageData.data.length && (
               <div className="py-10 text-center text-sm text-muted-foreground">
-                {query.isFetching ? '正在加载同行公司...' : '暂无同行公司记录'}
+                {query.isFetching ? '正在加载同行公司...' : query.isError ? '加载失败，请稍后重试' : '暂无同行公司记录'}
               </div>
             )}
           </div>

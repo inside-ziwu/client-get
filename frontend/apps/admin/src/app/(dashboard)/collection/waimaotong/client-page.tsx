@@ -72,10 +72,9 @@ export function WaimaotongArchivePage() {
 
   const query = useQuery({
     queryKey: ['admin', 'waimaotong', 'raw-companies', page, pageSize, appliedFilters],
-    queryFn: async () => {
-      try {
-        return (
-          await adminApi.collection.listWaimaotongRawCompanies({
+    queryFn: async () =>
+      (
+        await adminApi.collection.listWaimaotongRawCompanies({
             page,
             page_size: pageSize,
             q: appliedFilters.q.trim() || undefined,
@@ -87,12 +86,8 @@ export function WaimaotongArchivePage() {
             year_min: appliedFilters.year_min ? Number(appliedFilters.year_min) : undefined,
             year_max: appliedFilters.year_max ? Number(appliedFilters.year_max) : undefined,
             has_contacts: appliedFilters.has_contacts || undefined,
-          })
-        ).data;
-      } catch {
-        return emptyPage();
-      }
-    },
+        })
+      ).data,
   });
 
   const pageData = query.data ?? emptyPage();
@@ -135,7 +130,7 @@ export function WaimaotongArchivePage() {
     <div className="admin-page">
       <div className="admin-page-header">
         <div>
-          <h1 className="admin-page-title">外贸通数据</h1>
+          <h1 className="admin-page-title">外贸通原始数据</h1>
           <p className="admin-page-description">外贸通采集的海外买家公司原始记录。</p>
         </div>
       </div>
@@ -253,7 +248,7 @@ export function WaimaotongArchivePage() {
                 {pageData.data.length === 0 && (
                   <tr>
                     <td colSpan={12} className="py-12 text-center text-muted-foreground">
-                      {query.isLoading ? '加载中...' : '暂无数据'}
+                      {query.isLoading ? '加载中...' : query.isError ? '加载失败，请稍后重试' : '暂无数据'}
                     </td>
                   </tr>
                 )}

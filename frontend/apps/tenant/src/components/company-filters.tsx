@@ -228,6 +228,8 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
                 <SelectItem value="all">不限</SelectItem>
                 <SelectItem value="keyword">关键词采集</SelectItem>
                 <SelectItem value="reverse">精准反推</SelectItem>
+                <SelectItem value="manual">手工录入</SelectItem>
+                <SelectItem value="unknown">来源待确认</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -254,7 +256,7 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
               value={filters.system_grades}
               onChange={(v) => setFilters((f) => ({ ...f, system_grades: v }))}
               options={SYSTEM_GRADE_OPTIONS.map((g) => ({ label: g, value: g }))}
-              placeholder="系统评级"
+              placeholder="模板评级"
               allowCreate={false}
             />
           </div>

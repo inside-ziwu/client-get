@@ -18,7 +18,12 @@ function formatUsd(v: number | null | undefined) {
 }
 
 function collectionTypeLabel(value: Company['collection_type']) {
-  return value === 'keyword' ? '关键词采集' : '精准反推';
+  return {
+    manual: '手工录入',
+    keyword: '关键词采集',
+    reverse: '精准反推',
+    unknown: '来源待确认',
+  }[value];
 }
 
 interface Props {
@@ -142,13 +147,13 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
               <div className="mt-1 font-medium">{c.wmt_score != null ? c.wmt_score : '-'}</div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">系统评级</div>
+              <div className="text-xs text-muted-foreground">模板评级</div>
               <div className="mt-1">
                 {c.system_grade ? <RatingTag grade={c.system_grade} variant="system" /> : '-'}
               </div>
             </div>
             <div>
-              <div className="text-xs text-muted-foreground">系统评分</div>
+              <div className="text-xs text-muted-foreground">模板评分</div>
               <div className="mt-1 font-medium">{c.system_score != null ? c.system_score : '-'}</div>
             </div>
           </div>

@@ -3,23 +3,16 @@ export { queryKeys } from './query-keys';
 export { createAdminApi } from './admin';
 export { createTenantApi } from './tenant';
 export type { ClassificationLevel, ClassificationCategory, ClassificationKeywordItem } from './admin/contact-classification';
-export type { DataSource, DataSourceCredential, DataSourceCredentialPayload } from './admin/data-sources';
 export type { ScoringTemplate } from './admin/scoring-templates';
 export type { IntelligenceSource } from './admin/intelligence-sources';
 export type { PlatformEmailTemplate } from './admin/email-templates';
 export type { WarmupRules, WarmupRuleLevel } from './admin/warmup-rules';
 export type { AdminCurrentUser } from './admin/auth';
 export type {
-  CollectionKeyword,
-  CollectionTaskInfo,
-  CollectionHistoryItem,
   LixiaoyunApiCompanyDetail,
   LixiaoyunCleanCompanyDetail,
   LixiaoyunCleanCompanyRow,
   LixiaoyunRawCompanyRow,
-  PeerCompanyContact,
-  PeerCompanyKeyword,
-  PeerCompanyRow,
   WaimaotongRawCompanyRow,
   WaimaotongRawContactRow,
   WmtCleanCompanyRow,
@@ -46,6 +39,5 @@ export type {
 } from './tenant/sending-plans';
 export type { EmailLog } from './tenant/emails';
 export type { TeamUser } from './tenant/team';
-export type { Keyword } from './tenant/keywords';
 export type { TenantScoringTemplate } from './tenant/scoring';
 export type { IntelligenceArticle, IntelligenceSubscription } from './tenant/intelligence';

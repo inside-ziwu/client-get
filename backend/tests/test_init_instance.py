@@ -2,13 +2,13 @@
 
 验证：
 1. INIT_ADMIN_PASSWORD 未设置时报错退出
-2. 脚本生成的 INSERT SQL 包含 instance_id
+2. 现役平台配置 INSERT 包含 instance_id，且不再初始化数据源
 3. 密码是 hashed 不是明文
 """
 
 import inspect
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -86,13 +86,12 @@ class TestInitInstanceSqlContent:
         assert "platform_users" in source
         assert "instance_id" in source
 
-    def test_insert_data_sources_has_instance_id(self):
-        """INSERT INTO data_sources 包含 instance_id 列"""
+    def test_does_not_initialize_retired_data_sources(self):
+        """采集凭证体系退役后，不再初始化 data_sources"""
         from scripts.init_instance import main
 
         source = inspect.getsource(main)
-        assert "data_sources" in source
-        assert ":instance_id" in source
+        assert "data_sources" not in source
 
     def test_insert_warmup_rules_has_instance_id(self):
         """INSERT INTO warmup_rules 包含 instance_id"""

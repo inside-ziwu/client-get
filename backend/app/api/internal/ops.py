@@ -1,22 +1,12 @@
 from fastapi import APIRouter, Depends
 
-from app.core.responses import paginated_response, success_response
+from app.core.responses import success_response
 from app.db.pools import get_connection
 from app.security.internal import ServiceAuthContext, require_service_scopes
 from app.services.internal_ops_service import InternalOpsService
 
 router = APIRouter(tags=["internal-ops"])
 service = InternalOpsService()
-
-
-@router.get("/collection/credentials/{source_type}")
-async def list_collection_credentials(
-    source_type: str,
-    _: ServiceAuthContext = Depends(require_service_scopes("collection:write")),
-    conn=Depends(get_connection),
-) -> dict:
-    items = await service.list_collection_credentials(conn, source_type)
-    return paginated_response(items, total=len(items))
 
 
 @router.post("/sending/due-emails/claim")

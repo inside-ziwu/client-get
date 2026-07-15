@@ -422,40 +422,6 @@ export interface DomainWarmupStatus {
   updated_at: string;
 }
 
-// === 数据源凭证 ===
-
-export interface DataSourceCredential {
-  id: string;
-  source_type: DataSourceType;
-  account_no?: string;
-  username?: string;
-  is_active: boolean;
-  daily_quota: number;
-  current_day_used: number;
-  last_used_at?: string;
-  last_error_at?: string;
-  last_error_message?: string;
-  consecutive_error_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-// === 采集关键词 ===
-
-export interface CollectionKeyword {
-  id: string;
-  tenant_id: string;
-  keyword: string;
-  source_types: DataSourceType[];
-  is_active: boolean;
-  auto_collect: boolean;
-  collect_frequency_hours?: number;
-  total_companies: number;
-  last_collected_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 // === 通知 ===
 
 export interface Notification {

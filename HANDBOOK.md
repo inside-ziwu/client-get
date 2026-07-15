@@ -1,6 +1,6 @@
 # ClientGet 项目手册（HANDBOOK）
 
-> **本文件是本仓库的唯一事实源入口。** 基线日期：2026-07-11（基于对代码、数据库迁移、部署配置的全量只读审计）。
+> **本文件是本仓库的唯一事实源入口。** 基线日期：2026-07-14（基于对代码、数据库迁移、部署配置的全量只读审计）。
 >
 > **文档地位声明**：仓库内有效文档 = 本手册 + [TODO.md](TODO.md)（唯一债务与需求台账），外加两个附属：[docs/solutions/](docs/solutions/)（踩坑知识库）与 [docs/handovers/2026-07-06-b-instance-operations-manual.md](docs/handovers/2026-07-06-b-instance-operations-manual.md)（B 实例运营手册）。**其余历史文档（旧工作流产物、specs、会议资料、原型、openspec/ 等约 370 份）已于 2026-07-11 整体删除**，考古方式：`git show archive/2026-07-pre-handbook:<路径>`。手册内容与代码冲突时，以代码与测试为准，并修订本手册。
 
@@ -8,7 +8,7 @@
 
 ## 1. 产品是什么
 
-**ClientGet 是一个 B2B 外贸获客与邮件营销 SaaS**：采集境外采购商数据 → 清洗分类 → 评分筛选 → 邮件序列触达 → 送达/打开数据回传，全链路自动化。当前唯一投产行业是 **PCB（电路板）制造业出海获客**。
+**ClientGet 是一个 B2B 外贸获客与邮件营销 SaaS**：外部境外采购商数据入池 → 分类与租户评分 → 邮件序列触达 → 送达/打开数据回传。当前唯一投产行业是 **PCB（电路板）制造业出海获客**。
 
 - **商业形态**：平台方（我们）运营 admin 后台，为客户企业开通租户；客户的销售/运营团队使用 tenant 自服务后台。
 - **双端**：`admin`（平台运营后台，端口 3000）+ `tenant`（租户自服务后台，端口 3001，URL 按 `/t/{slug}` 区分租户）。
@@ -19,19 +19,19 @@
 原始设计共 13 个场景 + 4 个后台任务（源自立项文档 V3.2，此处为兑现后的现实版本）：
 
 **平台侧一次性配置（admin）**：
-① 配置数据源渠道与账号（外贸通/腾道/励销云，凭证加密存储）→ ② 配置行业评分模板 → ③ 维护行业情报源 → ④ 配置行业邮件模板 → ⑤ 配置域名预热规则 → ⑥ 配置 AI 模型与定价
+① 配置行业评分模板 → ② 维护行业情报源 → ③ 配置行业邮件模板 → ④ 配置域名预热规则 → ⑤ 配置 AI 模型与定价。客户数据由外部管道写入共享池，本平台不再管理采集任务或数据源凭证。
 
 **开通客户（admin）**：
 ⑦ 创建租户 + 配发信域名（选预热档位）+ 配置该租户 OpenRouter 密钥 →（可选）添加团队成员 → 交付登录信息（完整分步操作见运营手册）
 
 **租户自服务主链（tenant）**：
-⑧ 首次登录与引导 → ⑨ 订阅关键词，浏览/筛选公司列表 → ⑩ 优选客户入群组（联系人自动物化、按职级分类）→ ⑪ 创建/编辑邮件模板（富文本，支持测试发送）→ ⑫ 按筛选条件创建发送计划（预览收件人 → 锁定 → 启动）→ ⑬ 仪表盘监控送达/打开/退信数据
+⑧ 首次登录与引导 → ⑨ 从共享客户池浏览/筛选公司 → ⑩ 优选客户入群组（联系人自动物化、按职级分类）→ ⑪ 创建/编辑邮件模板（富文本，支持测试发送）→ ⑫ 按筛选条件创建发送计划（预览收件人 → 锁定 → 启动）→ ⑬ 仪表盘监控送达/打开/退信数据
 
 **后台自动任务**：数据血缘修复与行业分发循环（进程内，300 秒/轮）、发送 worker（独立进程，节流+熔断）、邮件状态对账（约 10 分钟/轮，兜底 webhook 丢失）、发送计划自动完成。
 
 > 注意与原始设计的两处已知落差：「AI 大模型」目前无真实推理（启发式桩，T-04）；「情报自动采集」尚未实现、已排期补建（T-08），当前过渡为人工策展。详见功能矩阵与 TODO。
 
-## 3. 功能现状矩阵（2026-07-11 审计基线）
+## 3. 功能现状矩阵（2026-07-14 审计基线）
 
 图例：✅ 完成并可用 ｜ 🟡 半成品（外壳在、缺关键环节，缺口必读）
 
@@ -39,9 +39,7 @@
 
 | 功能 | 状态 | 说明与关键位置 |
 |---|---|---|
-| 数据源与采集账号管理 | 🟡 | CRUD 完整、凭证加密；**但 `source_type` 存在 `tendata`/`tengdao` 两种写法并存，CHECK 约束已删**（T-07）。`backend/app/services/admin_collection_service.py`、admin `/data-sources` |
-| 外贸通/客户数据展示 | ✅ | 原始与清洗数据浏览、采集类型筛选。admin `/collection/*` |
-| 同行公司数据浏览 | ✅ | admin `/collection/peers*` 两页正常，读的是外部写入的 `lixiaoyun_api_*` 表（**静态存量**：同行采集已于 2026-05 完成，计划内停更，2026-07-12 外部确认）。注意：仓库内的 peer 清洗管线（`peer_company_*_service.py`）2026-05-14 跑过一次后即被遗弃，产物 `peer_*` 4 表零消费者（三方验证，详见 TODO T-21 范围 C） |
+| 共享客户池与外部数据浏览 | ✅ | 保留「同行原始/同行清洗/外贸通原始/客户池」四页；只读外部写入的 `lixiaoyun_api_*`、`waimaotong_*` 表。采集任务、数据源凭证与 peer 清洗管线已从运行时退役（T-21 Phase A）。 |
 | 联系人职位分类体系 | ✅ | 分级关键词已数据化可维护。admin `/contact-classification` |
 | 评分模板配置 | ✅ | admin `/scoring-templates` |
 | 工作日历（国家/节假日/规则集） | ✅ | 供时区感知发送使用。admin `/work-schedule` |
@@ -59,12 +57,12 @@
 | 仪表盘 | ✅ | 邮件统计趋势、计划概览、配额/AI 余额、漏斗。`tenant/core.py` 5 端点 |
 | 公司列表与筛选 | ✅ | 多维筛选（含采集类型、已入群）、函数索引优化过查询性能。`tenant_query_service.py` |
 | 优选客户（群组） | ✅ | 入群自动物化联系人。tenant `/curated-customers` |
-| 评分 | ✅ | **系统评分是确定性规则引擎，不是 AI**。`scoring_engine_service.py` |
+| 评分 | ✅ | **租户评分是确定性规则引擎，不是 AI**；仅依该租户当前模板/版本写入 `company_scores`，平台不对全局客户池打分。`scoring_engine_service.py` |
 | 邮件模板 | ✅ | TipTap 富文本、纯文本兜底、测试发送；「AI 生成」当前为启发式桩（T-04）。tenant `/templates` |
 | 发送计划全生命周期 | ✅ | 4 步向导、收件人预览/锁定、状态机操作、运行中轮询。tenant `/send-plans/*`，后端 `tenant_messaging_service.py`（3261 行核心文件） |
 | 团队管理 | 🟡 | CRUD 可用；**API 层缺最后管理员保护与自操作拦截，可把租户锁死**（T-02）。`tenant_team_service.py` |
 | 情报中心（阅读侧） | ✅ | 列表/已读/收藏/归档。tenant `/intelligence` |
-| 各项设置 | ✅ | 关键词订阅、评分模板、AI 供应商、团队。tenant `/settings/*` |
+| 各项设置 | ✅ | 评分模板、AI 供应商、团队。tenant `/settings/*` |
 
 ### 发送与可靠性（worker）
 
@@ -74,7 +72,7 @@
 | 时区感知发送窗口 | ✅ | 按收件人国家的工作日历与时区决定可发时间 |
 | 邮件状态对账 | ✅ | 主动查 EngageLab 补齐 webhook 丢失的状态。`app/workers/reconciliation.py` |
 | Webhook 事件入库 | ✅ | 幂等去重、超长 provider_event_id 兼容。`app/api/webhooks/engagelab.py` |
-| 血缘修复与行业分发循环 | ✅ | 回填 + fan-out + 清理 + 补打分四合一自愈；行业规则当前硬编码（仅 PCB，T-13）。`app/workers/wmt_lineage_repair.py` |
+| 客户池关系修复与补评循环 | ✅ | 当前实例的活跃 PCB 租户共享全池，排除 `source_id LIKE 'manual-%'` 的私有行；按实例清理 stale 关系。关系事务提交后再用租户当前模板有界补评，单条失败不回滚关系修复。`app/workers/wmt_lineage_repair.py` |
 | 发送计划自动完成 | ✅ | `sending_plan_completion.py` |
 
 ### 基础设施
@@ -94,7 +92,7 @@ client_get/
 ├── backend/            FastAPI + PostgreSQL + Alembic + workers（app/ 91 文件 ≈ 20.8k 行）
 │   ├── app/api/        路由层：admin(/admin/api/v1) tenant(/t/{slug}/api/v1) internal(/internal/api/v1) webhooks(/webhooks)
 │   ├── app/services/   业务逻辑 + SQL（30 文件 ≈ 15.2k 行，占 73%）
-│   ├── app/workers/    sending / reconciliation / fan_out / wmt_lineage_repair
+│   ├── app/workers/    sending / reconciliation / wmt_lineage_repair
 │   ├── app/db/         连接池、RLS 会话变量、事务、分区维护
 │   ├── app/security/   JWT（platform / tenant / service 三种 kind）、bcrypt、服务间鉴权
 │   ├── alembic/        68 个迁移（2026-04-21 起），head=20260708_0002
@@ -106,13 +104,13 @@ client_get/
 └── 03_database/schema.sql   数据库蓝图（1497 行，含 RLS policy 定义）
 ```
 
-**后端路由组**（共约 224 端点）：admin 侧 config(47)/collection(18)/tenants(11)/work-schedule(16)/contact-classification(8)/auth(4)；tenant 侧 messaging(42)/ops(34)/settings(11)/core(6)/team(4)/intelligence(7)/auth(4)；internal(6, 供 worker 认领任务)；webhooks(2)。
+**后端路由组**：admin 侧 config/collection/tenants/work-schedule/contact-classification/auth；tenant 侧 messaging/ops/settings/core/team/intelligence/auth；internal 仅保留发送与情报服务端点；webhooks 接收 EngageLab 事件。采集和数据源凭证端点已退役。
 
-**核心表族谱**：身份（platform_users/tenants/users/user_roles）→ 采集原始层（waimaotong_/tendata_/lixiaoyun_raw_*）→ 清洗共享层（clean_companies/clean_contacts，**跨实例全局共享**）→ 租户业务层（tenant_companies/tenant_contacts/company_scores/groups，多数带 RLS policy）→ 外联层（sending_plans/sequence_enrollments/emails/email_events/email_templates）→ 域名预热（domain_warmup_*/domain_daily_usage/work_rule_sets/countries）→ 支撑（notifications/audit_logs/ai_usage_logs/service_idempotency_keys）。
+**核心表族谱**：身份（platform_users/tenants/users/user_roles）→ 外部原始层（waimaotong_/tendata_/lixiaoyun_raw_*）→ 外部清洗共享层（waimaotong_clean_*/lixiaoyun_api_clean_*）→ 租户业务层（tenant_companies/tenant_contacts/company_scores/groups）→ 外联层（sending_plans/sequence_enrollments/emails/email_events/email_templates）→ 域名预热（domain_warmup_*/domain_daily_usage/work_rule_sets/countries）→ 支撑（notifications/audit_logs/ai_usage_logs/service_idempotency_keys）。
 
 **认证与隔离**：JWT HS256，三种 kind（platform/tenant/service）；租户 token 校验 slug 与 URL 一致、角色与 DB 实时比对；多实例用 `iid` claim。租户数据隔离现状要如实理解：RLS policy 已定义约 20 张表，但 **FORCE ROW LEVEL SECURITY 从未启用**，应用使用单一连接角色——实际隔离靠 service 层手写 `tenant_id` 过滤 + 9 个隔离专项测试文件锁定（T-01 是登记的加固项）。
 
-**worker 部署形态**：sending worker 为独立进程（`scripts/run_sending_worker.py` 常驻，内含约每 10 分钟一轮的对账）；血缘修复循环在 API 进程 lifespan 内常驻（advisory lock 防多实例并发）；fan-out 由设置变更同步触发。
+**worker 部署形态**：sending worker 为独立进程（`scripts/run_sending_worker.py` 常驻，内含约每 10 分钟一轮的对账）；客户池修复循环在 API 进程 lifespan 内常驻，使用带 `instance_id` 的 advisory lock 防同实例并发。
 
 ## 5. 关键行为口径
 
@@ -126,23 +124,27 @@ client_get/
 | 配额熔断 | 同域名连续 3 次配额错误 → 熔断至北京时间次日凌晨；10 分钟窗口内 3 次 429 → 限流熔断 |
 | 发送幂等键 | `enrollment_id:step_id` |
 | 状态对账 | webhook 为主，对账 worker 约每 10 分钟主动查询兜底 |
-| 仪表盘统计 | 邮件统计**排除 failed** |
-| 系统评分 | 确定性规则引擎（非 AI）；「AI 评级/邮件生成/情报摘要」当前为启发式桩（标记 `heuristic-*`，摘要=截取前 240 字） |
+| 仪表盘统计 | 邮件统计**排除 failed**；「已评分公司」只计入租户当前活跃模板的最新版本分数 |
+| 租户评分 | 确定性规则引擎（非 AI），结果归租户所有；平台模板只是创建租户时的默认种子。「AI 评级/邮件生成/情报摘要」当前为启发式桩 |
+| 采集类型 | `manual` 看 `source_id LIKE 'manual-%'`；`keyword` 看精确标签「外贸通关键词采集」；`reverse` 看精确「腾道」标签或非空 `source_competitor`；其余为 `unknown`。优先级 manual > keyword > reverse。 |
+| PCB 供应商评分 | 只有显式 `reverse` 才视为「有中国 PCB 供应商」；keyword/manual/unknown 均为否 |
 | 域名验证 | **当前为假验证**：点击即置 verified，不做任何 DNS 校验（T-05，勿向客户承诺） |
 | 预热升档 | 仅手动调整，无自动升档（T-06） |
 | 计划完成 | 全部 enrollment 终态后自动置 completed |
-| 血缘修复 | 300 秒/轮，`pg_try_advisory_xact_lock` 防并发，幂等可重复执行 |
+| 客户池修复 | 300 秒/轮，共享全池但排除手工私有行；按实例 + PCB 行业隔离，幂等可重复执行 |
 | 时间基准 | 生产数据库会话时区 UTC；熔断恢复等业务锚点用北京时间 |
 
 ## 6. 多实例（Instance A / B）
 
 同一套代码 + 共享底层数据库，按 `CLIENTGET_INSTANCE_ID` 区分实例：
 
+> **硬性声明：A、B 共用同一个物理 PostgreSQL `clientget` 数据库，不是两套独立数据库。** `instance_id` 只提供逻辑数据边界；repair、评分、发送和所有批量操作仍竞争同一套连接、CPU、I/O 与锁。即使只操作 B，也必须同时审计 A 的在途发送负载，不能把 B 当成无影响的测试库。
+
 - 每实例独立 JWT secret，token 带 `iid` claim；管理员、租户、认证、worker 任务按实例隔离
-- `clean_companies`/`clean_contacts` 等**全局业务数据池跨实例共享**（采集成果复用）
+- `waimaotong_clean_companies`/`waimaotong_clean_contacts` 公池跨实例共享；`tenant_companies` 关系按实例的租户隔离，手工录入行不跨租户分发
 - 新实例初始化：`backend/scripts/init_instance.py`（创建实例管理员）
 - 前端按构建时注入的 API 地址区分实例，前端代码无实例概念
-- B 实例日常运营（开客户、配数据源、坑速查）见[运营手册](docs/handovers/2026-07-06-b-instance-operations-manual.md)
+- B 实例日常运营（开客户、配发信域名、坑速查）见[运营手册](docs/handovers/2026-07-06-b-instance-operations-manual.md)
 
 ## 7. 环境与部署
 
@@ -158,7 +160,7 @@ client_get/
 
 **环境变量**（值由用户手动维护，不得自动修改）：
 
-- `backend/.env`：`CLIENTGET_DEV_DATABASE_URL`、`CLIENTGET_PROD_DATABASE_URL`、`JWT_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`（首次启动引导平台管理员）、`DATA_SOURCE_ENCRYPTION_KEY`（数据源凭证加密）、`INTERNAL_SERVICE_SECRET`（worker↔API 鉴权）、`ENGAGELAB_WEBHOOK_SECRET`、`ENGAGELAB_BASE_URL`、`ENGAGELAB_API_USER`、`ENGAGELAB_CREDENTIAL`
+- `backend/.env`：`CLIENTGET_DEV_DATABASE_URL`、`CLIENTGET_PROD_DATABASE_URL`、`JWT_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`（首次启动引导平台管理员）、`DATA_SOURCE_ENCRYPTION_KEY`（历史名，仍用于 OpenRouter Key 等存量密文，不得删除或轮换）、`INTERNAL_SERVICE_SECRET`（worker↔API 鉴权）、`ENGAGELAB_WEBHOOK_SECRET`、`ENGAGELAB_BASE_URL`、`ENGAGELAB_API_USER`、`ENGAGELAB_CREDENTIAL`
 - `frontend/apps/tenant/.env`：`NEXT_PUBLIC_API_BASE_URL`；`frontend/apps/admin/.env`：`NEXT_PUBLIC_ADMIN_API_BASE_URL`（本地开发指向 `http://localhost:8000`；生产不走 .env）
 
 ## 8. 本地开发
@@ -190,16 +192,24 @@ pnpm type-check    # 全 workspace tsc
 |---|---|
 | 初始化 | `bootstrap_platform_admin.py`（平台管理员）、`init_instance.py`（新实例管理员）、`seed_demo_data.py`、`generate_country_holidays.py` |
 | 常驻/定时 | `run_sending_worker.py`（发送+对账）、`maintain_partitions.py`（分区维护） |
-| 修复/回填 | `repair_wmt_lineage.py`、`rebuild_tenant_companies.py`、`rescore_system_scores.py`、`backfill_email_status.py`、`backfill_email_template_body_text.py`、`backfill_tendata_raw_contacts.py`、`peer_backfill_runner.py` |
+| 修复/回填 | `backfill_email_status.py`、`backfill_email_template_body_text.py` |
 | 一次性事故处理 | `restore_quota_incident_enrollments.py`（2026-07-02 配额事故）、`hard_delete_zhaokui_test_data.py`（租户硬删除目前仅此 ad hoc 出口，T-20）、`migrate_legacy.py` |
 | 部署辅助 | `push-backend.sh`（仅本地调试） |
+
+客户池 repair 发布门禁：
+
+1. 发布 Phase A 后端前，由用户在目标实例手动设置现有变量 `WMT_LINEAGE_REPAIR_ENABLED=false`；本仓库不修改 `.env`。
+2. 仅发布代码并确认 API 健康，此时不会执行全池 fan-out。
+3. 激活前做生产只读基数、`EXPLAIN`、关系差异及 **A 实例在途发送负载**快照；再展示准确影响量与写入 SQL，取得针对该操作的明确批准。A/B 共用物理数据库，只按 `instance_id` 逻辑隔离。
+4. 每次只激活一个实例，观察至少两个 300 秒周期的 `fan_out/deleted_stale/score_*` 统计；异常时立即关闭开关。
+5. Phase B 删表不属于此流程，必须另行备份、恢复演练与审批。
 
 生产数据库操作纪律：默认只读；任何写操作先展示 SQL 与影响范围、经用户确认；模式见 [docs/solutions/conventions/production-data-operation-safety.md](docs/solutions/conventions/production-data-operation-safety.md)。
 
 ## 10. 测试与质量现状
 
-- 后端：42 个测试文件（≈7.4k 行、232 个测试函数），重点锁定跨租户不可见性（no_visibility 系列）、实例隔离、发送计划生命周期、认证；`ruff` 已配置，**无 mypy**
-- 前端：tenant 有 vitest 基建但仅覆盖 settings/team 一个模块；shared-ui 有最小 vitest 基建，覆盖布局交互与路由反馈 7 个测试；admin 零测试
+- 后端：44 个测试文件、306 个测试函数；当前全量执行为 309 passed、1 个 PostgreSQL 可选集成测试在未提供连接串时 skipped。重点锁定跨租户不可见性、实例隔离、发送计划生命周期、认证与客户池 repair；`ruff` 已配置，**无 mypy**
+- 前端：tenant Vitest 当前 7 个测试文件、33 项测试；shared-ui 覆盖布局交互与路由反馈；admin 零单元测试，以 type-check 与 production build 为当前门禁
 - **CI 现状：GitHub Actions 只构建镜像，不跑任何测试或 lint**——质量门禁缺失是已登记的头部债务（T-10）
 - 类型契约：前端 shared-types 为手写，与后端 Pydantic 无自动同步（已发现漂移实例，T-11）
 
