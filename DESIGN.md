@@ -2,7 +2,7 @@
 version: alpha
 name: ClientGet Product UI
 description: 面向 Admin 与 Tenant 双端后台的列表页设计系统；以克制、清晰、可扫描为核心。
-status: proposed
+status: adopting
 colors:
   primary: "#111111"
   primary-active: "#242424"
@@ -238,7 +238,7 @@ components:
 
 ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面首先服务于快速扫描、准确判断和低风险操作；视觉上采用白色画布、近黑主操作、浅灰分层和少量语义色，避免用装饰性颜色争夺注意力。
 
-本文件是 T-23 的**目标设计与组件契约**，当前状态为 `proposed`。YAML token 是目标值，不代表 `shared-ui` 已完成迁移；实施时必须按 Phase A → B → C 顺序落地并回归，不能只改全局颜色后宣称完成。
+本文件是 T-23 的**目标设计与组件契约**，当前状态为 `adopting`：Phase A 基建与 Phase B 双页打样已经完成，五件套公开 API 已冻结；新建或迁移的列表页必须遵守本文件，存量页面仍按 Phase C 分批迁移。YAML token 是目标值，不代表全量页面已经完成迁移，不能只改全局颜色后宣称完成。
 
 设计语言参考 [Cal.com DESIGN.md](https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/cal/DESIGN.md) 的克制单色操作层、白画布与柔和圆角，但不照搬其营销页字体和大留白。文件结构遵循 [Google Labs DESIGN.md](https://github.com/google-labs-code/design.md) 规范。
 
@@ -357,6 +357,19 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 ## Components
 
 Pattern 组件统一放在 `frontend/packages/shared-ui/src/components/`，通过 `@shared/ui` 根入口导出。组件不得依赖 React Query、路由、具体 API 类型或业务状态枚举；页面负责取数和 mutation，Pattern 只负责展示、受控交互和布局。
+
+### 公开 API 冻结（2026-07-15）
+
+Phase B 四轮人工 Gate 已通过，五件套在组件提交 `38becd5` 的公开契约正式冻结：
+
+- ListPage：`ListPage`、`ListPageProps`
+- FilterBar：`FilterBar`、`FilterBarProps`、`FilterField`、`FilterFieldRenderContext`、`FilterDraftValue`、`FilterDraft`、`KeysMatching`
+- DataTable：`DataTable`、`DataTableProps`、`DataTableColumn`、`DataTableSelection`、`StatusTone`、`ColumnAlignment`
+- TableState：`TableState`、`TableStateProps`、`TableStateSpec`
+- Pagination：`Pagination`、`PaginationProps`、`PaginationValue`
+- 两个组件族共用的宽度契约：`WidthPreset`、`WidthSpec`
+
+冻结后允许不改变默认行为的向后兼容可选项，但禁止在 Phase C 中删除、改名、收窄类型或针对单页复制分叉组件。确需破坏性调整时，必须先更新本节契约、补回归测试并重新进行双打样页 Gate；内部实现可以在契约和行为不变的前提下演进。
 
 ### ListPage
 
@@ -690,7 +703,7 @@ T-21 合并后必须重新扫描页面数量、手写 `<table>`、分页复制�
 
 ## Auto Plan
 
-本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已合并，Phase B 双页打样已实现并等待用户走查，Phase C 尚未开始。
+本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已合并，Phase B 双页打样于 2026-07-15 通过用户走查并冻结 API，Phase C 尚未开始。
 
 ### 交付拓扑
 
@@ -920,11 +933,11 @@ npx @google/design.md lint DESIGN.md
 - initial loading、旧行 refetch、首次空、筛选空、断网重试、慢请求、mutation 连点。
 - companies 的新增/详情/群组/拉黑/编辑；email templates 的创建/编辑/删除/富文本/变量/预览。
 
-只有用户走查确认后：
+Gate B 已于 2026-07-15 通过：
 
-1. 冻结五件套 public API。
-2. 将 DESIGN.md `status` 从 `proposed` 调整为 `adopting`，表示新页面必须遵守但存量仍在迁移。
-3. 开始 Phase C；走查前不批量迁页。
+1. 五件套 public API 已冻结，冻结面见 Components 章节。
+2. DESIGN.md `status` 已从 `proposed` 调整为 `adopting`，表示新页面必须遵守但存量仍在迁移。
+3. Phase C 可以开始；每批仍须按本节回归门槛独立验证。
 
 ### Phase C：存量迁移批次
 
@@ -1026,7 +1039,7 @@ npx @google/design.md lint DESIGN.md
 
 ## Known Gaps
 
-- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token，但用户走查尚未完成，`status` 继续保持 `proposed`。确认后才分批替换存量全局语义色。
+- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token 并通过用户走查，`status` 已进入 `adopting`。存量页面仍须按 Phase C 批次迁移，不能据此一次性替换全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
 - Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；Phase B 已将 multiSelect 的搜索文案与 loading/empty 可查看状态纳入公共 API，选项请求 error/retry 仍由业务包装层表达。
 - 暗色模式不在本期范围。
