@@ -211,6 +211,7 @@ export function DataTable<T>({
     <div
       className={cn(
         'relative overflow-x-auto rounded-ui-lg border border-ui-border bg-ui-canvas [container-type:inline-size]',
+        stickyHeader && 'max-h-[70vh] overflow-y-auto',
         className,
       )}
       data-data-table-scroll

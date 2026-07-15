@@ -666,7 +666,7 @@ T-21 合并后必须重新扫描页面数量、手写 `<table>`、分页复制�
 
 ## Auto Plan
 
-本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已在 `feat/t23-list-patterns` 落地，Phase B/C 的业务页面迁移仍未开始。
+本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已合并，Phase B 双页打样已实现并等待用户走查，Phase C 尚未开始。
 
 ### 交付拓扑
 
@@ -842,13 +842,13 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 
 - 用 ListPage、FilterBar、DataTable、TableState、Pagination 替换页面壳、raw table 和手写分页。
 - 业务包装层复用现有 `FilterValues`、`EMPTY_FILTERS`、`buildParams`、`countryZh`；暂不改 `components/company-filters.tsx` 的现有 UI，因为 curated-customers 仍在消费。
-- 保留 17 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`。
+- 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`。
 - 父页分持 draft/applied；submit/reset/pageSize/page change 原子更新页码并清空 selection。
 - 保留 selection + 17 个数据列、详情 Sheet、新增公司、群组与拉黑能力；selection key 统一使用 `tc_id`，详情请求继续使用业务需要的 `id`。
 - 拉黑改为每行 inline AlertDialogTrigger；destructive pending 时禁止重复提交与关闭。
 - 初始 loading、保留旧行的 refetch、首次 empty、filtered-empty、error/retry 分开呈现。
 - 公司详情中的联系人 raw table 一并迁为嵌套 DataTable，`stickyHeader=false`、`stickyActions=false`。
-- 新增 `frontend/apps/tenant/test/companies-page.test.tsx`，覆盖 draft/applied、reset、分页原子更新、selection 清空与 TableState；公司详情联系人状态可在同文件或独立 `company-detail.test.tsx` 覆盖。
+- 新增 `frontend/apps/tenant/test/companies/companies-page.test.tsx`，覆盖 draft/applied、reset、分页原子更新、selection 清空与 TableState；公司详情联系人状态沿用同目录既有 `company-detail.test.tsx` 覆盖。
 
 不改变 collection_type、API 参数、群组写入、blacklist 或联系人编辑语义。
 
@@ -997,7 +997,7 @@ npx @google/design.md lint DESIGN.md
 
 ## Known Gaps
 
-- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套，但尚无业务页面消费；`status: proposed` 解除前不得声称视觉迁移完成。Phase B 先让打样页消费新 token，确认后才分批替换存量全局语义色。
+- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token，但用户走查尚未完成，`status` 继续保持 `proposed`。确认后才分批替换存量全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
 - Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；筛选选项的错误/重试仍由业务包装层表达，是否进入公共 API 留待 Phase B 打样验证。
 - 暗色模式不在本期范围。

@@ -3,7 +3,7 @@
 import type { PlatformEmailTemplate } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { Edit2, Eye, Plus, Trash2 } from 'lucide-react';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -16,7 +16,7 @@ import {
 } from '@shared/ui';
 import { Badge } from '@shared/ui';
 import { Button } from '@shared/ui';
-import { Card, CardContent } from '@shared/ui';
+import { DataTable, type DataTableColumn, ListPage } from '@shared/ui';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@shared/ui';
 import { Input } from '@shared/ui';
 import { Label } from '@shared/ui';
@@ -73,7 +73,6 @@ function templateToForm(template: PlatformEmailTemplate): TemplateForm {
 
 export function EmailTemplatesPage() {
   const editorRef = useRef<EmailRichEditorHandle | null>(null);
-  const [items, setItems] = useState<PlatformEmailTemplate[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editing, setEditing] = useState<PlatformEmailTemplate | null>(null);
@@ -91,14 +90,7 @@ export function EmailTemplatesPage() {
     await query.refetch();
   };
 
-  useEffect(() => {
-    if (query.isError) {
-      toast.error('加载邮件模板失败');
-      return;
-    }
-
-    setItems(query.data?.data ?? []);
-  }, [query.data, query.isError]);
+  const items = query.data?.data ?? [];
 
   const openCreate = () => {
     setEditing(null);
@@ -154,92 +146,67 @@ export function EmailTemplatesPage() {
     }
   };
 
-  const deleteTemplate = async (template: PlatformEmailTemplate) => {
-    try {
-      await adminApi.emailTemplates.delete(template.id);
-      toast.success('邮件模板已删除');
-      await load();
-    } catch {
-      toast.error('删除邮件模板失败');
-    }
-  };
+  const columns: ReadonlyArray<DataTableColumn<PlatformEmailTemplate>> = [
+    { id: 'name', header: '模板', width: 'md', type: 'text', value: 'name' },
+    { id: 'industry', header: '行业', width: 'md', type: 'text', value: 'industry' },
+    { id: 'subject', header: '主题', width: 'lg', type: 'text', value: 'subject' },
+    {
+      id: 'variables', header: '变量', width: 'lg', type: 'text', value: 'variables',
+      render: (item) => (
+        <div className="flex flex-wrap gap-ui-xxs">
+          {(item.variables ?? []).slice(0, 3).map((variable) => (
+            <Badge key={variable.name} tone="neutral">{`{{ ${variable.name} }}`}</Badge>
+          ))}
+        </div>
+      ),
+    },
+    { id: 'status', header: '状态', width: 'sm', type: 'boolean', value: 'is_active', booleanMode: 'readOnly', getBooleanLabel: (item) => item.is_active ? '启用' : '停用' },
+    { id: 'updatedAt', header: '更新时间', width: 'md', type: 'date', value: 'updated_at', format: (value) => formatDateTime(value as string) },
+    {
+      id: 'actions', header: '操作', width: 'md', type: 'actions',
+      render: (item) => (
+        <div className="flex items-center justify-end gap-ui-xs">
+          <Button variant="ghost" size="icon" aria-label={`编辑模板 ${item.name}`} onClick={() => void openEdit(item)}>
+            <Edit2 className="h-4 w-4" />
+          </Button>
+          <DeleteTemplateAction template={item} onDeleted={load} />
+        </div>
+      ),
+    },
+  ];
+
+  const tableState = query.isLoading
+    ? { kind: 'loading' as const }
+    : query.isError
+      ? { kind: 'error' as const, description: '加载邮件模板失败', onRetry: () => void query.refetch() }
+      : items.length === 0
+        ? { kind: 'empty' as const }
+        : undefined;
 
 
   return (
-    <div className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <h1 className="admin-page-title">邮件模板管理</h1>
-          <p className="admin-page-description">模板 CRUD、变量选择、富文本编辑和预览。</p>
-        </div>
-        <Button onClick={openCreate}>
+    <ListPage
+      className="admin-page"
+      title="邮件模板管理"
+      description="模板 CRUD、变量选择、富文本编辑和预览。"
+      primaryAction={(
+        <Button
+          className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground"
+          onClick={openCreate}
+        >
           <Plus className="h-4 w-4" />
           新增模板
         </Button>
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">模板</th>
-                  <th className="px-4 py-3">行业</th>
-                  <th className="px-4 py-3">主题</th>
-                  <th className="px-4 py-3">变量</th>
-                  <th className="px-4 py-3">状态</th>
-                  <th className="px-4 py-3">更新时间</th>
-                  <th className="px-4 py-3 text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="px-4 py-3">{item.industry || '-'}</td>
-                    <td className="max-w-[260px] truncate px-4 py-3">{item.subject}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {(item.variables ?? []).slice(0, 3).map((variable) => (
-                          <Badge key={variable.name} variant="outline">{`{{ ${variable.name} }}`}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={item.is_active ? 'secondary' : 'outline'}>{item.is_active ? '启用' : '停用'}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDateTime(item.updated_at)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" aria-label="编辑模板" onClick={() => void openEdit(item)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" aria-label="删除模板">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogTitle>确认删除该邮件模板？</AlertDialogTitle>
-                            <AlertDialogDescription>删除后用户将无法继续选择该平台模板。</AlertDialogDescription>
-                            <div className="flex justify-end gap-2">
-                              <AlertDialogCancel>取消</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => void deleteTemplate(item)}>删除</AlertDialogAction>
-                            </div>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!items.length && <div className="py-10 text-center text-sm text-muted-foreground">暂无邮件模板</div>}
-          </div>
-        </CardContent>
-      </Card>
+      )}
+    >
+      <DataTable
+        columns={columns}
+        data={items}
+        entityName="邮件模板"
+        getRowId={(item) => item.id}
+        state={tableState}
+        isRefreshing={query.isFetching && !query.isLoading}
+      />
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="max-w-5xl overflow-y-auto p-0 sm:w-[980px]">
@@ -310,6 +277,58 @@ export function EmailTemplatesPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </ListPage>
+  );
+}
+
+function DeleteTemplateAction({
+  template,
+  onDeleted,
+}: {
+  template: PlatformEmailTemplate;
+  onDeleted: () => Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteTemplate = async () => {
+    setDeleting(true);
+    try {
+      await adminApi.emailTemplates.delete(template.id);
+      toast.success('邮件模板已删除');
+      await onDeleted();
+      setOpen(false);
+    } catch {
+      toast.error('删除邮件模板失败');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !deleting && setOpen(next)}>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label={`删除模板 ${template.name}`}>
+          <Trash2 className="h-4 w-4 text-ui-danger-foreground" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogTitle>确认删除「{template.name}」？</AlertDialogTitle>
+        <AlertDialogDescription>删除后用户将无法继续选择该平台模板。</AlertDialogDescription>
+        <div className="flex justify-end gap-2">
+          <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={deleting}
+            onClick={(event) => {
+              event.preventDefault();
+              void deleteTemplate();
+            }}
+          >
+            {deleting ? '删除中…' : '删除'}
+          </AlertDialogAction>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

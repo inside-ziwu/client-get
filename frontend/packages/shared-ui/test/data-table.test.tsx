@@ -106,7 +106,9 @@ describe('DataTable', () => {
     expect(actionHeader).toHaveClass('sticky', 'right-0');
     expect(screen.getByRole('columnheader', { name: '公司' })).toHaveClass('sticky', 'top-0');
     expect(table.closest('[data-data-table-scroll]')).toHaveClass(
+      'max-h-[70vh]',
       'overflow-x-auto',
+      'overflow-y-auto',
       '[container-type:inline-size]',
     );
     expect(screen.getByRole('columnheader', { name: '公司' })).toHaveClass(
@@ -129,8 +131,10 @@ describe('DataTable', () => {
 
     const nameHeader = screen.getByRole('columnheader', { name: '公司' });
     const actionHeader = screen.getByRole('columnheader', { name: '操作' });
+    const scrollContainer = screen.getByRole('table').closest('[data-data-table-scroll]');
     expect(nameHeader).not.toHaveClass('sticky');
     expect(actionHeader).toHaveClass('sticky', 'right-0');
+    expect(scrollContainer).not.toHaveClass('max-h-[70vh]', 'overflow-y-auto');
   });
 
   it('文本只有实际溢出时才进入键盘序列', () => {
