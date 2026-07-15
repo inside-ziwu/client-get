@@ -30,6 +30,9 @@ export const EmailRichEditor = forwardRef<
     ],
     content: initialContent || '',
     immediatelyRender: false,
+    onCreate: ({ editor }) => {
+      onUpdate?.(editor.getHTML(), editor.getText());
+    },
     onUpdate: ({ editor }) => {
       onUpdate?.(editor.getHTML(), editor.getText());
     },

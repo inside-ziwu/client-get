@@ -306,7 +306,7 @@ export function EmailTemplatesPage() {
           <DialogTitle>预览</DialogTitle>
           <DialogDescription>{form.subject || '邮件模板预览'}</DialogDescription>
           <div className="max-h-[70vh] overflow-auto rounded-md border bg-white p-4">
-            <div dangerouslySetInnerHTML={{ __html: form.body_html }} />
+            <div dangerouslySetInnerHTML={{ __html: bodyHtml }} />
           </div>
         </DialogContent>
       </Dialog>
