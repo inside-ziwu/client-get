@@ -113,7 +113,7 @@ export const EmailRichEditor = forwardRef<
       </div>
       <EditorContent
         editor={editor}
-        className="prose max-w-none p-3 min-h-[200px] [&_.tiptap]:outline-none"
+        className="prose max-w-none p-3 min-h-[200px] [&_.tiptap]:outline-none [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6"
       />
     </div>
   );
