@@ -1,7 +1,7 @@
 'use client';
 
 import type { Company, Group } from '@shared/api';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -60,6 +60,7 @@ export default function CompaniesPage() {
   const listQuery = useQuery({
     queryKey: ['tenant', 'companies', 'list', page, pageSize, appliedFilters],
     queryFn: async () => (await tenantApi.companies.list(buildParams(appliedFilters, page, pageSize))).data,
+    placeholderData: keepPreviousData,
   });
 
   const items: Company[] = listQuery.data?.data ?? [];
