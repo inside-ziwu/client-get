@@ -129,6 +129,7 @@ client_get/
 | 采集类型 | `manual` 看 `source_id LIKE 'manual-%'`；`keyword` 看精确标签「外贸通关键词采集」；`reverse` 看精确「腾道」标签或非空 `source_competitor`；其余为 `unknown`。优先级 manual > keyword > reverse。 |
 | PCB 供应商评分 | 只有显式 `reverse` 才视为「有中国 PCB 供应商」；keyword/manual/unknown 均为否 |
 | 公司列表行操作 | 右侧固定操作列居中常驻“详情 / 群组 / 拉黑”三个与列表正文同为 14px/500、32px 高的轻量文字按钮，不使用更多菜单；拉黑默认中性、hover/focus 显示危险色。拉黑仍必须经过二次确认，提交期间禁止重复操作和关闭弹窗。 |
+| 平台邮件模板行操作 | 操作列居中常驻“编辑 / 删除”两个与列表正文同为 14px/500、32px 高的文字按钮，不使用图标；删除默认中性、hover/focus 显示危险色，并保留二次确认。 |
 | 域名验证 | **当前为假验证**：点击即置 verified，不做任何 DNS 校验（T-05，勿向客户承诺） |
 | 预热升档 | 仅手动调整，无自动升档（T-06） |
 | 计划完成 | 全部 enrollment 终态后自动置 completed |

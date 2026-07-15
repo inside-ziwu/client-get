@@ -2,7 +2,7 @@
 
 import type { PlatformEmailTemplate } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Edit2, Eye, Plus, Trash2 } from 'lucide-react';
+import { Eye, Plus } from 'lucide-react';
 import { FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -163,12 +163,10 @@ export function EmailTemplatesPage() {
     { id: 'status', header: '状态', width: 'small', type: 'boolean', value: 'is_active', booleanMode: 'readOnly', getBooleanLabel: (item) => item.is_active ? '启用' : '停用' },
     { id: 'updatedAt', header: '更新时间', type: 'date', value: 'updated_at', format: (value) => formatDateTime(value as string) },
     {
-      id: 'actions', header: '操作', type: 'actions',
+      id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
       render: (item) => (
-        <div className="flex items-center justify-end gap-ui-xs">
-          <Button variant="ghost" size="icon" aria-label={`编辑模板 ${item.name}`} onClick={() => void openEdit(item)}>
-            <Edit2 className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button variant="link" className="h-8 px-ui-xxs text-ui-foreground" onClick={() => void openEdit(item)}>编辑</Button>
           <DeleteTemplateAction template={item} onDeleted={load} />
         </div>
       ),
@@ -308,8 +306,11 @@ function DeleteTemplateAction({
   return (
     <AlertDialog open={open} onOpenChange={(next) => !deleting && setOpen(next)}>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`删除模板 ${template.name}`}>
-          <Trash2 className="h-4 w-4 text-ui-danger-foreground" />
+        <Button
+          variant="link"
+          className="h-8 px-ui-xxs text-ui-foreground hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
+        >
+          删除
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

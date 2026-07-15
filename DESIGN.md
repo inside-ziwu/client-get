@@ -891,6 +891,7 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 
 - 用 ListPage、DataTable、TableState 替换页面壳和 raw table；API 当前返回全量，本页不新增 Pagination。
 - 保留 7 列、变量最多显示 3 个、只读状态 Badge、日期、CRUD、富文本、变量插入和预览。
+- 操作列使用 `medium=144px`，表头、单元格和内部按钮组全部居中；编辑、删除均使用与 Tenant 公司列表一致的 14px/500、32px 高文字按钮，不使用图标。删除默认中性、hover/focus 显示 danger 色。
 - 每行删除使用 inline AlertDialog，标题含模板名，destructive pending 防重复；失败不伪装成功。
 - query 初载、empty、error/retry 和 refetch 分开；不借迁移改 endpoint、payload 或业务校验。
 
