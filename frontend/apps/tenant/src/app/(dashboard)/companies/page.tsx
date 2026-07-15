@@ -8,8 +8,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger,
   Button, DataTable, type DataTableColumn, Dialog, DialogContent,
-  DialogTitle, ListPage, Pagination, RatingTag,
-  Sheet, SheetContent, SheetTitle,
+  DialogDescription, DialogTitle, ListPage, Pagination, RatingTag,
+  Sheet, SheetContent, SheetDescription, SheetTitle,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
@@ -223,6 +223,7 @@ export default function CompaniesPage() {
         <SheetContent className="w-[660px] max-w-full overflow-y-auto p-0">
           <div className="border-b px-5 py-4">
             <SheetTitle>{detailQuery.data?.name ?? '公司详情'}</SheetTitle>
+            <SheetDescription className="mt-1">查看公司资料、AI 评估与联系人信息。</SheetDescription>
           </div>
           {detailQuery.isLoading && (
             <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">加载中...</div>
@@ -294,6 +295,7 @@ function GroupModal({ target, onClose, onSuccess }: {
             ? `将选中的 ${target.tcIds.length} 家公司批量加入群组`
             : `将「${target?.label ?? ''}」加入群组`}
         </DialogTitle>
+        <DialogDescription>选择目标群组；确认后将更新所选公司的群组归属。</DialogDescription>
         {groups.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">暂无群组，请先创建群组</p>
         ) : (

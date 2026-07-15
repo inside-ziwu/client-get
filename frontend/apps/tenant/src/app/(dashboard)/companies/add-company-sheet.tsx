@@ -8,7 +8,7 @@ import {
   Button, Input, Label, MultiSelect,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Separator,
-  Sheet, SheetContent, SheetTitle,
+  Sheet, SheetContent, SheetDescription, SheetTitle,
   Textarea,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
@@ -137,6 +137,7 @@ export default function AddCompanySheet({
       <SheetContent className="w-[660px] max-w-full overflow-y-auto p-0">
         <div className="border-b px-5 py-4">
           <SheetTitle>新增公司</SheetTitle>
+          <SheetDescription className="mt-1">录入公司基本资料，并可同时添加联系人。</SheetDescription>
         </div>
 
         <div className="space-y-6 p-5">
