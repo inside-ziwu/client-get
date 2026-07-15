@@ -666,7 +666,7 @@ T-21 合并后必须重新扫描页面数量、手写 `<table>`、分页复制�
 
 ## Auto Plan
 
-本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界，不代表任何组件或页面已经落地。
+本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已在 `feat/t23-list-patterns` 落地，Phase B/C 的业务页面迁移仍未开始。
 
 ### 交付拓扑
 
@@ -997,8 +997,8 @@ npx @google/design.md lint DESIGN.md
 
 ## Known Gaps
 
-- 本文件尚未对应到 CSS variables、Tailwind preset 和组件实现；`status: proposed` 解除前不得声称视觉迁移完成。Phase B 先让打样页消费新 token，确认后才分批替换存量全局语义色。
+- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套，但尚无业务页面消费；`status: proposed` 解除前不得声称视觉迁移完成。Phase B 先让打样页消费新 token，确认后才分批替换存量全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
-- Badge 尚无完整 tone，AlertDialogAction 尚无标准 destructive variant；Phase A 需要补齐原子层后再实现列类型。
+- Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；筛选选项的错误/重试仍由业务包装层表达，是否进入公共 API 留待 Phase B 打样验证。
 - 暗色模式不在本期范围。
-- 当前页面与分页数量来自 T-21 合并前基线，Phase C 开始前必须复扫。
+- T-21 已合并且目标页面已删除；Phase B 创建独立分支后仍须基于最新 main 复扫页面与分页数量，再冻结 Phase C 清单。
