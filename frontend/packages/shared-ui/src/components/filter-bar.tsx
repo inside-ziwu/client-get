@@ -26,6 +26,12 @@ type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 const uiControlClasses =
   'h-10 rounded-ui-md border-ui-border bg-ui-canvas text-ui-body focus-visible:border-ui-foreground focus-visible:ring-2 focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-surface-soft';
 
+const compactWidthClassNames = {
+  narrow: 'sm:!w-40',
+  medium: 'sm:!w-56',
+  wide: 'sm:!w-80',
+} as const;
+
 export interface FilterFieldRenderContext<T extends FilterDraftShape<T>> {
   values: T;
   setValue: <K extends keyof T>(name: K, value: T[K]) => void;
@@ -36,6 +42,7 @@ interface BaseFilterField {
   label: string;
   placeholder?: string;
   advanced?: boolean;
+  compactWidth?: 'narrow' | 'medium' | 'wide';
 }
 
 interface FilterOption {
@@ -78,19 +85,21 @@ export interface FilterBarProps<T extends FilterDraftShape<T>> {
   layout?: 'grid' | 'compact';
   collapseAdvanced?: boolean;
   optionStateMode?: 'disabled' | 'inspectable';
+  actionsPlacement?: 'footer' | 'inline';
 }
 
 function filterFieldClassName(
   kind: FilterField<FilterDraft>['kind'],
   layout: NonNullable<FilterBarProps<FilterDraft>['layout']>,
+  compactWidth: BaseFilterField['compactWidth'],
 ) {
   if (layout !== 'compact') return 'space-y-2';
-  if (kind === 'text') return 'w-full flex-none space-y-2 sm:w-80';
-  if (kind === 'number' || kind === 'date') return 'w-full flex-none space-y-2 sm:w-48';
-  if (kind === 'select' || kind === 'multiSelect') {
-    return 'w-full flex-none space-y-2 sm:w-56';
-  }
-  return 'w-full flex-none space-y-2 sm:w-64';
+  let defaultWidth = 'sm:w-64';
+  if (kind === 'text') defaultWidth = 'sm:w-80';
+  if (kind === 'number' || kind === 'date') defaultWidth = 'sm:w-48';
+  if (kind === 'select' || kind === 'multiSelect') defaultWidth = 'sm:w-56';
+  const widthOverride = compactWidth ? compactWidthClassNames[compactWidth] : undefined;
+  return cn('w-full flex-none space-y-2', defaultWidth, widthOverride);
 }
 
 function optionPlaceholder(
@@ -120,7 +129,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
   optionStateMode: NonNullable<FilterBarProps<FilterDraft>['optionStateMode']>;
 }) {
   const labelId = `${id}-label`;
-  const fieldClassName = filterFieldClassName(field.kind, layout);
+  const fieldClassName = filterFieldClassName(field.kind, layout, field.compactWidth);
 
   if (field.kind === 'custom') {
     return (
@@ -225,6 +234,7 @@ export function FilterBar<T extends FilterDraftShape<T>>({
   layout = 'grid',
   collapseAdvanced = true,
   optionStateMode = 'disabled',
+  actionsPlacement = 'footer',
 }: FilterBarProps<T>) {
   const id = useId();
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -251,6 +261,37 @@ export function FilterBar<T extends FilterDraftShape<T>>({
         optionStateMode={optionStateMode}
       />
     ));
+  const hasSeparateAdvancedFields = collapseAdvanced && advancedFields.length > 0;
+  const actionsAreInline = actionsPlacement === 'inline' && !hasSeparateAdvancedFields;
+  const actions = (
+    <div
+      data-testid="filter-bar-actions"
+      className={cn(
+        'flex flex-wrap gap-2',
+        actionsAreInline
+          ? 'w-full flex-none justify-end self-end sm:w-auto sm:justify-start'
+          : 'mt-4 justify-end',
+      )}
+    >
+      <Button
+        type="button"
+        variant="outline"
+        className="h-10 rounded-ui-md border-ui-border bg-ui-canvas px-ui-md text-ui-body-strong hover:bg-ui-surface-card focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas"
+        onClick={onReset}
+        disabled={isSubmitting}
+      >
+        重置
+      </Button>
+      <Button
+        type="submit"
+        className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-body-strong text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-primary-disabled disabled:text-ui-body disabled:opacity-100"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? '查询中…' : '查询'}
+      </Button>
+    </div>
+  );
+  const visibleFields = renderFields(collapseAdvanced ? basicFields : fields);
 
   return (
     <form
@@ -260,9 +301,18 @@ export function FilterBar<T extends FilterDraftShape<T>>({
         onSubmit(values);
       }}
     >
-      <div data-testid="filter-bar-fields" className={fieldContainerClassName}>
-        {renderFields(collapseAdvanced ? basicFields : fields)}
-      </div>
+      {actionsAreInline ? (
+        <div data-testid="filter-bar-inline-layout" className={fieldContainerClassName}>
+          <div data-testid="filter-bar-fields" className="contents">
+            {visibleFields}
+          </div>
+          {actions}
+        </div>
+      ) : (
+        <div data-testid="filter-bar-fields" className={fieldContainerClassName}>
+          {visibleFields}
+        </div>
+      )}
 
       {collapseAdvanced && advancedFields.length > 0 ? (
         <>
@@ -292,24 +342,7 @@ export function FilterBar<T extends FilterDraftShape<T>>({
         </>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-ui-md border-ui-border bg-ui-canvas px-ui-md text-ui-body-strong hover:bg-ui-surface-card focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas"
-          onClick={onReset}
-          disabled={isSubmitting}
-        >
-          重置
-        </Button>
-        <Button
-          type="submit"
-          className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-body-strong text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-primary-disabled disabled:text-ui-body disabled:opacity-100"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? '查询中…' : '查询'}
-        </Button>
-      </div>
+      {actionsAreInline ? null : actions}
     </form>
   );
 }

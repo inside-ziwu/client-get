@@ -147,11 +147,18 @@ export function CompanyListFilterBar({
   const remoteOptionState = (items: readonly string[] | undefined) =>
     optionsState === 'ready' && !items?.length ? 'empty' : optionsState;
   const fields: ReadonlyArray<FilterField<FilterValues>> = [
-    { name: 'keyword', kind: 'text', label: '关键词', placeholder: '公司名 / 域名搜索' },
+    {
+      name: 'keyword',
+      kind: 'text',
+      label: '关键词',
+      placeholder: '公司名 / 域名搜索',
+      compactWidth: 'medium',
+    },
     {
       name: 'countries',
       kind: 'multiSelect',
       label: '国家',
+      compactWidth: 'narrow',
       placeholder: '不限',
       searchPlaceholder: '搜索国家',
       options: toOptions(options?.countries ?? [], countryZh),
@@ -179,6 +186,7 @@ export function CompanyListFilterBar({
       name: 'collection_type',
       kind: 'select',
       label: '采集类型',
+      compactWidth: 'narrow',
       placeholder: '不限',
       options: [
         { value: 'keyword', label: '关键词采集' },
@@ -191,6 +199,7 @@ export function CompanyListFilterBar({
       name: 'business_status',
       kind: 'select',
       label: '群组状态',
+      compactWidth: 'narrow',
       placeholder: '不限',
       options: [
         { value: 'not_new', label: '已入群' },
@@ -201,6 +210,7 @@ export function CompanyListFilterBar({
       name: 'grades',
       kind: 'multiSelect',
       label: '大模型评级',
+      compactWidth: 'narrow',
       placeholder: '不限',
       searchPlaceholder: '搜索大模型评级',
       options: toOptions(options?.grades ?? []),
@@ -210,6 +220,7 @@ export function CompanyListFilterBar({
       name: 'system_grades',
       kind: 'multiSelect',
       label: '模板评级',
+      compactWidth: 'narrow',
       placeholder: '不限',
       searchPlaceholder: '搜索模板评级',
       options: toOptions(SYSTEM_GRADES),
@@ -237,6 +248,7 @@ export function CompanyListFilterBar({
       layout="compact"
       collapseAdvanced={false}
       optionStateMode="inspectable"
+      actionsPlacement="inline"
     />
   );
 }
