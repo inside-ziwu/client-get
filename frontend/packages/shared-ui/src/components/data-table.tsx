@@ -235,8 +235,11 @@ export function DataTable<T>({
       data-data-table-scroll
     >
       {isRefreshing ? (
-        <div className="sticky left-0 top-0 z-30 flex h-0 justify-end" role="status">
-          <span className="m-ui-xs rounded-ui-pill bg-ui-surface-soft px-ui-sm py-ui-xxs text-ui-caption text-ui-muted-foreground">
+        <div
+          className="flex h-8 items-center justify-end border-b border-ui-border bg-ui-surface-soft px-ui-sm"
+          role="status"
+        >
+          <span className="rounded-ui-pill px-ui-sm py-ui-xxs text-ui-caption text-ui-muted-foreground">
             更新中…
           </span>
         </div>
