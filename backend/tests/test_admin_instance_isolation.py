@@ -3,9 +3,9 @@
 U17（platform_users）不在 admin_config_service.py 中，跳过。
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -531,7 +531,6 @@ class TestAiSceneDefaultsInstanceId:
         svc.audit = MagicMock()
         svc.audit.write = AsyncMock()
 
-        now = datetime.now()
         # model_check
         model_check = MagicMock()
         model_mapping = MagicMock()
@@ -571,199 +570,10 @@ class TestAiSceneDefaultsInstanceId:
         assert params["instance_id"] == INSTANCE_ID
 
 
-# ── U22: data_sources / data_source_credentials ───────────────────────────
 
 
-class TestDataSourcesInstanceId:
-    """U22: data_sources CRUD 按 instance_id 过滤"""
-
-    @pytest.mark.asyncio
-    async def test_list_data_sources_contains_instance_id(self):
-        svc = AdminConfigService()
-        conn = AsyncMock()
-        conn.execute = AsyncMock(return_value=_mock_mappings_all([]))
-
-        await svc.list_data_sources(conn)
-
-        conn.execute.assert_called_once()
-        params = _extract_params(conn.execute.call_args)
-        assert params["instance_id"] == INSTANCE_ID
-
-    @pytest.mark.asyncio
-    async def test_create_data_source_contains_instance_id(self):
-        svc = AdminConfigService()
-        conn = AsyncMock()
-        svc.audit = MagicMock()
-        svc.audit.write = AsyncMock()
-
-        ds_row = {
-            "id": "ds-001",
-            "source_type": "apollo",
-            "name": "Apollo",
-            "alias_code": "apollo",
-            "purpose": None,
-            "is_active": True,
-            "config": {},
-            "landing_rules": {},
-            "active_credentials_count": 0,
-        }
-        insert_result = MagicMock()
-        get_result = _mock_mappings_first(ds_row)
-
-        conn.execute = AsyncMock(side_effect=[insert_result, get_result])
-
-        await svc.create_data_source(
-            conn,
-            payload={"source_type": "apollo", "name": "Apollo"},
-            platform_user_id="pu-001",
-        )
-
-        # INSERT 包含 instance_id
-        insert_call = conn.execute.call_args_list[0]
-        params = _extract_params(insert_call)
-        assert params["instance_id"] == INSTANCE_ID
-
-    @pytest.mark.asyncio
-    async def test_get_data_source_contains_instance_id(self):
-        svc = AdminConfigService()
-        conn = AsyncMock()
-
-        ds_row = {
-            "id": "ds-001",
-            "source_type": "apollo",
-            "name": "Apollo",
-            "alias_code": "apollo",
-            "purpose": None,
-            "is_active": True,
-            "config": {},
-            "landing_rules": {},
-            "active_credentials_count": 0,
-        }
-        conn.execute = AsyncMock(return_value=_mock_mappings_first(ds_row))
-
-        await svc.get_data_source(conn, "apollo")
-
-        params = _extract_params(conn.execute.call_args)
-        assert params["instance_id"] == INSTANCE_ID
 
 
-class TestDataSourceCredentialsInstanceId:
-    """U22: data_source_credentials CRUD 按 instance_id 过滤"""
-
-    @pytest.mark.asyncio
-    async def test_list_credentials_contains_instance_id(self):
-        svc = AdminConfigService()
-        conn = AsyncMock()
-        conn.execute = AsyncMock(return_value=_mock_mappings_all([]))
-
-        await svc.list_data_source_credentials(conn, "apollo")
-
-        conn.execute.assert_called_once()
-        params = _extract_params(conn.execute.call_args)
-        assert params["instance_id"] == INSTANCE_ID
-        assert params["source_type"] == "apollo"
-
-    @pytest.mark.asyncio
-    async def test_create_credential_contains_instance_id(self):
-        svc = AdminConfigService()
-        conn = AsyncMock()
-        svc.audit = MagicMock()
-        svc.audit.write = AsyncMock()
-
-        now = datetime.now()
-        fixed_id = "cred-fixed-001"
-        cred_row = {
-            "id": fixed_id,
-            "source_type": "apollo",
-            "account_no": "acc-01",
-            "username": "user",
-            "credentials_encrypted": "encrypted",
-            "encryption_key_version": 1,
-            "rotation_order": 0,
-            "daily_quota": 100,
-            "current_day_used": 0,
-            "current_day_reset_at": now,
-            "is_active": True,
-            "last_used_at": None,
-            "last_error_at": None,
-            "last_error_message": None,
-            "consecutive_error_count": 0,
-            "created_at": now,
-        }
-        insert_result = MagicMock()
-        list_result = _mock_mappings_all([cred_row])
-
-        conn.execute = AsyncMock(side_effect=[insert_result, list_result])
-
-        with patch("app.services.admin_config_service.new_uuid", return_value=fixed_id):
-            with patch("app.services.admin_config_service.encrypt_secret", return_value="encrypted"):
-                with patch("app.services.admin_config_service.decrypt_secret", return_value="secret"):
-                    await svc.create_data_source_credential(
-                        conn,
-                        source_type="apollo",
-                        payload={
-                            "account_no": "acc-01",
-                            "username": "user",
-                            "secret": "my-secret",
-                        },
-                        platform_user_id="pu-001",
-                    )
-
-        # INSERT 包含 instance_id
-        insert_call = conn.execute.call_args_list[0]
-        params = _extract_params(insert_call)
-        assert params["instance_id"] == INSTANCE_ID
-
-    @pytest.mark.asyncio
-    async def test_delete_credential_contains_instance_id(self):
-        svc = AdminConfigService()
-        conn = AsyncMock()
-        svc.audit = MagicMock()
-        svc.audit.write = AsyncMock()
-
-        now = datetime.now()
-        cred_row = {
-            "id": "cred-001",
-            "source_type": "apollo",
-            "account_no": "acc-01",
-            "username": "user",
-            "credentials_encrypted": "encrypted",
-            "encryption_key_version": 1,
-            "rotation_order": 0,
-            "daily_quota": 100,
-            "current_day_used": 0,
-            "current_day_reset_at": now,
-            "is_active": True,
-            "last_used_at": None,
-            "last_error_at": None,
-            "last_error_message": None,
-            "consecutive_error_count": 0,
-            "created_at": now,
-        }
-        # _load_credential_row
-        load_result = _mock_mappings_first(cred_row)
-        # DELETE
-        delete_result = MagicMock()
-
-        conn.execute = AsyncMock(side_effect=[load_result, delete_result])
-
-        with patch("app.services.admin_config_service.decrypt_secret", return_value="secret"):
-            await svc.delete_data_source_credential(
-                conn,
-                source_type="apollo",
-                credential_id="cred-001",
-                platform_user_id="pu-001",
-            )
-
-        # _load_credential_row 包含 instance_id
-        load_call = conn.execute.call_args_list[0]
-        params = _extract_params(load_call)
-        assert params["instance_id"] == INSTANCE_ID
-
-        # DELETE 包含 instance_id
-        delete_call = conn.execute.call_args_list[1]
-        params = _extract_params(delete_call)
-        assert params["instance_id"] == INSTANCE_ID
 
 
 # ── U23: get_platform_dashboard ────────────────────────────────────────────

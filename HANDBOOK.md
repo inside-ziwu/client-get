@@ -95,7 +95,7 @@ client_get/
 │   ├── app/workers/    sending / reconciliation / wmt_lineage_repair
 │   ├── app/db/         连接池、RLS 会话变量、事务、分区维护
 │   ├── app/security/   JWT（platform / tenant / service 三种 kind）、bcrypt、服务间鉴权
-│   ├── alembic/        68 个迁移（2026-04-21 起），head=20260708_0002
+│   ├── alembic/        69 个迁移（2026-04-21 起），仓库 head=20260714_0001；生产仍为 20260708_0002，T-21 Phase B 待 DROP 审批
 │   └── scripts/        运维脚本（见 §9）
 ├── frontend/           pnpm workspace（166 文件 ≈ 18.4k 行）
 │   ├── apps/tenant/    Next.js 15 + React 19，纯客户端渲染，端口 3001
@@ -202,13 +202,14 @@ pnpm type-check    # 全 workspace tsc
 2. 仅发布代码并确认 API 健康，此时不会执行全池 fan-out。
 3. 激活前做生产只读基数、`EXPLAIN`、关系差异及 **A 实例在途发送负载**快照；再展示准确影响量与写入 SQL，取得针对该操作的明确批准。A/B 共用物理数据库，只按 `instance_id` 逻辑隔离。
 4. 每次只激活一个实例，观察至少两个 300 秒周期的 `fan_out/deleted_stale/score_*` 统计；异常时立即关闭开关。
-5. Phase B 删表不属于此流程，必须另行备份、恢复演练与审批。
+5. Phase B 删表不属于此流程。2026-07-15 已完成 PG16 加密备份与隔离恢复演练；生产 DROP 仍须另行展示最终 SQL、复查发送/锁状态并取得明确审批。
+6. Phase B 获批后必须先由**唯一一个**一次性 migration runner 执行并回读 revision，再滚动更新 A、B 后端。禁止直接同时发布两实例的新 backend 镜像：镜像 `/start.sh` 都会自动运行 `alembic upgrade head`，并发 runner 会让严格删表迁移中的后执行者因表已消失而失败。
 
 生产数据库操作纪律：默认只读；任何写操作先展示 SQL 与影响范围、经用户确认；模式见 [docs/solutions/conventions/production-data-operation-safety.md](docs/solutions/conventions/production-data-operation-safety.md)。
 
 ## 10. 测试与质量现状
 
-- 后端：44 个测试文件、306 个测试函数；当前全量执行为 309 passed、1 个 PostgreSQL 可选集成测试在未提供连接串时 skipped。重点锁定跨租户不可见性、实例隔离、发送计划生命周期、认证与客户池 repair；`ruff` 已配置，**无 mypy**
+- 后端：45 个测试文件、307 个测试函数；默认全量执行为 306 passed、5 个 PostgreSQL 可选集成测试在未提供本机连接串时 skipped；提供 T-21 本机 PG16 连接串后为 310 passed、1 skipped。重点锁定跨租户不可见性、实例隔离、发送计划生命周期、认证、客户池 repair 与退役表迁移原子回滚；`ruff` 已配置，**无 mypy**
 - 前端：tenant Vitest 当前 7 个测试文件、33 项测试；shared-ui 覆盖布局交互与路由反馈；admin 零单元测试，以 type-check 与 production build 为当前门禁
 - **CI 现状：GitHub Actions 只构建镜像，不跑任何测试或 lint**——质量门禁缺失是已登记的头部债务（T-10）
 - 类型契约：前端 shared-types 为手写，与后端 Pydantic 无自动同步（已发现漂移实例，T-11）
