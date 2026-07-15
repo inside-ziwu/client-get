@@ -703,7 +703,7 @@ T-21 合并后必须重新扫描页面数量、手写 `<table>`、分页复制�
 
 ## Auto Plan
 
-本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已合并，Phase B 双页打样于 2026-07-15 通过用户走查并冻结 API，Phase C 尚未开始。
+本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已合并，Phase B 双页打样于 2026-07-15 通过用户走查并冻结 API；Phase C 已启动，C1 双页迁移已通过用户走查。
 
 ### 交付拓扑
 
@@ -952,6 +952,8 @@ Gate B 已于 2026-07-15 通过：
 
 重点：CRUD 状态、inline delete、query data 镜像清理；scoring-templates 把 industry 明确拆成 draft/applied，使“查询”恢复真实语义，但不改 API。
 
+状态（2026-07-15）：两页已迁移至 ListPage/DataTable/FilterBar/TableState，清除原生 `<table>` 与 query data 镜像；列表状态统一为可操作 Switch，新增/编辑/删除与批量导入具备 pending 防重复；scoring-templates 的行业筛选已拆为 draft/applied。A 实例真实页面走查与 production build 已通过，T-23 仍待 C2–C5 和最终全仓门禁后销账。
+
 #### C2 · 简单 Tenant（3 页）
 
 - `frontend/apps/tenant/src/app/(dashboard)/intelligence/page.tsx`
@@ -1039,7 +1041,7 @@ npx @google/design.md lint DESIGN.md
 
 ## Known Gaps
 
-- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token 并通过用户走查，`status` 已进入 `adopting`。存量页面仍须按 Phase C 批次迁移，不能据此一次性替换全局语义色。
+- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token 并通过用户走查，`status` 已进入 `adopting`；Phase C1 两个简单 Admin 页已完成迁移。其余存量页面仍须按 C2–C5 分批迁移，不能据此一次性替换全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
 - Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；Phase B 已将 multiSelect 的搜索文案与 loading/empty 可查看状态纳入公共 API，选项请求 error/retry 仍由业务包装层表达。
 - 暗色模式不在本期范围。

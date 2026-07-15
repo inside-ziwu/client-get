@@ -1,8 +1,8 @@
 'use client';
 
 import type { ScoringTemplate } from '@shared/api';
-import { useQuery } from '@tanstack/react-query';
-import { Edit2, Eye, Plus, Trash2 } from 'lucide-react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -13,16 +13,25 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
   AlertDialogTrigger,
+  Button,
+  DataTable,
+  type DataTableColumn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  FilterBar,
+  type FilterField,
+  Input,
+  Label,
+  ListPage,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  Switch,
+  Textarea,
 } from '@shared/ui';
-import { Badge } from '@shared/ui';
-import { Button } from '@shared/ui';
-import { Card, CardContent } from '@shared/ui';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@shared/ui';
-import { Input } from '@shared/ui';
-import { Label } from '@shared/ui';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@shared/ui';
-import { Switch } from '@shared/ui';
-import { Textarea } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
@@ -74,6 +83,19 @@ const GRADE_LABELS: Record<'S' | 'A' | 'B' | 'C' | 'D', string> = {
   C: 'C 级',
   D: 'D 级',
 };
+
+type ScoringTemplateFilters = { industry: string };
+
+const EMPTY_FILTERS: ScoringTemplateFilters = { industry: '' };
+const FILTER_FIELDS: ReadonlyArray<FilterField<ScoringTemplateFilters>> = [
+  {
+    name: 'industry',
+    kind: 'text',
+    label: '行业',
+    placeholder: '输入行业名称',
+    width: 'medium',
+  },
+];
 
 function normalizeDimensions(value: Array<Record<string, unknown>> | undefined): Dimension[] {
   if (!value?.length) return DEFAULT_DIMENSIONS;
@@ -214,29 +236,39 @@ function DimensionEditor({
 }
 
 export function ScoringTemplatesPage() {
-  const [items, setItems] = useState<ScoringTemplate[]>([]);
-  const [industry, setIndustry] = useState('');
+  const [draftFilters, setDraftFilters] = useState<ScoringTemplateFilters>(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState<ScoringTemplateFilters>(EMPTY_FILTERS);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editing, setEditing] = useState<ScoringTemplate | null>(null);
   const [form, setForm] = useState<TemplateForm>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [updatingIds, setUpdatingIds] = useState<ReadonlySet<string>>(() => new Set());
   const query = useQuery({
-    queryKey: ['admin', 'scoring-templates', industry],
-    queryFn: async () => (await adminApi.scoringTemplates.list(industry || undefined)).data,
+    queryKey: ['admin', 'scoring-templates', appliedFilters.industry],
+    queryFn: async () => (
+      await adminApi.scoringTemplates.list(appliedFilters.industry || undefined)
+    ).data,
+    placeholderData: keepPreviousData,
   });
 
   const load = async () => {
     await query.refetch();
   };
 
+  const items = query.data?.data ?? [];
+
   useEffect(() => {
     if (query.isError) {
       toast.error('加载评分模板失败');
-      return;
     }
+  }, [query.isError]);
 
-    setItems(query.data?.data ?? []);
-  }, [query.data, query.isError]);
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setDrawerOpen(true);
+  };
 
   const openEdit = async (template: ScoringTemplate) => {
     try {
@@ -277,6 +309,7 @@ export function ScoringTemplatesPage() {
         Object.entries(form.grade_thresholds).map(([key, value]) => [key, Number(value || 0)]),
       ),
     };
+    setSaving(true);
     try {
       if (editing) {
         await adminApi.scoringTemplates.update(editing.id, payload);
@@ -289,82 +322,162 @@ export function ScoringTemplatesPage() {
       await load();
     } catch {
       toast.error('保存评分模板失败');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const deleteTemplate = async (template: ScoringTemplate) => {
+  const resetFilters = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+  };
+
+  const updateStatus = async (template: ScoringTemplate, checked: boolean) => {
+    setUpdatingIds((current) => new Set(current).add(template.id));
     try {
-      await adminApi.scoringTemplates.delete(template.id);
-      toast.success('评分模板已删除');
+      await adminApi.scoringTemplates.update(template.id, { is_active: checked });
+      toast.success('状态已更新');
       await load();
     } catch {
-      toast.error('删除评分模板失败');
+      toast.error('状态更新失败');
+    } finally {
+      setUpdatingIds((current) => {
+        const next = new Set(current);
+        next.delete(template.id);
+        return next;
+      });
     }
   };
 
-  return (
-    <div className="admin-page">
-      <div className="admin-page-header">
-        <div>
-          <h1 className="admin-page-title">评分模板</h1>
-          <p className="admin-page-description">评分模板 CRUD、DimensionEditor、等级阈值和预览。</p>
+  const columns: ReadonlyArray<DataTableColumn<ScoringTemplate>> = [
+    {
+      id: 'name',
+      header: '名称',
+      type: 'text',
+      value: 'name',
+      render: (item) => <span className="font-medium">{item.name}</span>,
+    },
+    { id: 'industry', header: '行业', type: 'text', value: 'industry' },
+    {
+      id: 'version',
+      header: '版本',
+      width: 'small',
+      align: 'center',
+      type: 'number',
+      value: 'version',
+      render: (item) => `v${item.version ?? 1}`,
+    },
+    {
+      id: 'thresholds',
+      header: '等级阈值',
+      width: 'large',
+      type: 'text',
+      value: 'grade_thresholds',
+      format: (value) => JSON.stringify(value ?? {}),
+    },
+    {
+      id: 'status',
+      header: '状态',
+      width: 'small',
+      type: 'boolean',
+      value: 'is_active',
+      booleanMode: 'interactive',
+      getBooleanLabel: (item) => `${item.name}${item.is_active ? '已启用' : '已停用'}`,
+      onBooleanChange: (item, checked) => void updateStatus(item, checked),
+      isBooleanDisabled: (item) => updatingIds.has(item.id),
+    },
+    {
+      id: 'updatedAt',
+      header: '更新时间',
+      type: 'date',
+      value: 'updated_at',
+      format: (value) => formatDateTime(String(value)),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      width: 'large',
+      align: 'center',
+      type: 'actions',
+      render: (item) => (
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            onClick={() => void openEdit(item)}
+          >
+            编辑
+          </Button>
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            onClick={() => {
+              setForm(toForm(item));
+              setPreviewOpen(true);
+            }}
+          >
+            预览
+          </Button>
+          <DeleteScoringTemplateAction template={item} onDeleted={load} />
         </div>
-        <Button onClick={() => { setEditing(null); setForm(EMPTY_FORM); setDrawerOpen(true); }}>
+      ),
+    },
+  ];
+
+  const tableState = query.isLoading
+    ? { kind: 'loading' as const }
+    : query.isError
+      ? { kind: 'error' as const, description: '加载评分模板失败', onRetry: () => void query.refetch() }
+      : items.length === 0
+        ? {
+            kind: 'empty' as const,
+            filtered: Boolean(appliedFilters.industry),
+            onResetFilters: appliedFilters.industry ? resetFilters : undefined,
+          }
+        : undefined;
+
+  return (
+    <ListPage
+      className="admin-page"
+      title="评分模板"
+      description="评分模板 CRUD、DimensionEditor、等级阈值和预览。"
+      primaryAction={(
+        <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
           新增模板
         </Button>
-      </div>
+      )}
+      filters={(
+        <FilterBar
+          values={draftFilters}
+          fields={FILTER_FIELDS}
+          onChange={setDraftFilters}
+          onSubmit={(next) => {
+            const industry = next.industry.trim();
+            if (industry === appliedFilters.industry) {
+              void query.refetch();
+              return;
+            }
+            setAppliedFilters({ industry });
+          }}
+          onReset={resetFilters}
+          isSubmitting={query.isFetching}
+          layout="compact"
+          collapseAdvanced={false}
+          actionsPlacement="inline"
+        />
+      )}
+    >
+      <DataTable
+        columns={columns}
+        data={items}
+        entityName="评分模板"
+        getRowId={(item) => item.id}
+        state={tableState}
+        isRefreshing={query.isFetching && !query.isLoading}
+      />
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex gap-2">
-            <Input placeholder="按行业筛选" value={industry} onChange={(event) => setIndustry(event.target.value)} />
-            <Button variant="outline" onClick={() => void load()}>查询</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
-              <thead className="border-b bg-muted/70 text-left text-xs text-muted-foreground">
-                <tr>
-                  {['名称', '行业', '版本', '等级阈值', '状态', '更新时间', '操作'].map((label) => <th key={label} className="px-4 py-3">{label}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{item.name}</td>
-                    <td className="px-4 py-3">{item.industry || '-'}</td>
-                    <td className="px-4 py-3">v{item.version ?? 1}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{JSON.stringify(item.grade_thresholds ?? {})}</td>
-                    <td className="px-4 py-3"><Badge variant={item.is_active ? 'secondary' : 'outline'}>{item.is_active ? '启用' : '停用'}</Badge></td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDateTime(item.updated_at)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => void openEdit(item)}><Edit2 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setForm(toForm(item)); setPreviewOpen(true); }}><Eye className="h-4 w-4" /></Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogTitle>确认删除评分模板？</AlertDialogTitle>
-                            <AlertDialogDescription>删除后不可恢复。</AlertDialogDescription>
-                            <div className="flex justify-end gap-2"><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={() => void deleteTemplate(item)}>删除</AlertDialogAction></div>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Sheet open={drawerOpen} onOpenChange={(next) => !saving && setDrawerOpen(next)}>
         <SheetContent className="max-w-5xl overflow-y-auto p-0 sm:w-[960px]">
           <div className="border-b px-5 py-4">
             <SheetTitle>{editing ? '编辑评分模板' : '新增评分模板'}</SheetTitle>
@@ -374,7 +487,19 @@ export function ScoringTemplatesPage() {
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-2"><Label>名称</Label><Input value={form.name} onChange={(event) => setForm((c) => ({ ...c, name: event.target.value }))} /></div>
               <div className="space-y-2"><Label>行业</Label><Input value={form.industry} onChange={(event) => setForm((c) => ({ ...c, industry: event.target.value }))} /></div>
-              <label className="flex items-end gap-2 pb-2 text-sm"><Switch checked={form.is_active} onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))} />启用</label>
+              <div className="space-y-2">
+                <Label htmlFor="scoring-template-active">状态</Label>
+                <div className="flex h-10 items-center gap-3">
+                  <Switch
+                    id="scoring-template-active"
+                    checked={form.is_active}
+                    onCheckedChange={(checked) => setForm((c) => ({ ...c, is_active: checked }))}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {form.is_active ? '启用' : '停用'}
+                  </span>
+                </div>
+              </div>
             </div>
             <div className="space-y-2"><Label>描述</Label><Textarea value={form.description} onChange={(event) => setForm((c) => ({ ...c, description: event.target.value }))} /></div>
             <DimensionEditor value={form.dimensions} onChange={(dimensions) => setForm((c) => ({ ...c, dimensions }))} />
@@ -391,7 +516,7 @@ export function ScoringTemplatesPage() {
             </div>
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>预览</Button>
-              <Button type="submit">保存</Button>
+              <Button type="submit" disabled={saving}>{saving ? '保存中…' : '保存'}</Button>
             </div>
           </form>
         </SheetContent>
@@ -404,6 +529,61 @@ export function ScoringTemplatesPage() {
           <pre className="max-h-[70vh] overflow-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(form, null, 2)}</pre>
         </DialogContent>
       </Dialog>
-    </div>
+    </ListPage>
+  );
+}
+
+function DeleteScoringTemplateAction({
+  template,
+  onDeleted,
+}: {
+  template: ScoringTemplate;
+  onDeleted: () => Promise<unknown>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteTemplate = async () => {
+    setDeleting(true);
+    try {
+      await adminApi.scoringTemplates.delete(template.id);
+      toast.success('评分模板已删除');
+      await onDeleted();
+      setOpen(false);
+    } catch {
+      toast.error('删除评分模板失败');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={(next) => !deleting && setOpen(next)}>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="link"
+          className="h-8 px-ui-xxs text-ui-foreground hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
+        >
+          删除
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogTitle>确认删除「{template.name}」？</AlertDialogTitle>
+        <AlertDialogDescription>删除后不可恢复。</AlertDialogDescription>
+        <div className="flex justify-end gap-2">
+          <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={deleting}
+            onClick={(event) => {
+              event.preventDefault();
+              void deleteTemplate();
+            }}
+          >
+            {deleting ? '删除中…' : '删除'}
+          </AlertDialogAction>
+        </div>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
