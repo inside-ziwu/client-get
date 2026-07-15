@@ -47,11 +47,6 @@
 - **缺口**：`warmup_rule_levels` 的升档阈值字段（min_stay_days/min_delivery_rate/max_bounce_rate/max_complaint_rate）已就绪，但无任何 worker 读取判断；`domain_warmup_history.change_type` 实际只有 manual_adjust。
 - **验收**：一个定时任务按阈值自动升档并写 history（change_type=auto）；对不满足条件的域名不动作。
 
-### T-07 · 数据源命名分裂 tendata/tengdao（原 TD-4）— P1
-- **来源**：docs/tech-debt.md TD-4；B 实例排查第一坑
-- **缺口**：种子数据用 `tengdao`，前端下拉与采集服务用 `tendata`；`source_type` CHECK 约束已删除，不再拦截不一致写入。
-- **验收**：选定统一取值 → 迁移存量行 → 改前端常量与服务常量 → 恢复约束（或白名单校验）；生产核对无残留旧值。
-
 ### T-08 · 情报定时采集 worker — P2（2026-07-11 拍板保留）
 - **来源**：原始需求「每天定时采集行业信息」；现状为 admin 人工导入/发布，无任何定时抓取
 - **缺口**：一个定时 worker：按 admin 配置的情报源周期抓取 → 生成文章 → 发布给订阅租户（发布链路 `intelligence_service.py` 已就绪，缺的是抓取与调度）。摘要质量依赖 T-04（当前为截前 240 字的启发式桩，可先带桩上线）。
@@ -117,26 +112,6 @@
 - **缺口**：`tenant_hard_delete_service.py` 未挂任何 API，唯一出口是按具体客户命名的一次性脚本（`hard_delete_zhaokui_test_data.py`），无使用文档。
 - **验收**：决定定位（参数化运维脚本 / admin API + 二次确认），沉淀使用说明进 HANDBOOK §9。
 
-### T-21 · 采集子系统摘除（Phase A 已部署 A/B；Phase B 已备份并完成恢复演练，待 DROP 审批）— P1
-- **来源**：2026-07-12 采集子系统调研（代码双线调研 + 生产库只读核查）+ 2026-07-14 完整 autoplan 审查。用户已拍板 G-A（平台不做全局评分，Tenant 按自己的当前模板评分）与 P-R（manual > keyword > reverse > unknown）；PCB 活跃租户共享全池但排除手工私有行。背景：采集执行管线 2026-05-19 已删且从未重建，采集数据全部由外部流程直接写库。
-- **执行分期**：Phase A 只做运行时摘除、全池关系 repair、Tenant 评分、前端正名与文档同步，不迁移数据库；2026-07-14 已部署 A、B 的 Backend/Admin/Tenant，两个实例均已配置 `WMT_LINEAGE_REPAIR_ENABLED=false`，Phase A 发布本身未启用全池写入。Phase B 才做被退役表的 dump、恢复演练与 DROP，需单独方案和明确审批。
-- **Phase A 本地证据（2026-07-14）**：后端 309 passed/1 skipped，真实 PostgreSQL 回滚集成测试 1 passed；Tenant 33 tests；全 workspace type-check、Admin/Tenant production build、改动文件 Ruff F/I 与 `git diff --check` 全绿。本地验收阶段未执行生产写入；后续 A/B 发布状态见下两条。
-- **B 发布与只读审计证据（2026-07-14）**：三端健康与退役路由契约验收通过；A/B 确认共用同一个 14 GB `clientget` 物理数据库，仅靠 `instance_id` 逻辑隔离。共享池 41,350 行，其中 manual 2、可共享 41,348；B 当前缺 4,120（keyword 6 + reverse 4,114），无 stale、无状态刷新。B 当前模板 v6 另有 30,256 条既有关系未评分，投放后预计 backlog 34,376，至少 69 个 300 秒周期。同期 A 有 3 个 running 计划、8,745 个到期 active enrollment，因此 **B repair 继续关闭，未批准生产写入**。
-- **A 发布与只读 Canary 证据（2026-07-14）**：Backend `/health`、Admin health 连续两轮 200；Admin 登录页与 Tenant 无 slug 访问拦截均无控制台错误；生产 OpenAPI 已确认 `collection-tasks`、`data-sources`、internal credentials、Tenant keywords 四组退役契约消失，保留的 raw companies、WMT clean companies 契约仍存在。检查未使用生产账号，不覆盖认证后的页面；A repair 已由用户确认关闭。
-- **Phase B 准备证据（2026-07-14/15）**：A/B 共用的生产库实际只剩 11 张目标表，共 321,775 行、约 104.8 MiB；4 张 `collection_*` 表已带外消失但 Alembic 仍在 `20260708_0002`，迁移仅对这4表使用 `IF EXISTS`，其余11表严格失败且不使用 `CASCADE`。旧 `tenant_keyword` SQL 指纹在观察窗口保持 158/10 次无增长。已用 PostgreSQL 16 `pg_dump` 生成 age 加密 schema+data 归档，并在隔离 PG16 完成恢复：11/11 行数一致、38/38 约束 validated、14 FK、0 孤儿、4触发器、4序列水位正确。代码侧 310 passed/1 skipped，真实 PG 迁移4场景通过。生产 DROP 尚未获批、未执行。
-- **范围 A（死壳）**：Phase A 删除 admin `/collection-tasks`、shared-api 死方法、后端假数据与孤儿端点、`backfill_tendata_raw_contacts.py`、重复 `wmt_lineage.py`、`get_data_source_credential_secret`；Phase B 才 DROP 4 张冻结旧表 `clean_companies`/`clean_contacts`/`clean_company_sources`/`clean_company_keywords`（生产数据均止于 2026-05-14）。
-- **范围 B（凭证体系）**：Phase A 摘除 admin `/data-sources` 页面、路由与 internal 凭证端点（`GET /internal/api/v1/collection/credentials/{source_type}`），admin 首页改指向用户管理；Phase B 再清理残余 service CRUD 并 DROP `data_sources` + `data_source_credentials`（生产仅 6+2 行，credentials 止于 5-07）。`DATA_SOURCE_ENCRYPTION_KEY` **不得退役或轮换**：名称虽旧，仍用于 Tenant OpenRouter Key 与存量密文。Phase B 完成后 T-07 随之销账；运营手册「02 配数据源采集账号」已改为「确认共享客户池」。
-- **范围 C（peer 死代码与表）**：Phase A 删除 `peer_company_cleaning_service.py`、`peer_company_backfill_service.py`、`scripts/peer_backfill_runner.py`，并退役 peer-companies API 与前端契约。2026-07-12 三方独立验证结论一致：约 12 万行数据在 2026-05-14 一次性生成后遗弃，今日零活路径且无 DB 外部依赖。Phase B 经 dump 与恢复演练后再按 contacts/sources/keywords → peer_companies 顺序 DROP 4 表，不改历史迁移 `20260514_0040`。
-- **范围 D（正名）**：admin 导航「采集」组改名（4 个数据浏览页保留）；HANDBOOK 功能矩阵、口径表与 §2 业务主链同步改写（「⑨ 订阅关键词」环节移除，改为「公司数据按租户行业全量下发，当前仅 PCB」）。
-- **范围 E（关键词订阅摘除与分发通道收敛，2026-07-12 深查后定稿）**：背景——订阅链路结构性死亡（血缘桥 2026-05-15 迁移后冻结，新词永远零匹配）、175 个关键词 98.9% 为零匹配孤儿、生产仅 3 条订阅且两个月无人使用；**但 reverse（精准反推）公司 4,103 家仅靠订阅通道分发**（曾造成租户间 3~4 千家供给差异：订两个词的租户比订一个词的多看约 1,100 家）。用户拍板（2026-07-12）：reverse 数据可向全部 PCB 租户全量下发。
-  - 摘除：tenant `/settings/keywords` 页 + keywords API（4 路由）+ `tenant_settings_service` 关键词四方法 + `keyword_service.py` + `fan_out.py` 整文件 + `wmt_lineage_repair.py` 内关键词 fan-out 与血缘回填 SQL（normalize/clean_path/raw_fallback 三段）+ `scripts/repair_wmt_lineage.py` + `scripts/rebuild_tenant_companies.py` + seed 的 `ensure_keywords` + dashboard `plan_overview.keyword_count` 改写 + 对应测试（test_fan_out_no_visibility、test_settings_no_hide 等，详见 2026-07-12 精查报告连带清单）。
-  - 修改：单一 `_SQL_FAN_OUT_FULL_POOL` 向当前实例的活跃 PCB 租户下发全池，去掉关键词标签限定，保留状态刷新，并用 `(wc.source_id IS NULL OR wc.source_id NOT LIKE 'manual-%')` 排除手工私有行；`recovered-` 仍视为共享历史资产。onboarding 改为「筛选目标公司」。
-  - Phase B DROP：`tenant_keyword`（3 行，dump 留档）；`keyword_master`（175 行）继续保留（外部表历史列仍引用）。
-  - 300 秒循环终态：行业全池下发（排除私有行）+ 失效清理 + 补打分三件事。
-  - 预期效果：各租户供给对齐**全池共享部分**（2026-07-14 实测 41,348 家，另保留各自 manual 私有关系）；反推链未来重启后新公司自动分发，无断供；私有录入公司仍仅录入者可见。
-- **安全边界**：A/B 共用同一个物理 PostgreSQL 数据库，`instance_id` 只隔离数据范围、不隔离数据库资源；任何实例的 repair/评分写入都必须同时审计共享数据库资源与两个实例的在途发送负载。Phase A 对外部写入表结构与数据零接触；repair 部署前关闭，启用需再次批准。Phase B 的任何 DROP 都必须先逐表 dump、验证恢复并再次审批。
-- **Phase A 验收**：退役页面/API 不再出现在运行时；保留 4 个只读数据浏览契约；P-R 分类、PCB 全池、manual 排除、实例边界、幂等与 Tenant 当前模板补评分均有测试；发送计划、公司列表、双端 build、pytest、type-check 全绿。部署与生产首轮对齐另走门禁，不因本地代码完成自动执行。
-
 ### T-22 · 外部写入契约文档化与数据新鲜度监控 — P1
 - **来源**：同上调研 + 2026-07-12 schema 全景盘点。系统核心数据由外部流程直写的表实测为 **14 张**（原知 10 张 + 盘点新发现 4 张隐形区域：`waimaotong_keyword_raw_companies`/`_contacts`（389 万行 / 6.7GB，全库最大，代码零引用）、`waimaotong_clean_source_links`、`crawl_progress`（曾被迁移 0054 DROP、外部又重建，22,674 行））；clean 层 4 张连表结构都在本系统 alembic/schema 管理之外；`wmt_lineage_repair.py` 头注释自述「外部流程可能重建表」。外部断供时下游不报错，只会静默消费越来越旧的数据。
 - **缺口**：① 契约入 HANDBOOK：**14 张表清单**、4 张脱管 clean 表的结构快照（2026-07-12 已从生产取得）、「平台不再回写全局评分或关键词血缘，Tenant 评分写入自有 `company_scores`」的边界声明、**「schema 变更双方知会」条款**（外部曾重建被系统删除的表、曾新建系统不知情的巨表——单方面变更已实际发生）、各管道数据状态口径（外贸通线持续更新 / 同行反推线为已完成的静态存量）、**资料卡瘦身声明**（wc 86 列中 10 列恒空、15 列填充率 <5%，声明系统不消费这些列）、**租户私有行寄生风险**——租户手动新增的公司（`source_id LIKE 'manual-%'`，现 2 家）及其手填联系人寄生在外部管理的 `waimaotong_clean_companies`/`waimaotong_clean_contacts` 中，外部流程若全量重建这两张表将无声丢失租户数据，需在契约中与外部约定保留，或长期迁移至自有表；② 新鲜度监控：**仅对外贸通线**（唯一活管道）设 max(created_at) 停滞告警。
@@ -178,3 +153,5 @@
 | T-14「移动端导航完全不可用」 | **已修复**：双端接入 shared-ui `DashboardShell`；375px 实测抽屉打开、链接/Escape 关闭，1440px 桌面侧栏与折叠状态正常；shared-ui 交互测试 + 双端 build 通过 |
 | T-15「无错误边界与路由级 loading」 | **已修复**：双端应用级与 dashboard 级 `error.tsx`、dashboard `loading.tsx` 已接入；临时故障注入验证两级恢复 UI 与流式加载骨架；shared-ui 状态测试 + 双端 build 通过 |
 | T-19 部分项「openspec 系列 skill/command 定义」 | **已删除**（2026-07-11 用户授权）：`.claude/commands/opsx/`、`.claude/skills/openspec-*`、`.codex/skills/openspec-*` 共 15 个 tracked 文件，另清理 `.agents/skills/source-command-opsx-*` 5 个 untracked 镜像；`settings.local.json` 内 3 行 openspec CLI 权限白名单属用户本地设置，未动 |
+| T-07「数据源命名分裂 tendata/tengdao」 | **已随 T-21 销账**：采集数据源页面、API、service CRUD 与 `data_sources` / `data_source_credentials` 物理表均已退役，不再存在需要统一的 `source_type` 运行时契约；`DATA_SOURCE_ENCRYPTION_KEY` 继续保护 Tenant OpenRouter Key，不删除、不轮换 |
+| T-21「采集子系统摘除」 | **已完成（2026-07-15）**：Phase A 已部署 A/B；Phase B 代码经 PR #36 合并，生产共库由唯一 Alembic runner 从 `20260708_0002` 升至 `20260714_0001`。加密备份及隔离 PG16 恢复演练覆盖 321,775 行；回读确认 15 张退役表全部不存在，核心公司池/租户关系/发送表保留，旧 SQL 调用未增长，A 为 3 个 running 计划、4,298 个 active enrollment、当前到期 0，API 健康检查通过；A/B 共用同一物理 `clientget`，故 DROP 仅执行一次 |

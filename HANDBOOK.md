@@ -39,7 +39,7 @@
 
 | 功能 | 状态 | 说明与关键位置 |
 |---|---|---|
-| 共享客户池与外部数据浏览 | ✅ | 保留「同行原始/同行清洗/外贸通原始/客户池」四页；只读外部写入的 `lixiaoyun_api_*`、`waimaotong_*` 表。采集任务、数据源凭证与 peer 清洗管线已从运行时退役（T-21 Phase A）。 |
+| 共享客户池与外部数据浏览 | ✅ | 保留「同行原始/同行清洗/外贸通原始/客户池」四页；只读外部写入的 `lixiaoyun_api_*`、`waimaotong_*` 表。采集任务、数据源凭证与 peer 清洗管线已从运行时及生产物理表退役（T-21 Phase A/B）。 |
 | 联系人职位分类体系 | ✅ | 分级关键词已数据化可维护。admin `/contact-classification` |
 | 评分模板配置 | ✅ | admin `/scoring-templates` |
 | 工作日历（国家/节假日/规则集） | ✅ | 供时区感知发送使用。admin `/work-schedule` |
@@ -95,7 +95,7 @@ client_get/
 │   ├── app/workers/    sending / reconciliation / wmt_lineage_repair
 │   ├── app/db/         连接池、RLS 会话变量、事务、分区维护
 │   ├── app/security/   JWT（platform / tenant / service 三种 kind）、bcrypt、服务间鉴权
-│   ├── alembic/        69 个迁移（2026-04-21 起），仓库 head=20260714_0001；生产仍为 20260708_0002，T-21 Phase B 待 DROP 审批
+│   ├── alembic/        69 个迁移（2026-04-21 起），仓库与生产 head=20260714_0001；T-21 Phase B 已完成
 │   └── scripts/        运维脚本（见 §9）
 ├── frontend/           pnpm workspace（166 文件 ≈ 18.4k 行）
 │   ├── apps/tenant/    Next.js 15 + React 19，纯客户端渲染，端口 3001
@@ -202,8 +202,8 @@ pnpm type-check    # 全 workspace tsc
 2. 仅发布代码并确认 API 健康，此时不会执行全池 fan-out。
 3. 激活前做生产只读基数、`EXPLAIN`、关系差异及 **A 实例在途发送负载**快照；再展示准确影响量与写入 SQL，取得针对该操作的明确批准。A/B 共用物理数据库，只按 `instance_id` 逻辑隔离。
 4. 每次只激活一个实例，观察至少两个 300 秒周期的 `fan_out/deleted_stale/score_*` 统计；异常时立即关闭开关。
-5. Phase B 删表不属于此流程。2026-07-15 已完成 PG16 加密备份与隔离恢复演练；生产 DROP 仍须另行展示最终 SQL、复查发送/锁状态并取得明确审批。
-6. Phase B 获批后必须先由**唯一一个**一次性 migration runner 执行并回读 revision，再滚动更新 A、B 后端。禁止直接同时发布两实例的新 backend 镜像：镜像 `/start.sh` 都会自动运行 `alembic upgrade head`，并发 runner 会让严格删表迁移中的后执行者因表已消失而失败。
+5. T-21 Phase B 已于 2026-07-15 完成：PG16 age 加密备份与隔离恢复演练通过，生产最终只读闸门确认 revision、目标表、旧 SQL、锁、活跃查询与到期邮件均符合预期后，由用户明确批准执行。
+6. A/B 共用同一个物理库，因此仅由**唯一一个**一次性 migration runner 执行；生产已从 `20260708_0002` 升至 `20260714_0001` 并回读确认 15 张退役表全部不存在。后续 A、B 后端镜像可按正常顺序滚动，`/start.sh` 只会确认当前 head；禁止重复手工 DROP 或尝试 downgrade。
 
 生产数据库操作纪律：默认只读；任何写操作先展示 SQL 与影响范围、经用户确认；模式见 [docs/solutions/conventions/production-data-operation-safety.md](docs/solutions/conventions/production-data-operation-safety.md)。
 
