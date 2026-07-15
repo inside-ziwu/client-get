@@ -59,6 +59,7 @@ export type FilterField<T extends FilterDraftShape<T>> =
       kind: 'multiSelect';
       options: ReadonlyArray<FilterOption>;
       optionState?: 'ready' | 'loading' | 'empty';
+      searchPlaceholder?: string;
     })
   | (BaseFilterField & {
       name: Extract<keyof T, string>;
@@ -76,6 +77,7 @@ export interface FilterBarProps<T extends FilterDraftShape<T>> {
   appliedCount?: number;
   layout?: 'grid' | 'compact';
   collapseAdvanced?: boolean;
+  optionStateMode?: 'disabled' | 'inspectable';
 }
 
 function filterFieldClassName(
@@ -107,6 +109,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
   disabled,
   id,
   layout,
+  optionStateMode,
 }: {
   field: FilterField<T>;
   values: T;
@@ -114,6 +117,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
   disabled: boolean;
   id: string;
   layout: NonNullable<FilterBarProps<FilterDraft>['layout']>;
+  optionStateMode: NonNullable<FilterBarProps<FilterDraft>['optionStateMode']>;
 }) {
   const labelId = `${id}-label`;
   const fieldClassName = filterFieldClassName(field.kind, layout);
@@ -135,6 +139,7 @@ function FilterControl<T extends FilterDraftShape<T>>({
   if (field.kind === 'multiSelect') {
     const state = field.optionState ?? 'ready';
     const value = values[field.name] as readonly string[];
+    const inspectable = optionStateMode === 'inspectable';
 
     return (
       <div
@@ -151,9 +156,13 @@ function FilterControl<T extends FilterDraftShape<T>>({
           onChange={(next) =>
             setValue(field.name, next as unknown as T[typeof field.name])
           }
-          placeholder={optionPlaceholder(state, field.placeholder)}
+          placeholder={
+            inspectable ? (field.placeholder ?? '不限') : optionPlaceholder(state, field.placeholder)
+          }
+          searchPlaceholder={field.searchPlaceholder}
+          optionState={inspectable ? state : 'ready'}
           allowCreate={false}
-          disabled={disabled || state !== 'ready'}
+          disabled={disabled || (!inspectable && state !== 'ready')}
         />
       </div>
     );
@@ -215,6 +224,7 @@ export function FilterBar<T extends FilterDraftShape<T>>({
   appliedCount = 0,
   layout = 'grid',
   collapseAdvanced = true,
+  optionStateMode = 'disabled',
 }: FilterBarProps<T>) {
   const id = useId();
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -238,6 +248,7 @@ export function FilterBar<T extends FilterDraftShape<T>>({
         disabled={isSubmitting}
         id={`${id}-${field.name}`}
         layout={layout}
+        optionStateMode={optionStateMode}
       />
     ));
 

@@ -2,7 +2,7 @@
 
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Command } from 'cmdk';
-import { Check, ChevronsUpDown, X } from 'lucide-react';
+import { Check, ChevronsUpDown, LoaderCircle, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 import { Badge } from './badge';
@@ -18,6 +18,8 @@ export interface MultiSelectProps {
   options: readonly MultiSelectOption[];
   onChange: (value: string[]) => void;
   placeholder?: string;
+  searchPlaceholder?: string;
+  optionState?: 'ready' | 'loading' | 'empty';
   allowCreate?: boolean;
   disabled?: boolean;
   className?: string;
@@ -28,6 +30,8 @@ export function MultiSelect({
   options,
   onChange,
   placeholder = '选择或输入',
+  searchPlaceholder,
+  optionState = 'ready',
   allowCreate = true,
   disabled = false,
   className,
@@ -45,10 +49,17 @@ export function MultiSelect({
   const visibleOptions = normalizedOptions.filter((item) =>
     `${item.label} ${item.value}`.toLowerCase().includes(query.toLowerCase()),
   );
-  const canCreate = allowCreate && query.trim() && !selected.has(query.trim());
+  const canCreate =
+    optionState === 'ready' && allowCreate && query.trim() && !selected.has(query.trim());
+  const triggerPlaceholder =
+    optionState === 'loading'
+      ? '正在加载选项…'
+      : optionState === 'empty'
+        ? '暂无可选项'
+        : placeholder;
 
   const toggle = (item: string) => {
-    if (disabled) return;
+    if (disabled || optionState !== 'ready') return;
     onChange(selected.has(item) ? value.filter((current) => current !== item) : [...value, item]);
   };
 
@@ -95,10 +106,14 @@ export function MultiSelect({
                 </Badge>
               ))
             ) : (
-              <span className="text-muted-foreground">{placeholder}</span>
+              <span className="text-muted-foreground">{triggerPlaceholder}</span>
             )}
           </span>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          {optionState === 'loading' ? (
+            <LoaderCircle className="h-4 w-4 shrink-0 animate-spin opacity-60" aria-hidden="true" />
+          ) : (
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          )}
         </Button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
@@ -110,38 +125,57 @@ export function MultiSelect({
             <Command.Input
               value={query}
               onValueChange={setQuery}
-              placeholder={placeholder}
+              placeholder={searchPlaceholder ?? placeholder}
+              disabled={optionState !== 'ready'}
               className="h-9 w-full rounded-md bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground"
             />
             <Command.List className="max-h-56 overflow-auto py-1">
-              {visibleOptions.map((item) => (
-                <Command.Item
-                  key={item.value}
-                  value={item.value}
-                  onSelect={() => toggle(item.value)}
-                  className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+              {optionState === 'loading' ? (
+                <div
+                  role="status"
+                  className="flex items-center justify-center gap-2 px-2 py-6 text-sm text-muted-foreground"
                 >
-                  <span className="flex h-4 w-4 items-center justify-center rounded-sm border border-input">
-                    {selected.has(item.value) ? <Check className="h-3 w-3" /> : null}
-                  </span>
-                  <span className="truncate">{item.label}</span>
-                </Command.Item>
-              ))}
-              {canCreate ? (
-                <Command.Item
-                  value={query.trim()}
-                  onSelect={() => {
-                    onChange([...value, query.trim()]);
-                    setQuery('');
-                  }}
-                  className="cursor-pointer rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-muted"
-                >
-                  新增 “{query.trim()}”
-                </Command.Item>
-              ) : null}
-              {!visibleOptions.length && !canCreate ? (
-                <div className="px-2 py-6 text-center text-sm text-muted-foreground">没有匹配项</div>
-              ) : null}
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  正在加载选项…
+                </div>
+              ) : optionState === 'empty' ? (
+                <div role="status" className="px-2 py-6 text-center text-sm text-muted-foreground">
+                  暂无可选项
+                </div>
+              ) : (
+                <>
+                  {visibleOptions.map((item) => (
+                    <Command.Item
+                      key={item.value}
+                      value={item.value}
+                      onSelect={() => toggle(item.value)}
+                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+                    >
+                      <span className="flex h-4 w-4 items-center justify-center rounded-sm border border-input">
+                        {selected.has(item.value) ? <Check className="h-3 w-3" /> : null}
+                      </span>
+                      <span className="truncate">{item.label}</span>
+                    </Command.Item>
+                  ))}
+                  {canCreate ? (
+                    <Command.Item
+                      value={query.trim()}
+                      onSelect={() => {
+                        onChange([...value, query.trim()]);
+                        setQuery('');
+                      }}
+                      className="cursor-pointer rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-muted"
+                    >
+                      新增 “{query.trim()}”
+                    </Command.Item>
+                  ) : null}
+                  {!visibleOptions.length && !canCreate ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      没有匹配项
+                    </div>
+                  ) : null}
+                </>
+              )}
             </Command.List>
           </Command>
         </PopoverPrimitive.Content>

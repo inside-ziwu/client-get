@@ -40,28 +40,36 @@ export function CompanyListFilterBar({
   onSubmit,
   onReset,
 }: CompanyListFilterBarProps) {
+  const remoteOptionState = (items: readonly string[] | undefined) =>
+    optionsState === 'ready' && !items?.length ? 'empty' : optionsState;
   const fields: ReadonlyArray<FilterField<FilterValues>> = [
     { name: 'keyword', kind: 'text', label: '关键词', placeholder: '公司名 / 域名搜索' },
     {
       name: 'countries',
       kind: 'multiSelect',
       label: '国家',
+      placeholder: '不限',
+      searchPlaceholder: '搜索国家',
       options: toOptions(options?.countries ?? [], countryZh),
-      optionState: optionsState,
+      optionState: remoteOptionState(options?.countries),
     },
     {
       name: 'sub_industries',
       kind: 'multiSelect',
       label: '细分行业',
+      placeholder: '不限',
+      searchPlaceholder: '搜索细分行业',
       options: toOptions(options?.sub_industries ?? []),
-      optionState: optionsState,
+      optionState: remoteOptionState(options?.sub_industries),
     },
     {
       name: 'product_tags',
       kind: 'multiSelect',
       label: '产品标签',
+      placeholder: '不限',
+      searchPlaceholder: '搜索产品标签',
       options: toOptions(options?.product_tags ?? []),
-      optionState: optionsState,
+      optionState: remoteOptionState(options?.product_tags),
     },
     {
       name: 'collection_type',
@@ -89,23 +97,75 @@ export function CompanyListFilterBar({
       name: 'grades',
       kind: 'multiSelect',
       label: '大模型评级',
+      placeholder: '不限',
+      searchPlaceholder: '搜索大模型评级',
       options: toOptions(options?.grades ?? []),
-      optionState: optionsState,
+      optionState: remoteOptionState(options?.grades),
     },
     {
       name: 'system_grades',
       kind: 'multiSelect',
       label: '模板评级',
+      placeholder: '不限',
+      searchPlaceholder: '搜索模板评级',
       options: toOptions(SYSTEM_GRADES),
     },
-    { name: 'trade_amount_min', kind: 'number', label: '最低进口额', advanced: true },
-    { name: 'trade_amount_max', kind: 'number', label: '最高进口额', advanced: true },
-    { name: 'trade_count_min', kind: 'number', label: '最低进口次数', advanced: true },
-    { name: 'trade_count_max', kind: 'number', label: '最高进口次数', advanced: true },
-    { name: 'contact_count_min', kind: 'number', label: '最少联系人', advanced: true },
-    { name: 'contact_count_max', kind: 'number', label: '最多联系人', advanced: true },
-    { name: 'founded_year_from', kind: 'number', label: '成立年份起', advanced: true },
-    { name: 'founded_year_to', kind: 'number', label: '成立年份止', advanced: true },
+    {
+      name: 'trade_amount_min',
+      kind: 'number',
+      label: '最低进口额',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'trade_amount_max',
+      kind: 'number',
+      label: '最高进口额',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'trade_count_min',
+      kind: 'number',
+      label: '最低进口次数',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'trade_count_max',
+      kind: 'number',
+      label: '最高进口次数',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'contact_count_min',
+      kind: 'number',
+      label: '最少联系人',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'contact_count_max',
+      kind: 'number',
+      label: '最多联系人',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'founded_year_from',
+      kind: 'number',
+      label: '成立年份起',
+      placeholder: '不限',
+      advanced: true,
+    },
+    {
+      name: 'founded_year_to',
+      kind: 'number',
+      label: '成立年份止',
+      placeholder: '不限',
+      advanced: true,
+    },
   ];
 
   return (
@@ -119,6 +179,7 @@ export function CompanyListFilterBar({
       appliedCount={appliedCount}
       layout="compact"
       collapseAdvanced={false}
+      optionStateMode="inspectable"
     />
   );
 }
