@@ -55,7 +55,7 @@
 |---|---|---|
 | 认证体系 | ✅ | 登录、refresh token 静默刷新（并发排队）、强制改密、onboarding。`shared-api/src/client.ts` |
 | 仪表盘 | ✅ | 邮件统计趋势、计划概览、配额/AI 余额、漏斗。`tenant/core.py` 5 端点 |
-| 公司列表与筛选 | ✅ | 16 项多维条件（含采集类型、已入群）紧凑常驻；筛选控件与表格列使用 shared-ui 统一的 `small/medium/large/{ custom }` 宽度契约，默认 `medium`、例外显式声明；表格按长文本左、短枚举居中、数值与操作右的语义对齐。远程多选支持明确搜索文案、可查看加载态与空态。函数索引优化过查询性能。`tenant_query_service.py` |
+| 公司列表与筛选 | ✅ | 16 项多维条件（含采集类型、已入群）紧凑常驻；筛选控件与表格列使用 shared-ui 统一的 `small/medium/large/{ custom }` 宽度契约，默认 `medium`、例外显式声明；公司列表长文本左对齐，短枚举、年份、评级、评分、联系人数、时间及操作居中。远程多选支持明确搜索文案、可查看加载态与空态。函数索引优化过查询性能。`tenant_query_service.py` |
 | 优选客户（群组） | ✅ | 入群自动物化联系人。tenant `/curated-customers` |
 | 评分 | ✅ | **租户评分是确定性规则引擎，不是 AI**；仅依该租户当前模板/版本写入 `company_scores`，平台不对全局客户池打分。`scoring_engine_service.py` |
 | 邮件模板 | ✅ | TipTap 富文本、纯文本兜底、测试发送；「AI 生成」当前为启发式桩（T-04）。tenant `/templates` |

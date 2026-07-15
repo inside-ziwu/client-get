@@ -76,6 +76,7 @@ describe('CompaniesPage Pattern 打样', () => {
   it('短字段使用 small，并按内容语义统一表头对齐', async () => {
     renderPage();
     await screen.findByRole('table', { name: '公司列表' });
+    await screen.findByText('远航科技');
 
     for (const name of ['国家', '采集类型', '员工规模']) {
       expect(screen.getByRole('columnheader', { name })).toHaveClass(
@@ -83,14 +84,24 @@ describe('CompaniesPage Pattern 打样', () => {
         'text-center',
       );
     }
-    for (const name of ['成立', '大模型评级', '模板评级', '入库时间']) {
+    for (const name of [
+      '成立',
+      '大模型评级',
+      '大模型评分',
+      '模板评级',
+      '模板评分',
+      '联系人数',
+      '入库时间',
+      '操作',
+    ]) {
       expect(screen.getByRole('columnheader', { name })).toHaveClass('text-center');
-    }
-    for (const name of ['大模型评分', '模板评分', '联系人数', '操作']) {
-      expect(screen.getByRole('columnheader', { name })).toHaveClass('text-right');
     }
     for (const name of ['公司名', '域名', '行业', '细分行业', '来源同行', '来源同行（中文名）']) {
       expect(screen.getByRole('columnheader', { name })).toHaveClass('text-left');
+    }
+    for (const detailButton of screen.getAllByRole('button', { name: '详情' })) {
+      expect(detailButton.parentElement).toHaveClass('justify-center');
+      expect(detailButton.closest('td')).toHaveClass('text-center');
     }
   });
 

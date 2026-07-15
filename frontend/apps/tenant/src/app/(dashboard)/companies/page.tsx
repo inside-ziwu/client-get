@@ -121,18 +121,18 @@ export default function CompaniesPage() {
     { id: 'employees', header: '员工规模', width: 'small', align: 'center', type: 'text', value: 'employee_num' },
     { id: 'foundedYear', header: '成立', width: 'small', align: 'center', type: 'number', value: 'founded_year' },
     { id: 'modelGrade', header: '大模型评级', width: 'small', align: 'center', type: 'text', value: 'grade', render: (row) => row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-' },
-    { id: 'modelScore', header: '大模型评分', width: 'small', type: 'number', value: 'wmt_score' },
+    { id: 'modelScore', header: '大模型评分', width: 'small', align: 'center', type: 'number', value: 'wmt_score' },
     { id: 'systemGrade', header: '模板评级', width: 'small', align: 'center', type: 'text', value: 'system_grade', render: (row) => row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-' },
-    { id: 'systemScore', header: '模板评分', width: 'small', type: 'number', value: 'system_score' },
+    { id: 'systemScore', header: '模板评分', width: 'small', align: 'center', type: 'number', value: 'system_score' },
     { id: 'subIndustry', header: '细分行业', type: 'text', value: 'sub_industry' },
     { id: 'sourceCompetitor', header: '来源同行', type: 'text', value: 'source_competitor' },
     { id: 'sourceCompetitorCn', header: '来源同行（中文名）', type: 'text', value: 'source_competitor_cn' },
-    { id: 'contacts', header: '联系人数', width: 'small', type: 'number', value: 'contacts_count' },
+    { id: 'contacts', header: '联系人数', width: 'small', align: 'center', type: 'number', value: 'contacts_count' },
     { id: 'createdAt', header: '入库时间', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
     {
-      id: 'actions', header: '操作', type: 'actions',
+      id: 'actions', header: '操作', align: 'center', type: 'actions',
       render: (row) => (
-        <div className="flex items-center justify-end gap-ui-sm">
+        <div className="flex items-center justify-center gap-ui-sm">
           <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setDetailId(row.id)}>详情</Button>
           <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setGroupTarget({ tcIds: [row.tc_id], label: row.name })}>群组</Button>
           <BlacklistAction row={row} onSuccess={invalidateList} />
