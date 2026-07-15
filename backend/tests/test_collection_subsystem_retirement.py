@@ -1,9 +1,11 @@
 """采集死子系统路由退役白名单。"""
 
 import inspect
+import re
 
 from app.main import create_app
 from app.services.admin_collection_service import AdminCollectionService
+from app.services.admin_config_service import AdminConfigService
 from app.services.scoring_engine_service import ScoringEngineService
 
 
@@ -69,3 +71,57 @@ def test_global_platform_score_is_not_a_runtime_capability():
     assert "system_grade" not in signature.parameters
     assert 'item["system_grade"]' not in source
     assert 'item["system_score"]' not in source
+
+
+def test_retired_collection_tables_have_no_runtime_service_methods_or_sql():
+    removed_config_methods = {
+        "list_data_sources",
+        "create_data_source",
+        "get_data_source",
+        "patch_data_source",
+        "patch_data_source_config",
+        "list_data_source_credentials",
+        "create_data_source_credential",
+        "patch_data_source_credential",
+        "delete_data_source_credential",
+        "_load_credential_row",
+        "_serialize_data_source",
+        "_serialize_credential",
+        "_mask_secret",
+    }
+    removed_collection_methods = {
+        "list_clean_companies",
+        "list_v3_clean_companies",
+        "get_cleanup_health",
+        "_dedupe_tenants",
+        "list_peer_companies",
+        "get_peer_company_detail",
+        "list_peer_company_contacts",
+        "_peer_filter_parts",
+        "_format_peer_row",
+    }
+    retired_tables = {
+        "data_source_credentials",
+        "data_sources",
+        "peer_company_contacts",
+        "peer_company_sources",
+        "peer_company_keywords",
+        "peer_companies",
+        "clean_company_keywords",
+        "clean_company_sources",
+        "clean_contacts",
+        "clean_companies",
+        "tenant_keyword",
+    }
+
+    assert removed_config_methods.isdisjoint(dir(AdminConfigService))
+    assert removed_collection_methods.isdisjoint(dir(AdminCollectionService))
+
+    runtime_source = "\n".join(
+        (
+            inspect.getsource(AdminConfigService),
+            inspect.getsource(AdminCollectionService),
+        )
+    )
+    for table in retired_tables:
+        assert re.search(rf"\b{re.escape(table)}\b", runtime_source) is None

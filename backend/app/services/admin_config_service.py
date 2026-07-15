@@ -6,7 +6,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.config import get_settings
-from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.errors import AppError
 from app.core.ids import new_uuid
 from app.security.passwords import hash_password
@@ -22,305 +21,14 @@ class AdminConfigService:
     def __init__(self) -> None:
         self.audit = AuditService()
 
-    async def list_data_sources(self, conn: AsyncConnection) -> list[dict]:
-        result = await conn.execute(
-            text(
-                """
-                SELECT ds.id, ds.source_type, ds.name, ds.alias_code, ds.purpose, ds.is_active, ds.config,
-                       ds.landing_rules,
-                       count(dsc.id) FILTER (WHERE dsc.is_active) AS active_credentials_count
-                FROM data_sources ds
-                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type AND dsc.instance_id = ds.instance_id
-                WHERE ds.instance_id = :instance_id
-                GROUP BY ds.id
-                ORDER BY ds.source_type
-                """
-            ),
-            {"instance_id": get_settings().instance_id},
-        )
-        return [self._serialize_data_source(row) for row in result.mappings().all()]
 
-    async def create_data_source(
-        self,
-        conn: AsyncConnection,
-        *,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        source_id = str(new_uuid())
-        await conn.execute(
-            text(
-                """
-                INSERT INTO data_sources
-                  (id, source_type, name, alias_code, purpose, is_active, config, landing_rules, instance_id)
-                VALUES
-                  (:id, :source_type, :name, :alias_code, :purpose, :is_active,
-                   CAST(:config AS jsonb), CAST(:landing_rules AS jsonb), :instance_id)
-                """
-            ),
-            {
-                "id": source_id,
-                "source_type": payload["source_type"],
-                "name": payload["name"],
-                "alias_code": payload.get("alias_code", payload["source_type"]),
-                "purpose": payload.get("purpose"),
-                "is_active": payload.get("is_active", True),
-                "config": self._to_json(payload.get("config", {})),
-                "landing_rules": self._to_json(payload.get("landing_rules", {})),
-                "instance_id": get_settings().instance_id,
-            },
-        )
-        row = await self.get_data_source(conn, payload["source_type"])
-        await self.audit.write(
-            conn,
-            action="create",
-            entity_type="data_source",
-            entity_id=source_id,
-            platform_user_id=platform_user_id,
-            new_value=row,
-        )
-        return row
 
-    async def get_data_source(self, conn: AsyncConnection, source_type: str) -> dict:
-        result = await conn.execute(
-            text(
-                """
-                SELECT ds.id, ds.source_type, ds.name, ds.alias_code, ds.purpose, ds.is_active, ds.config,
-                       ds.landing_rules,
-                       count(dsc.id) FILTER (WHERE dsc.is_active) AS active_credentials_count
-                FROM data_sources ds
-                LEFT JOIN data_source_credentials dsc ON dsc.source_type = ds.source_type AND dsc.instance_id = ds.instance_id
-                WHERE ds.source_type = :source_type AND ds.instance_id = :instance_id
-                GROUP BY ds.id
-                """
-            ),
-            {"source_type": source_type, "instance_id": get_settings().instance_id},
-        )
-        row = result.mappings().first()
-        if row is None:
-            raise AppError(code="NOT_FOUND", message="数据源不存在", status_code=404)
-        return self._serialize_data_source(row)
 
-    async def patch_data_source(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_type: str,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        before = await self.get_data_source(conn, source_type)
-        await conn.execute(
-            text(
-                """
-                UPDATE data_sources
-                SET name = COALESCE(:name, name),
-                    alias_code = COALESCE(:alias_code, alias_code),
-                    purpose = COALESCE(:purpose, purpose),
-                    is_active = COALESCE(:is_active, is_active),
-                    updated_at = now()
-                WHERE source_type = :source_type AND instance_id = :instance_id
-                """
-            ),
-            {
-                "source_type": source_type,
-                "name": payload.get("name"),
-                "alias_code": payload.get("alias_code"),
-                "purpose": payload.get("purpose"),
-                "is_active": payload.get("is_active"),
-                "instance_id": get_settings().instance_id,
-            },
-        )
-        after = await self.get_data_source(conn, source_type)
-        await self.audit.write(
-            conn,
-            action="update",
-            entity_type="data_source",
-            entity_id=after["id"],
-            platform_user_id=platform_user_id,
-            old_value=before,
-            new_value=after,
-        )
-        return after
 
-    async def patch_data_source_config(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_type: str,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        row = await self.get_data_source(conn, source_type)
-        next_config = payload.get("config", row["config"])
-        next_landing_rules = payload.get("landing_rules", row["landing_rules"])
-        await conn.execute(
-            text(
-                """
-                UPDATE data_sources
-                SET config = CAST(:config AS jsonb),
-                    landing_rules = CAST(:landing_rules AS jsonb),
-                    updated_at = now()
-                WHERE source_type = :source_type AND instance_id = :instance_id
-                """
-            ),
-            {
-                "source_type": source_type,
-                "config": self._to_json(next_config),
-                "landing_rules": self._to_json(next_landing_rules),
-                "instance_id": get_settings().instance_id,
-            },
-        )
-        after = await self.get_data_source(conn, source_type)
-        await self.audit.write(
-            conn,
-            action="update",
-            entity_type="data_source_config",
-            entity_id=after["id"],
-            platform_user_id=platform_user_id,
-            old_value=row,
-            new_value=after,
-        )
-        return after
 
-    async def list_data_source_credentials(self, conn: AsyncConnection, source_type: str) -> list[dict]:
-        result = await conn.execute(
-            text(
-                """
-                SELECT id, source_type, account_no, username, credentials_encrypted, encryption_key_version,
-                       rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active,
-                       last_used_at, last_error_at, last_error_message, consecutive_error_count, created_at
-                FROM data_source_credentials
-                WHERE source_type = :source_type AND instance_id = :instance_id
-                ORDER BY rotation_order ASC, created_at ASC
-                """
-            ),
-            {"source_type": source_type, "instance_id": get_settings().instance_id},
-        )
-        return [self._serialize_credential(row) for row in result.mappings().all()]
 
-    async def create_data_source_credential(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_type: str,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        credential_id = str(new_uuid())
-        await conn.execute(
-            text(
-                """
-                INSERT INTO data_source_credentials
-                  (id, source_type, account_no, username, credentials_encrypted, encryption_key_version,
-                   rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active, instance_id)
-                VALUES
-                  (:id, :source_type, :account_no, :username, :credentials_encrypted, 1,
-                   :rotation_order, :daily_quota, 0, CURRENT_DATE, :is_active, :instance_id)
-                """
-            ),
-            {
-                "id": credential_id,
-                "source_type": source_type,
-                "account_no": payload["account_no"],
-                "username": payload["username"],
-                "credentials_encrypted": encrypt_secret(
-                    json.dumps(payload["raw_config"], ensure_ascii=False)
-                    if payload.get("raw_config")
-                    else payload.get("secret", "")
-                ),
-                "rotation_order": payload.get("rotation_order", 0),
-                "daily_quota": payload.get("daily_quota"),
-                "is_active": payload.get("is_active", True),
-                "instance_id": get_settings().instance_id,
-            },
-        )
-        rows = await self.list_data_source_credentials(conn, source_type)
-        created = next(item for item in rows if item["id"] == credential_id)
-        await self.audit.write(
-            conn,
-            action="create",
-            entity_type="data_source_credential",
-            entity_id=credential_id,
-            platform_user_id=platform_user_id,
-            new_value=created,
-        )
-        return created
 
-    async def patch_data_source_credential(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_type: str,
-        credential_id: str,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        before = await self._load_credential_row(conn, source_type, credential_id)
-        encrypted_value = before["credentials_encrypted"]
-        if payload.get("raw_config"):
-            encrypted_value = encrypt_secret(json.dumps(payload["raw_config"], ensure_ascii=False))
-        elif payload.get("secret"):
-            encrypted_value = encrypt_secret(payload["secret"])
-        await conn.execute(
-            text(
-                """
-                UPDATE data_source_credentials
-                SET account_no = COALESCE(:account_no, account_no),
-                    username = COALESCE(:username, username),
-                    credentials_encrypted = :credentials_encrypted,
-                    rotation_order = COALESCE(:rotation_order, rotation_order),
-                    daily_quota = COALESCE(:daily_quota, daily_quota),
-                    is_active = COALESCE(:is_active, is_active),
-                    updated_at = now()
-                WHERE id = :credential_id AND source_type = :source_type AND instance_id = :instance_id
-                """
-            ),
-            {
-                "credential_id": credential_id,
-                "source_type": source_type,
-                "account_no": payload.get("account_no"),
-                "username": payload.get("username"),
-                "credentials_encrypted": encrypted_value,
-                "rotation_order": payload.get("rotation_order"),
-                "daily_quota": payload.get("daily_quota"),
-                "is_active": payload.get("is_active"),
-                "instance_id": get_settings().instance_id,
-            },
-        )
-        after = self._serialize_credential(await self._load_credential_row(conn, source_type, credential_id))
-        await self.audit.write(
-            conn,
-            action="update",
-            entity_type="data_source_credential",
-            entity_id=credential_id,
-            platform_user_id=platform_user_id,
-            old_value=self._serialize_credential(before),
-            new_value=after,
-        )
-        return after
 
-    async def delete_data_source_credential(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_type: str,
-        credential_id: str,
-        platform_user_id: str,
-    ) -> None:
-        before = await self._load_credential_row(conn, source_type, credential_id)
-        await conn.execute(
-            text("DELETE FROM data_source_credentials WHERE id = :credential_id AND source_type = :source_type AND instance_id = :instance_id"),
-            {"credential_id": credential_id, "source_type": source_type, "instance_id": get_settings().instance_id},
-        )
-        await self.audit.write(
-            conn,
-            action="delete",
-            entity_type="data_source_credential",
-            entity_id=credential_id,
-            platform_user_id=platform_user_id,
-            old_value=self._serialize_credential(before),
-        )
 
     async def list_platform_scoring_templates(
         self,
@@ -1784,23 +1492,6 @@ class AdminConfigService:
             raise AppError(code="NOT_FOUND", message="租户用户不存在", status_code=404)
         return item
 
-    async def _load_credential_row(self, conn: AsyncConnection, source_type: str, credential_id: str):
-        result = await conn.execute(
-            text(
-                """
-                SELECT id, source_type, account_no, username, credentials_encrypted, encryption_key_version,
-                       rotation_order, daily_quota, current_day_used, current_day_reset_at, is_active,
-                       last_used_at, last_error_at, last_error_message, consecutive_error_count, created_at
-                FROM data_source_credentials
-                WHERE source_type = :source_type AND id = :credential_id AND instance_id = :instance_id
-                """
-            ),
-            {"source_type": source_type, "credential_id": credential_id, "instance_id": get_settings().instance_id},
-        )
-        row = result.mappings().first()
-        if row is None:
-            raise AppError(code="NOT_FOUND", message="数据源凭证不存在", status_code=404)
-        return row
 
     async def _list_warmup_rule_levels(self, conn: AsyncConnection, rule_id: str) -> list[dict]:
         result = await conn.execute(
@@ -1831,47 +1522,7 @@ class AdminConfigService:
         if invalid:
             raise AppError(code="VALIDATION_ERROR", message="租户角色仅允许 admin/operator/viewer", status_code=422)
 
-    def _serialize_data_source(self, row) -> dict:
-        return {
-            "id": str(row["id"]),
-            "source_type": row["source_type"],
-            "name": row["name"],
-            "alias_code": row["alias_code"],
-            "purpose": row["purpose"],
-            "is_active": row["is_active"],
-            "config": row["config"],
-            "landing_rules": row["landing_rules"],
-            "active_credentials_count": row["active_credentials_count"],
-        }
 
-    def _serialize_credential(self, row) -> dict:
-        decrypted = decrypt_secret(row["credentials_encrypted"])
-        raw_config: dict | None = None
-        secret_masked = ""
-        try:
-            parsed = json.loads(decrypted)
-            if isinstance(parsed, dict):
-                raw_config = parsed
-        except (json.JSONDecodeError, TypeError):
-            secret_masked = self._mask_secret(decrypted)
-        return {
-            "id": str(row["id"]),
-            "source_type": row["source_type"],
-            "account_no": row["account_no"],
-            "username": row["username"],
-            "secret_masked": secret_masked,
-            "raw_config": raw_config,
-            "rotation_order": row["rotation_order"],
-            "daily_quota": row["daily_quota"],
-            "current_day_used": row["current_day_used"],
-            "current_day_reset_at": row["current_day_reset_at"].isoformat() if row["current_day_reset_at"] else None,
-            "is_active": row["is_active"],
-            "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
-            "last_error_at": row["last_error_at"].isoformat() if row["last_error_at"] else None,
-            "last_error_message": row["last_error_message"],
-            "consecutive_error_count": row["consecutive_error_count"],
-            "created_at": row["created_at"].isoformat(),
-        }
 
     def _serialize_scoring_template(self, row) -> dict:
         return {
@@ -1959,10 +1610,6 @@ class AdminConfigService:
             "updated_at": row["updated_at"].isoformat(),
         }
 
-    def _mask_secret(self, value: str) -> str:
-        if len(value) <= 8:
-            return "*" * len(value)
-        return f"{value[:2]}***{value[-2:]}"
 
     def _to_json(self, value) -> str:
         return json.dumps(value, ensure_ascii=False)
