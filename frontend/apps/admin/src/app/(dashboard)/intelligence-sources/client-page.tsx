@@ -3,7 +3,7 @@
 import type { IntelligenceSource } from '@shared/api';
 import type { ImportResult } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
-import { FileJson, Plus } from 'lucide-react';
+import { FileJson } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Button,
+  CreateButton,
   DataTable,
   type DataTableColumn,
   Input,
@@ -293,10 +294,9 @@ export function IntelligenceSourcesPage() {
             <FileJson className="h-4 w-4" />
             批量导入
           </Button>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" />
+          <CreateButton onClick={openCreate}>
             新增情报源
-          </Button>
+          </CreateButton>
         </div>
       )}
     >

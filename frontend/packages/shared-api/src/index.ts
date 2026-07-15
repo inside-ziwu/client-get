@@ -26,7 +26,7 @@ export type { Company, CompanyContact, CompanyListFilters } from './tenant/compa
 export type { Prospect } from './tenant/prospects';
 export type { Group } from './tenant/groups';
 export type { TenantDomainInfo } from './tenant/domains';
-export type { EmailTemplate } from './tenant/email-templates';
+export type { EmailTemplate, PlatformTemplateListItem } from './tenant/email-templates';
 export type {
   SendingPlan,
   SendingPlanStep,

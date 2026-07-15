@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger,
-  Button, DataTable, type DataTableColumn, Dialog, DialogContent,
+  Button, CreateButton, DataTable, type DataTableColumn, Dialog, DialogContent,
   DialogDescription, DialogTitle, ListPage, Pagination, RatingTag,
   Sheet, SheetContent, SheetDescription, SheetTitle,
 } from '@shared/ui';
@@ -155,12 +155,9 @@ export default function CompaniesPage() {
       title="公司列表"
       description="筛选、查看和处理租户公司数据"
       primaryAction={(
-        <Button
-          className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground"
-          onClick={() => setAddSheetOpen(true)}
-        >
+        <CreateButton onClick={() => setAddSheetOpen(true)}>
           新增公司
-        </Button>
+        </CreateButton>
       )}
       filters={(
         <div className="flex flex-col gap-ui-sm">

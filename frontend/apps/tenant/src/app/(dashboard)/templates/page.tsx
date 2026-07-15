@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Edit2, Eye, Loader2, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { type FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -13,12 +13,15 @@ import {
   AlertDialogTitle,
   Badge,
   Button,
+  CreateButton,
+  DataTable,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
   Input,
   Label,
+  ListPage,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -28,11 +31,12 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  type DataTableColumn,
 } from '@shared/ui';
 import { EmailRichEditor, type EmailRichEditorHandle } from '@shared/ui';
-import type { EmailTemplate, PlatformTemplateListItem } from '@shared/api/src/tenant/email-templates';
+import type { EmailTemplate, PlatformTemplateListItem } from '@shared/api';
 import { tenantApi } from '@/lib/api';
-import { DataTable, PageHeader } from '@/components/pages/page-kit';
+import { formatDateTime } from '@/lib/format';
 
 const VARIABLES = [
   { name: 'company_name', label: '公司名称' },
@@ -277,25 +281,155 @@ export default function TemplatesPage() {
     editorRef.current?.insertVariable(`{{${name}}}`);
   };
 
-  return (
-    <div className="tenant-page">
-      <PageHeader
-        title="邮件模板"
-        description="浏览平台模板库或管理自有邮件模板"
-        action={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setAiOpen(true)}>
-              <Sparkles className="mr-1 h-4 w-4" />
-              AI 生成
-            </Button>
-            <Button onClick={openCreate}>
-              <Plus className="mr-1 h-4 w-4" />
-              新建模板
-            </Button>
-          </div>
-        }
-      />
+  const platformColumns: DataTableColumn<PlatformTemplateListItem>[] = [
+    {
+      id: 'name',
+      header: '名称',
+      width: 'medium',
+      type: 'text',
+      value: 'name',
+      render: (row) => <span className="text-ui-body-strong">{row.name}</span>,
+    },
+    { id: 'subject', header: '主题', width: 'large', type: 'text', value: 'subject' },
+    {
+      id: 'updated',
+      header: '更新时间',
+      width: 'medium',
+      align: 'center',
+      type: 'date',
+      value: 'updated_at',
+      format: (value) => formatDateTime(value as string | undefined, 'YYYY-MM-DD'),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      width: 'medium',
+      align: 'center',
+      type: 'actions',
+      render: (row) => (
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            onClick={() => void openPlatformPreview(row.id)}
+          >
+            预览
+          </Button>
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            disabled={copyMutation.isPending && copyMutation.variables === row.id}
+            onClick={() => copyMutation.mutate(row.id)}
+          >
+            复制
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
+  const templateColumns: DataTableColumn<EmailTemplate>[] = [
+    {
+      id: 'name',
+      header: '名称',
+      width: 'medium',
+      type: 'text',
+      value: 'name',
+      render: (row) => <span className="text-ui-body-strong">{row.name}</span>,
+    },
+    { id: 'subject', header: '主题', width: 'large', type: 'text', value: 'subject' },
+    {
+      id: 'source',
+      header: '来源',
+      width: 'small',
+      align: 'center',
+      type: 'text',
+      value: 'source_type',
+      render: (row) => row.source_type === 'platform_copy'
+        ? <Badge variant="secondary">平台</Badge>
+        : <Badge variant="outline">自建</Badge>,
+    },
+    {
+      id: 'updated',
+      header: '更新时间',
+      width: 'medium',
+      align: 'center',
+      type: 'date',
+      value: 'updated_at',
+      format: (value) => formatDateTime(value as string | undefined, 'YYYY-MM-DD'),
+    },
+    {
+      id: 'actions',
+      header: '操作',
+      width: 'large',
+      align: 'center',
+      type: 'actions',
+      render: (row) => (
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button variant="link" className="h-8 px-ui-xxs text-ui-foreground" onClick={() => void openPreview(row.id)}>预览</Button>
+          <Button variant="link" className="h-8 px-ui-xxs text-ui-foreground" onClick={() => void openEdit(row)}>编辑</Button>
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            disabled={cloneMutation.isPending && cloneMutation.variables === row.id}
+            onClick={() => cloneMutation.mutate(row.id)}
+          >
+            克隆
+          </Button>
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground"
+            disabled={testSendMutation.isPending && testSendMutation.variables === row.id}
+            onClick={() => testSendMutation.mutate(row.id)}
+          >
+            发送测试
+          </Button>
+          <Button
+            variant="link"
+            className="h-8 px-ui-xxs text-ui-foreground hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
+            onClick={() => setDeleteTarget(row)}
+          >
+            删除
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const platformTemplates = platformQuery.data ?? [];
+  const templates = templatesQuery.data ?? [];
+  const platformState = platformQuery.isLoading
+    ? { kind: 'loading' as const }
+    : platformQuery.isError
+      ? { kind: 'error' as const, description: '请检查网络后重试', onRetry: () => void platformQuery.refetch() }
+      : platformTemplates.length === 0
+        ? { kind: 'empty' as const }
+        : undefined;
+  const templatesState = templatesQuery.isLoading
+    ? { kind: 'loading' as const }
+    : templatesQuery.isError
+      ? { kind: 'error' as const, description: '请检查网络后重试', onRetry: () => void templatesQuery.refetch() }
+      : templates.length === 0
+        ? { kind: 'empty' as const }
+        : undefined;
+
+  return (
+    <ListPage
+      className="tenant-page"
+      title="邮件模板"
+      description="浏览平台模板库或管理自有邮件模板"
+      primaryAction={(
+        <div className="flex gap-ui-sm">
+          <Button variant="outline" onClick={() => setAiOpen(true)}>
+            <Sparkles className="mr-1 h-4 w-4" />
+            AI 生成
+          </Button>
+          <CreateButton onClick={openCreate}>
+            新建模板
+          </CreateButton>
+        </div>
+      )}
+    >
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="platform">平台模板库</TabsTrigger>
@@ -303,104 +437,24 @@ export default function TemplatesPage() {
         </TabsList>
 
         <TabsContent value="platform" className="mt-4">
-          <DataTable<PlatformTemplateListItem>
-            rows={platformQuery.data}
-            emptyText="暂无平台模板"
-            columns={[
-              { key: 'name', title: '名称', render: (row) => <span className="font-medium">{row.name}</span> },
-              { key: 'subject', title: '主题', render: (row) => <span className="max-w-[260px] truncate">{row.subject}</span> },
-              {
-                key: 'updated',
-                title: '更新时间',
-                render: (row) => <span className="text-muted-foreground">{row.updated_at?.slice(0, 10) ?? '-'}</span>,
-              },
-              {
-                key: 'actions',
-                title: '操作',
-                render: (row) => (
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" aria-label="预览" onClick={() => void openPlatformPreview(row.id)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="复制到我的模板"
-                      disabled={copyMutation.isPending}
-                      onClick={() => copyMutation.mutate(row.id)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
+          <DataTable
+            columns={platformColumns}
+            data={platformTemplates}
+            entityName="平台模板"
+            getRowId={(row) => row.id}
+            isRefreshing={platformQuery.isFetching && !platformQuery.isLoading}
+            state={platformState}
           />
         </TabsContent>
 
         <TabsContent value="my-templates" className="mt-4">
-          <DataTable<EmailTemplate>
-            rows={templatesQuery.data}
-            emptyText="暂无模板，从平台模板库复制或新建一个"
-            columns={[
-              { key: 'name', title: '名称', render: (row) => <span className="font-medium">{row.name}</span> },
-              { key: 'subject', title: '主题', render: (row) => <span className="max-w-[260px] truncate">{row.subject}</span> },
-              {
-                key: 'source',
-                title: '来源',
-                render: (row) =>
-                  row.source_type === 'platform_copy' ? (
-                    <Badge variant="secondary">平台</Badge>
-                  ) : (
-                    <Badge variant="outline">自建</Badge>
-                  ),
-              },
-              {
-                key: 'updated',
-                title: '更新时间',
-                render: (row) => <span className="text-muted-foreground">{row.updated_at?.slice(0, 10) ?? '-'}</span>,
-              },
-              {
-                key: 'actions',
-                title: '操作',
-                render: (row) => (
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" aria-label="预览" onClick={() => void openPreview(row.id)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" aria-label="编辑" onClick={() => void openEdit(row)}>
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="克隆"
-                      disabled={cloneMutation.isPending}
-                      onClick={() => cloneMutation.mutate(row.id)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <div className="w-px h-4 bg-border" />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="发送测试"
-                      disabled={testSendMutation.isPending}
-                      onClick={() => testSendMutation.mutate(row.id)}
-                    >
-                      {testSendMutation.isPending && testSendMutation.variables === row.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <Button variant="ghost" size="icon" aria-label="删除" onClick={() => setDeleteTarget(row)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
+          <DataTable
+            columns={templateColumns}
+            data={templates}
+            entityName="我的模板"
+            getRowId={(row) => row.id}
+            isRefreshing={templatesQuery.isFetching && !templatesQuery.isLoading}
+            state={templatesState}
           />
         </TabsContent>
       </Tabs>
@@ -521,16 +575,30 @@ export default function TemplatesPage() {
       </Dialog>
 
       {/* 删除确认 */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogTitle>确认删除模板？</AlertDialogTitle>
           <AlertDialogDescription>删除后无法恢复，确认要删除「{deleteTarget?.name}」吗？</AlertDialogDescription>
           <div className="flex justify-end gap-2">
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>删除</AlertDialogAction>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+              }}
+            >
+              {deleteMutation.isPending ? '删除中…' : '删除'}
+            </AlertDialogAction>
           </div>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ListPage>
   );
 }
