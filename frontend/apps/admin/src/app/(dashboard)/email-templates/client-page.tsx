@@ -2,7 +2,7 @@
 
 import type { PlatformEmailTemplate } from '@shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, Plus } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { FormEvent, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -15,7 +15,7 @@ import {
   AlertDialogTrigger,
 } from '@shared/ui';
 import { Badge } from '@shared/ui';
-import { Button } from '@shared/ui';
+import { Button, CreateButton } from '@shared/ui';
 import { DataTable, type DataTableColumn, ListPage } from '@shared/ui';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@shared/ui';
 import { Input } from '@shared/ui';
@@ -188,13 +188,9 @@ export function EmailTemplatesPage() {
       title="邮件模板管理"
       description="模板 CRUD、变量选择、富文本编辑和预览。"
       primaryAction={(
-        <Button
-          className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground"
-          onClick={openCreate}
-        >
-          <Plus className="h-4 w-4" />
+        <CreateButton onClick={openCreate}>
           新增模板
-        </Button>
+        </CreateButton>
       )}
     >
       <DataTable

@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Button,
+  CreateButton,
   DataTable,
   type DataTableColumn,
   Dialog,
@@ -442,10 +443,9 @@ export function ScoringTemplatesPage() {
       title="评分模板"
       description="评分模板 CRUD、DimensionEditor、等级阈值和预览。"
       primaryAction={(
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
+        <CreateButton onClick={openCreate}>
           新增模板
-        </Button>
+        </CreateButton>
       )}
       filters={(
         <FilterBar
