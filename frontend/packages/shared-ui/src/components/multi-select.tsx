@@ -3,7 +3,7 @@
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Command } from 'cmdk';
 import { Check, ChevronsUpDown, LoaderCircle, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { cn } from '../lib/utils';
 import { Badge } from './badge';
 import { Button } from './button';
@@ -40,6 +40,8 @@ export function MultiSelect({
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [optionOrder, setOptionOrder] = useState<readonly string[]>([]);
+  const [pinnedOptionCount, setPinnedOptionCount] = useState(0);
   const selected = new Set(value);
   const normalizedOptions = useMemo(() => {
     const map = new Map(options.map((item) => [item.value, item]));
@@ -48,9 +50,21 @@ export function MultiSelect({
     }
     return Array.from(map.values());
   }, [options, value]);
-  const visibleOptions = normalizedOptions.filter((item) =>
+  const orderedOptions = useMemo(() => {
+    const optionMap = new Map(normalizedOptions.map((item) => [item.value, item]));
+    const ordered = optionOrder.flatMap((item) => {
+      const option = optionMap.get(item);
+      if (!option) return [];
+      optionMap.delete(item);
+      return option;
+    });
+    return [...ordered, ...optionMap.values()];
+  }, [normalizedOptions, optionOrder]);
+  const visibleOptions = orderedOptions.filter((item) =>
     `${item.label} ${item.value}`.toLowerCase().includes(query.toLowerCase()),
   );
+  const showSelectedDivider =
+    !query.trim() && pinnedOptionCount > 0 && pinnedOptionCount < visibleOptions.length;
   const canCreate =
     optionState === 'ready' && allowCreate && query.trim() && !selected.has(query.trim());
   const triggerPlaceholder =
@@ -74,7 +88,18 @@ export function MultiSelect({
     <PopoverPrimitive.Root
       open={disabled ? false : open}
       onOpenChange={(nextOpen) => {
-        if (!disabled) setOpen(nextOpen);
+        if (disabled) return;
+        if (nextOpen) {
+          const pinnedValues = Array.from(selected);
+          setOptionOrder([
+            ...pinnedValues,
+            ...normalizedOptions
+              .filter((item) => !selected.has(item.value))
+              .map((item) => item.value),
+          ]);
+          setPinnedOptionCount(pinnedValues.length);
+        }
+        setOpen(nextOpen);
       }}
     >
       <PopoverPrimitive.Trigger asChild>
@@ -170,18 +195,22 @@ export function MultiSelect({
                 </div>
               ) : (
                 <>
-                  {visibleOptions.map((item) => (
-                    <Command.Item
-                      key={item.value}
-                      value={item.value}
-                      onSelect={() => toggle(item.value)}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
-                    >
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-input">
-                        {selected.has(item.value) ? <Check className="h-3 w-3" /> : null}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                    </Command.Item>
+                  {visibleOptions.map((item, index) => (
+                    <Fragment key={item.value}>
+                      {showSelectedDivider && index === pinnedOptionCount ? (
+                        <div role="separator" className="my-1 border-t" />
+                      ) : null}
+                      <Command.Item
+                        value={item.value}
+                        onSelect={() => toggle(item.value)}
+                        className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-muted"
+                      >
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-input">
+                          {selected.has(item.value) ? <Check className="h-3 w-3" /> : null}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      </Command.Item>
+                    </Fragment>
                   ))}
                   {canCreate ? (
                     <Command.Item

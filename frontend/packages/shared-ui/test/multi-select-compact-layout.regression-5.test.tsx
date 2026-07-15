@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { FilterBar, type FilterField } from '../src/components/filter-bar';
 import { MultiSelect } from '../src/components/multi-select';
@@ -18,6 +19,13 @@ beforeAll(() => {
 const options = [
   { value: 'long', label: '100%リサイクル高機能伸銅品' },
   { value: 'short', label: '1553接口卡' },
+] as const;
+
+const orderedOptions = [
+  { value: 'first', label: '第一项' },
+  { value: 'second', label: '第二项' },
+  { value: 'third', label: '第三项' },
+  { value: 'fourth', label: '第四项' },
 ] as const;
 
 type Draft = { tags: readonly string[] };
@@ -40,6 +48,20 @@ function FilterBarWithTags({ tags }: Draft) {
       onChange={vi.fn()}
       onSubmit={vi.fn()}
       onReset={vi.fn()}
+    />
+  );
+}
+
+function StatefulOrderedMultiSelect() {
+  const [value, setValue] = useState<string[]>(['third']);
+
+  return (
+    <MultiSelect
+      value={value}
+      options={orderedOptions}
+      onChange={setValue}
+      displayMode="summary"
+      placeholder="选择标签"
     />
   );
 }
@@ -84,5 +106,59 @@ describe('MultiSelect 紧凑筛选布局', () => {
     const trigger = within(group).getAllByRole('button')[0];
     expect(trigger).toHaveTextContent('已选 2 项');
     expect(trigger).toHaveClass('h-10', 'overflow-hidden');
+  });
+
+  // Regression: 大量产品标签中很难找到并取消已选项
+  // Found by user acceptance on 2026-07-15
+  it('打开弹层时将已选项置顶，未选项保持原顺序', () => {
+    render(
+      <MultiSelect
+        value={['third', 'first']}
+        options={orderedOptions}
+        onChange={vi.fn()}
+        displayMode="summary"
+        placeholder="选择标签"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '已选 2 项' }));
+
+    const items = screen.getAllByRole('option');
+    expect(items.map((item) => item.textContent)).toEqual([
+      '第三项',
+      '第一项',
+      '第二项',
+      '第四项',
+    ]);
+    expect(items[1]?.nextElementSibling).toHaveAttribute('role', 'separator');
+  });
+
+  it('弹层打开期间冻结顺序，再次打开后按最新选择重排', () => {
+    render(<StatefulOrderedMultiSelect />);
+
+    fireEvent.click(screen.getByRole('button', { name: '第三项' }));
+    expect(screen.getAllByRole('option').map((item) => item.textContent)).toEqual([
+      '第三项',
+      '第一项',
+      '第二项',
+      '第四项',
+    ]);
+
+    fireEvent.click(screen.getByRole('option', { name: '第二项' }));
+    expect(screen.getAllByRole('option').map((item) => item.textContent)).toEqual([
+      '第三项',
+      '第一项',
+      '第二项',
+      '第四项',
+    ]);
+
+    fireEvent.click(screen.getByRole('button', { name: '已选 2 项' }));
+    fireEvent.click(screen.getByRole('button', { name: '已选 2 项' }));
+    expect(screen.getAllByRole('option').map((item) => item.textContent)).toEqual([
+      '第三项',
+      '第二项',
+      '第一项',
+      '第四项',
+    ]);
   });
 });
