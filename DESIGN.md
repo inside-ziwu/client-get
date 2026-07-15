@@ -2,7 +2,7 @@
 version: alpha
 name: ClientGet Product UI
 description: 面向 Admin 与 Tenant 双端后台的列表页设计系统；以克制、清晰、可扫描为核心。
-status: proposed
+status: adopting
 colors:
   primary: "#111111"
   primary-active: "#242424"
@@ -169,14 +169,18 @@ components:
   table-divider-soft:
     backgroundColor: "{colors.border-soft}"
     height: 1px
-  table-column-sm:
-    width: 96px
-  table-column-md:
-    width: 144px
-  table-column-lg:
+  control-width-small:
+    width: 160px
+  control-width-medium:
     width: 224px
-  table-column-xl:
+  control-width-large:
     width: 320px
+  table-column-small:
+    width: 96px
+  table-column-medium:
+    width: 144px
+  table-column-large:
+    width: 224px
   table-state:
     backgroundColor: "{colors.background}"
     textColor: "{colors.muted-foreground}"
@@ -234,7 +238,7 @@ components:
 
 ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面首先服务于快速扫描、准确判断和低风险操作；视觉上采用白色画布、近黑主操作、浅灰分层和少量语义色，避免用装饰性颜色争夺注意力。
 
-本文件是 T-23 的**目标设计与组件契约**，当前状态为 `proposed`。YAML token 是目标值，不代表 `shared-ui` 已完成迁移；实施时必须按 Phase A → B → C 顺序落地并回归，不能只改全局颜色后宣称完成。
+本文件是 T-23 的**目标设计与组件契约**，当前状态为 `adopting`：Phase A 基建与 Phase B 双页打样已经完成，五件套公开 API 已冻结；新建或迁移的列表页必须遵守本文件，存量页面仍按 Phase C 分批迁移。YAML token 是目标值，不代表全量页面已经完成迁移，不能只改全局颜色后宣称完成。
 
 设计语言参考 [Cal.com DESIGN.md](https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/cal/DESIGN.md) 的克制单色操作层、白画布与柔和圆角，但不照搬其营销页字体和大留白。文件结构遵循 [Google Labs DESIGN.md](https://github.com/google-labs-code/design.md) 规范。
 
@@ -301,7 +305,7 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 ```text
 桌面
 ┌─ 标题 + 描述 ─────────────────────────── 主操作 ┐
-├─ FilterBar：常用条件 / 更多条件 / 查询 / 重置 ─┤
+├─ FilterBar：查询 / 重置；高频页可启用紧凑常驻 ┤
 ├─ 批量操作栏（有选择时出现，不引起横向跳动） ──┤
 ├─ DataTable：sticky header + horizontal scroll ─┤
 └─ Pagination：总数/页大小          跳页/前后页 ─┘
@@ -309,7 +313,7 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 移动端
 ┌─ 标题与描述 ────────────────────────────────┐
 ├─ 主操作（必要时占满一行）───────────────────┤
-├─ FilterBar：一列，更多条件默认收起 ─────────┤
+├─ FilterBar：一列；是否折叠由业务频率显式决定 ┤
 ├─ 批量操作栏，允许换行 ──────────────────────┤
 ├─ DataTable：保留表格语义，横向滚动 ─────────┤
 └─ Pagination：上下两行，不横向挤压 ──────────┘
@@ -320,8 +324,8 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 | 范围         | 规则                                               |
 | ------------ | -------------------------------------------------- |
 | `< 640px`    | 单列筛选；头部操作换行；分页上下堆叠；表格横向滚动 |
-| `640–1023px` | 2 列筛选；保留简化后的分页；详情继续用 Sheet       |
-| `>= 1024px`  | 4 列基础筛选；完整分页；更宽的详情与操作区域       |
+| `640–1023px` | 默认 2 列；紧凑模式按语义宽度自动换行；详情用 Sheet |
+| `>= 1024px`  | 默认 4 列；紧凑模式不拉伸控件；完整分页             |
 
 宽表不转换为信息卡瀑布流，因为公司、联系人和发送计划需要跨行比较。移动端允许横向滚动；selection 始终位于第一列，操作列固定在可见区域右侧。
 
@@ -354,6 +358,19 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 
 Pattern 组件统一放在 `frontend/packages/shared-ui/src/components/`，通过 `@shared/ui` 根入口导出。组件不得依赖 React Query、路由、具体 API 类型或业务状态枚举；页面负责取数和 mutation，Pattern 只负责展示、受控交互和布局。
 
+### 公开 API 冻结（2026-07-15）
+
+Phase B 四轮人工 Gate 已通过，五件套在组件提交 `38becd5` 的公开契约正式冻结：
+
+- ListPage：`ListPage`、`ListPageProps`
+- FilterBar：`FilterBar`、`FilterBarProps`、`FilterField`、`FilterFieldRenderContext`、`FilterDraftValue`、`FilterDraft`、`KeysMatching`
+- DataTable：`DataTable`、`DataTableProps`、`DataTableColumn`、`DataTableSelection`、`StatusTone`、`ColumnAlignment`
+- TableState：`TableState`、`TableStateProps`、`TableStateSpec`
+- Pagination：`Pagination`、`PaginationProps`、`PaginationValue`
+- 两个组件族共用的宽度契约：`WidthPreset`、`WidthSpec`
+
+冻结后允许不改变默认行为的向后兼容可选项，但禁止在 Phase C 中删除、改名、收窄类型或针对单页复制分叉组件。确需破坏性调整时，必须先更新本节契约、补回归测试并重新进行双打样页 Gate；内部实现可以在契约和行为不变的前提下演进。
+
 ### ListPage
 
 职责：统一标题区、筛选区、批量操作区、内容区和分页区的纵向节奏。不请求数据，不强制 Card，不持有筛选或分页状态。
@@ -384,6 +401,8 @@ interface ListPageProps {
 ```ts
 type FilterDraftValue = string | readonly string[];
 type FilterDraft = Record<string, FilterDraftValue>;
+type WidthPreset = "small" | "medium" | "large";
+type WidthSpec = WidthPreset | { custom: number };
 type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 type KeysMatching<T, V> = {
   [K in keyof T]-?: T[K] extends V ? Extract<K, string> : never;
@@ -399,6 +418,7 @@ interface BaseFilterField {
   label: string;
   placeholder?: string;
   advanced?: boolean;
+  width?: WidthSpec;
 }
 
 type FilterField<T extends FilterDraftShape<T>> =
@@ -417,6 +437,7 @@ type FilterField<T extends FilterDraftShape<T>> =
       kind: "multiSelect";
       options: ReadonlyArray<{ label: string; value: string }>;
       optionState?: "ready" | "loading" | "empty";
+      searchPlaceholder?: string;
     })
   | (BaseFilterField & {
       name: Extract<keyof T, string>;
@@ -432,6 +453,10 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
   onReset: () => void;
   isSubmitting?: boolean;
   appliedCount?: number;
+  layout?: "grid" | "compact";
+  collapseAdvanced?: boolean;
+  optionStateMode?: "disabled" | "inspectable";
+  actionsPlacement?: "footer" | "inline";
 }
 ```
 
@@ -440,22 +465,29 @@ interface FilterBarProps<T extends FilterDraftShape<T>> {
 - 输入只改变 draft；提交后父页面原子地更新 applied filters、`page=1` 并清空跨页 selection。
 - draft 中 text/select/number/date 一律保存 string，multiSelect 保存 string[]；number 在提交时由页面校验并转换，date 使用 `YYYY-MM-DD`。空值统一为 `""` 或 `[]`。
 - Enter 等同“查询”；“重置”同时清空 draft、applied filters、页码和 selection，只触发一次新查询。
-- `advanced=true` 的字段在窄屏默认收起；入口展示已应用条件数量。
-- 每个 select/multiSelect 自己声明 option loading/empty，与列表 loading/empty 分开表达。
-- `custom` 是范围输入等复杂字段的逃生口，不允许借此在页面重建整套 FilterBar。
+- 默认 `advanced=true` 的字段在窄屏收起；入口展示已应用条件数量。高频业务页可显式设置 `collapseAdvanced=false`，全部条件在同一容器常驻，不允许按桌面/移动端暗中改变业务可见性。
+- `layout="compact"` 使用统一宽度契约并自动换行：`small=160px`、`medium=224px`、`large=320px`，字段未声明 `width` 时一律取 `medium`，不再按 text/select/number/custom 类型随机分配默认值。特殊复杂控件可显式使用 `{ custom: number }`，单位固定为 px；`<640px` 统一占满容器，不产生页面级横向滚动。
+- 原始 Input、SelectTrigger 和 MultiSelect 只负责填满字段容器，宽度由 FilterBar 单点拥有；禁止页面传任意 Tailwind 宽度 class 或使用 `!important` 抢占布局。
+- `actionsPlacement="inline"` 仅在全部字段位于同一容器时让“重置 / 查询”参与紧凑换行并跟随最后一个条件；存在独立高级条件区时自动回退到底部操作区。
+- 每个 select/multiSelect 自己声明 option loading/empty，与列表 loading/empty 分开表达。multiSelect 可通过 `searchPlaceholder` 区分触发器占位与弹层搜索对象。
+- `optionStateMode="inspectable"` 时，loading/empty 不禁用 multiSelect 触发器：弹层显示转圈加“正在加载选项…”或“暂无可选项”，ready 数据返回后在已打开弹层原位更新；默认 `disabled` 模式保持向后兼容。
+- `custom` 是范围输入等复杂字段的逃生口，不允许借此在页面重建整套 FilterBar。min/max 等同一业务维度应优先合并为单标签、单边框的范围控件，同时保留两个独立的可访问名称和底层查询字段。
 
 ### DataTable
 
 职责：基于列类型统一对齐、格式、宽度、选择、sticky 行为和状态行。它不做服务端排序、分页、请求和业务 mutation。
 
 ```ts
-type ColumnWidth = "sm" | "md" | "lg" | "xl";
+type WidthPreset = "small" | "medium" | "large";
+type WidthSpec = WidthPreset | { custom: number };
+type ColumnAlignment = "left" | "center" | "right";
 type StatusTone = "neutral" | "success" | "warning" | "info" | "danger";
 
 interface BaseDataTableColumn {
   id: string;
   header: React.ReactNode;
-  width: ColumnWidth;
+  width?: WidthSpec;
+  align?: ColumnAlignment;
 }
 
 type DataTableColumn<T> =
@@ -524,18 +556,23 @@ interface DataTableProps<T> {
 
 列类型默认行为：
 
+DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的物理 token：`small=96px`、`medium=144px`、`large=224px`。未声明 `width` 的列默认取 `medium`；少数特殊列可用 `{ custom: number }`，不接受任意宽度 class。相同语义名表示组件族内的相对密度，不强迫表格列与表单控件使用相同像素值。
+
+表头与单元格始终使用同一对齐方式。默认按列类型决定：text/date 左对齐、number 右对齐、status/boolean 居中、actions 右对齐；业务列可用 `align` 显式覆盖。禁止分别给表头或单元格追加零散 `text-*` class。
+
 | type      | 默认行为                                                           |
 | --------- | ------------------------------------------------------------------ |
 | `text`    | 左对齐、截断、Tooltip、空值 `-`                                    |
 | `number`  | 右对齐、tabular numbers、空值 `-`                                  |
-| `date`    | 不换行；必须由 `format` 或 `render` 明确时区/格式                  |
-| `status`  | 从 `statusMap` 输出带文字的语义 Badge；未知值回退 neutral          |
-| `boolean` | `readOnly` 用 Badge，`interactive` 用 Switch；必须提供可访问 label |
-| `actions` | 右对齐；`render` 必填，是否固定由 DataTable 的 stickyActions 控制  |
+| `date`    | 左对齐、不换行；必须由 `format` 或 `render` 明确时区/格式          |
+| `status`  | 居中；从 `statusMap` 输出带文字的语义 Badge；未知值回退 neutral     |
+| `boolean` | 居中；`readOnly` 用 Badge，`interactive` 用 Switch；必须提供可访问 label |
+| `actions` | 右对齐；`render` 必填，是否固定由 DataTable 的 stickyActions 控制；业务页可显式覆盖为居中 |
 
 补充规则：
 
 - 单元格解析优先级固定为 `render > format > 类型默认格式`。`render` 是 RatingTag、链接和组合操作的必要逃生口，但不能覆盖列宽与对齐纪律。
+- 同一行存在两个及以上常驻操作时，采用 Ant ProTable 式轻量文字按钮，文字与表格正文共用 14px 基线并使用 500 字重，通过 32px 高点击区域和统一间距表达可操作性。行内操作不得传 `Button size="sm"`，避免重新注入 12px `text-xs`；也禁止退回 `h-auto p-0` 的裸文字。低频操作才进入更多菜单；业务要求常驻的破坏操作默认保持中性色，hover/focus 再切换 danger 色，强危险色保留给二次确认按钮。
 - 默认 sticky header 开启；只有嵌套小表或打印视图可以显式关闭。
 - `stickyActions` 默认开启并覆盖所有断点；嵌套小表可显式关闭。固定列使用不透明背景、边界和轻阴影，不能遮住横向滚动内容。
 - selection 的 key 一律取自 DataTable 的 `getRowId`，避免两套身份函数分叉；它只代表当前页，`onTogglePage` 必须排除 `isRowDisabled` 的行。换页、筛选和 pageSize 变化后的清空策略由父页面在回调中执行。
@@ -666,7 +703,7 @@ T-21 合并后必须重新扫描页面数量、手写 `<table>`、分页复制�
 
 ## Auto Plan
 
-本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已在 `feat/t23-list-patterns` 落地，Phase B/C 的业务页面迁移仍未开始。
+本计划于 2026-07-14 基于设计提交 `63cbae8` 和 `origin/main@72deaa0` 生成。它是实施顺序与验收边界；Phase A 的 token alias、原子层补强与 Pattern 五件套已合并，Phase B 双页打样于 2026-07-15 通过用户走查并冻结 API，Phase C 尚未开始。
 
 ### 交付拓扑
 
@@ -716,7 +753,7 @@ T-21 合并 ─► rebase ─► 页面/API 复扫 ──────┘        
 
 修改：
 
-- `src/theme/globals.css`：追加 `--ui-*` 目标变量，覆盖 canvas、surface、border、语义 tone、radius、spacing 和四档列宽；旧变量保持原值。
+- `src/theme/globals.css`：追加 `--ui-*` 目标变量，覆盖 canvas、surface、border、语义 tone、radius、spacing 和三档列宽；旧变量保持原值。
 - `src/theme/tailwind-preset.ts`：追加静态 `ui-*` color、typography、radius、column width alias；保留旧映射。
 
 约束：
@@ -842,13 +879,17 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 
 - 用 ListPage、FilterBar、DataTable、TableState、Pagination 替换页面壳、raw table 和手写分页。
 - 业务包装层复用现有 `FilterValues`、`EMPTY_FILTERS`、`buildParams`、`countryZh`；暂不改 `components/company-filters.tsx` 的现有 UI，因为 curated-customers 仍在消费。
-- 保留 17 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`。
+- 保留现有 16 个业务筛选字段、默认 pageSize=50 和 `[20, 50, 100, 500, 1000]`；进口额、进口次数、联系人、成立年份的起止字段分别合并为 4 个一体式范围控件，界面共呈现 12 个业务控件，底层参数不变。
+- 16 个条件属于高频业务筛选，全部常驻；FilterBar 使用 compact 语义宽度自动换行，不使用四等分拉伸，也不提供“更多条件”折叠。关键词为 224px；国家、细分行业、产品标签、采集类型、群组状态、大模型评级、模板评级为 160px；范围控件为 256px。移动端全部全宽，范围内部两端始终并排。
+- 公司列表长文本列左对齐；国家、采集类型、员工规模、成立、两种评级与评分、联系人数、入库时间和操作列居中。操作列使用 `medium=144px`，内部以 14px/500、32px 高的轻量文字按钮常驻展示“详情 / 群组 / 拉黑”；拉黑默认中性、hover/focus 显示 danger 色，仍经二次确认。按钮组必须居中，不能只给单元格设置 `text-center` 后仍保留 `justify-end`。
+- “重置 / 查询”参与筛选区同一换行流并跟随最后一个条件；1920px 主工作区中基础条件占第一排，范围条件与操作按钮占第二排。
+- 未选择统一显示“不限”；multiSelect 弹层分别使用“搜索国家 / 搜索细分行业 / 搜索产品标签 / 搜索评级”。远程选项加载中允许打开查看状态，空数组显示“暂无可选项”。
 - 父页分持 draft/applied；submit/reset/pageSize/page change 原子更新页码并清空 selection。
 - 保留 selection + 17 个数据列、详情 Sheet、新增公司、群组与拉黑能力；selection key 统一使用 `tc_id`，详情请求继续使用业务需要的 `id`。
 - 拉黑改为每行 inline AlertDialogTrigger；destructive pending 时禁止重复提交与关闭。
 - 初始 loading、保留旧行的 refetch、首次 empty、filtered-empty、error/retry 分开呈现。
 - 公司详情中的联系人 raw table 一并迁为嵌套 DataTable，`stickyHeader=false`、`stickyActions=false`。
-- 新增 `frontend/apps/tenant/test/companies-page.test.tsx`，覆盖 draft/applied、reset、分页原子更新、selection 清空与 TableState；公司详情联系人状态可在同文件或独立 `company-detail.test.tsx` 覆盖。
+- 新增 `frontend/apps/tenant/test/companies/companies-page.test.tsx`，覆盖 draft/applied、reset、分页原子更新、selection 清空与 TableState；公司详情联系人状态沿用同目录既有 `company-detail.test.tsx` 覆盖。
 
 不改变 collection_type、API 参数、群组写入、blacklist 或联系人编辑语义。
 
@@ -863,6 +904,7 @@ rg -n 'adminApi\.collection\.|Lixiaoyun|Waimaotong|WmtClean' \
 
 - 用 ListPage、DataTable、TableState 替换页面壳和 raw table；API 当前返回全量，本页不新增 Pagination。
 - 保留 7 列、变量最多显示 3 个、只读状态 Badge、日期、CRUD、富文本、变量插入和预览。
+- 操作列使用 `medium=144px`，表头、单元格和内部按钮组全部居中；编辑、删除均使用与 Tenant 公司列表一致的 14px/500、32px 高文字按钮，不使用图标。删除默认中性、hover/focus 显示 danger 色。
 - 每行删除使用 inline AlertDialog，标题含模板名，destructive pending 防重复；失败不伪装成功。
 - query 初载、empty、error/retry 和 refetch 分开；不借迁移改 endpoint、payload 或业务校验。
 
@@ -886,16 +928,16 @@ npx @google/design.md lint DESIGN.md
 
 人工走查使用 390 / 768 / 1440 三档视口，覆盖：
 
-- 单一横向滚动、sticky header/action、筛选展开收起、分页移动端换行。
+- 单一横向滚动、sticky header/action、筛选常驻/折叠配置、紧凑控件宽度、分页移动端换行。
 - 键盘 focus、Enter 查询/跳页、Space 操作、Tooltip 和 `aria-busy`。
 - initial loading、旧行 refetch、首次空、筛选空、断网重试、慢请求、mutation 连点。
 - companies 的新增/详情/群组/拉黑/编辑；email templates 的创建/编辑/删除/富文本/变量/预览。
 
-只有用户走查确认后：
+Gate B 已于 2026-07-15 通过：
 
-1. 冻结五件套 public API。
-2. 将 DESIGN.md `status` 从 `proposed` 调整为 `adopting`，表示新页面必须遵守但存量仍在迁移。
-3. 开始 Phase C；走查前不批量迁页。
+1. 五件套 public API 已冻结，冻结面见 Components 章节。
+2. DESIGN.md `status` 已从 `proposed` 调整为 `adopting`，表示新页面必须遵守但存量仍在迁移。
+3. Phase C 可以开始；每批仍须按本节回归门槛独立验证。
 
 ### Phase C：存量迁移批次
 
@@ -997,8 +1039,8 @@ npx @google/design.md lint DESIGN.md
 
 ## Known Gaps
 
-- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套，但尚无业务页面消费；`status: proposed` 解除前不得声称视觉迁移完成。Phase B 先让打样页消费新 token，确认后才分批替换存量全局语义色。
+- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token 并通过用户走查，`status` 已进入 `adopting`。存量页面仍须按 Phase C 批次迁移，不能据此一次性替换全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
-- Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；筛选选项的错误/重试仍由业务包装层表达，是否进入公共 API 留待 Phase B 打样验证。
+- Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；Phase B 已将 multiSelect 的搜索文案与 loading/empty 可查看状态纳入公共 API，选项请求 error/retry 仍由业务包装层表达。
 - 暗色模式不在本期范围。
 - T-21 已合并且目标页面已删除；Phase B 创建独立分支后仍须基于最新 main 复扫页面与分页数量，再冻结 Phase C 清单。

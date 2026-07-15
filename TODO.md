@@ -96,9 +96,10 @@
 - **来源**：2026-07-12 列表页一致性盘点（20 页 × 8 维度差异矩阵）：列宽 6 种策略并存、`max-w` 出现 11 个随机像素值、手写「上一页/下一页」分页被复制 9 次且两端 disabled 逻辑已分叉、loading 文案 11 种、3 页无加载/空态区分、数字列右对齐 0/20、同一 `is_active` 字段 Badge/Switch 随机二选一。根因：shared-ui 原子层完备、Pattern 层空白（无 DataTable/Pagination/FilterBar/空态组件）。
 - **方案两层**：
   ① **DESIGN.md**（仓库根，Google Stitch 格式，结构借鉴 VoltAgent/awesome-design-md：frontmatter token + components 引用 + Do's/Don'ts + Iteration Guide）：现有 shared-ui token 成文化 + 本次 Pattern 规范；AGENTS.md 增加「改 UI 前先读 DESIGN.md」；美学参照**已选定 Cal.com**（2026-07-12 用户从 Linear/Cal.com 效果对比稿中拍板）：白画布 + 黑主按钮（无彩色 CTA）+ 12px 柔和圆角 + `#f8f9fa` 浅灰分层 + 彩色语义标签（emerald/violet/orange），与现有浅色主题迁移平滑；token 来源 `https://raw.githubusercontent.com/VoltAgent/awesome-design-md/main/design-md/cal/DESIGN.md`，实施时按本项目现状裁剪后写入仓库根 DESIGN.md。
-  ② **shared-ui Pattern 五件套**：DataTable（列类型驱动展示：text/number/date/status/boolean/actions；列宽 token 四档 col-sm/md/lg/xl，禁止任意 px；sticky 表头默认开；密度统一 px-3 py-2）、FilterBar（声明式 schema，「查询+重置」标准交互，按钮文案统一「查询」）、Pagination（现有 9 份手写原样上移成组件并统一两端逻辑）、TableState（参数化「正在加载{实体}…/暂无{实体}」）、ListPage 骨架（清除 3 处 space-y 叠加）。
+  ② **shared-ui Pattern 五件套**：DataTable（列类型驱动展示：text/number/date/status/boolean/actions；FilterBar/DataTable 统一使用 `small/medium/large/{ custom }` 宽度契约，各组件族集中维护物理 token，默认 `medium`；sticky 表头默认开；密度统一 px-3 py-2）、FilterBar（声明式 schema，「查询+重置」标准交互，按钮文案统一「查询」）、Pagination（现有 9 份手写原样上移成组件并统一两端逻辑）、TableState（参数化「正在加载{实体}…/暂无{实体}」）、ListPage 骨架（清除 3 处 space-y 叠加）。
 - **已确认默认值**：数字列右对齐+等宽数字；宽表操作列右侧固定；删除确认统一内联 AlertDialogTrigger；布尔状态可交互用 Switch、只读用 Badge；loading 用文字提示、骨架屏不强制。
 - **实施顺序**：T-21 完成后启动（少迁 collection-tasks/data-sources 两页）；Phase A 组件+token（纯新增零风险）→ Phase B 打样 2 页验证 API（tenant companies + 一个 admin 简单页）→ Phase C 存量约 16 页分批迁移（每页迁移为净删代码）。
+- **阶段状态（2026-07-15）**：Phase A 已合并；Phase B 双页打样经四轮人工 Gate 确认通过，五件套 public API 已冻结，DESIGN.md 已进入 `adopting`；T-23 继续保留，待 Phase C 全量迁移和最终 grep 门禁通过后销账。
 - **吸收关系**：T-15 的空态/骨架部分、T-17 的分页收敛部分已并入本条；T-18 随 Phase C 顺手完成。
 - **验收**：DESIGN.md 通过 `npx @google/design.md lint`；五件套上线且打样 2 页通过用户走查；全量迁移后 grep 无手写 `<table>`、无手写分页、无 space-y 叠加容器。
 

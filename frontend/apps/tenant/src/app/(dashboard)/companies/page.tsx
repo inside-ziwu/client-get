@@ -1,34 +1,28 @@
 'use client';
 
 import type { Company, Group } from '@shared/api';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogTitle,
-  Button, Card, CardContent, Checkbox, Dialog, DialogContent,
-  DialogTitle, Input, RatingTag,
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-  Sheet, SheetContent, SheetTitle,
+  AlertDialogDescription, AlertDialogTitle, AlertDialogTrigger,
+  Button, DataTable, type DataTableColumn, Dialog, DialogContent,
+  DialogDescription, DialogTitle, ListPage, Pagination, RatingTag,
+  Sheet, SheetContent, SheetDescription, SheetTitle,
 } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
-import { PageHeader } from '@/components/pages/page-kit';
 import AddCompanySheet from './add-company-sheet';
 import CompanyDetail from './company-detail';
-import CompanyFilters, { type FilterValues, EMPTY_FILTERS, buildParams, countryZh } from '@/components/company-filters';
+import { CompanyListFilterBar } from './company-list-filter-bar';
+import { type FilterValues, EMPTY_FILTERS, buildParams, countryZh } from '@/components/company-filters';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 500, 1000] as const;
-const EMPLOYEE_SIZE_COLUMN_CLASS = 'w-[88px] min-w-[88px] max-w-[88px] whitespace-nowrap px-2 py-2';
 
 function dash(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return '-';
   return String(value);
-}
-
-function tableHeaderClass(header: string) {
-  return header === '员工规模' ? EMPLOYEE_SIZE_COLUMN_CLASS : 'whitespace-nowrap px-3 py-2';
 }
 
 function collectionTypeLabel(value: Company['collection_type']) {
@@ -40,17 +34,22 @@ function collectionTypeLabel(value: Company['collection_type']) {
   }[value];
 }
 
+function countAppliedFilters(filters: FilterValues) {
+  return Object.values(filters).filter((value) =>
+    Array.isArray(value) ? value.length > 0 : value.trim() !== '',
+  ).length;
+}
+
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
+  const [draftFilters, setDraftFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterValues>(EMPTY_FILTERS);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  const [jumpPage, setJumpPage] = useState('');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
   const [groupTarget, setGroupTarget] = useState<{ tcIds: string[]; label: string } | null>(null);
-  const [blacklistTarget, setBlacklistTarget] = useState<{ tcId: string; name: string } | null>(null);
   const [addSheetOpen, setAddSheetOpen] = useState(false);
 
   const filtersQuery = useQuery({
@@ -61,11 +60,12 @@ export default function CompaniesPage() {
   const listQuery = useQuery({
     queryKey: ['tenant', 'companies', 'list', page, pageSize, appliedFilters],
     queryFn: async () => (await tenantApi.companies.list(buildParams(appliedFilters, page, pageSize))).data,
+    placeholderData: keepPreviousData,
   });
 
   const items: Company[] = listQuery.data?.data ?? [];
   const total = listQuery.data?.pagination?.total ?? 0;
-  const maxPage = Math.max(1, Math.ceil(total / pageSize));
+  const appliedCount = countAppliedFilters(appliedFilters);
 
   const detailQuery = useQuery({
     queryKey: ['tenant', 'companies', 'detail', detailId],
@@ -80,6 +80,7 @@ export default function CompaniesPage() {
   };
 
   const handleResetFilters = () => {
+    setDraftFilters(EMPTY_FILTERS);
     setAppliedFilters(EMPTY_FILTERS);
     setPage(1);
     setSelectedIds(new Set());
@@ -93,154 +94,136 @@ export default function CompaniesPage() {
     });
   };
 
-  const allSelected = items.length > 0 && items.every((c) => selectedIds.has(c.tc_id));
-  const someSelected = items.some((c) => selectedIds.has(c.tc_id)) && !allSelected;
-
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(items.map((c) => c.tc_id)));
-    }
+  const togglePage = (rows: readonly Company[]) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      const allSelected = rows.every((row) => next.has(row.tc_id));
+      rows.forEach((row) => allSelected ? next.delete(row.tc_id) : next.add(row.tc_id));
+      return next;
+    });
   };
 
   const invalidateList = () => queryClient.invalidateQueries({ queryKey: ['tenant', 'companies'] });
 
+  const columns: ReadonlyArray<DataTableColumn<Company>> = [
+    {
+      id: 'name', header: '公司名', width: 'large', type: 'text', value: 'name',
+      render: (row) => (
+        <button className="text-left font-medium text-ui-foreground hover:underline" onClick={() => setDetailId(row.id)}>
+          {dash(row.name)}
+        </button>
+      ),
+    },
+    { id: 'country', header: '国家', width: 'small', align: 'center', type: 'text', value: 'country_iso3', format: (value) => countryZh(value as string | undefined) },
+    { id: 'collectionType', header: '采集类型', width: 'small', align: 'center', type: 'text', value: 'collection_type', format: (value) => collectionTypeLabel(value as Company['collection_type']) },
+    { id: 'domain', header: '域名', width: 'large', type: 'text', value: 'domain' },
+    { id: 'industry', header: '行业', width: 'large', type: 'text', value: 'industry_desc' },
+    { id: 'employees', header: '员工规模', width: 'small', align: 'center', type: 'text', value: 'employee_num' },
+    { id: 'foundedYear', header: '成立', width: 'small', align: 'center', type: 'number', value: 'founded_year' },
+    { id: 'modelGrade', header: '大模型评级', width: 'small', align: 'center', type: 'text', value: 'grade', render: (row) => row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-' },
+    { id: 'modelScore', header: '大模型评分', width: 'small', align: 'center', type: 'number', value: 'wmt_score' },
+    { id: 'systemGrade', header: '模板评级', width: 'small', align: 'center', type: 'text', value: 'system_grade', render: (row) => row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-' },
+    { id: 'systemScore', header: '模板评分', width: 'small', align: 'center', type: 'number', value: 'system_score' },
+    { id: 'subIndustry', header: '细分行业', type: 'text', value: 'sub_industry' },
+    { id: 'sourceCompetitor', header: '来源同行', type: 'text', value: 'source_competitor' },
+    { id: 'sourceCompetitorCn', header: '来源同行（中文名）', type: 'text', value: 'source_competitor_cn' },
+    { id: 'contacts', header: '联系人数', width: 'small', align: 'center', type: 'number', value: 'contacts_count' },
+    { id: 'createdAt', header: '入库时间', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
+    {
+      id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
+      render: (row) => (
+        <div className="flex items-center justify-center gap-ui-xxs">
+          <Button variant="link" className="h-8 px-ui-xxs text-ui-foreground" onClick={() => setDetailId(row.id)}>详情</Button>
+          <Button variant="link" className="h-8 px-ui-xxs text-ui-foreground" onClick={() => setGroupTarget({ tcIds: [row.tc_id], label: row.name })}>群组</Button>
+          <BlacklistAction row={row} onSuccess={invalidateList} />
+        </div>
+      ),
+    },
+  ];
+
+  const tableState = listQuery.isLoading
+    ? { kind: 'loading' as const }
+    : listQuery.isError
+      ? { kind: 'error' as const, description: '请检查网络后重试', onRetry: () => void listQuery.refetch() }
+      : items.length === 0
+        ? { kind: 'empty' as const, filtered: appliedCount > 0, onResetFilters: appliedCount > 0 ? handleResetFilters : undefined }
+        : undefined;
+
   return (
-    <div className="tenant-page space-y-4">
-      <PageHeader title="公司列表" description="筛选、查看和处理租户公司数据" action={<Button onClick={() => setAddSheetOpen(true)}>新增公司</Button>} />
-
-      {/* 筛选面板 */}
-      <CompanyFilters
-        filtersOptions={filtersQuery.data}
-        onApply={handleApplyFilters}
-        onReset={handleResetFilters}
-      />
-
-      {/* 批量操作栏 */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 rounded-md border bg-muted/50 px-4 py-2 text-sm">
-          <span>已选 {selectedIds.size} 家公司</span>
-          <Button size="sm" variant="outline" onClick={() => {
-            setGroupTarget({ tcIds: Array.from(selectedIds), label: `选中的 ${selectedIds.size} 家公司` });
-          }}>加入群组</Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>取消选择</Button>
+    <ListPage
+      className="tenant-page"
+      title="公司列表"
+      description="筛选、查看和处理租户公司数据"
+      primaryAction={(
+        <Button
+          className="h-10 rounded-ui-md bg-ui-primary px-ui-md text-ui-on-primary hover:bg-ui-primary-active focus-visible:ring-ui-foreground"
+          onClick={() => setAddSheetOpen(true)}
+        >
+          新增公司
+        </Button>
+      )}
+      filters={(
+        <div className="flex flex-col gap-ui-sm">
+          <CompanyListFilterBar
+            values={draftFilters}
+            options={filtersQuery.data}
+            optionsState={filtersQuery.isLoading ? 'loading' : filtersQuery.data ? 'ready' : 'empty'}
+            appliedCount={appliedCount}
+            isSubmitting={listQuery.isFetching}
+            onChange={setDraftFilters}
+            onSubmit={handleApplyFilters}
+            onReset={handleResetFilters}
+          />
+          {filtersQuery.isError ? (
+            <div className="flex items-center justify-between gap-ui-sm rounded-ui-md border border-ui-danger-foreground/20 bg-ui-danger-surface px-ui-md py-ui-sm text-ui-body text-ui-danger-foreground" role="alert">
+              <span>筛选选项加载失败，仍可使用关键词和固定选项。</span>
+              <Button size="sm" variant="outline" onClick={() => void filtersQuery.refetch()}>重试</Button>
+            </div>
+          ) : null}
         </div>
       )}
-
-      {/* 表格 */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[1360px] text-sm">
-              <thead className="sticky top-0 z-10 border-b bg-muted/90 text-left text-xs text-muted-foreground shadow-sm">
-                <tr>
-                  <th className="w-10 px-3 py-2">
-                    <Checkbox checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={toggleAll} />
-                  </th>
-                  {['公司名', '国家', '采集类型', '域名', '行业', '员工规模', '成立', '大模型评级', '大模型评分', '模板评级', '模板评分', '细分行业', '来源同行', '来源同行（中文名）', '联系人数', '操作', '入库时间'].map((h) => (
-                    <th key={h} className={tableHeaderClass(h)}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {items.length === 0 && (
-                  <tr><td colSpan={18} className="py-12 text-center text-muted-foreground">
-                    {listQuery.isLoading ? '加载中...' : '暂无数据'}
-                  </td></tr>
-                )}
-                {items.map((row) => (
-                  <tr key={row.id} className="border-b transition-colors hover:bg-muted/45">
-                    <td className="px-3 py-2">
-                      <Checkbox checked={selectedIds.has(row.tc_id)} onCheckedChange={() => toggleSelect(row.tc_id)} />
-                    </td>
-                    <td className="max-w-[220px] truncate px-3 py-2">
-                      <button className="text-left font-medium text-primary hover:underline" onClick={() => setDetailId(row.id)}>
-                        {dash(row.name)}
-                      </button>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">{countryZh(row.country_iso3)}</td>
-                    <td className="whitespace-nowrap px-3 py-2">{collectionTypeLabel(row.collection_type)}</td>
-                    <td className="max-w-[150px] truncate px-3 py-2">{dash(row.domain)}</td>
-                    <td className="max-w-[140px] truncate px-3 py-2">{dash(row.industry_desc)}</td>
-                    <td className={EMPLOYEE_SIZE_COLUMN_CLASS}>
-                      <span className="block truncate">{dash(row.employee_num)}</span>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">{dash(row.founded_year)}</td>
-                    <td className="px-3 py-2">
-                      {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}
-                    </td>
-                    <td className="px-3 py-2">{row.wmt_score != null ? row.wmt_score : '-'}</td>
-                    <td className="px-3 py-2">
-                      {row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-'}
-                    </td>
-                    <td className="px-3 py-2">{row.system_score != null ? row.system_score : '-'}</td>
-                    <td className="max-w-[120px] truncate px-3 py-2">{dash(row.sub_industry)}</td>
-                    <td className="max-w-[120px] truncate px-3 py-2">{dash(row.source_competitor)}</td>
-                    <td className="max-w-[120px] truncate px-3 py-2">{dash(row.source_competitor_cn)}</td>
-                    <td className="whitespace-nowrap px-3 py-2">{row.contacts_count ?? '-'}</td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      <div className="flex min-w-[104px] items-center gap-2">
-                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setDetailId(row.id)}>详情</Button>
-                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => {
-                          setGroupTarget({ tcIds: [row.tc_id], label: row.name });
-                        }}>群组</Button>
-                        <Button variant="link" size="sm" className="h-auto p-0 text-destructive" onClick={() => {
-                          setBlacklistTarget({ tcId: row.tc_id, name: row.name });
-                        }}>拉黑</Button>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">{formatDateTime(row.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* 分页 */}
-          <div className="flex items-center justify-between border-t px-4 py-3 text-sm">
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <span>共 {total} 条</span>
-              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); setSelectedIds(new Set()); }}>
-                <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {PAGE_SIZE_OPTIONS.map((s) => <SelectItem key={s} value={String(s)}>{s} 条/页</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setPage((p) => p - 1); setSelectedIds(new Set()); }}>上一页</Button>
-              <span>第</span>
-              <Input
-                type="number" className="h-8 w-16 text-center" min={1} max={maxPage}
-                value={jumpPage || page}
-                onChange={(e) => setJumpPage(e.target.value)}
-                onFocus={() => setJumpPage(String(page))}
-                onBlur={() => {
-                  if (jumpPage) { setPage(Math.max(1, Math.min(Number(jumpPage) || 1, maxPage))); setSelectedIds(new Set()); }
-                  setJumpPage('');
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setPage(Math.max(1, Math.min(Number(jumpPage) || 1, maxPage)));
-                    setSelectedIds(new Set());
-                    setJumpPage('');
-                    (e.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-              <span>/ {maxPage} 页</span>
-              <Button variant="outline" size="sm" disabled={page >= maxPage} onClick={() => { setPage((p) => p + 1); setSelectedIds(new Set()); }}>下一页</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      selectionToolbar={selectedIds.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-ui-sm rounded-ui-md border border-ui-border bg-ui-surface-soft px-ui-md py-ui-sm text-ui-body">
+          <span>已选 {selectedIds.size} 家公司</span>
+          <Button size="sm" variant="outline" onClick={() => setGroupTarget({ tcIds: Array.from(selectedIds), label: `选中的 ${selectedIds.size} 家公司` })}>加入群组</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>取消选择</Button>
+        </div>
+      ) : undefined}
+      pagination={(
+        <Pagination
+          mode="total"
+          total={total}
+          value={{ page, pageSize }}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+          isDisabled={listQuery.isLoading}
+          onChange={(next) => {
+            setPage(next.page);
+            setPageSize(next.pageSize);
+            setSelectedIds(new Set());
+          }}
+        />
+      )}
+    >
+      <DataTable
+        columns={columns}
+        data={items}
+        entityName="公司"
+        getRowId={(row) => row.tc_id}
+        state={tableState}
+        isRefreshing={listQuery.isFetching && !listQuery.isLoading}
+        selection={{
+          selectedKeys: selectedIds,
+          onToggleRow: (row) => toggleSelect(row.tc_id),
+          onTogglePage: togglePage,
+        }}
+      />
 
       {/* 详情 Drawer */}
       <Sheet open={detailId !== null} onOpenChange={(open) => !open && setDetailId(null)}>
         <SheetContent className="w-[660px] max-w-full overflow-y-auto p-0">
           <div className="border-b px-5 py-4">
             <SheetTitle>{detailQuery.data?.name ?? '公司详情'}</SheetTitle>
+            <SheetDescription className="mt-1">查看公司资料、AI 评估与联系人信息。</SheetDescription>
           </div>
           {detailQuery.isLoading && (
             <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">加载中...</div>
@@ -269,16 +252,9 @@ export default function CompaniesPage() {
         onSuccess={() => { invalidateList(); setSelectedIds(new Set()); }}
       />
 
-      {/* 拉黑 Modal */}
-      <BlacklistModal
-        target={blacklistTarget}
-        onClose={() => setBlacklistTarget(null)}
-        onSuccess={invalidateList}
-      />
-
       {/* 新增公司 Sheet */}
       <AddCompanySheet open={addSheetOpen} onOpenChange={setAddSheetOpen} onSuccess={invalidateList} />
-    </div>
+    </ListPage>
   );
 }
 
@@ -319,6 +295,7 @@ function GroupModal({ target, onClose, onSuccess }: {
             ? `将选中的 ${target.tcIds.length} 家公司批量加入群组`
             : `将「${target?.label ?? ''}」加入群组`}
         </DialogTitle>
+        <DialogDescription>选择目标群组；确认后将更新所选公司的群组归属。</DialogDescription>
         {groups.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">暂无群组，请先创建群组</p>
         ) : (
@@ -344,41 +321,44 @@ function GroupModal({ target, onClose, onSuccess }: {
   );
 }
 
-/* ─── BlacklistModal ─────────────────────────────────────────── */
-
-function BlacklistModal({ target, onClose, onSuccess }: {
-  target: { tcId: string; name: string } | null;
-  onClose: () => void;
+function BlacklistAction({ row, onSuccess }: {
+  row: Company;
   onSuccess: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const mutation = useMutation({
-    mutationFn: async () => {
-      if (!target) return;
-      await tenantApi.companies.blacklist(target.tcId, 'manual blacklist');
-    },
+    mutationFn: async () => tenantApi.companies.blacklist(row.tc_id, 'manual blacklist'),
     onSuccess: () => {
       toast.success('已加入黑名单');
-      onClose();
+      setOpen(false);
       onSuccess();
     },
     onError: () => toast.error('拉黑失败'),
   });
 
   return (
-    <AlertDialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
+    <AlertDialog open={open} onOpenChange={(next) => !mutation.isPending && setOpen(next)}>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="link"
+          className="h-8 px-ui-xxs text-ui-foreground hover:text-ui-danger-foreground focus-visible:text-ui-danger-foreground"
+        >
+          拉黑
+        </Button>
+      </AlertDialogTrigger>
       <AlertDialogContent>
-        <AlertDialogTitle>确认拉黑</AlertDialogTitle>
+        <AlertDialogTitle>确认拉黑「{row.name}」？</AlertDialogTitle>
         <AlertDialogDescription>
-          将「{target?.name ?? ''}」加入黑名单后，不会再向其发送邮件，且不会出现在发送计划目标中。
+          加入黑名单后，不会再向其发送邮件，且不会出现在发送计划目标中。
         </AlertDialogDescription>
         <div className="flex justify-end gap-2 pt-2">
-          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogCancel disabled={mutation.isPending}>取消</AlertDialogCancel>
           <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            variant="destructive"
             disabled={mutation.isPending}
             onClick={(e) => { e.preventDefault(); mutation.mutate(); }}
           >
-            {mutation.isPending ? '处理中...' : '确认拉黑'}
+            {mutation.isPending ? '拉黑中…' : '确认拉黑'}
           </AlertDialogAction>
         </div>
       </AlertDialogContent>

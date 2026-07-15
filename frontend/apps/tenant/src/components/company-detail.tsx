@@ -1,10 +1,10 @@
 'use client';
 
-import type { Company } from '@shared/api';
+import type { Company, CompanyContact } from '@shared/api';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Badge, Button, Input, RatingTag, Textarea } from '@shared/ui';
+import { Badge, Button, DataTable, type DataTableColumn, Input, RatingTag, Textarea } from '@shared/ui';
 import { tenantApi } from '@/lib/api';
 
 function dash(v: string | number | null | undefined) {
@@ -25,6 +25,15 @@ function collectionTypeLabel(value: Company['collection_type']) {
     unknown: '来源待确认',
   }[value];
 }
+
+const contactColumns: ReadonlyArray<DataTableColumn<CompanyContact>> = [
+  { id: 'name', header: '姓名', type: 'text', value: 'name' },
+  { id: 'position', header: '职位', type: 'text', value: 'position' },
+  { id: 'department', header: '部门', type: 'text', value: 'department' },
+  { id: 'email', header: '邮箱', width: 'large', type: 'text', value: 'email' },
+  { id: 'emailStatus', header: '邮箱状态', type: 'text', value: 'email_status' },
+  { id: 'phone', header: '电话', type: 'text', value: 'phone' },
+];
 
 interface Props {
   company: Company;
@@ -260,33 +269,22 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
       {/* 联系人 */}
       <section>
         <h3 className="mb-2 font-semibold">联系人</h3>
-        {contacts.length === 0 ? (
-          <p className="text-muted-foreground">暂无联系人数据</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="border-b bg-muted/70 text-left text-muted-foreground">
-                <tr>
-                  {['姓名', '职位', '部门', '邮箱', '邮箱状态', '电话'].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-2 py-1.5">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {contacts.map((ct) => (
-                  <tr key={ct.id} className="border-b">
-                    <td className="px-2 py-1.5">{dash(ct.name)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.position)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.department)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.email)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.email_status)}</td>
-                    <td className="px-2 py-1.5">{dash(ct.phone)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DataTable
+          columns={contactColumns}
+          data={contacts}
+          entityName="联系人"
+          getRowId={(contact) => contact.id}
+          stickyHeader={false}
+          stickyActions={false}
+          isRefreshing={contactsQuery.isFetching && !contactsQuery.isLoading}
+          state={contactsQuery.isLoading
+            ? { kind: 'loading' }
+            : contactsQuery.isError
+              ? { kind: 'error', description: '联系人加载失败', onRetry: () => void contactsQuery.refetch() }
+              : contacts.length === 0
+                ? { kind: 'empty' }
+                : undefined}
+        />
       </section>
     </div>
   );

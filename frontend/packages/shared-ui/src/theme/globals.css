@@ -56,8 +56,10 @@
   --ui-spacing-xl: 24px;
   --ui-spacing-xxl: 32px;
 
-  --ui-table-column-sm: 96px;
-  --ui-table-column-md: 144px;
-  --ui-table-column-lg: 224px;
-  --ui-table-column-xl: 320px;
+  --ui-control-width-small: 160px;
+  --ui-control-width-medium: 224px;
+  --ui-control-width-large: 320px;
+  --ui-table-column-small: 96px;
+  --ui-table-column-medium: 144px;
+  --ui-table-column-large: 224px;
 }
