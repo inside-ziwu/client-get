@@ -84,6 +84,27 @@ export interface CompanyListFilters {
   page_size?: number;
 }
 
+export interface CompanyContact {
+  id: string;
+  name: string | null;
+  position: string | null;
+  department: string | null;
+  email: string | null;
+  phone: string | null;
+  email_status: string | null;
+  linkedin: string | null;
+  whatsapp: string | null;
+  confidence: number | null;
+  tenant_contact_state: {
+    contact_status: string | null;
+    is_sendable: boolean | null;
+    created_at: string | null;
+    updated_at: string | null;
+  };
+  created_at: string | null;
+  updated_at: string | null;
+}
+
 export function companiesApi(client: AxiosInstance) {
   return {
     list: (filters?: CompanyListFilters) =>
@@ -93,7 +114,7 @@ export function companiesApi(client: AxiosInstance) {
     detail: (id: string) =>
       client.get<ApiResponse<Company>>(`/api/v1/companies/${id}`),
     contacts: (id: string) =>
-      client.get<PaginatedResponse<Record<string, unknown>>>(`/api/v1/companies/${id}/contacts`),
+      client.get<PaginatedResponse<CompanyContact>>(`/api/v1/companies/${id}/contacts`),
     create: (data: Record<string, unknown>) =>
       client.post<ApiResponse<Company>>('/api/v1/companies', data),
     batchImport: (items: Array<Record<string, unknown>>) =>
