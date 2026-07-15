@@ -26,6 +26,7 @@ type FilterDraftShape<T extends object> = Record<keyof T, FilterDraftValue>;
 
 const uiControlClasses =
   'h-10 rounded-ui-md border-ui-border bg-ui-canvas text-ui-body focus-visible:border-ui-foreground focus-visible:ring-2 focus-visible:ring-ui-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-ui-canvas disabled:bg-ui-surface-soft';
+const FILTER_UNSET_VALUE = '__filter_unset__';
 
 const filterWidthClassNames: Record<WidthPreset, string> = {
   small: 'sm:w-ui-control-small',
@@ -196,13 +197,21 @@ function FilterControl<T extends FilterDraftShape<T>>({
         <Label htmlFor={id}>{field.label}</Label>
         <Select
           value={value}
-          onValueChange={(next) => setValue(field.name, next as T[typeof field.name])}
+          onValueChange={(next) =>
+            setValue(
+              field.name,
+              (next === FILTER_UNSET_VALUE ? '' : next) as T[typeof field.name],
+            )
+          }
           disabled={disabled || state !== 'ready'}
         >
           <SelectTrigger className={uiControlClasses} id={id}>
             <SelectValue placeholder={optionPlaceholder(state, field.placeholder)} />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={FILTER_UNSET_VALUE}>
+              {field.placeholder ?? '不限'}
+            </SelectItem>
             {field.options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
