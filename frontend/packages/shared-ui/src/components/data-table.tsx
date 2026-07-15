@@ -10,11 +10,13 @@ import { TableState, type TableStateSpec } from './table-state';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
 export type StatusTone = BadgeTone;
+export type ColumnAlignment = 'left' | 'center' | 'right';
 
 interface BaseDataTableColumn {
   id: string;
   header: React.ReactNode;
   width?: WidthSpec;
+  align?: ColumnAlignment;
 }
 
 type ValueColumn<T> = BaseDataTableColumn & {
@@ -148,9 +150,17 @@ function TruncatedText({ children }: { children: React.ReactNode }) {
   );
 }
 
+const columnAlignmentClasses: Record<ColumnAlignment, string> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+};
+
 function columnAlignment<T>(column: DataTableColumn<T>) {
-  if (column.type === 'number' || column.type === 'actions') return 'text-right';
-  return 'text-left';
+  if (column.align) return columnAlignmentClasses[column.align];
+  if (column.type === 'status' || column.type === 'boolean') return columnAlignmentClasses.center;
+  if (column.type === 'number' || column.type === 'actions') return columnAlignmentClasses.right;
+  return columnAlignmentClasses.left;
 }
 
 function renderCell<T>(column: DataTableColumn<T>, row: T): React.ReactNode {

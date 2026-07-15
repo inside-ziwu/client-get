@@ -73,6 +73,27 @@ describe('CompaniesPage Pattern 打样', () => {
 
   afterEach(() => cleanup());
 
+  it('短字段使用 small，并按内容语义统一表头对齐', async () => {
+    renderPage();
+    await screen.findByRole('table', { name: '公司列表' });
+
+    for (const name of ['国家', '采集类型', '员工规模']) {
+      expect(screen.getByRole('columnheader', { name })).toHaveClass(
+        'w-ui-table-small',
+        'text-center',
+      );
+    }
+    for (const name of ['成立', '大模型评级', '模板评级', '入库时间']) {
+      expect(screen.getByRole('columnheader', { name })).toHaveClass('text-center');
+    }
+    for (const name of ['大模型评分', '模板评分', '联系人数', '操作']) {
+      expect(screen.getByRole('columnheader', { name })).toHaveClass('text-right');
+    }
+    for (const name of ['公司名', '域名', '行业', '细分行业', '来源同行', '来源同行（中文名）']) {
+      expect(screen.getByRole('columnheader', { name })).toHaveClass('text-left');
+    }
+  });
+
   it('查询只提交 draft，并在翻页时原子更新页码且清空 selection', async () => {
     renderPage();
 
