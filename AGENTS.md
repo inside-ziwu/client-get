@@ -8,6 +8,7 @@
 | --- | --- |
 | [HANDBOOK.md](HANDBOOK.md) | **唯一事实源入口**：产品、业务流程、功能现状矩阵、行为口径、架构、部署、本地开发、运维脚本 |
 | [TODO.md](TODO.md) | **唯一债务与需求台账**（技术债 + 未实现需求，编号 `T-NN` 稳定不复用） |
+| [DESIGN.md](DESIGN.md) | **前端视觉与交互规范**：改 Admin/Tenant UI 前必读；`proposed`/`adopting` 均不代表全量落地，不得据此零散替换全局主题 |
 | `docs/solutions/` | 踩坑知识库（带 YAML frontmatter，按类目组织）。实施或调试涉及相关领域前先检索 |
 | `docs/handovers/2026-07-06-b-instance-operations-manual.md` | B 实例运营操作手册（面向运营的活文档） |
 
@@ -49,7 +50,7 @@
 - 后端分层：api（路由 + 参数 + 权限）→ services（业务逻辑 + 手写 SQL via AsyncConnection，无 ORM 实体层）→ db/pools（连接池 + RLS）。route 层不写业务逻辑。
 - 新增入参优先 Pydantic schema，避免 `payload: dict`；新增静态路由必须放在动态 `/{id}` 路由之前。
 - Alembic：每次变更一个 revision；涉及前端 API 调用时同步更新 `frontend/packages/shared-api`。
-- 前端：服务端状态用 React Query、认证状态用 Zustand；UI 组件一律来自 `@shared/ui`，不在 app 内重复造原语。
+- 前端：服务端状态用 React Query、认证状态用 Zustand；改 UI 前先读 [DESIGN.md](DESIGN.md)；UI 组件一律来自 `@shared/ui`，不在 app 内重复造原语或 Pattern。
 - 命名：Python snake_case；TypeScript camelCase 变量 / PascalCase 组件。
 - 简洁优先（KISS），不做过度防御性设计、不做无需求的重构。
 

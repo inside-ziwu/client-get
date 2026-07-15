@@ -13,21 +13,25 @@ export interface MultiSelectOption {
   value: string;
 }
 
+export interface MultiSelectProps {
+  value: readonly string[];
+  options: readonly MultiSelectOption[];
+  onChange: (value: string[]) => void;
+  placeholder?: string;
+  allowCreate?: boolean;
+  disabled?: boolean;
+  className?: string;
+}
+
 export function MultiSelect({
   value,
   options,
   onChange,
   placeholder = '选择或输入',
   allowCreate = true,
+  disabled = false,
   className,
-}: {
-  value: string[];
-  options: MultiSelectOption[];
-  onChange: (value: string[]) => void;
-  placeholder?: string;
-  allowCreate?: boolean;
-  className?: string;
-}) {
+}: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const selected = new Set(value);
@@ -44,37 +48,50 @@ export function MultiSelect({
   const canCreate = allowCreate && query.trim() && !selected.has(query.trim());
 
   const toggle = (item: string) => {
+    if (disabled) return;
     onChange(selected.has(item) ? value.filter((current) => current !== item) : [...value, item]);
   };
 
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+    <PopoverPrimitive.Root
+      open={disabled ? false : open}
+      onOpenChange={(nextOpen) => {
+        if (!disabled) setOpen(nextOpen);
+      }}
+    >
       <PopoverPrimitive.Trigger asChild>
-        <Button type="button" variant="outline" className={cn('min-h-9 h-auto w-full justify-between', className)}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled}
+          className={cn('min-h-9 h-auto w-full justify-between', className)}
+        >
           <span className="flex min-w-0 flex-wrap gap-1">
             {value.length ? (
               value.map((item) => (
                 <Badge key={item} variant="secondary" className="gap-1">
                   {normalizedOptions.find((option) => option.value === item)?.label ?? item}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`移除 ${item}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onChange(value.filter((current) => current !== item));
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
+                  {disabled ? null : (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`移除 ${item}`}
+                      onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
                         onChange(value.filter((current) => current !== item));
-                      }
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </span>
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onChange(value.filter((current) => current !== item));
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
                 </Badge>
               ))
             ) : (
