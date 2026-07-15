@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 
@@ -58,6 +58,20 @@ describe('创建表单 - 角色选择', () => {
     renderWithProviders();
     const form = getForm();
     expect(form.textContent).toContain('角色');
+  });
+
+  it('新增成员操作框中姓名和角色使用 small，邮箱使用 medium', () => {
+    renderWithProviders();
+
+    expect(screen.getByLabelText('姓名').parentElement).toHaveClass(
+      'sm:w-ui-control-small',
+    );
+    expect(screen.getByLabelText('邮箱').parentElement).toHaveClass(
+      'sm:w-ui-control-medium',
+    );
+    expect(within(getForm()).getByText('角色').parentElement).toHaveClass(
+      'sm:w-ui-control-small',
+    );
   });
 
   it('提交时携带默认角色 operator', async () => {

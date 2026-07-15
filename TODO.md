@@ -99,9 +99,14 @@
   ② **shared-ui Pattern 五件套**：DataTable（列类型驱动展示：text/number/date/status/boolean/actions；FilterBar/DataTable 统一使用 `small/medium/large/{ custom }` 宽度契约，各组件族集中维护物理 token，默认 `medium`；sticky 表头默认开；密度统一 px-3 py-2）、FilterBar（声明式 schema，「查询+重置」标准交互，按钮文案统一「查询」）、Pagination（现有 9 份手写原样上移成组件并统一两端逻辑）、TableState（参数化「正在加载{实体}…/暂无{实体}」）、ListPage 骨架（清除 3 处 space-y 叠加）。
 - **已确认默认值**：数字列右对齐+等宽数字；宽表操作列右侧固定；删除确认统一内联 AlertDialogTrigger；布尔状态可交互用 Switch、只读用 Badge；loading 用文字提示、骨架屏不强制。
 - **实施顺序**：T-21 完成后启动（少迁 collection-tasks/data-sources 两页）；Phase A 组件+token（纯新增零风险）→ Phase B 打样 2 页验证 API（tenant companies + 一个 admin 简单页）→ Phase C 存量约 16 页分批迁移（每页迁移为净删代码）。
-- **阶段状态（2026-07-15）**：Phase A 已合并；Phase B 双页打样经四轮人工 Gate 确认通过，五件套 public API 已冻结，DESIGN.md 已进入 `adopting`；Phase C1（intelligence-sources + scoring-templates）已完成迁移并通过 A 实例人工 Gate 与 production build。T-23 继续保留，待 C2–C5 全量迁移和最终 grep 门禁通过后销账。
+- **阶段状态（2026-07-15）**：Phase A 已合并；Phase B 双页打样经四轮人工 Gate 确认通过，五件套 public API 已冻结，DESIGN.md 已进入 `adopting`；Phase C1（intelligence-sources + scoring-templates）已完成迁移并通过 A 实例人工 Gate 与 production build；Phase C2（tenant intelligence + team + templates）已完成实现、自动化验证、A 实例只读走查与用户人工 Gate。T-23 继续保留，待 C3–C5 全量迁移和最终 grep 门禁通过后销账。
 - **吸收关系**：T-15 的空态/骨架部分、T-17 的分页收敛部分已并入本条；T-18 随 Phase C 顺手完成。
 - **验收**：DESIGN.md 通过 `npx @google/design.md lint`；五件套上线且打样 2 页通过用户走查；全量迁移后 grep 无手写 `<table>`、无手写分页、无 space-y 叠加容器。
+
+### T-28 · Tenant 平台模板“预览”会误复制模板 — P1
+- **来源**：2026-07-15 T-23 Phase C2 A 实例只读 Gate 与代码复核。
+- **缺口**：`tenant /templates` 的平台模板“预览”调用 `POST /api/v1/platform-templates/{id}/copy`，会先向租户模板库复制一份数据再展示，预览动作因此产生非预期写入和重复模板；当前后端没有只读的平台模板预览契约。
+- **验收**：提供只读预览接口或等价的只读数据契约；前端“预览”不再调用 copy、不切换 Tab、不刷新租户模板列表；补回归测试证明预览前后租户模板数量与内容不变。
 
 ## E. 清理与定位
 

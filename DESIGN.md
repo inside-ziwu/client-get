@@ -238,7 +238,7 @@ components:
 
 ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面首先服务于快速扫描、准确判断和低风险操作；视觉上采用白色画布、近黑主操作、浅灰分层和少量语义色，避免用装饰性颜色争夺注意力。
 
-本文件是 T-23 的**目标设计与组件契约**，当前状态为 `adopting`：Phase A 基建与 Phase B 双页打样已经完成，五件套公开 API 已冻结；新建或迁移的列表页必须遵守本文件，存量页面仍按 Phase C 分批迁移。YAML token 是目标值，不代表全量页面已经完成迁移，不能只改全局颜色后宣称完成。
+本文件是 T-23 的**目标设计与组件契约**，当前状态为 `adopting`：Phase A 基建、Phase B 双页打样与 Phase C1–C2 已经完成实现，五件套公开 API 已冻结；新建或迁移的列表页必须遵守本文件，存量页面仍按 Phase C 分批迁移。YAML token 是目标值，不代表全量页面已经完成迁移，不能只改全局颜色后宣称完成。
 
 设计语言参考 [Cal.com DESIGN.md](https://github.com/VoltAgent/awesome-design-md/blob/main/design-md/cal/DESIGN.md) 的克制单色操作层、白画布与柔和圆角，但不照搬其营销页字体和大留白。文件结构遵循 [Google Labs DESIGN.md](https://github.com/google-labs-code/design.md) 规范。
 
@@ -573,6 +573,7 @@ DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的�
 
 - 单元格解析优先级固定为 `render > format > 类型默认格式`。`render` 是 RatingTag、链接和组合操作的必要逃生口，但不能覆盖列宽与对齐纪律。
 - 同一行存在两个及以上常驻操作时，采用 Ant ProTable 式轻量文字按钮，文字与表格正文共用 14px 基线并使用 500 字重，通过 32px 高点击区域和统一间距表达可操作性。行内操作不得传 `Button size="sm"`，避免重新注入 12px `text-xs`；也禁止退回 `h-auto p-0` 的裸文字。低频操作才进入更多菜单；业务要求常驻的破坏操作默认保持中性色，hover/focus 再切换 danger 色，强危险色保留给二次确认按钮。
+- 页面级“新增/创建”主操作统一使用 `CreateButton`：固定 40px 高、近黑主色和左侧 Plus 图标，页面不得自行散写颜色、尺寸或决定是否显示图标。非新增语义的主操作不使用 `CreateButton`；同页次操作使用 outline，并仅在图标能明确表达业务语义时保留图标。
 - 默认 sticky header 开启；只有嵌套小表或打印视图可以显式关闭。
 - `stickyActions` 默认开启并覆盖所有断点；嵌套小表可显式关闭。固定列使用不透明背景、边界和轻阴影，不能遮住横向滚动内容。
 - selection 的 key 一律取自 DataTable 的 `getRowId`，避免两套身份函数分叉；它只代表当前页，`onTogglePage` 必须排除 `isRowDisabled` 的行。换页、筛选和 pageSize 变化后的清空策略由父页面在回调中执行。
@@ -962,6 +963,8 @@ Gate B 已于 2026-07-15 通过：
 
 重点：替换 app-local DataTable；保留 templates 双 Tab 和 mutation、team 当前账号保护与状态 pending；所有行提供稳定 getRowId。
 
+状态（2026-07-15）：三页已迁移至 ListPage/DataTable/TableState，保留 templates 双 Tab、编辑器与全部 mutation，team 当前账号保护和行级状态 pending；team 新增成员操作框使用控件宽度契约：姓名/角色 `small`、邮箱 `medium`，列表本身保持姓名 `medium`、邮箱 `large`。所有表格均使用稳定 getRowId；Tenant 17 个测试文件共 56 项测试、A 实例只读页面走查与用户人工 Gate 均已通过。平台模板“预览”误调用复制接口的既存行为已独立登记 T-28，不纳入本次纯列表迁移。
+
 #### C3 · 交互配置与发送计划（4 页）
 
 - `frontend/apps/admin/src/app/(dashboard)/ai-config/client-page.tsx`
@@ -1041,7 +1044,7 @@ npx @google/design.md lint DESIGN.md
 
 ## Known Gaps
 
-- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token 并通过用户走查，`status` 已进入 `adopting`；Phase C1 两个简单 Admin 页已完成迁移。其余存量页面仍须按 C2–C5 分批迁移，不能据此一次性替换全局语义色。
+- Phase A 已新增 `--ui-*` CSS variables、Tailwind alias 与 Pattern 五件套；Phase B 两个打样页已消费新 token 并通过用户走查，`status` 已进入 `adopting`；Phase C1 两个简单 Admin 页与 Phase C2 三个简单 Tenant 页已完成实现。其余存量页面仍须按 C3–C5 分批迁移，不能据此一次性替换全局语义色。
 - Sheet 宽度目前仍有大量任意像素值；应另立宽度 token，但不扩入本次五件套实现。
 - Badge tone 与 AlertDialogAction destructive variant 已在 Phase A 补齐；Phase B 已将 multiSelect 的搜索文案与 loading/empty 可查看状态纳入公共 API，选项请求 error/retry 仍由业务包装层表达。
 - 暗色模式不在本期范围。
