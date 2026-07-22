@@ -2,7 +2,7 @@
 
 > **本文件是本仓库的唯一事实源入口。** 基线日期：2026-07-14（基于对代码、数据库迁移、部署配置的全量只读审计）。
 >
-> **文档地位声明**：仓库内有效文档 = 本手册 + [TODO.md](TODO.md)（唯一债务与需求台账），外加两个附属：[docs/solutions/](docs/solutions/)（踩坑知识库）与 [docs/handovers/2026-07-06-b-instance-operations-manual.md](docs/handovers/2026-07-06-b-instance-operations-manual.md)（B 实例运营手册）。**其余历史文档（旧工作流产物、specs、会议资料、原型、openspec/ 等约 370 份）已于 2026-07-11 整体删除**，考古方式：`git show archive/2026-07-pre-handbook:<路径>`。手册内容与代码冲突时，以代码与测试为准，并修订本手册。
+> **文档地位声明**：仓库内有效文档 = 本手册 + GitHub Issues（唯一债务与需求台账，`gh issue list` 查看），外加两个附属：[docs/solutions/](docs/solutions/)（踩坑知识库）与 [docs/handovers/2026-07-06-b-instance-operations-manual.md](docs/handovers/2026-07-06-b-instance-operations-manual.md)（B 实例运营手册）。**其余历史文档（旧工作流产物、specs、会议资料、原型、openspec/ 等约 370 份）已于 2026-07-11 整体删除**，考古方式：`git show archive/2026-07-pre-handbook:<路径>`。手册内容与代码冲突时，以代码与测试为准，并修订本手册。
 
 ---
 
@@ -167,8 +167,8 @@ client_get/
 
 **环境变量**（值由用户手动维护，不得自动修改）：
 
-- `backend/.env`：`CLIENTGET_DEV_DATABASE_URL`、`CLIENTGET_PROD_DATABASE_URL`、`JWT_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`（首次启动引导平台管理员）、`DATA_SOURCE_ENCRYPTION_KEY`（历史名，仍用于 OpenRouter Key 等存量密文，不得删除或轮换）、`INTERNAL_SERVICE_SECRET`（worker↔API 鉴权）、`ENGAGELAB_WEBHOOK_SECRET`、`ENGAGELAB_BASE_URL`、`ENGAGELAB_API_USER`、`ENGAGELAB_CREDENTIAL`
-- `frontend/apps/tenant/.env`：`NEXT_PUBLIC_API_BASE_URL`；`frontend/apps/admin/.env`：`NEXT_PUBLIC_ADMIN_API_BASE_URL`（本地开发指向 `http://localhost:8000`；生产不走 .env）
+- `backend/.env.local`：`CLIENTGET_DEV_DATABASE_URL`、`CLIENTGET_PROD_DATABASE_URL`、`JWT_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`（首次启动引导平台管理员）、`DATA_SOURCE_ENCRYPTION_KEY`（历史名，仍用于 OpenRouter Key 等存量密文，不得删除或轮换）、`INTERNAL_SERVICE_SECRET`（worker↔API 鉴权）、`ENGAGELAB_WEBHOOK_SECRET`、`ENGAGELAB_BASE_URL`、`ENGAGELAB_API_USER`、`ENGAGELAB_CREDENTIAL`
+- `frontend/apps/tenant/.env.local`：`NEXT_PUBLIC_API_BASE_URL`；`frontend/apps/admin/.env.local`：`NEXT_PUBLIC_ADMIN_API_BASE_URL`（本地开发指向 `http://localhost:8000`；生产不走 env 文件）
 
 ## 8. 本地开发
 
@@ -176,7 +176,7 @@ client_get/
 # 后端（Python ≥3.11，uv 管理，实际 .venv 为 3.12）
 cd backend
 uv sync
-# 配好 backend/.env（开发库为 Neon，见 §7）
+# 配好 backend/.env.local（开发库为 Neon，见 §7）
 uv run alembic -c alembic.ini upgrade head
 uv run uvicorn app.main:app --reload        # http://localhost:8000
 uv run pytest -q                            # 42 个测试文件
@@ -223,7 +223,7 @@ pnpm type-check    # 全 workspace tsc
 
 ## 11. 已知债务与风险
 
-**全部登记于 [TODO.md](TODO.md)（唯一台账，本手册不重复维护）。** 接手前必读的三条头部风险：T-01（RLS 未强制，隔离是单点防线）、T-04（AI 无真实推理，涉及产品承诺）、T-05（域名假验证，涉及客户信任）。
+**全部登记于 GitHub Issues（唯一台账，本手册不重复维护，`gh issue list` 查看）。** 接手前必读的三条头部风险：#43（RLS 未强制，隔离是单点防线）、#46（AI 无真实推理，涉及产品承诺）、#47（域名假验证，涉及客户信任）。
 
 ## 12. 非目标（显式放弃的需求）
 
@@ -231,12 +231,12 @@ pnpm type-check    # 全 workspace tsc
 |---|---|
 | 回信监控（原始需求第 8 条的一部分） | **已放弃**（2026-07-11 拍板）：从未开工，送达商支持存疑；如未来重启，先做供应商回信检测能力调研 |
 
-> 放弃也是决策——记录在此防止未来重复发现、重复讨论。重新启用某项非目标前，先在此删行并登记回 TODO。（情报定时采集曾列为放弃候选，2026-07-11 拍板保留为 T-08。）
+> 放弃也是决策——记录在此防止未来重复发现、重复讨论。重新启用某项非目标前，先在此删行并登记回 Issues。（情报定时采集曾列为放弃候选，2026-07-11 拍板保留，现为 #49。）
 
 ## 13. 文档体系与维护规则
 
 1. **真相链**：代码 + 测试 > 本手册 > 其他一切。发现手册与代码不符，改手册。
 2. **行为变更**：影响 §3 矩阵或 §5 口径的变更，合并时同步修订本手册对应行。
-3. **实施完成**：检查 [TODO.md](TODO.md) 并销账（这是每次收尾的固定动作）。
+3. **实施完成**：销账对应 issue——修复 PR 描述带 `Fixes #NN` 随合并自动关闭，无 PR 的用 `gh issue close` 附证据（这是每次收尾的固定动作）。
 4. **新踩坑**：沉淀到 `docs/solutions/`（现有 14 篇，分 best-practices/conventions/database-issues/integration-issues/runtime-errors/workflow-issues 六类）。
 5. **历史考古**：历史文档删除时将打 tag `archive/2026-07-pre-handbook`；此后用 `git show archive/2026-07-pre-handbook:<路径>` 查阅任何旧文档。另注意：项目 2026-04-17 至 2026-05-16 的更早历史保留在未合并的远程分支 `origin/codex/tenant-nextjs-rewrite`、`origin/codex/admin-server-prefetch` 上（main 是三仓库合并后的重新起点）。

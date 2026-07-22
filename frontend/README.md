@@ -22,4 +22,4 @@ pnpm type-check    # 全 workspace tsc
 
 - API 前缀由 `@shared/api` 统一拼接：admin 走 `/admin/api/v1`，tenant 走 `/t/{slug}/api/v1`；**tenant 前端路由本身不带 slug，slug 只来自登录输入与 JWT payload**。
 - 联调账号：先跑 `backend/scripts/seed_demo_data.py`（见 backend/README）。
-- `pnpm lint` 当前不可用（eslint 从未安装，已登记 [TODO](../TODO.md) T-10）。
+- `pnpm lint` 当前不可用（eslint 从未安装，已登记 [issue #50](https://github.com/inside-ziwu/client-get/issues/50)）。
