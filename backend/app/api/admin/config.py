@@ -2,7 +2,14 @@ from fastapi import APIRouter, Body, Depends
 from starlette.responses import Response
 
 from app.core.responses import paginated_response, success_response
-from app.schemas.admin_config import ScoringTemplateCreate
+from app.schemas.admin_config import (
+    AIModelCreate,
+    EmailTemplateCreate,
+    IntelligenceSourceCreate,
+    ScoringTemplateCreate,
+    TenantUserCreate,
+    WarmupRuleUpdate,
+)
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
 from app.services.admin_config_service import AdminConfigService
 
@@ -88,13 +95,13 @@ async def list_intelligence_sources(context: PlatformAuthContext = Depends(get_c
 
 @router.post("/intelligence-sources")
 async def create_intelligence_source(
-    payload: dict,
+    payload: IntelligenceSourceCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_intelligence_source(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -151,13 +158,13 @@ async def list_platform_email_templates(context: PlatformAuthContext = Depends(g
 
 @router.post("/email-templates")
 async def create_platform_email_template(
-    payload: dict,
+    payload: EmailTemplateCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_platform_email_template(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -215,11 +222,14 @@ async def list_warmup_rules(context: PlatformAuthContext = Depends(get_current_p
 
 
 @router.put("/warmup-rules")
-async def put_warmup_rules(payload: dict, context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
+async def put_warmup_rules(
+    payload: WarmupRuleUpdate,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
     return success_response(
         await service.put_warmup_rules(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -232,11 +242,14 @@ async def list_ai_models(context: PlatformAuthContext = Depends(get_current_plat
 
 
 @router.post("/ai-config/models")
-async def create_ai_model(payload: dict, context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
+async def create_ai_model(
+    payload: AIModelCreate,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
     return success_response(
         await service.create_ai_model(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -313,14 +326,14 @@ async def list_tenant_users(tenant_id: str, context: PlatformAuthContext = Depen
 @router.post("/tenants/{tenant_id}/users")
 async def create_tenant_user(
     tenant_id: str,
-    payload: dict,
+    payload: TenantUserCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_tenant_user(
             context.connection,
             tenant_id=tenant_id,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )

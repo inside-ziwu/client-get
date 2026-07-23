@@ -5,9 +5,8 @@
    {"data": ...} / paginated / 204 约定；
 2. 认证：不带 token 一律 401（验证每个端点都挂了平台认证依赖）；
 3. 校验契约：缺 body → 422；空 payload {} 缺必填字段 → 期望 422。
-   存量 `payload: dict` 裸收参端点缺字段会落到 service 层 KeyError → 500，
-   已用 xfail 记录；逐端点 Pydantic 化后摘除对应标记转绿
-   （已完成：POST /scoring-templates → ScoringTemplateCreate）。
+   存量 `payload: dict` 裸收参端点缺字段会落到 service 层 KeyError → 500；
+   已完成的端点由 Pydantic 在路由层返回 422。
 
 service 层用 AsyncMock 替换（与 test_sending_plan_routes.py 同模式），不触库；
 SQL 语义与数据断言走 /db-verify 开发库验证，不在本文件范围。
@@ -45,20 +44,24 @@ SMOKE_CASES = [
     ("DELETE", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "delete_platform_scoring_template", None, 200, "deleted", NOBODY),
     ("GET", "/scoring-templates/{template_id}/versions", "/scoring-templates/tmpl-001/versions", "list_platform_scoring_template_versions", [ROW], 200, "paginated", NOBODY),
     ("GET", "/intelligence-sources", "/intelligence-sources", "list_intelligence_sources", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/intelligence-sources", "/intelligence-sources", "create_intelligence_source", ROW, 200, "success", {}),
+    ("POST", "/intelligence-sources", "/intelligence-sources", "create_intelligence_source", ROW, 200, "success",
+     {"name": "行业动态 RSS", "source_type": "rss"}),
     ("POST", "/intelligence-sources/batch-import", "/intelligence-sources/batch-import", "batch_import_intelligence_sources", [ROW], 200, "paginated", {"items": []}),
     ("PATCH", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "patch_intelligence_source", ROW, 200, "success", {}),
     ("DELETE", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "delete_intelligence_source", None, 200, "deleted", NOBODY),
     ("GET", "/email-templates", "/email-templates", "list_platform_email_templates", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/email-templates", "/email-templates", "create_platform_email_template", ROW, 200, "success", {}),
+    ("POST", "/email-templates", "/email-templates", "create_platform_email_template", ROW, 200, "success",
+     {"industry": "pcb", "name": "冒烟邮件模板", "subject": "冒烟主题", "body_html": ""}),
     ("GET", "/email-templates/{template_id}", "/email-templates/et-001", "get_platform_email_template", ROW, 200, "success", NOBODY),
     ("PUT", "/email-templates/{template_id}", "/email-templates/et-001", "update_platform_email_template", ROW, 200, "success", {}),
     ("DELETE", "/email-templates/{template_id}", "/email-templates/et-001", "delete_platform_email_template", None, 200, "deleted", NOBODY),
     ("GET", "/email-templates/{template_id}/preview", "/email-templates/et-001/preview", "get_platform_email_template_preview", ROW, 200, "success", NOBODY),
     ("GET", "/warmup-rules", "/warmup-rules", "list_warmup_rules", [ROW], 200, "paginated", NOBODY),
-    ("PUT", "/warmup-rules", "/warmup-rules", "put_warmup_rules", ROW, 200, "success", {}),
+    ("PUT", "/warmup-rules", "/warmup-rules", "put_warmup_rules", ROW, 200, "success",
+     {"name": "默认预热规则"}),
     ("GET", "/ai-config/models", "/ai-config/models", "list_ai_models", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/ai-config/models", "/ai-config/models", "create_ai_model", ROW, 200, "success", {}),
+    ("POST", "/ai-config/models", "/ai-config/models", "create_ai_model", ROW, 200, "success",
+     {"model_id": "openai/gpt-4.1-mini", "display_name": "GPT-4.1 Mini"}),
     ("PATCH", "/ai-config/models/{model_id}", "/ai-config/models/m-001", "patch_ai_model", ROW, 200, "success", {}),
     ("DELETE", "/ai-config/models/{model_id}", "/ai-config/models/m-001", "delete_ai_model", None, 200, "deleted", NOBODY),
     ("GET", "/ai-config/scene-defaults", "/ai-config/scene-defaults", "list_ai_scene_defaults", [ROW], 200, "paginated", NOBODY),
@@ -66,7 +69,8 @@ SMOKE_CASES = [
     ("GET", "/ai-config/pricing", "/ai-config/pricing", "get_ai_pricing", ROW, 200, "success", NOBODY),
     ("PUT", "/ai-config/pricing", "/ai-config/pricing", "put_ai_pricing", ROW, 200, "success", {}),
     ("GET", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "list_tenant_users", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "create_tenant_user", ROW, 200, "success", {}),
+    ("POST", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "create_tenant_user", ROW, 200, "success",
+     {"email": "user@example.com", "name": "冒烟用户"}),
     ("PATCH", "/tenants/{tenant_id}/users/{user_id}", "/tenants/t-001/users/u-001", "update_tenant_user", ROW, 200, "success", {}),
     ("DELETE", "/tenants/{tenant_id}/users/{user_id}", "/tenants/t-001/users/u-001", "delete_tenant_user", None, 200, "deleted", NOBODY),
     ("GET", "/tenants/{tenant_id}/domains", "/tenants/t-001/domains", "list_tenant_domains", [ROW], 200, "paginated", NOBODY),
@@ -209,29 +213,20 @@ async def test_missing_body_returns_422(
     assert resp.status_code == 422, resp.text
 
 
-# 空 payload {} 应被参数校验拦下（422）；现状裸 dict 收参会穿透到 service 层
-# 抛 KeyError → 500。此处只列 service 层用 payload["字段"] 硬取值的端点。
-# 2026-07-23 实测：除 /tenants/{id}/domains（service 里有手写 AppError 422 校验）与
-# 已 Pydantic 化的 /scoring-templates POST 外，其余返回 500，已标 xfail 记录现状
-# —— 每完成一个端点的 Pydantic 化改造，移除对应标记即转绿。
-_XFAIL_BARE_DICT = pytest.mark.xfail(
-    reason="裸 dict 收参：缺必填字段现返 500（service 层 KeyError），Pydantic 化后应 422",
-    strict=False,
-)
+# 空 payload {} 应被参数校验拦下（422）。此处列出 service 层存在必填字段的端点。
 _REQUIRED_FIELD_CASES = [
-    # 2026-07-23 已 Pydantic 化（ScoringTemplateCreate），缺必填字段由 FastAPI 422 拦截
     pytest.param("POST", "/scoring-templates", "industry/name/dimensions",
                  id="POST:/scoring-templates"),
-    pytest.param("POST", "/email-templates", "industry/name",
-                 marks=_XFAIL_BARE_DICT, id="POST:/email-templates"),
+    pytest.param("POST", "/email-templates", "industry/name/subject/body_html",
+                 id="POST:/email-templates"),
     pytest.param("POST", "/intelligence-sources", "name/source_type",
-                 marks=_XFAIL_BARE_DICT, id="POST:/intelligence-sources"),
+                 id="POST:/intelligence-sources"),
     pytest.param("PUT", "/warmup-rules", "name",
-                 marks=_XFAIL_BARE_DICT, id="PUT:/warmup-rules"),
+                 id="PUT:/warmup-rules"),
     pytest.param("POST", "/ai-config/models", "model_id/display_name",
-                 marks=_XFAIL_BARE_DICT, id="POST:/ai-config/models"),
+                 id="POST:/ai-config/models"),
     pytest.param("POST", "/tenants/t-001/users", "email/name",
-                 marks=_XFAIL_BARE_DICT, id="POST:/tenants/users"),
+                 id="POST:/tenants/users"),
     pytest.param("POST", "/tenants/t-001/domains", "warmup_rule_id/warmup_level",
                  id="POST:/tenants/domains"),
 ]
