@@ -24,7 +24,7 @@ services:
       postgres:
         condition: service_healthy
     env_file:
-      - .env
+      - .env.local
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/clientget
       SYNC_DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/clientget

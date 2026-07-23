@@ -39,7 +39,7 @@ REPAIR_SET_SQL = """
 
 
 def resolve_url(env: str) -> str:
-    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env.local"))
     key = "CLIENTGET_PROD_DATABASE_URL" if env == "prod" else "CLIENTGET_DEV_DATABASE_URL"
     url = os.environ.get(key)
     if not url:
