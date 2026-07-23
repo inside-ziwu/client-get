@@ -66,7 +66,6 @@ async def list_companies(
     employee_scales: list[str] = Query(default=[], alias="employee_scale[]", description="规模档位多选 OR"),
     employee_count_min: int | None = Query(None, description="最小员工人数"),
     employee_count_max: int | None = Query(None, description="最大员工人数"),
-    pcb_supplier_presence: str | None = Query(None, description="PCB 供应商：has/none"),
     min_score: float | None = Query(None, description="最低分"),
     max_score: float | None = Query(None, description="最高分"),
     grade: str | None = Query(None, description="评级筛选（兼容旧参数，单选）"),
@@ -115,7 +114,6 @@ async def list_companies(
         employee_scales=employee_scales or None,
         employee_count_min=employee_count_min,
         employee_count_max=employee_count_max,
-        pcb_supplier_presence=pcb_supplier_presence,
         min_score=min_score,
         max_score=max_score,
         grades=grades or ([grade] if grade else None),
@@ -214,7 +212,6 @@ async def list_prospects(
     contact_count_max: int | None = Query(None, description="最多联系人数量"),
     founded_year_from: int | None = Query(None, description="成立年份起"),
     founded_year_to: int | None = Query(None, description="成立年份止"),
-    pcb_supplier_presence: str | None = Query(None, description="PCB 供应商：has/none"),
     limit: int = Query(50, ge=1, le=1000, description="每页条数"),
     context: TenantAuthContext = Depends(get_current_tenant_user),
 ) -> dict:
@@ -236,7 +233,6 @@ async def list_prospects(
         contact_count_max=contact_count_max,
         founded_year_from=founded_year_from,
         founded_year_to=founded_year_to,
-        pcb_supplier_presence=pcb_supplier_presence,
         limit=limit,
     )
     return paginated_response(items, total=len(items))
