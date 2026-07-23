@@ -15,6 +15,7 @@ from app.schemas.admin_config import (
     ScoringTemplateCreate,
     ScoringTemplateUpdate,
     TenantDomainCreate,
+    TenantDomainUpdate,
     TenantUserCreate,
     TenantUserUpdate,
     WarmupRuleUpdate,
@@ -438,7 +439,7 @@ async def get_tenant_domain(
 async def update_tenant_domain(
     tenant_id: str,
     domain_id: str,
-    payload: dict,
+    payload: TenantDomainUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
@@ -446,7 +447,7 @@ async def update_tenant_domain(
             context.connection,
             tenant_id=tenant_id,
             domain_id=domain_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )

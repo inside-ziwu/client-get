@@ -5,6 +5,7 @@ app/api/admin/config.py 裸 dict 收参逐端点 Pydantic 化的落点。
 """
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, RootModel
 
@@ -242,3 +243,11 @@ class TenantDomainCreate(BaseModel):
         max_length=255,
         description="发件邮箱",
     )
+
+
+class TenantDomainUpdate(BaseModel):
+    """局部更新租户发信域名请求"""
+
+    warmup_rule_id: UUID | None = Field(None, description="预热规则ID")
+    warmup_level: int | None = Field(None, ge=1, le=10, description="预热等级")
+    sender_email: str | None = Field(None, max_length=255, description="发件邮箱")

@@ -494,3 +494,36 @@ async def test_batch_import_passes_validated_items_to_service(
     assert mock.await_args.kwargs["items"] == [
         {"name": "RSS 情报源", "source_type": "rss"}
     ]
+
+
+async def test_tenant_domain_update_rejects_out_of_range_warmup_level(
+    client, monkeypatch
+):
+    """租户域名更新应在路由边界拒绝超出请求契约的预热等级"""
+    mock = AsyncMock(return_value=ROW)
+    monkeypatch.setattr(config_module.service, "update_tenant_domain", mock)
+
+    resp = await client.patch(
+        PREFIX + "/tenants/t-001/domains/d-001",
+        json={"warmup_level": 11},
+    )
+
+    assert resp.status_code == 422, resp.text
+    mock.assert_not_awaited()
+
+
+async def test_tenant_domain_update_only_passes_provided_fields(
+    client, monkeypatch
+):
+    """租户域名 PATCH 不得向 service 注入未提供的 None"""
+    mock = AsyncMock(return_value=ROW)
+    monkeypatch.setattr(config_module.service, "update_tenant_domain", mock)
+    body = {"sender_email": "sender@example.com"}
+
+    resp = await client.patch(
+        PREFIX + "/tenants/t-001/domains/d-001",
+        json=body,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert mock.await_args.kwargs["payload"] == body
