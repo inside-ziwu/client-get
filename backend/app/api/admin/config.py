@@ -2,6 +2,7 @@ from fastapi import APIRouter, Body, Depends
 from starlette.responses import Response
 
 from app.core.responses import paginated_response, success_response
+from app.schemas.admin_config import ScoringTemplateCreate
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
 from app.services.admin_config_service import AdminConfigService
 
@@ -25,13 +26,13 @@ async def list_platform_scoring_templates(
 
 @router.post("/scoring-templates")
 async def create_platform_scoring_template(
-    payload: dict,
+    payload: ScoringTemplateCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_platform_scoring_template(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )

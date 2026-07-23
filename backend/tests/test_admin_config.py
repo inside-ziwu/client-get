@@ -5,8 +5,9 @@
    {"data": ...} / paginated / 204 约定；
 2. 认证：不带 token 一律 401（验证每个端点都挂了平台认证依赖）；
 3. 校验契约：缺 body → 422；空 payload {} 缺必填字段 → 期望 422。
-   现状全部端点为 `payload: dict` 裸收参，缺字段会落到 service 层
-   KeyError → 500，已用 xfail 记录，Pydantic 化改造后应转绿。
+   存量 `payload: dict` 裸收参端点缺字段会落到 service 层 KeyError → 500，
+   已用 xfail 记录；逐端点 Pydantic 化后摘除对应标记转绿
+   （已完成：POST /scoring-templates → ScoringTemplateCreate）。
 
 service 层用 AsyncMock 替换（与 test_sending_plan_routes.py 同模式），不触库；
 SQL 语义与数据断言走 /db-verify 开发库验证，不在本文件范围。
@@ -36,7 +37,9 @@ NOBODY = object()  # 区分"不发 body"与"发空 body"
 SMOKE_CASES = [
     ("GET", "/dashboard/overview", "/dashboard/overview", "get_platform_dashboard", ROW, 200, "success", NOBODY),
     ("GET", "/scoring-templates", "/scoring-templates", "list_platform_scoring_templates", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/scoring-templates", "/scoring-templates", "create_platform_scoring_template", ROW, 200, "success", {}),
+    # 已 Pydantic 化端点：body 须为最小合法 payload（校验先于 service 执行）
+    ("POST", "/scoring-templates", "/scoring-templates", "create_platform_scoring_template", ROW, 200, "success",
+     {"industry": "pcb", "name": "冒烟模板", "dimensions": []}),
     ("GET", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "get_platform_scoring_template", ROW, 200, "success", NOBODY),
     ("PUT", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "update_platform_scoring_template", ROW, 200, "success", {}),
     ("DELETE", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "delete_platform_scoring_template", None, 200, "deleted", NOBODY),
@@ -208,15 +211,17 @@ async def test_missing_body_returns_422(
 
 # 空 payload {} 应被参数校验拦下（422）；现状裸 dict 收参会穿透到 service 层
 # 抛 KeyError → 500。此处只列 service 层用 payload["字段"] 硬取值的端点。
-# 2026-07-23 实测：除 /tenants/{id}/domains（service 里有手写 AppError 422 校验）外
-# 全部返回 500，已标 xfail 记录现状 —— 该端点 Pydantic 化改造后移除对应标记即转绿。
+# 2026-07-23 实测：除 /tenants/{id}/domains（service 里有手写 AppError 422 校验）与
+# 已 Pydantic 化的 /scoring-templates POST 外，其余返回 500，已标 xfail 记录现状
+# —— 每完成一个端点的 Pydantic 化改造，移除对应标记即转绿。
 _XFAIL_BARE_DICT = pytest.mark.xfail(
     reason="裸 dict 收参：缺必填字段现返 500（service 层 KeyError），Pydantic 化后应 422",
     strict=False,
 )
 _REQUIRED_FIELD_CASES = [
+    # 2026-07-23 已 Pydantic 化（ScoringTemplateCreate），缺必填字段由 FastAPI 422 拦截
     pytest.param("POST", "/scoring-templates", "industry/name/dimensions",
-                 marks=_XFAIL_BARE_DICT, id="POST:/scoring-templates"),
+                 id="POST:/scoring-templates"),
     pytest.param("POST", "/email-templates", "industry/name",
                  marks=_XFAIL_BARE_DICT, id="POST:/email-templates"),
     pytest.param("POST", "/intelligence-sources", "name/source_type",
