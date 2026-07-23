@@ -1,3 +1,4 @@
+import html
 import re
 
 import bleach
@@ -50,6 +51,8 @@ def sanitize_subject(value: str | None) -> str | None:
     if value is None:
         return None
     cleaned = bleach.clean(value, tags=[], attributes={}, protocols=ALLOWED_PROTOCOLS, strip=True)
+    # bleach 会把 & 实体化为 &amp;；主题按纯文本投递，须还原（发出 &amp; 字面量是线上实害）
+    cleaned = html.unescape(cleaned)
     return re.sub(r"\s+", " ", cleaned.replace("\r", " ").replace("\n", " ")).strip()
 
 
@@ -57,6 +60,7 @@ def sanitize_plain_text(value: str | None) -> str | None:
     if value is None:
         return None
     cleaned = bleach.clean(value, tags=[], attributes={}, protocols=ALLOWED_PROTOCOLS, strip=True)
+    cleaned = html.unescape(cleaned)
     cleaned = cleaned.replace("\r\n", "\n").replace("\r", "\n")
     return "\n".join(line.rstrip() for line in cleaned.split("\n")).strip()
 
