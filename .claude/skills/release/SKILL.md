@@ -61,4 +61,11 @@ gh workflow run build-and-push.yml -f service=tenant -f tag=$(date +%Y.%m.%d)-b-
 向用户输出：
 1. 镜像 → 容器对照表（**8 个容器**）：A API / A worker / B API / B worker ← 同一个 backend 镜像；A admin、A tenant、B admin、B tenant ← 各自实例的镜像；
 2. **串行更新提醒**：先换 A 的 backend（API+worker），确认新容器启动成功（= 迁移已执行完），再换 B 的 backend——A、B 共库，避免两容器并发执行迁移的竞态；四个前端随后任意顺序；
-3. 部署后验证约定：用户确认 Sealos 更新完成后，跑 `cd backend && uv run python scripts/schema_snapshot.py --prod`，契约 diff 应恰好等于本次部署的迁移内容（带外变更探测器，见 backend/03_database/schema_snapshot.json 头部说明）。
+3. 部署后验证约定：用户确认 Sealos 更新完成后执行下节四步。
+
+## 部署后验证（用户确认 Sealos 更新完成后，四步按序）
+
+1. **探活**：curl 两实例 `/health`（`https://api.xinanpcb.com` 与 `https://sfxteoewmcow.sealosbja.site`）。
+2. **版本指纹**：探活 OK ≠ 新代码在跑（2026-07-23 教训）。从本次 diff 挑一个 OpenAPI 可见变更（新增/删除的路由或参数），curl 两实例公开的 `/openapi.json` 判定；本次变更全部不可见于 OpenAPI 时，如实标注「版本未指纹验证」，不拿探活冒充。
+3. **契约探测**：`cd backend && uv run python scripts/schema_snapshot.py --prod`，`git diff backend/03_database/schema_snapshot.json` 应恰好等于本次迁移内容（零迁移则零 diff）；仅统计行数波动时按「发布后快照同步」惯例直推提交。
+4. **数据侧业务证据**：视本次变更设计生产只读对照查询（psycopg `read_only`；对照组思路：期望消失的模式归零 + 正常模式仍出现，排除假阴性）。发送窗口未产出时如实标 pending，用定时唤醒复查，不硬凑证据。
