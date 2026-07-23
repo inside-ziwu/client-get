@@ -12,14 +12,6 @@ def contact_count_range_clause(range_value: str | None, alias: str = "cc") -> st
     return template.format(alias=alias) if template else None
 
 
-def pcb_supplier_presence_clause(value: str | None, alias: str = "cc") -> str | None:
-    if value == "has":
-        return f"COALESCE(cardinality({alias}.pcb_suppliers), 0) > 0"
-    if value == "none":
-        return f"COALESCE(cardinality({alias}.pcb_suppliers), 0) = 0"
-    return None
-
-
 def employee_count_lower_expr(alias: str = "cc", column: str = "employee_num") -> str:
     field = f"{alias}.{column}"
     return f"""
