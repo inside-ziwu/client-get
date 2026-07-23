@@ -169,7 +169,7 @@ cd frontend && pnpm type-check
 | 优选客户（群组） | ✅ | 入群自动物化联系人。tenant `/curated-customers` |
 | 评分 | ✅ | **租户评分是确定性规则引擎，不是 AI**；仅依该租户当前模板/版本写入 `company_scores`，平台不对全局客户池打分。`scoring_engine_service.py` |
 | 邮件模板 | 🟡 | 双 Tab 列表、TipTap 富文本、纯文本兜底、测试发送；「AI 生成」当前为启发式桩（#46）；**平台模板“预览”会误调用复制接口，已排期修复**（#65）。tenant `/templates` |
-| 发送计划全生命周期 | ✅ | 4 步向导、收件人预览/锁定、状态机操作、运行中轮询。tenant `/send-plans/*`，后端 `tenant_messaging_service.py`（3261 行核心文件） |
+| 发送计划全生命周期 | ✅ | 4 步向导、收件人预览/锁定、状态机操作、运行中轮询；锁定/启动前校验模板变量，含无法替换的 `{{…}}` 时 422 拦截（防字面量事故，2026-07-23）。tenant `/send-plans/*`，后端 `tenant_messaging_service.py`（3334 行核心文件） |
 | 团队管理 | 🟡 | CRUD 可用；列表前端隐藏当前账号操作并对行级状态提交提供 pending 保护，但**API 层仍缺最后管理员保护与自操作拦截，可把租户锁死**（#44）。`tenant_team_service.py` |
 | 情报中心（阅读侧） | ✅ | 列表/已读/收藏/归档；加载、失败、空数据与刷新状态统一。tenant `/intelligence` |
 | 各项设置 | ✅ | 评分模板、AI 供应商、团队。tenant `/settings/*` |
