@@ -95,3 +95,10 @@
 | `contact_rules.rules` | 租户初始化写入默认值，发送侧无任何消费方 | |
 | `intelligence_sources.last_fetched_at`/`error_count` | 情报定时采集未实现（#49），无写入方 | |
 | `audit_logs.ip_address`/`user_agent`/`request_id`、`ai_usage_logs.latency_ms` | 无填充路径 | 预留 |
+
+**2026-07-23 逐项拍板结果**：
+- **接线（已立 issue）**：`tenant_companies.score` 断供（筛选失效 bug）→ #81（P1，回写方案）；域名预热自动升降档三件套 → #82（P2）；审计字段填充 → #83（P3）；
+- **拆除**：`service_idempotency_keys` 表 + `InternalIdempotencyService`（零调用方，幂等由 `email_send_locks` 承担；305 行已 dump 留档，迁移 20260723_0003）；
+- **保留（预留待接线）**：`scoring_jobs` 队列、`emails.scheduled_at`、`groups.auto_rules`、`contact_rules.rules`（核实修正：发送侧**在用**平台级职位过滤 `v_tenant_contact_classified`，未接线的仅租户自定义规则层）；
+- **文档修正**：`tenant_scoring_weights_service.py` docstring 已改正（原声称评分 worker 读取权重，实际未接线）；
+- intelligence 定时采集继续由 #49 追踪。
