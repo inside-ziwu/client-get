@@ -3312,9 +3312,13 @@ class TenantMessagingService:
             "contact_email": test_email,
             "sender_name": "李四",
         }
-        subject = self._render_text(tpl["subject"], test_vars)
-        body_html = self._render_text(tpl["body_html"], test_vars)
+        # 与正式发送链路（claim_due_emails）同序 sanitize：测试发出的内容 = 真实发出的内容，
+        # 且存量入库脏数据（如历史 &amp;）在此动态修正
+        body_html = sanitize_html(self._render_text(tpl["body_html"], test_vars)) or ""
         body_text = self._render_text(tpl.get("body_text", "") or "", test_vars)
+        body_text = self._body_text_with_fallback(body_text, body_html)
+        body_text = sanitize_plain_text(body_text)
+        subject = sanitize_subject(self._render_text(tpl["subject"], test_vars)) or ""
 
         client = EngageLabClient()
         await client.send_email(
