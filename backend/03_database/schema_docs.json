@@ -11,8 +11,7 @@
     "user_roles",
     "tenant_ai_provider_configs",
     "audit_logs",
-    "notifications",
-    "service_idempotency_keys"
+    "notifications"
    ]
   },
   {
@@ -209,15 +208,6 @@
    "entity_id": "关联业务对象 ID，供前端跳转。",
    "is_read": "已读标记；支持单条与一键全部已读。",
    "read_at": "标记已读的时间。"
-  },
-  "service_idempotency_keys": {
-   "__table__": "内部服务间调用幂等表：以 服务名+请求ID+端点 三元组唯一，保存首次响应供重复请求回放（ON CONFLICT DO NOTHING）。服务层已实现读写，当前代码无调用方。",
-   "service_name": "调用方服务名，幂等键三元组之一。",
-   "request_id": "调用方请求 ID，幂等键三元组之一。",
-   "endpoint": "目标端点，幂等键三元组之一。",
-   "request_hash": "请求体哈希，识别同键不同参；当前代码未写入。",
-   "response_status": "首次响应 HTTP 状态码；当前保存路径固定写 200。",
-   "response_body": "首次响应 JSON；命中幂等键时直接回放此内容。"
   },
   "ai_models": {
    "__table__": "平台级 AI 模型目录（按 instance_id 隔离）。平台管理员在 admin 配置页维护；场景默认映射与 AI 调用按此选择模型。",

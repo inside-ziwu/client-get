@@ -1,16 +1,16 @@
 # ClientGet 生产数据库结构文档
 
-> **来源与快照性质**：本文档由 `backend/scripts/schema_snapshot.py` 自 **生产库（Sealos PG）**（`pg_catalog` 只读查询）自动生成，生成日期 **2026-07-22**，库内 alembic 版本 **20260714_0001**。**请勿手改本文件**——结构以 `backend/03_database/schema_snapshot.json`（机器契约，diff 即带外变更探测器）为准，业务说明维护在 `schema_docs.json`，漂移注记维护在 `schema_notes.md`，改完重跑脚本渲染。
+> **来源与快照性质**：本文档由 `backend/scripts/schema_snapshot.py` 自 **生产库（Sealos PG）**（`pg_catalog` 只读查询）自动生成，生成日期 **2026-07-23**，库内 alembic 版本 **20260723_0003**。**请勿手改本文件**——结构以 `backend/03_database/schema_snapshot.json`（机器契约，diff 即带外变更探测器）为准，业务说明维护在 `schema_docs.json`，漂移注记维护在 `schema_notes.md`，改完重跑脚本渲染。
 >
 > **行数**为 `pg_class.reltuples` 估算值（`-1`/`0` 表示从未 ANALYZE 或确实为空），仅供判断表的活跃度。
 >
 > **业务说明的来源与边界**：生产库列注释覆盖率为零，「说明」列中的业务语义提炼自代码事实（services/api 层的实际读写用法、alembic 迁移注释、schema.sql 蓝图注释、DESIGN/README/docs/solutions），初版调查日期 2026-07-22。**留空 = 代码中无可靠依据**（多见于外部直写表的数据商原始字段），宁缺毋滥、不做编造；外部表（`waimaotong_*` 等）列名字面含义明确者按字面标注。若说明与代码现状冲突，以代码为准并修订 `schema_docs.json`。
 
-**总量**：业务表 **63** 张（其中分区父表 3 张，当前共 18 个分区子表）+ 备份快照表 **0** 张 + `alembic_version`；业务视图 1 个（监控扩展视图未列出）。
+**总量**：业务表 **62** 张（其中分区父表 3 张，当前共 18 个分区子表）+ 备份快照表 **0** 张 + `alembic_version`；业务视图 1 个（监控扩展视图未列出）。
 
 ## 目录
 
-- **平台与租户治理**：[`tenants`](#tenants)、[`platform_users`](#platform_users)、[`users`](#users)、[`user_roles`](#user_roles)、[`tenant_ai_provider_configs`](#tenant_ai_provider_configs)、[`audit_logs`](#audit_logs)、[`notifications`](#notifications)、[`service_idempotency_keys`](#service_idempotency_keys)
+- **平台与租户治理**：[`tenants`](#tenants)、[`platform_users`](#platform_users)、[`users`](#users)、[`user_roles`](#user_roles)、[`tenant_ai_provider_configs`](#tenant_ai_provider_configs)、[`audit_logs`](#audit_logs)、[`notifications`](#notifications)
 - **AI 配置与用量**：[`ai_models`](#ai_models)、[`ai_scene_defaults`](#ai_scene_defaults)、[`ai_usage_logs`](#ai_usage_logs)
 - **评分体系**：[`platform_scoring_templates`](#platform_scoring_templates)、[`platform_scoring_template_versions`](#platform_scoring_template_versions)、[`scoring_templates`](#scoring_templates)、[`scoring_template_versions`](#scoring_template_versions)、[`tenant_scoring_weights`](#tenant_scoring_weights)、[`scoring_jobs`](#scoring_jobs)、[`company_scores`](#company_scores)
 - **租户客户池**：[`tenant_companies`](#tenant_companies)、[`tenant_contacts`](#tenant_contacts)、[`company_blacklist`](#company_blacklist)、[`groups`](#groups)、[`group_members`](#group_members)、[`contact_rules`](#contact_rules)、[`position_classification_categories`](#position_classification_categories)、[`position_classification_levels`](#position_classification_levels)、[`position_classification_keywords`](#position_classification_keywords)
@@ -201,25 +201,6 @@
 **外键**：`tenant_id` → `tenants(id)`；`user_id` → `users(id)`
 
 **索引**：`idx_notifications_user_unread` (tenant_id, user_id, is_read, created_at DESC)
-
-### service_idempotency_keys
-
-内部服务间调用幂等表：以 服务名+请求ID+端点 三元组唯一，保存首次响应供重复请求回放（ON CONFLICT DO NOTHING）。服务层已实现读写，当前代码无调用方。
-
-估算行数 305。
-
-| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
-|---|---|---|---|---|
-| id | UUID | ✗ |  | **PK** |
-| service_name | VARCHAR(100) | ✗ |  | 调用方服务名，幂等键三元组之一。 |
-| request_id | VARCHAR(200) | ✗ |  | 调用方请求 ID，幂等键三元组之一。 |
-| endpoint | VARCHAR(200) | ✗ |  | 目标端点，幂等键三元组之一。 |
-| request_hash | VARCHAR(128) | ✓ |  | 请求体哈希，识别同键不同参；当前代码未写入。 |
-| response_status | INTEGER | ✓ |  | 首次响应 HTTP 状态码；当前保存路径固定写 200。 |
-| response_body | JSONB | ✓ |  | 首次响应 JSON；命中幂等键时直接回放此内容。 |
-| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间 |
-
-**唯一约束**：`service_name, request_id, endpoint`
 
 ## AI 配置与用量
 
@@ -504,7 +485,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 **外键**：`tenant_id` → `tenants(id)` ON DELETE CASCADE
 
-**索引**：`idx_tenant_companies_clean_company_id` (clean_company_id)；`idx_tenant_companies_tags` (tags) [gin]；`idx_tenant_companies_tenant_business_status` (tenant_id, business_status)；`idx_tenant_companies_tenant_data_status` (tenant_id, data_status)；`idx_tenant_companies_tenant_score` (tenant_id, score)
+**索引**：`idx_tenant_companies_clean_company_id` (clean_company_id)；`idx_tenant_companies_tenant_business_status` (tenant_id, business_status)；`idx_tenant_companies_tenant_data_status` (tenant_id, data_status)；`idx_tenant_companies_tenant_score` (tenant_id, score)
 
 ### tenant_contacts
 
@@ -917,7 +898,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 **外键**：`tenant_id` → `tenants(id)`
 
-**索引**：`idx_email_events_email` (email_id, email_created_at)；`idx_email_events_provider_unique` UNIQUE (source, provider_event_id) WHERE (provider_event_id IS NOT NULL)；`idx_email_events_tenant_type` (tenant_id, event_type, occurred_at DESC)；`idx_email_events_type_time` (event_type, occurred_at DESC)
+**索引**：`idx_email_events_email` (email_id, email_created_at)；`idx_email_events_provider_unique` UNIQUE (source, provider_event_id) WHERE (provider_event_id IS NOT NULL)；`idx_email_events_tenant_type` (tenant_id, event_type, occurred_at DESC)
 
 ### email_send_locks
 
@@ -2155,3 +2136,10 @@ graph LR
 | `contact_rules.rules` | 租户初始化写入默认值，发送侧无任何消费方 | |
 | `intelligence_sources.last_fetched_at`/`error_count` | 情报定时采集未实现（#49），无写入方 | |
 | `audit_logs.ip_address`/`user_agent`/`request_id`、`ai_usage_logs.latency_ms` | 无填充路径 | 预留 |
+
+**2026-07-23 逐项拍板结果**：
+- **接线（已立 issue）**：`tenant_companies.score` 断供（筛选失效 bug）→ #81（P1，回写方案）；域名预热自动升降档三件套 → #82（P2）；审计字段填充 → #83（P3）；
+- **拆除**：`service_idempotency_keys` 表 + `InternalIdempotencyService`（零调用方，幂等由 `email_send_locks` 承担；305 行已 dump 留档，迁移 20260723_0003）；
+- **保留（预留待接线）**：`scoring_jobs` 队列、`emails.scheduled_at`、`groups.auto_rules`、`contact_rules.rules`（核实修正：发送侧**在用**平台级职位过滤 `v_tenant_contact_classified`，未接线的仅租户自定义规则层）；
+- **文档修正**：`tenant_scoring_weights_service.py` docstring 已改正（原声称评分 worker 读取权重，实际未接线）；
+- intelligence 定时采集继续由 #49 追踪。

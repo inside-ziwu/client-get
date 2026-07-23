@@ -774,18 +774,6 @@ Table sequence_steps {
   Note: '发送计划的序列步骤配置：第几步用哪个模板、延迟几天、按上一步反馈的触发条件。租户 API 维护，worker 按 enrollment.current_step 关联读取。'
 }
 
-Table service_idempotency_keys {
-  "id" UUID [pk, not null]
-  "service_name" VARCHAR(100) [not null]
-  "request_id" VARCHAR(200) [not null]
-  "endpoint" VARCHAR(200) [not null]
-  "request_hash" VARCHAR(128)
-  "response_status" INTEGER
-  "response_body" JSONB
-  "created_at" TIMESTAMPTZ [not null]
-  Note: '内部服务间调用幂等表：以 服务名+请求ID+端点 三元组唯一，保存首次响应供重复请求回放（ON CONFLICT DO NOTHING）。服务层已实现读写，当前代码无调用方。'
-}
-
 Table tenant_ai_provider_configs {
   "id" UUID [pk, not null]
   "tenant_id" UUID [not null]
