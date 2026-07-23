@@ -1079,7 +1079,7 @@ COALESCE(
                        country, country_iso3, domain, industry, sub_industry,
                        phone, employee_size, company_size, founded_year,
                        website, full_address, description,
-                       grade, score, email_priority, company_type_analysis,
+                       grade, score, company_type_analysis,
                        product_tags, data_source_tags,
                        has_trade_data, trade_amount_3y_usd, trade_count,
                        contacts_count,
@@ -1155,6 +1155,7 @@ COALESCE(
         item = dict(row)
         item.pop("system_grade", None)
         item.pop("system_score", None)
+        item.pop("email_priority", None)  # 恒空列，响应不再暴露（#61 ⑥）；列本身待外部管道方定夺
         item["id"] = str(item["id"])
         item["sys_company_id"] = str(item["sys_company_id"]) if item.get("sys_company_id") else None
         item["score"] = float(item["score"]) if item.get("score") is not None else None

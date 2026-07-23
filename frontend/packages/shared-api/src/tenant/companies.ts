@@ -42,7 +42,6 @@ export interface Company {
   tags?: string[];
   score_details?: unknown;
   company_type_analysis?: string;
-  email_priority?: string;
   sales_approach?: string;
   match_reasons?: unknown;
   potential_needs?: unknown;

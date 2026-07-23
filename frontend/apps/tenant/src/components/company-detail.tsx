@@ -181,7 +181,6 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
           )}
           <div className="grid grid-cols-2 gap-x-8 gap-y-2">
             <InfoRow label="公司类型分析" value={c.company_type_analysis} />
-            <InfoRow label="邮件优先级" value={c.email_priority} />
             <InfoRow label="销售策略" value={c.sales_approach} />
             <InfoRow label="主营业务" value={c.main_business} />
           </div>

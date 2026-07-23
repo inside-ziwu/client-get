@@ -847,7 +847,7 @@
    "tag_confidence": "产品标签置信度信息（JSON）",
    "score_details": "AI 评分明细：各维度得分 JSON（Admin/租户详情展示）",
    "trade_summary": "贸易数据摘要（JSON）",
-   "email_priority": "恒空列：代码有读取但无写入方，清理计划见 #61",
+   "email_priority": "恒空列：无写入方；代码已停止读取（2026-07-23，#61 ⑥），列本身是否删除待外部管道方定夺",
    "search_raw": "搜索原始返回文本",
    "ai_raw": "AI 分析原始返回文本",
    "data_sources": "数据来源明细（JSON）",
