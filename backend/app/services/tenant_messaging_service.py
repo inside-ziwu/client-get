@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
@@ -27,6 +28,9 @@ class TenantMessagingService:
         timedelta(hours=1),
         timedelta(hours=4),
     )
+    # 发送渲染（_render_text 精确 replace）真正支持的变量全集；前端变量面板与此对齐
+    KNOWN_TEMPLATE_VARIABLES = ("company_name", "contact_name", "contact_email", "sender_name")
+    _TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{\{([^{}]*)\}\}")
 
     def __init__(self) -> None:
         self.audit = AuditService()
@@ -764,6 +768,7 @@ class TenantMessagingService:
                 status_code=422,
             )
 
+        await self._validate_plan_template_variables(conn, tenant_id, plan_id)
         locked = await self.list_plan_recipients(conn, tenant_id, plan_id)
         if not locked:
             await self.lock_plan_recipients(conn, tenant_id=tenant_id, plan_id=plan_id)
@@ -1060,9 +1065,44 @@ class TenantMessagingService:
             for row in result.mappings().all()
         ]
 
+    async def _validate_plan_template_variables(
+        self, conn: AsyncConnection, tenant_id: str, plan_id: str
+    ) -> None:
+        result = await conn.execute(
+            text(
+                """
+                SELECT et.name, et.subject, et.body_html, et.body_text
+                FROM sequence_steps ss
+                JOIN email_templates et ON et.id = ss.template_id
+                WHERE ss.plan_id = CAST(:plan_id AS uuid)
+                  AND et.tenant_id = :tenant_id
+                """
+            ),
+            {"plan_id": plan_id, "tenant_id": tenant_id},
+        )
+        # 渲染是精确 replace，{{ company_name }}（带空格）同样不会被替换，故不做 strip 宽容
+        known = set(self.KNOWN_TEMPLATE_VARIABLES)
+        unknown: dict[str, set[str]] = {}
+        for row in result.mappings().all():
+            for content in (row["subject"], row["body_html"], row["body_text"]):
+                for match in self._TEMPLATE_VARIABLE_PATTERN.finditer(content or ""):
+                    if match.group(1) not in known:
+                        unknown.setdefault(row["name"], set()).add(match.group(0))
+        if unknown:
+            detail = "；".join(
+                f"模板「{name}」：{'、'.join(sorted(items))}"
+                for name, items in sorted(unknown.items())
+            )
+            raise AppError(
+                code="UNKNOWN_TEMPLATE_VARIABLES",
+                message=f"模板包含发送时无法替换的变量，将以字面量发出，请修正后重试：{detail}",
+                status_code=422,
+            )
+
     async def lock_plan_recipients(
         self, conn: AsyncConnection, *, tenant_id: str, plan_id: str
     ) -> dict:
+        await self._validate_plan_template_variables(conn, tenant_id, plan_id)
         candidates = await self.preview_plan_recipients(conn, tenant_id=tenant_id, plan_id=plan_id)
         eligible = [c for c in candidates if not c["excluded_reason"] and c["tenant_contact_id"]]
         inserted = 0
@@ -1778,6 +1818,7 @@ class TenantMessagingService:
                 {
                     "company_name": row["company_name"],
                     "contact_name": row["contact_name"],
+                    "contact_email": row["to_email"],
                     "sender_name": row["sender_name"],
                 },
             )
@@ -1786,6 +1827,7 @@ class TenantMessagingService:
                 {
                     "company_name": row["company_name"],
                     "contact_name": row["contact_name"],
+                    "contact_email": row["to_email"],
                     "sender_name": row["sender_name"],
                 },
             )
@@ -1794,6 +1836,7 @@ class TenantMessagingService:
                 {
                     "company_name": row["company_name"],
                     "contact_name": row["contact_name"],
+                    "contact_email": row["to_email"],
                     "sender_name": row["sender_name"],
                 },
             )
@@ -3262,10 +3305,11 @@ class TenantMessagingService:
         if domain_row is None:
             raise AppError(code="NO_SEND_DOMAIN", message="请先配置发送域名", status_code=422)
 
-        # 第 4 条 _render_text 调用路径，变量键与发送路径（line ~1557）保持一致
+        # 变量键与发送路径的渲染 mapping 保持一致（KNOWN_TEMPLATE_VARIABLES）
         test_vars = {
             "company_name": "示例公司",
             "contact_name": "张三",
+            "contact_email": test_email,
             "sender_name": "李四",
         }
         subject = self._render_text(tpl["subject"], test_vars)
