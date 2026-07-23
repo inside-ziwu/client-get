@@ -38,11 +38,11 @@ import type { EmailTemplate, PlatformTemplateListItem } from '@shared/api';
 import { tenantApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
+// 与后端 TenantMessagingService.KNOWN_TEMPLATE_VARIABLES 对齐：发送渲染只替换这四个
 const VARIABLES = [
   { name: 'company_name', label: '公司名称' },
   { name: 'contact_name', label: '联系人姓名' },
   { name: 'contact_email', label: '联系人邮箱' },
-  { name: 'product_name', label: '产品名称' },
   { name: 'sender_name', label: '发件人姓名' },
 ];
 
