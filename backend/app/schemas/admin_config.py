@@ -6,7 +6,7 @@ app/api/admin/config.py 裸 dict 收参逐端点 Pydantic 化的落点。
 
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, RootModel
 
 # 与 platform_scoring_templates.grade_thresholds 列默认值及
 # service 层 create/update 的兜底值一致
@@ -103,3 +103,72 @@ class TenantUserCreate(BaseModel):
         default_factory=lambda: ["viewer"],
         description="租户角色",
     )
+
+
+class AIModelUpdate(BaseModel):
+    """更新 AI 模型配置请求（PATCH /admin/api/v1/ai-config/models/{model_id}）"""
+
+    provider: str | None = Field(None, min_length=1, max_length=50, description="模型供应商")
+    model_id: str | None = Field(None, min_length=1, max_length=150, description="模型代码")
+    display_name: str | None = Field(None, min_length=1, max_length=100, description="展示名称")
+    is_active: bool | None = Field(None, description="是否激活")
+    config: dict | None = Field(None, description="模型配置")
+
+
+class AISceneDefaultUpdate(BaseModel):
+    """单个 AI 场景默认模型配置"""
+
+    scene: Literal[
+        "scoring",
+        "email_generation",
+        "intelligence_summary",
+        "data_analysis",
+    ] = Field(..., description="AI 使用场景")
+    model_id: str = Field(..., min_length=1, description="AI 模型行 ID")
+    config: dict = Field(default_factory=dict, description="场景配置")
+
+
+class AISceneDefaultsUpdate(RootModel[list[AISceneDefaultUpdate]]):
+    """批量更新 AI 场景默认配置请求（PUT /admin/api/v1/ai-config/scene-defaults）"""
+
+
+class AIPricingItemUpdate(BaseModel):
+    """兼容旧版 AI 定价请求的单个模型价格"""
+
+    model_id: str = Field(..., min_length=1, description="AI 模型行 ID")
+    input_price: float = Field(..., description="输入价格")
+    output_price: float = Field(..., description="输出价格")
+
+
+class AIPricingUpdate(BaseModel):
+    """更新 AI 定价配置请求（PUT /admin/api/v1/ai-config/pricing）"""
+
+    items: list[AIPricingItemUpdate] = Field(
+        default_factory=list,
+        description="兼容旧版定价请求；当前价格列已移除",
+    )
+
+
+class ScoringTemplateUpdate(BaseModel):
+    """更新平台评分模板请求（PUT /admin/api/v1/scoring-templates/{template_id}）"""
+
+    industry: str | None = Field(None, min_length=1, max_length=100, description="行业")
+    name: str | None = Field(None, min_length=1, max_length=200, description="模板名称")
+    dimensions: list[dict] | dict | None = Field(None, description="评分维度配置")
+    description: str | None = Field(None, description="模板描述")
+    is_active: bool | None = Field(None, description="是否激活")
+    grade_thresholds: dict | None = Field(None, description="评分等级阈值")
+
+
+class EmailTemplateUpdate(BaseModel):
+    """更新平台邮件模板请求（PUT /admin/api/v1/email-templates/{template_id}）"""
+
+    industry: str | None = Field(None, min_length=1, max_length=100, description="行业")
+    name: str | None = Field(None, min_length=1, max_length=200, description="模板名称")
+    subject: str | None = Field(None, description="邮件主题")
+    body_html: str | None = Field(None, description="HTML 正文")
+    description: str | None = Field(None, description="模板描述")
+    category: str | None = Field(None, min_length=1, max_length=50, description="模板分类")
+    body_text: str | None = Field(None, description="纯文本正文")
+    variables: list[dict] | None = Field(None, description="模板变量")
+    is_active: bool | None = Field(None, description="是否激活")

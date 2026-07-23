@@ -1,12 +1,17 @@
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Depends
 from starlette.responses import Response
 
 from app.core.responses import paginated_response, success_response
 from app.schemas.admin_config import (
     AIModelCreate,
+    AIModelUpdate,
+    AIPricingUpdate,
+    AISceneDefaultsUpdate,
     EmailTemplateCreate,
+    EmailTemplateUpdate,
     IntelligenceSourceCreate,
     ScoringTemplateCreate,
+    ScoringTemplateUpdate,
     TenantUserCreate,
     WarmupRuleUpdate,
 )
@@ -56,14 +61,14 @@ async def get_platform_scoring_template(
 @router.put("/scoring-templates/{template_id}")
 async def update_platform_scoring_template(
     template_id: str,
-    payload: dict,
+    payload: ScoringTemplateUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.update_platform_scoring_template(
             context.connection,
             template_id=template_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -181,14 +186,14 @@ async def get_platform_email_template(
 @router.put("/email-templates/{template_id}")
 async def update_platform_email_template(
     template_id: str,
-    payload: dict,
+    payload: EmailTemplateUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.update_platform_email_template(
             context.connection,
             template_id=template_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -258,14 +263,14 @@ async def create_ai_model(
 @router.patch("/ai-config/models/{model_id}")
 async def patch_ai_model(
     model_id: str,
-    payload: dict,
+    payload: AIModelUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.patch_ai_model(
             context.connection,
             model_id=model_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -289,13 +294,13 @@ async def list_ai_scene_defaults(context: PlatformAuthContext = Depends(get_curr
 
 @router.put("/ai-config/scene-defaults")
 async def put_ai_scene_defaults(
-    payload: list = Body(...),
+    payload: AISceneDefaultsUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.put_ai_scene_defaults(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -307,11 +312,14 @@ async def get_ai_pricing(context: PlatformAuthContext = Depends(get_current_plat
 
 
 @router.put("/ai-config/pricing")
-async def put_ai_pricing(payload: dict, context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
+async def put_ai_pricing(
+    payload: AIPricingUpdate,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
     return success_response(
         await service.put_ai_pricing(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )

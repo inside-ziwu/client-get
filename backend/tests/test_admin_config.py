@@ -40,7 +40,8 @@ SMOKE_CASES = [
     ("POST", "/scoring-templates", "/scoring-templates", "create_platform_scoring_template", ROW, 200, "success",
      {"industry": "pcb", "name": "冒烟模板", "dimensions": []}),
     ("GET", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "get_platform_scoring_template", ROW, 200, "success", NOBODY),
-    ("PUT", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "update_platform_scoring_template", ROW, 200, "success", {}),
+    ("PUT", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "update_platform_scoring_template", ROW, 200, "success",
+     {"name": "更新后评分模板"}),
     ("DELETE", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "delete_platform_scoring_template", None, 200, "deleted", NOBODY),
     ("GET", "/scoring-templates/{template_id}/versions", "/scoring-templates/tmpl-001/versions", "list_platform_scoring_template_versions", [ROW], 200, "paginated", NOBODY),
     ("GET", "/intelligence-sources", "/intelligence-sources", "list_intelligence_sources", [ROW], 200, "paginated", NOBODY),
@@ -53,7 +54,8 @@ SMOKE_CASES = [
     ("POST", "/email-templates", "/email-templates", "create_platform_email_template", ROW, 200, "success",
      {"industry": "pcb", "name": "冒烟邮件模板", "subject": "冒烟主题", "body_html": ""}),
     ("GET", "/email-templates/{template_id}", "/email-templates/et-001", "get_platform_email_template", ROW, 200, "success", NOBODY),
-    ("PUT", "/email-templates/{template_id}", "/email-templates/et-001", "update_platform_email_template", ROW, 200, "success", {}),
+    ("PUT", "/email-templates/{template_id}", "/email-templates/et-001", "update_platform_email_template", ROW, 200, "success",
+     {"name": "更新后邮件模板"}),
     ("DELETE", "/email-templates/{template_id}", "/email-templates/et-001", "delete_platform_email_template", None, 200, "deleted", NOBODY),
     ("GET", "/email-templates/{template_id}/preview", "/email-templates/et-001/preview", "get_platform_email_template_preview", ROW, 200, "success", NOBODY),
     ("GET", "/warmup-rules", "/warmup-rules", "list_warmup_rules", [ROW], 200, "paginated", NOBODY),
@@ -62,12 +64,15 @@ SMOKE_CASES = [
     ("GET", "/ai-config/models", "/ai-config/models", "list_ai_models", [ROW], 200, "paginated", NOBODY),
     ("POST", "/ai-config/models", "/ai-config/models", "create_ai_model", ROW, 200, "success",
      {"model_id": "openai/gpt-4.1-mini", "display_name": "GPT-4.1 Mini"}),
-    ("PATCH", "/ai-config/models/{model_id}", "/ai-config/models/m-001", "patch_ai_model", ROW, 200, "success", {}),
+    ("PATCH", "/ai-config/models/{model_id}", "/ai-config/models/m-001", "patch_ai_model", ROW, 200, "success",
+     {"display_name": "更新后模型"}),
     ("DELETE", "/ai-config/models/{model_id}", "/ai-config/models/m-001", "delete_ai_model", None, 200, "deleted", NOBODY),
     ("GET", "/ai-config/scene-defaults", "/ai-config/scene-defaults", "list_ai_scene_defaults", [ROW], 200, "paginated", NOBODY),
-    ("PUT", "/ai-config/scene-defaults", "/ai-config/scene-defaults", "put_ai_scene_defaults", [ROW], 200, "success", []),
+    ("PUT", "/ai-config/scene-defaults", "/ai-config/scene-defaults", "put_ai_scene_defaults", [ROW], 200, "success",
+     [{"scene": "scoring", "model_id": "m-001"}]),
     ("GET", "/ai-config/pricing", "/ai-config/pricing", "get_ai_pricing", ROW, 200, "success", NOBODY),
-    ("PUT", "/ai-config/pricing", "/ai-config/pricing", "put_ai_pricing", ROW, 200, "success", {}),
+    ("PUT", "/ai-config/pricing", "/ai-config/pricing", "put_ai_pricing", ROW, 200, "success",
+     {"items": []}),
     ("GET", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "list_tenant_users", [ROW], 200, "paginated", NOBODY),
     ("POST", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "create_tenant_user", ROW, 200, "success",
      {"email": "user@example.com", "name": "冒烟用户"}),
@@ -239,3 +244,101 @@ async def test_empty_payload_returns_422_not_500(client, method, path, required_
     assert resp.status_code == 422, (
         f"缺必填字段({required_fields})期望 422，实际 {resp.status_code}: {resp.text[:200]}"
     )
+
+
+_SECOND_BATCH_INVALID_CASES = [
+    pytest.param(
+        "PATCH",
+        "/ai-config/models/m-001",
+        "patch_ai_model",
+        {"provider": "x" * 51},
+        id="PATCH:/ai-config/models",
+    ),
+    pytest.param(
+        "PUT",
+        "/ai-config/scene-defaults",
+        "put_ai_scene_defaults",
+        [{"scene": "unknown", "model_id": "m-001"}],
+        id="PUT:/ai-config/scene-defaults",
+    ),
+    pytest.param(
+        "PUT",
+        "/ai-config/pricing",
+        "put_ai_pricing",
+        {"items": "not-a-list"},
+        id="PUT:/ai-config/pricing",
+    ),
+    pytest.param(
+        "PUT",
+        "/scoring-templates/tmpl-001",
+        "update_platform_scoring_template",
+        {"industry": "x" * 101},
+        id="PUT:/scoring-templates",
+    ),
+    pytest.param(
+        "PUT",
+        "/email-templates/et-001",
+        "update_platform_email_template",
+        {"category": "x" * 51},
+        id="PUT:/email-templates",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "method,path,service_attr,body",
+    _SECOND_BATCH_INVALID_CASES,
+)
+async def test_second_batch_invalid_payload_returns_422(
+    client, monkeypatch, method, path, service_attr, body
+):
+    """第二批端点应在路由边界拒绝违反数据库约束或请求契约的字段"""
+    mock = AsyncMock(return_value=ROW)
+    monkeypatch.setattr(config_module.service, service_attr, mock)
+
+    resp = await client.request(method, PREFIX + path, json=body)
+
+    assert resp.status_code == 422, resp.text
+    mock.assert_not_awaited()
+
+
+_SECOND_BATCH_PARTIAL_UPDATE_CASES = [
+    pytest.param(
+        "PATCH",
+        "/ai-config/models/m-001",
+        "patch_ai_model",
+        {"display_name": "仅更新名称"},
+        id="PATCH:/ai-config/models",
+    ),
+    pytest.param(
+        "PUT",
+        "/scoring-templates/tmpl-001",
+        "update_platform_scoring_template",
+        {"name": "仅更新名称"},
+        id="PUT:/scoring-templates",
+    ),
+    pytest.param(
+        "PUT",
+        "/email-templates/et-001",
+        "update_platform_email_template",
+        {"name": "仅更新名称"},
+        id="PUT:/email-templates",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "method,path,service_attr,body",
+    _SECOND_BATCH_PARTIAL_UPDATE_CASES,
+)
+async def test_second_batch_partial_update_only_passes_provided_fields(
+    client, monkeypatch, method, path, service_attr, body
+):
+    """更新模型不得向 service 注入未提供的 None，以免破坏原有局部更新语义"""
+    mock = AsyncMock(return_value=ROW)
+    monkeypatch.setattr(config_module.service, service_attr, mock)
+
+    resp = await client.request(method, PREFIX + path, json=body)
+
+    assert resp.status_code == 200, resp.text
+    assert mock.await_args.kwargs["payload"] == body
