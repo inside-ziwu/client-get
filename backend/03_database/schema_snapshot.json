@@ -1,0 +1,7872 @@
+{
+ "_readme": "数据库结构契约（机器生成，禁止手改）。生成工具 backend/scripts/schema_snapshot.py。git diff 本文件 = 带外变更探测器：迁移合并后重跑，diff 应恰好等于迁移内容。不含行数/分区子表名单/时间戳等波动数据。",
+ "alembic_version": [
+  "20260714_0001"
+ ],
+ "tables": {
+  "ai_models": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "provider",
+     "type": "character varying(50)",
+     "nullable": false,
+     "default": "'openrouter'::character varying"
+    },
+    {
+     "name": "model_id",
+     "type": "character varying(150)",
+     "nullable": false
+    },
+    {
+     "name": "display_name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "config",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "ai_models_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "uq_ai_models_instance_provider_model",
+     "type": "u",
+     "definition": "UNIQUE (instance_id, provider, model_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "ai_models_pkey",
+     "definition": "CREATE UNIQUE INDEX ai_models_pkey ON public.ai_models USING btree (id)"
+    },
+    {
+     "name": "uq_ai_models_instance_provider_model",
+     "definition": "CREATE UNIQUE INDEX uq_ai_models_instance_provider_model ON public.ai_models USING btree (instance_id, provider, model_id)"
+    }
+   ]
+  },
+  "ai_scene_defaults": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "scene",
+     "type": "character varying(40)",
+     "nullable": false
+    },
+    {
+     "name": "model_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "config",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "ai_scene_defaults_scene_check",
+     "type": "c",
+     "definition": "CHECK (((scene)::text = ANY ((ARRAY['scoring'::character varying, 'email_generation'::character varying, 'intelligence_summary'::character varying, 'data_analysis'::character varying])::text[])))"
+    },
+    {
+     "name": "ai_scene_defaults_model_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (model_id) REFERENCES ai_models(id)"
+    },
+    {
+     "name": "ai_scene_defaults_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "uq_ai_scene_defaults_instance_scene",
+     "type": "u",
+     "definition": "UNIQUE (instance_id, scene)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "ai_scene_defaults_pkey",
+     "definition": "CREATE UNIQUE INDEX ai_scene_defaults_pkey ON public.ai_scene_defaults USING btree (id)"
+    },
+    {
+     "name": "uq_ai_scene_defaults_instance_scene",
+     "definition": "CREATE UNIQUE INDEX uq_ai_scene_defaults_instance_scene ON public.ai_scene_defaults USING btree (instance_id, scene)"
+    }
+   ]
+  },
+  "ai_usage_logs": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "model_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "usage_type",
+     "type": "character varying(40)",
+     "nullable": false
+    },
+    {
+     "name": "entity_type",
+     "type": "character varying(50)",
+     "nullable": true
+    },
+    {
+     "name": "entity_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "input_tokens",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "output_tokens",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "total_tokens",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "estimated_cost",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "actual_cost",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "provider_response",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "idempotency_key",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "provider_request_id",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "latency_ms",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "error_code",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "error_message",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "ai_usage_logs_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'completed'::character varying, 'failed'::character varying])::text[])))"
+    },
+    {
+     "name": "ai_usage_logs_usage_type_check",
+     "type": "c",
+     "definition": "CHECK (((usage_type)::text = ANY ((ARRAY['scoring'::character varying, 'email_generation'::character varying, 'intelligence_summary'::character varying, 'data_analysis'::character varying])::text[])))"
+    },
+    {
+     "name": "ai_usage_logs_model_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (model_id) REFERENCES ai_models(id)"
+    },
+    {
+     "name": "ai_usage_logs_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "ai_usage_logs_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    {
+     "name": "ai_usage_logs_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "ai_usage_logs_tenant_id_idempotency_key_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, idempotency_key)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "ai_usage_logs_pkey",
+     "definition": "CREATE UNIQUE INDEX ai_usage_logs_pkey ON public.ai_usage_logs USING btree (id)"
+    },
+    {
+     "name": "ai_usage_logs_tenant_id_idempotency_key_key",
+     "definition": "CREATE UNIQUE INDEX ai_usage_logs_tenant_id_idempotency_key_key ON public.ai_usage_logs USING btree (tenant_id, idempotency_key)"
+    },
+    {
+     "name": "idx_ai_usage_logs_tenant",
+     "definition": "CREATE INDEX idx_ai_usage_logs_tenant ON public.ai_usage_logs USING btree (tenant_id, created_at DESC)"
+    }
+   ]
+  },
+  "audit_logs": {
+   "kind": "partitioned",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "platform_user_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "action",
+     "type": "character varying(30)",
+     "nullable": false
+    },
+    {
+     "name": "entity_type",
+     "type": "character varying(50)",
+     "nullable": false
+    },
+    {
+     "name": "entity_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "old_value",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "new_value",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "ip_address",
+     "type": "inet",
+     "nullable": true
+    },
+    {
+     "name": "user_agent",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "request_id",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "audit_logs_platform_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (platform_user_id) REFERENCES platform_users(id)"
+    },
+    {
+     "name": "audit_logs_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "audit_logs_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    {
+     "name": "audit_logs_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id, created_at)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "audit_logs_pkey",
+     "definition": "CREATE UNIQUE INDEX audit_logs_pkey ON ONLY public.audit_logs USING btree (id, created_at)"
+    }
+   ],
+   "partition_key": "RANGE (created_at)"
+  },
+  "company_blacklist": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "shared_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "match_domain",
+     "type": "character varying(255)",
+     "nullable": true
+    },
+    {
+     "name": "match_name_pattern",
+     "type": "character varying(500)",
+     "nullable": true
+    },
+    {
+     "name": "reason",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "blocked_by",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "company_blacklist_check",
+     "type": "c",
+     "definition": "CHECK (((shared_company_id IS NOT NULL) OR (match_domain IS NOT NULL) OR (match_name_pattern IS NOT NULL)))"
+    },
+    {
+     "name": "company_blacklist_blocked_by_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (blocked_by) REFERENCES users(id)"
+    },
+    {
+     "name": "company_blacklist_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "company_blacklist_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "company_blacklist_pkey",
+     "definition": "CREATE UNIQUE INDEX company_blacklist_pkey ON public.company_blacklist USING btree (id)"
+    },
+    {
+     "name": "idx_company_blacklist_tenant",
+     "definition": "CREATE INDEX idx_company_blacklist_tenant ON public.company_blacklist USING btree (tenant_id)"
+    }
+   ]
+  },
+  "company_scores": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "template_version_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "total_score",
+     "type": "numeric(5,2)",
+     "nullable": false
+    },
+    {
+     "name": "grade",
+     "type": "character(1)",
+     "nullable": false
+    },
+    {
+     "name": "dimension_scores",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "llm_pending",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "llm_score",
+     "type": "numeric(5,2)",
+     "nullable": true
+    },
+    {
+     "name": "llm_reasoning",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "llm_model_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "llm_usage_log_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "is_retry",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "retry_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "related_score_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "scored_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "company_scores_grade_check",
+     "type": "c",
+     "definition": "CHECK ((grade = ANY (ARRAY['S'::bpchar, 'A'::bpchar, 'B'::bpchar, 'C'::bpchar, 'D'::bpchar])))"
+    },
+    {
+     "name": "company_scores_llm_model_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (llm_model_id) REFERENCES ai_models(id)"
+    },
+    {
+     "name": "company_scores_llm_usage_log_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (llm_usage_log_id) REFERENCES ai_usage_logs(id)"
+    },
+    {
+     "name": "company_scores_related_score_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (related_score_id) REFERENCES company_scores(id)"
+    },
+    {
+     "name": "company_scores_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_id) REFERENCES scoring_templates(id)"
+    },
+    {
+     "name": "company_scores_template_version_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_version_id) REFERENCES scoring_template_versions(id)"
+    },
+    {
+     "name": "company_scores_tenant_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_company_id) REFERENCES tenant_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "company_scores_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "company_scores_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "company_scores_pkey",
+     "definition": "CREATE UNIQUE INDEX company_scores_pkey ON public.company_scores USING btree (id)"
+    },
+    {
+     "name": "idx_company_scores_tc_id",
+     "definition": "CREATE INDEX idx_company_scores_tc_id ON public.company_scores USING btree (tenant_company_id)"
+    },
+    {
+     "name": "idx_company_scores_tenant",
+     "definition": "CREATE INDEX idx_company_scores_tenant ON public.company_scores USING btree (tenant_id, scored_at DESC)"
+    },
+    {
+     "name": "idx_company_scores_unique_non_retry",
+     "definition": "CREATE UNIQUE INDEX idx_company_scores_unique_non_retry ON public.company_scores USING btree (tenant_company_id, template_version_id) WHERE (is_retry = false)"
+    }
+   ]
+  },
+  "contact_rules": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "rules",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "version",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "contact_rules_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "contact_rules_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "contact_rules_pkey",
+     "definition": "CREATE UNIQUE INDEX contact_rules_pkey ON public.contact_rules USING btree (id)"
+    },
+    {
+     "name": "idx_contact_rules_active",
+     "definition": "CREATE UNIQUE INDEX idx_contact_rules_active ON public.contact_rules USING btree (tenant_id) WHERE is_active"
+    }
+   ]
+  },
+  "countries": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "iso3",
+     "type": "character(3)",
+     "nullable": false
+    },
+    {
+     "name": "name_zh",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "name_en",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "timezone",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "rule_set_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "countries_iso3_check",
+     "type": "c",
+     "definition": "CHECK ((iso3 ~ '^[A-Z]{3}$'::text))"
+    },
+    {
+     "name": "countries_rule_set_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (rule_set_id) REFERENCES work_rule_sets(id) ON DELETE SET NULL"
+    },
+    {
+     "name": "countries_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (iso3)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "countries_pkey",
+     "definition": "CREATE UNIQUE INDEX countries_pkey ON public.countries USING btree (iso3)"
+    },
+    {
+     "name": "idx_countries_rule_set",
+     "definition": "CREATE INDEX idx_countries_rule_set ON public.countries USING btree (rule_set_id)"
+    }
+   ]
+  },
+  "country_holidays": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "country_iso3",
+     "type": "character(3)",
+     "nullable": false
+    },
+    {
+     "name": "date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'manual'::character varying"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "country_holidays_country_iso3_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (country_iso3) REFERENCES countries(iso3) ON DELETE CASCADE"
+    },
+    {
+     "name": "country_holidays_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "country_holidays_country_iso3_date_key",
+     "type": "u",
+     "definition": "UNIQUE (country_iso3, date)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "country_holidays_country_iso3_date_key",
+     "definition": "CREATE UNIQUE INDEX country_holidays_country_iso3_date_key ON public.country_holidays USING btree (country_iso3, date)"
+    },
+    {
+     "name": "country_holidays_pkey",
+     "definition": "CREATE UNIQUE INDEX country_holidays_pkey ON public.country_holidays USING btree (id)"
+    },
+    {
+     "name": "idx_country_holidays_country_date",
+     "definition": "CREATE INDEX idx_country_holidays_country_date ON public.country_holidays USING btree (country_iso3, date)"
+    }
+   ]
+  },
+  "crawl_progress": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "integer",
+     "nullable": false,
+     "default": "nextval('crawl_progress_id_seq'::regclass)"
+    },
+    {
+     "name": "source",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "keyword_master_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "task_key",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "current_page",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "total_pages",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "total_records",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "extra",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp without time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp without time zone",
+     "nullable": true,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "crawl_progress_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "crawl_progress_source_keyword_master_id_task_key_key",
+     "type": "u",
+     "definition": "UNIQUE (source, keyword_master_id, task_key)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "crawl_progress_pkey",
+     "definition": "CREATE UNIQUE INDEX crawl_progress_pkey ON public.crawl_progress USING btree (id)"
+    },
+    {
+     "name": "crawl_progress_source_keyword_master_id_task_key_key",
+     "definition": "CREATE UNIQUE INDEX crawl_progress_source_keyword_master_id_task_key_key ON public.crawl_progress USING btree (source, keyword_master_id, task_key)"
+    }
+   ]
+  },
+  "domain_daily_usage": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "domain_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "usage_date",
+     "type": "date",
+     "nullable": false
+    },
+    {
+     "name": "daily_limit",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "reserved_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "sent_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "failed_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "domain_daily_usage_domain_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (domain_id) REFERENCES domain_warmup_status(id)"
+    },
+    {
+     "name": "domain_daily_usage_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "domain_daily_usage_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "domain_daily_usage_domain_id_usage_date_key",
+     "type": "u",
+     "definition": "UNIQUE (domain_id, usage_date)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "domain_daily_usage_domain_id_usage_date_key",
+     "definition": "CREATE UNIQUE INDEX domain_daily_usage_domain_id_usage_date_key ON public.domain_daily_usage USING btree (domain_id, usage_date)"
+    },
+    {
+     "name": "domain_daily_usage_pkey",
+     "definition": "CREATE UNIQUE INDEX domain_daily_usage_pkey ON public.domain_daily_usage USING btree (id)"
+    }
+   ]
+  },
+  "domain_warmup_history": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "warmup_status_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "domain",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "warmup_level",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "daily_limit",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "total_sent",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "bounce_rate",
+     "type": "numeric(5,4)",
+     "nullable": true
+    },
+    {
+     "name": "complaint_rate",
+     "type": "numeric(5,4)",
+     "nullable": true
+    },
+    {
+     "name": "open_rate",
+     "type": "numeric(5,4)",
+     "nullable": true
+    },
+    {
+     "name": "change_type",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "change_reason",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "changed_by",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "snapshot_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "domain_warmup_history_change_type_check",
+     "type": "c",
+     "definition": "CHECK (((change_type)::text = ANY ((ARRAY['level_up'::character varying, 'level_down'::character varying, 'daily_snapshot'::character varying, 'manual_adjust'::character varying])::text[])))"
+    },
+    {
+     "name": "domain_warmup_history_changed_by_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (changed_by) REFERENCES users(id)"
+    },
+    {
+     "name": "domain_warmup_history_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "domain_warmup_history_warmup_status_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (warmup_status_id) REFERENCES domain_warmup_status(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "domain_warmup_history_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "domain_warmup_history_pkey",
+     "definition": "CREATE UNIQUE INDEX domain_warmup_history_pkey ON public.domain_warmup_history USING btree (id)"
+    }
+   ]
+  },
+  "domain_warmup_status": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "domain",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "spf_record",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "dkim_record",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "dmarc_record",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "verification_status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'pending'::character varying"
+    },
+    {
+     "name": "dns_verified_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "dns_last_checked_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "warmup_rule_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "warmup_level",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "daily_limit",
+     "type": "integer",
+     "nullable": false,
+     "default": "50"
+    },
+    {
+     "name": "total_sent",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "bounce_rate",
+     "type": "numeric(5,4)",
+     "nullable": true,
+     "default": "0"
+    },
+    {
+     "name": "complaint_rate",
+     "type": "numeric(5,4)",
+     "nullable": true,
+     "default": "0"
+    },
+    {
+     "name": "open_rate",
+     "type": "numeric(5,4)",
+     "nullable": true,
+     "default": "0"
+    },
+    {
+     "name": "level_changed_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "sender_email",
+     "type": "character varying(255)",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "domain_warmup_status_verification_status_check",
+     "type": "c",
+     "definition": "CHECK (((verification_status)::text = ANY ((ARRAY['pending'::character varying, 'verifying'::character varying, 'verified'::character varying, 'failed'::character varying])::text[])))"
+    },
+    {
+     "name": "domain_warmup_status_warmup_level_check",
+     "type": "c",
+     "definition": "CHECK ((warmup_level >= 1))"
+    },
+    {
+     "name": "domain_warmup_status_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "domain_warmup_status_warmup_rule_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (warmup_rule_id) REFERENCES warmup_rules(id)"
+    },
+    {
+     "name": "domain_warmup_status_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "domain_warmup_status_tenant_id_domain_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, domain)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "domain_warmup_status_pkey",
+     "definition": "CREATE UNIQUE INDEX domain_warmup_status_pkey ON public.domain_warmup_status USING btree (id)"
+    },
+    {
+     "name": "domain_warmup_status_tenant_id_domain_key",
+     "definition": "CREATE UNIQUE INDEX domain_warmup_status_tenant_id_domain_key ON public.domain_warmup_status USING btree (tenant_id, domain)"
+    }
+   ]
+  },
+  "email_events": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "email_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "email_created_at",
+     "type": "timestamp with time zone",
+     "nullable": false
+    },
+    {
+     "name": "event_type",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "metadata",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "source",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'engagelab'::character varying"
+    },
+    {
+     "name": "provider_event_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "occurred_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "email_events_event_type_check",
+     "type": "c",
+     "definition": "CHECK (((event_type)::text = ANY ((ARRAY['sent'::character varying, 'delivered'::character varying, 'opened'::character varying, 'clicked'::character varying, 'replied'::character varying, 'bounced'::character varying, 'complained'::character varying, 'unsubscribed'::character varying])::text[])))"
+    },
+    {
+     "name": "email_events_source_check",
+     "type": "c",
+     "definition": "CHECK (((source)::text = ANY ((ARRAY['engagelab'::character varying, 'system'::character varying])::text[])))"
+    },
+    {
+     "name": "email_events_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "email_events_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "email_events_pkey",
+     "definition": "CREATE UNIQUE INDEX email_events_pkey ON public.email_events USING btree (id)"
+    },
+    {
+     "name": "idx_email_events_email",
+     "definition": "CREATE INDEX idx_email_events_email ON public.email_events USING btree (email_id, email_created_at)"
+    },
+    {
+     "name": "idx_email_events_provider_unique",
+     "definition": "CREATE UNIQUE INDEX idx_email_events_provider_unique ON public.email_events USING btree (source, provider_event_id) WHERE (provider_event_id IS NOT NULL)"
+    },
+    {
+     "name": "idx_email_events_tenant_type",
+     "definition": "CREATE INDEX idx_email_events_tenant_type ON public.email_events USING btree (tenant_id, event_type, occurred_at DESC)"
+    },
+    {
+     "name": "idx_email_events_type_time",
+     "definition": "CREATE INDEX idx_email_events_type_time ON public.email_events USING btree (event_type, occurred_at DESC)"
+    }
+   ]
+  },
+  "email_send_locks": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "enrollment_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "step_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'locked'::character varying"
+    },
+    {
+     "name": "locked_by",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "locked_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "released_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "email_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "email_created_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "email_send_locks_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['locked'::character varying, 'sent'::character varying, 'failed'::character varying, 'released'::character varying])::text[])))"
+    },
+    {
+     "name": "email_send_locks_enrollment_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (enrollment_id) REFERENCES sequence_enrollments(id)"
+    },
+    {
+     "name": "email_send_locks_step_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (step_id) REFERENCES sequence_steps(id)"
+    },
+    {
+     "name": "email_send_locks_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "email_send_locks_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "email_send_locks_enrollment_id_step_id_key",
+     "type": "u",
+     "definition": "UNIQUE (enrollment_id, step_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "email_send_locks_enrollment_id_step_id_key",
+     "definition": "CREATE UNIQUE INDEX email_send_locks_enrollment_id_step_id_key ON public.email_send_locks USING btree (enrollment_id, step_id)"
+    },
+    {
+     "name": "email_send_locks_pkey",
+     "definition": "CREATE UNIQUE INDEX email_send_locks_pkey ON public.email_send_locks USING btree (id)"
+    }
+   ]
+  },
+  "email_templates": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "source_type",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'custom'::character varying"
+    },
+    {
+     "name": "platform_template_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "category",
+     "type": "character varying(50)",
+     "nullable": false
+    },
+    {
+     "name": "subject",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body_html",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body_text",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "variables",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "is_ai_generated",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "ai_prompt",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "email_templates_source_type_check",
+     "type": "c",
+     "definition": "CHECK (((source_type)::text = ANY ((ARRAY['custom'::character varying, 'platform_copy'::character varying])::text[])))"
+    },
+    {
+     "name": "email_templates_platform_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (platform_template_id) REFERENCES platform_email_templates(id)"
+    },
+    {
+     "name": "email_templates_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "email_templates_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "email_templates_pkey",
+     "definition": "CREATE UNIQUE INDEX email_templates_pkey ON public.email_templates USING btree (id)"
+    },
+    {
+     "name": "ix_email_templates_tenant_platform_active",
+     "definition": "CREATE UNIQUE INDEX ix_email_templates_tenant_platform_active ON public.email_templates USING btree (tenant_id, platform_template_id) WHERE ((deleted_at IS NULL) AND (platform_template_id IS NOT NULL))"
+    }
+   ]
+  },
+  "emails": {
+   "kind": "partitioned",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "step_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "step_number",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "enrollment_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "tenant_contact_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "from_email",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "from_name",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "to_email",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "to_name",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "subject",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body_html",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body_text",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "reply_message_id",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "reply_from_email",
+     "type": "character varying(255)",
+     "nullable": true
+    },
+    {
+     "name": "reply_subject",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "reply_body_text",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "reply_received_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'pending'::character varying"
+    },
+    {
+     "name": "is_ai_personalized",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "ai_usage_log_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "engagelab_message_id",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "scheduled_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "sent_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "delivered_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "opened_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "clicked_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "replied_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "bounced_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "first_opened_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "open_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "soft_bounce",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "invalid_email",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "report_spam",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "unsubscribed",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "emails_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'queued'::character varying, 'sent'::character varying, 'delivered'::character varying, 'opened'::character varying, 'clicked'::character varying, 'replied'::character varying, 'bounced'::character varying, 'complained'::character varying, 'unsubscribed'::character varying, 'failed'::character varying])::text[])))"
+    },
+    {
+     "name": "emails_ai_usage_log_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (ai_usage_log_id) REFERENCES ai_usage_logs(id)"
+    },
+    {
+     "name": "emails_enrollment_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (enrollment_id) REFERENCES sequence_enrollments(id)"
+    },
+    {
+     "name": "emails_plan_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (plan_id) REFERENCES sending_plans(id)"
+    },
+    {
+     "name": "emails_step_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (step_id) REFERENCES sequence_steps(id)"
+    },
+    {
+     "name": "emails_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_id) REFERENCES email_templates(id)"
+    },
+    {
+     "name": "emails_tenant_contact_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_contact_id) REFERENCES tenant_contacts(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "emails_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "emails_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id, created_at)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "emails_pkey",
+     "definition": "CREATE UNIQUE INDEX emails_pkey ON ONLY public.emails USING btree (id, created_at)"
+    },
+    {
+     "name": "idx_emails_delivery_flags",
+     "definition": "CREATE INDEX idx_emails_delivery_flags ON ONLY public.emails USING btree (tenant_id, soft_bounce, report_spam, unsubscribed) WHERE (soft_bounce OR report_spam OR unsubscribed)"
+    },
+    {
+     "name": "idx_emails_engagelab",
+     "definition": "CREATE INDEX idx_emails_engagelab ON ONLY public.emails USING btree (engagelab_message_id) WHERE (engagelab_message_id IS NOT NULL)"
+    },
+    {
+     "name": "idx_emails_enrollment",
+     "definition": "CREATE INDEX idx_emails_enrollment ON ONLY public.emails USING btree (enrollment_id) WHERE (enrollment_id IS NOT NULL)"
+    },
+    {
+     "name": "idx_emails_open_tracking",
+     "definition": "CREATE INDEX idx_emails_open_tracking ON ONLY public.emails USING btree (tenant_id, first_opened_at) WHERE (first_opened_at IS NOT NULL)"
+    },
+    {
+     "name": "idx_emails_tenant_created",
+     "definition": "CREATE INDEX idx_emails_tenant_created ON ONLY public.emails USING btree (tenant_id, created_at DESC, id DESC)"
+    }
+   ],
+   "partition_key": "RANGE (created_at)"
+  },
+  "group_members": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "group_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "tenant_contact_id",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "added_by",
+     "type": "character varying(10)",
+     "nullable": false,
+     "default": "'manual'::character varying"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "group_members_added_by_check",
+     "type": "c",
+     "definition": "CHECK (((added_by)::text = ANY ((ARRAY['manual'::character varying, 'auto'::character varying])::text[])))"
+    },
+    {
+     "name": "group_members_group_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "group_members_tenant_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_company_id) REFERENCES tenant_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "group_members_tenant_contact_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_contact_id) REFERENCES tenant_contacts(id) ON DELETE SET NULL"
+    },
+    {
+     "name": "group_members_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "group_members_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "group_members_group_id_tenant_company_id_key",
+     "type": "u",
+     "definition": "UNIQUE (group_id, tenant_company_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "group_members_group_id_tenant_company_id_key",
+     "definition": "CREATE UNIQUE INDEX group_members_group_id_tenant_company_id_key ON public.group_members USING btree (group_id, tenant_company_id)"
+    },
+    {
+     "name": "group_members_pkey",
+     "definition": "CREATE UNIQUE INDEX group_members_pkey ON public.group_members USING btree (id)"
+    },
+    {
+     "name": "idx_group_members_group",
+     "definition": "CREATE INDEX idx_group_members_group ON public.group_members USING btree (group_id)"
+    }
+   ]
+  },
+  "groups": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "auto_rules",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "member_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "groups_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "groups_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "groups_tenant_id_name_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, name)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "groups_pkey",
+     "definition": "CREATE UNIQUE INDEX groups_pkey ON public.groups USING btree (id)"
+    },
+    {
+     "name": "groups_tenant_id_name_key",
+     "definition": "CREATE UNIQUE INDEX groups_tenant_id_name_key ON public.groups USING btree (tenant_id, name)"
+    }
+   ]
+  },
+  "intelligence_article_publications": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "article_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "article_created_at",
+     "type": "timestamp with time zone",
+     "nullable": false
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'unread'::character varying"
+    },
+    {
+     "name": "has_summary",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "read_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "matched_by",
+     "type": "character varying(30)",
+     "nullable": true
+    },
+    {
+     "name": "subscription_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "intelligence_article_publications_matched_by_check",
+     "type": "c",
+     "definition": "CHECK (((matched_by)::text = ANY ((ARRAY['subscription'::character varying, 'manual'::character varying, 'system'::character varying])::text[])))"
+    },
+    {
+     "name": "intelligence_article_publications_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['unread'::character varying, 'read'::character varying, 'starred'::character varying, 'archived'::character varying])::text[])))"
+    },
+    {
+     "name": "intelligence_article_publications_subscription_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (subscription_id) REFERENCES intelligence_subscriptions(id)"
+    },
+    {
+     "name": "intelligence_article_publications_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "intelligence_article_publications_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "intelligence_article_publications_tenant_id_article_id_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, article_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_article_publications_tenant",
+     "definition": "CREATE INDEX idx_article_publications_tenant ON public.intelligence_article_publications USING btree (tenant_id, status)"
+    },
+    {
+     "name": "intelligence_article_publications_pkey",
+     "definition": "CREATE UNIQUE INDEX intelligence_article_publications_pkey ON public.intelligence_article_publications USING btree (id)"
+    },
+    {
+     "name": "intelligence_article_publications_tenant_id_article_id_key",
+     "definition": "CREATE UNIQUE INDEX intelligence_article_publications_tenant_id_article_id_key ON public.intelligence_article_publications USING btree (tenant_id, article_id)"
+    }
+   ]
+  },
+  "intelligence_articles": {
+   "kind": "partitioned",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "source_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "title",
+     "type": "character varying(500)",
+     "nullable": false
+    },
+    {
+     "name": "url",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "author",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "published_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "content_raw",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "content_summary",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "ai_category",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "ai_tags",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "ai_relevance_score",
+     "type": "numeric(3,2)",
+     "nullable": true
+    },
+    {
+     "name": "ai_model_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "ai_usage_log_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'pending'::character varying"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "intelligence_articles_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'processed'::character varying, 'published'::character varying, 'archived'::character varying])::text[])))"
+    },
+    {
+     "name": "intelligence_articles_ai_model_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (ai_model_id) REFERENCES ai_models(id)"
+    },
+    {
+     "name": "intelligence_articles_ai_usage_log_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (ai_usage_log_id) REFERENCES ai_usage_logs(id)"
+    },
+    {
+     "name": "intelligence_articles_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id, created_at)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "intelligence_articles_pkey",
+     "definition": "CREATE UNIQUE INDEX intelligence_articles_pkey ON ONLY public.intelligence_articles USING btree (id, created_at)"
+    }
+   ],
+   "partition_key": "RANGE (created_at)"
+  },
+  "intelligence_sources": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "source_type",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "url",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "fetch_config",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{\"frequency_hours\": 24}'::jsonb"
+    },
+    {
+     "name": "industry_tags",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "last_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "error_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "intelligence_sources_source_type_check",
+     "type": "c",
+     "definition": "CHECK (((source_type)::text = ANY ((ARRAY['rss'::character varying, 'website'::character varying, 'manual'::character varying])::text[])))"
+    },
+    {
+     "name": "intelligence_sources_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "intelligence_sources_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "intelligence_sources_pkey",
+     "definition": "CREATE UNIQUE INDEX intelligence_sources_pkey ON public.intelligence_sources USING btree (id)"
+    }
+   ]
+  },
+  "intelligence_subscriptions": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "industry_tags",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "min_relevance",
+     "type": "numeric(3,2)",
+     "nullable": false,
+     "default": "0.5"
+    },
+    {
+     "name": "notify_enabled",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "intelligence_subscriptions_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "intelligence_subscriptions_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    {
+     "name": "intelligence_subscriptions_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "intelligence_subscriptions_pkey",
+     "definition": "CREATE UNIQUE INDEX intelligence_subscriptions_pkey ON public.intelligence_subscriptions USING btree (id)"
+    }
+   ]
+  },
+  "keyword_master": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "keyword",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "keyword_normalized",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "keyword_master_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "keyword_master_keyword_normalized_key",
+     "type": "u",
+     "definition": "UNIQUE (keyword_normalized)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "keyword_master_keyword_normalized_key",
+     "definition": "CREATE UNIQUE INDEX keyword_master_keyword_normalized_key ON public.keyword_master USING btree (keyword_normalized)"
+    },
+    {
+     "name": "keyword_master_pkey",
+     "definition": "CREATE UNIQUE INDEX keyword_master_pkey ON public.keyword_master USING btree (id)"
+    },
+    {
+     "name": "uq_keyword_master_normalized",
+     "definition": "CREATE UNIQUE INDEX uq_keyword_master_normalized ON public.keyword_master USING btree (keyword_normalized)"
+    }
+   ]
+  },
+  "lixiaoyun_api_clean_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('lixiaoyun_api_clean_companies_id_seq'::regclass)"
+    },
+    {
+     "name": "pid",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "entname",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "entname_eng",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "legalperson",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "uncid",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "esdate",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "reg_cap",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "regccap",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "enttype",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "entstatus",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "geo_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "dom",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "province",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "city",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "district",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "industryphy_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "opscope",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "scale",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "annual_turnover",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "official_website",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "ent_introduction",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "keyword_master_ids",
+     "type": "uuid[]",
+     "nullable": true
+    },
+    {
+     "name": "source_record_ids",
+     "type": "bigint[]",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "location_code",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "collected_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "enttype_code",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "regno",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "organizational_code",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "opfrom",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "opto",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "regorg",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "apprdate",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "revokedate",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "reg_province",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "reg_city",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "reg_district",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "oploc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "entstatus_code",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "industryphy",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "secindustry",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "secindustry_desc",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "industry_l3",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_l3_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_l4",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_l4_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "historyname_list",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "legalperson_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "search_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "baseinfo_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "industry_tags",
+     "type": "text",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "lixiaoyun_api_clean_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "lixiaoyun_api_clean_companies_pid_key",
+     "type": "u",
+     "definition": "UNIQUE (pid)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_lac_clean_entname",
+     "definition": "CREATE INDEX idx_lac_clean_entname ON public.lixiaoyun_api_clean_companies USING btree (entname)"
+    },
+    {
+     "name": "idx_lac_clean_keyword_ids",
+     "definition": "CREATE INDEX idx_lac_clean_keyword_ids ON public.lixiaoyun_api_clean_companies USING gin (keyword_master_ids)"
+    },
+    {
+     "name": "idx_lac_clean_pid",
+     "definition": "CREATE INDEX idx_lac_clean_pid ON public.lixiaoyun_api_clean_companies USING btree (pid)"
+    },
+    {
+     "name": "idx_lac_clean_uncid",
+     "definition": "CREATE INDEX idx_lac_clean_uncid ON public.lixiaoyun_api_clean_companies USING btree (uncid)"
+    },
+    {
+     "name": "idx_lxc_entname_eng_lower_full",
+     "definition": "CREATE INDEX idx_lxc_entname_eng_lower_full ON public.lixiaoyun_api_clean_companies USING btree (lower(TRIM(BOTH FROM entname_eng)))"
+    },
+    {
+     "name": "lixiaoyun_api_clean_companies_pid_key",
+     "definition": "CREATE UNIQUE INDEX lixiaoyun_api_clean_companies_pid_key ON public.lixiaoyun_api_clean_companies USING btree (pid)"
+    },
+    {
+     "name": "lixiaoyun_api_clean_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX lixiaoyun_api_clean_companies_pkey ON public.lixiaoyun_api_clean_companies USING btree (id)"
+    }
+   ]
+  },
+  "lixiaoyun_api_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('lixiaoyun_api_companies_id_seq'::regclass)"
+    },
+    {
+     "name": "location_code",
+     "type": "text",
+     "nullable": false,
+     "default": "''::text"
+    },
+    {
+     "name": "collected_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "pid",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "entname",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "entname_eng",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "legalperson",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "uncid",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "esdate",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "reg_cap",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "geo_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "dom",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "entstatus",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "official_website",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "ent_introduction",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "search_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "regccap",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "enttype",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "enttype_code",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "regno",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "organizational_code",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "opfrom",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "opto",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "regorg",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "apprdate",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "revokedate",
+     "type": "bigint",
+     "nullable": true
+    },
+    {
+     "name": "province",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "city",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "district",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "reg_province",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "reg_city",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "reg_district",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "oploc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "entstatus_code",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "industryphy",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industryphy_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "secindustry",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "secindustry_desc",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "industry_l3",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_l3_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_l4",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_l4_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "opscope",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "scale",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "annual_turnover",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "historyname_list",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "legalperson_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "baseinfo_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "keyword_master_id",
+     "type": "uuid",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "lixiaoyun_api_companies_keyword_master_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (keyword_master_id) REFERENCES keyword_master(id)"
+    },
+    {
+     "name": "lixiaoyun_api_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_lixiaoyun_api_companies_collected_at",
+     "definition": "CREATE INDEX idx_lixiaoyun_api_companies_collected_at ON public.lixiaoyun_api_companies USING btree (collected_at DESC)"
+    },
+    {
+     "name": "idx_lixiaoyun_api_companies_keyword_master_id",
+     "definition": "CREATE INDEX idx_lixiaoyun_api_companies_keyword_master_id ON public.lixiaoyun_api_companies USING btree (keyword_master_id)"
+    },
+    {
+     "name": "idx_lxy_api_entname",
+     "definition": "CREATE INDEX idx_lxy_api_entname ON public.lixiaoyun_api_companies USING btree (entname)"
+    },
+    {
+     "name": "idx_lxy_api_location",
+     "definition": "CREATE INDEX idx_lxy_api_location ON public.lixiaoyun_api_companies USING btree (location_code)"
+    },
+    {
+     "name": "idx_lxy_api_pid",
+     "definition": "CREATE INDEX idx_lxy_api_pid ON public.lixiaoyun_api_companies USING btree (pid)"
+    },
+    {
+     "name": "idx_lxy_api_uncid",
+     "definition": "CREATE INDEX idx_lxy_api_uncid ON public.lixiaoyun_api_companies USING btree (uncid)"
+    },
+    {
+     "name": "lixiaoyun_api_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX lixiaoyun_api_companies_pkey ON public.lixiaoyun_api_companies USING btree (id)"
+    }
+   ]
+  },
+  "lixiaoyun_raw_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('lixiaoyun_raw_companies_id_seq'::regclass)"
+    },
+    {
+     "name": "source_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "english_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "domain",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "esdate",
+     "type": "date",
+     "nullable": true
+    },
+    {
+     "name": "legalperson",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "uncid",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "reg_capital",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "employee_scale",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "reg_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "keyword_master_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "contact_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "paid_capital",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "business_scope",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "detail_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "contacts_payload",
+     "type": "jsonb",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "lixiaoyun_raw_companies_keyword_master_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (keyword_master_id) REFERENCES keyword_master(id) ON DELETE SET NULL"
+    },
+    {
+     "name": "lixiaoyun_raw_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_lxy_raw_companies_keyword",
+     "definition": "CREATE INDEX idx_lxy_raw_companies_keyword ON public.lixiaoyun_raw_companies USING btree (keyword_master_id)"
+    },
+    {
+     "name": "idx_lxy_raw_companies_source",
+     "definition": "CREATE INDEX idx_lxy_raw_companies_source ON public.lixiaoyun_raw_companies USING btree (source_id)"
+    },
+    {
+     "name": "lixiaoyun_raw_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX lixiaoyun_raw_companies_pkey ON public.lixiaoyun_raw_companies USING btree (id)"
+    },
+    {
+     "name": "uq_lxy_raw_companies_keyword_source",
+     "definition": "CREATE UNIQUE INDEX uq_lxy_raw_companies_keyword_source ON public.lixiaoyun_raw_companies USING btree (keyword_master_id, source_id)"
+    }
+   ]
+  },
+  "lixiaoyun_raw_contacts": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "raw_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_contact_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "position",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email",
+     "type": "citext",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "lixiaoyun_raw_contacts_raw_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (raw_company_id) REFERENCES lixiaoyun_raw_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "lixiaoyun_raw_contacts_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_lxy_raw_contacts_company",
+     "definition": "CREATE INDEX idx_lxy_raw_contacts_company ON public.lixiaoyun_raw_contacts USING btree (raw_company_id)"
+    },
+    {
+     "name": "idx_lxy_raw_contacts_email",
+     "definition": "CREATE INDEX idx_lxy_raw_contacts_email ON public.lixiaoyun_raw_contacts USING btree (email) WHERE (email IS NOT NULL)"
+    },
+    {
+     "name": "lixiaoyun_raw_contacts_pkey",
+     "definition": "CREATE UNIQUE INDEX lixiaoyun_raw_contacts_pkey ON public.lixiaoyun_raw_contacts USING btree (id)"
+    },
+    {
+     "name": "uq_lxy_raw_contacts_email_fallback",
+     "definition": "CREATE UNIQUE INDEX uq_lxy_raw_contacts_email_fallback ON public.lixiaoyun_raw_contacts USING btree (raw_company_id, email) WHERE ((source_contact_id IS NULL) AND (email IS NOT NULL))"
+    },
+    {
+     "name": "uq_lxy_raw_contacts_source_contact",
+     "definition": "CREATE UNIQUE INDEX uq_lxy_raw_contacts_source_contact ON public.lixiaoyun_raw_contacts USING btree (raw_company_id, source_contact_id) WHERE (source_contact_id IS NOT NULL)"
+    }
+   ]
+  },
+  "notifications": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "title",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "content",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "category",
+     "type": "character varying(30)",
+     "nullable": false
+    },
+    {
+     "name": "entity_type",
+     "type": "character varying(50)",
+     "nullable": true
+    },
+    {
+     "name": "entity_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "is_read",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "read_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "notifications_category_check",
+     "type": "c",
+     "definition": "CHECK (((category)::text = ANY ((ARRAY['scoring_complete'::character varying, 'plan_complete'::character varying, 'reply_received'::character varying, 'balance_low'::character varying, 'intelligence'::character varying, 'domain_warmup'::character varying, 'collection'::character varying, 'system'::character varying])::text[])))"
+    },
+    {
+     "name": "notifications_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "notifications_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (user_id) REFERENCES users(id)"
+    },
+    {
+     "name": "notifications_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_notifications_user_unread",
+     "definition": "CREATE INDEX idx_notifications_user_unread ON public.notifications USING btree (tenant_id, user_id, is_read, created_at DESC)"
+    },
+    {
+     "name": "notifications_pkey",
+     "definition": "CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id)"
+    }
+   ]
+  },
+  "platform_email_templates": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "industry",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "category",
+     "type": "character varying(50)",
+     "nullable": false
+    },
+    {
+     "name": "subject",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body_html",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "body_text",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "variables",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "platform_email_templates_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_platform_email_templates_industry",
+     "definition": "CREATE INDEX idx_platform_email_templates_industry ON public.platform_email_templates USING btree (industry, category) WHERE is_active"
+    },
+    {
+     "name": "platform_email_templates_pkey",
+     "definition": "CREATE UNIQUE INDEX platform_email_templates_pkey ON public.platform_email_templates USING btree (id)"
+    }
+   ]
+  },
+  "platform_scoring_template_versions": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "version",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "dimensions",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "grade_thresholds",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "changed_by",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "change_reason",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "platform_scoring_template_versions_changed_by_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (changed_by) REFERENCES platform_users(id)"
+    },
+    {
+     "name": "platform_scoring_template_versions_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_id) REFERENCES platform_scoring_templates(id)"
+    },
+    {
+     "name": "platform_scoring_template_versions_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "platform_scoring_template_versions_template_id_version_key",
+     "type": "u",
+     "definition": "UNIQUE (template_id, version)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "platform_scoring_template_versions_pkey",
+     "definition": "CREATE UNIQUE INDEX platform_scoring_template_versions_pkey ON public.platform_scoring_template_versions USING btree (id)"
+    },
+    {
+     "name": "platform_scoring_template_versions_template_id_version_key",
+     "definition": "CREATE UNIQUE INDEX platform_scoring_template_versions_template_id_version_key ON public.platform_scoring_template_versions USING btree (template_id, version)"
+    }
+   ]
+  },
+  "platform_scoring_templates": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "industry",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "dimensions",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "grade_thresholds",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{\"A\": 80, \"B\": 60, \"C\": 40, \"D\": 0, \"S\": 90}'::jsonb"
+    },
+    {
+     "name": "version",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "created_by",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "platform_scoring_templates_created_by_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (created_by) REFERENCES platform_users(id)"
+    },
+    {
+     "name": "platform_scoring_templates_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_platform_scoring_templates_active",
+     "definition": "CREATE UNIQUE INDEX idx_platform_scoring_templates_active ON public.platform_scoring_templates USING btree (instance_id, industry) WHERE is_active"
+    },
+    {
+     "name": "platform_scoring_templates_pkey",
+     "definition": "CREATE UNIQUE INDEX platform_scoring_templates_pkey ON public.platform_scoring_templates USING btree (id)"
+    }
+   ]
+  },
+  "platform_users": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "email",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "password_hash",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'active'::character varying"
+    },
+    {
+     "name": "failed_login_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "locked_until",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "last_login_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "platform_users_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying])::text[])))"
+    },
+    {
+     "name": "platform_users_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "platform_users_email_key",
+     "type": "u",
+     "definition": "UNIQUE (email)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "platform_users_email_key",
+     "definition": "CREATE UNIQUE INDEX platform_users_email_key ON public.platform_users USING btree (email)"
+    },
+    {
+     "name": "platform_users_pkey",
+     "definition": "CREATE UNIQUE INDEX platform_users_pkey ON public.platform_users USING btree (id)"
+    }
+   ]
+  },
+  "position_classification_categories": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "level_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "display_name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "sort_order",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "position_classification_categories_level_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (level_id) REFERENCES position_classification_levels(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "position_classification_categories_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_pos_cat_level",
+     "definition": "CREATE INDEX idx_pos_cat_level ON public.position_classification_categories USING btree (level_id)"
+    },
+    {
+     "name": "position_classification_categories_pkey",
+     "definition": "CREATE UNIQUE INDEX position_classification_categories_pkey ON public.position_classification_categories USING btree (id)"
+    }
+   ]
+  },
+  "position_classification_keywords": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "category_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "keyword",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "position_classification_keywords_category_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (category_id) REFERENCES position_classification_categories(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "position_classification_keywords_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "position_classification_keywords_category_id_keyword_key",
+     "type": "u",
+     "definition": "UNIQUE (category_id, keyword)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_pos_kw_cat",
+     "definition": "CREATE INDEX idx_pos_kw_cat ON public.position_classification_keywords USING btree (category_id)"
+    },
+    {
+     "name": "position_classification_keywords_category_id_keyword_key",
+     "definition": "CREATE UNIQUE INDEX position_classification_keywords_category_id_keyword_key ON public.position_classification_keywords USING btree (category_id, keyword)"
+    },
+    {
+     "name": "position_classification_keywords_pkey",
+     "definition": "CREATE UNIQUE INDEX position_classification_keywords_pkey ON public.position_classification_keywords USING btree (id)"
+    }
+   ]
+  },
+  "position_classification_levels": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "display_name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "sort_order",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "is_sendable",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "position_classification_levels_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "position_classification_levels_pkey",
+     "definition": "CREATE UNIQUE INDEX position_classification_levels_pkey ON public.position_classification_levels USING btree (id)"
+    }
+   ]
+  },
+  "scoring_jobs": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "lease_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "lease_owner",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "lease_expires_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "attempt_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "last_error",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "payload",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "scoring_jobs_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'leased'::character varying, 'completed'::character varying, 'failed'::character varying])::text[])))"
+    },
+    {
+     "name": "scoring_jobs_tenant_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_company_id) REFERENCES tenant_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "scoring_jobs_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "scoring_jobs_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_scoring_jobs_claim",
+     "definition": "CREATE INDEX idx_scoring_jobs_claim ON public.scoring_jobs USING btree (status, lease_expires_at, created_at)"
+    },
+    {
+     "name": "idx_scoring_jobs_unique_active",
+     "definition": "CREATE UNIQUE INDEX idx_scoring_jobs_unique_active ON public.scoring_jobs USING btree (tenant_company_id) WHERE ((completed_at IS NULL) AND ((status)::text = ANY ((ARRAY['pending'::character varying, 'leased'::character varying])::text[])))"
+    },
+    {
+     "name": "scoring_jobs_pkey",
+     "definition": "CREATE UNIQUE INDEX scoring_jobs_pkey ON public.scoring_jobs USING btree (id)"
+    }
+   ]
+  },
+  "scoring_template_versions": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "version",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "dimensions",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "grade_thresholds",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "changed_by",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "change_reason",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "scoring_template_versions_changed_by_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (changed_by) REFERENCES users(id)"
+    },
+    {
+     "name": "scoring_template_versions_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_id) REFERENCES scoring_templates(id)"
+    },
+    {
+     "name": "scoring_template_versions_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "scoring_template_versions_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "scoring_template_versions_template_id_version_key",
+     "type": "u",
+     "definition": "UNIQUE (template_id, version)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "scoring_template_versions_pkey",
+     "definition": "CREATE UNIQUE INDEX scoring_template_versions_pkey ON public.scoring_template_versions USING btree (id)"
+    },
+    {
+     "name": "scoring_template_versions_template_id_version_key",
+     "definition": "CREATE UNIQUE INDEX scoring_template_versions_template_id_version_key ON public.scoring_template_versions USING btree (template_id, version)"
+    }
+   ]
+  },
+  "scoring_templates": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "source_platform_template_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "dimensions",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "grade_thresholds",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{\"A\": 80, \"B\": 60, \"C\": 40, \"D\": 0, \"S\": 90}'::jsonb"
+    },
+    {
+     "name": "version",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "industry",
+     "type": "text",
+     "nullable": false,
+     "default": "'PCB'::text"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "scoring_templates_source_platform_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (source_platform_template_id) REFERENCES platform_scoring_templates(id)"
+    },
+    {
+     "name": "scoring_templates_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "scoring_templates_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_scoring_templates_active",
+     "definition": "CREATE UNIQUE INDEX idx_scoring_templates_active ON public.scoring_templates USING btree (tenant_id) WHERE is_active"
+    },
+    {
+     "name": "idx_scoring_templates_industry",
+     "definition": "CREATE INDEX idx_scoring_templates_industry ON public.scoring_templates USING btree (industry)"
+    },
+    {
+     "name": "scoring_templates_pkey",
+     "definition": "CREATE UNIQUE INDEX scoring_templates_pkey ON public.scoring_templates USING btree (id)"
+    }
+   ]
+  },
+  "sending_plan_recipients": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "tenant_contact_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_type",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "source_ref",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "locked_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "appended_after_start",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "excluded_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "excluded_reason",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "sending_plan_recipients_source_type_check",
+     "type": "c",
+     "definition": "CHECK (((source_type)::text = ANY ((ARRAY['group'::character varying, 'manual'::character varying, 'filter'::character varying])::text[])))"
+    },
+    {
+     "name": "sending_plan_recipients_plan_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (plan_id) REFERENCES sending_plans(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "sending_plan_recipients_tenant_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_company_id) REFERENCES tenant_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "sending_plan_recipients_tenant_contact_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_contact_id) REFERENCES tenant_contacts(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "sending_plan_recipients_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "sending_plan_recipients_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "sending_plan_recipients_plan_id_tenant_contact_id_key",
+     "type": "u",
+     "definition": "UNIQUE (plan_id, tenant_contact_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_sending_plan_recipients_plan",
+     "definition": "CREATE INDEX idx_sending_plan_recipients_plan ON public.sending_plan_recipients USING btree (plan_id)"
+    },
+    {
+     "name": "sending_plan_recipients_pkey",
+     "definition": "CREATE UNIQUE INDEX sending_plan_recipients_pkey ON public.sending_plan_recipients USING btree (id)"
+    },
+    {
+     "name": "sending_plan_recipients_plan_id_tenant_contact_id_key",
+     "definition": "CREATE UNIQUE INDEX sending_plan_recipients_plan_id_tenant_contact_id_key ON public.sending_plan_recipients USING btree (plan_id, tenant_contact_id)"
+    }
+   ]
+  },
+  "sending_plans": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "created_by",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'draft'::character varying"
+    },
+    {
+     "name": "recipient_source",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "recipient_config",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "send_strategy",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{\"interval_seconds\": [3, 3]}'::jsonb"
+    },
+    {
+     "name": "sender_name",
+     "type": "character varying(200)",
+     "nullable": true
+    },
+    {
+     "name": "sender_email",
+     "type": "character varying(255)",
+     "nullable": true
+    },
+    {
+     "name": "domain_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "total_recipients",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "sent_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "scheduled_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "started_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "deleted_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "sending_plans_recipient_source_check",
+     "type": "c",
+     "definition": "CHECK (((recipient_source)::text = ANY ((ARRAY['group'::character varying, 'manual'::character varying, 'filter'::character varying])::text[])))"
+    },
+    {
+     "name": "sending_plans_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'scheduled'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'cancelled'::character varying])::text[])))"
+    },
+    {
+     "name": "sending_plans_created_by_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (created_by) REFERENCES users(id)"
+    },
+    {
+     "name": "sending_plans_domain_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (domain_id) REFERENCES domain_warmup_status(id)"
+    },
+    {
+     "name": "sending_plans_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "sending_plans_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_sending_plans_tenant_status",
+     "definition": "CREATE INDEX idx_sending_plans_tenant_status ON public.sending_plans USING btree (tenant_id, status)"
+    },
+    {
+     "name": "sending_plans_pkey",
+     "definition": "CREATE UNIQUE INDEX sending_plans_pkey ON public.sending_plans USING btree (id)"
+    }
+   ]
+  },
+  "sequence_enrollments": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "plan_recipient_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_contact_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "current_step",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'active'::character varying"
+    },
+    {
+     "name": "enrolled_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "last_step_sent_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "next_step_due_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "completed_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "last_skip_reason",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "last_skip_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "send_attempt_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "sequence_enrollments_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'completed'::character varying, 'replied'::character varying, 'bounced'::character varying, 'unsubscribed'::character varying, 'paused'::character varying, 'cancelled'::character varying, 'failed'::character varying])::text[])))"
+    },
+    {
+     "name": "sequence_enrollments_plan_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (plan_id) REFERENCES sending_plans(id)"
+    },
+    {
+     "name": "sequence_enrollments_plan_recipient_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (plan_recipient_id) REFERENCES sending_plan_recipients(id)"
+    },
+    {
+     "name": "sequence_enrollments_tenant_contact_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_contact_id) REFERENCES tenant_contacts(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "sequence_enrollments_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "sequence_enrollments_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "sequence_enrollments_plan_id_tenant_contact_id_key",
+     "type": "u",
+     "definition": "UNIQUE (plan_id, tenant_contact_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_sequence_enrollments_due",
+     "definition": "CREATE INDEX idx_sequence_enrollments_due ON public.sequence_enrollments USING btree (status, next_step_due_at) WHERE ((status)::text = 'active'::text)"
+    },
+    {
+     "name": "sequence_enrollments_pkey",
+     "definition": "CREATE UNIQUE INDEX sequence_enrollments_pkey ON public.sequence_enrollments USING btree (id)"
+    },
+    {
+     "name": "sequence_enrollments_plan_id_tenant_contact_id_key",
+     "definition": "CREATE UNIQUE INDEX sequence_enrollments_plan_id_tenant_contact_id_key ON public.sequence_enrollments USING btree (plan_id, tenant_contact_id)"
+    }
+   ]
+  },
+  "sequence_steps": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "plan_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "step_number",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "delay_days",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "condition_type",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'no_reply'::character varying"
+    },
+    {
+     "name": "use_ai_personalization",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "ai_instructions",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "sequence_steps_check",
+     "type": "c",
+     "definition": "CHECK ((((step_number = 1) AND ((condition_type)::text = 'always'::text) AND (delay_days = 0)) OR (step_number > 1)))"
+    },
+    {
+     "name": "sequence_steps_condition_type_check",
+     "type": "c",
+     "definition": "CHECK (((condition_type)::text = ANY ((ARRAY['always'::character varying, 'no_reply'::character varying, 'no_open'::character varying, 'opened'::character varying, 'clicked'::character varying])::text[])))"
+    },
+    {
+     "name": "sequence_steps_step_number_check",
+     "type": "c",
+     "definition": "CHECK (((step_number >= 1) AND (step_number <= 10)))"
+    },
+    {
+     "name": "sequence_steps_plan_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (plan_id) REFERENCES sending_plans(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "sequence_steps_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_id) REFERENCES email_templates(id)"
+    },
+    {
+     "name": "sequence_steps_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "sequence_steps_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "sequence_steps_plan_id_step_number_key",
+     "type": "u",
+     "definition": "UNIQUE (plan_id, step_number)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "sequence_steps_pkey",
+     "definition": "CREATE UNIQUE INDEX sequence_steps_pkey ON public.sequence_steps USING btree (id)"
+    },
+    {
+     "name": "sequence_steps_plan_id_step_number_key",
+     "definition": "CREATE UNIQUE INDEX sequence_steps_plan_id_step_number_key ON public.sequence_steps USING btree (plan_id, step_number)"
+    }
+   ]
+  },
+  "service_idempotency_keys": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "service_name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "request_id",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "endpoint",
+     "type": "character varying(200)",
+     "nullable": false
+    },
+    {
+     "name": "request_hash",
+     "type": "character varying(128)",
+     "nullable": true
+    },
+    {
+     "name": "response_status",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "response_body",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "service_idempotency_keys_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "service_idempotency_keys_service_name_request_id_endpoint_key",
+     "type": "u",
+     "definition": "UNIQUE (service_name, request_id, endpoint)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "service_idempotency_keys_pkey",
+     "definition": "CREATE UNIQUE INDEX service_idempotency_keys_pkey ON public.service_idempotency_keys USING btree (id)"
+    },
+    {
+     "name": "service_idempotency_keys_service_name_request_id_endpoint_key",
+     "definition": "CREATE UNIQUE INDEX service_idempotency_keys_service_name_request_id_endpoint_key ON public.service_idempotency_keys USING btree (service_name, request_id, endpoint)"
+    }
+   ]
+  },
+  "tenant_ai_provider_configs": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "provider",
+     "type": "character varying(40)",
+     "nullable": false
+    },
+    {
+     "name": "api_key_encrypted",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "encryption_key_version",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "configured_by_user_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "configured_by_platform_user_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "last_rotated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "balance_status",
+     "type": "character varying(30)",
+     "nullable": false
+    },
+    {
+     "name": "balance_source",
+     "type": "character varying(20)",
+     "nullable": true
+    },
+    {
+     "name": "balance_amount",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "balance_currency",
+     "type": "character varying(10)",
+     "nullable": false,
+     "default": "'USD'::character varying"
+    },
+    {
+     "name": "total_credits",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "total_usage",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "key_limit",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "key_limit_remaining",
+     "type": "numeric(12,4)",
+     "nullable": true
+    },
+    {
+     "name": "balance_checked_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "last_error_code",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "last_error_message",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "tenant_ai_provider_configs_balance_source_check",
+     "type": "c",
+     "definition": "CHECK (((balance_source)::text = ANY ((ARRAY['credits'::character varying, 'key'::character varying])::text[])))"
+    },
+    {
+     "name": "tenant_ai_provider_configs_balance_status_check",
+     "type": "c",
+     "definition": "CHECK (((balance_status)::text = ANY ((ARRAY['available'::character varying, 'insufficient_balance'::character varying, 'unknown'::character varying, 'invalid_api_key'::character varying, 'provider_error'::character varying])::text[])))"
+    },
+    {
+     "name": "tenant_ai_provider_configs_provider_check",
+     "type": "c",
+     "definition": "CHECK (((provider)::text = 'openrouter'::text))"
+    },
+    {
+     "name": "tenant_ai_provider_configs_configured_by_platform_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (configured_by_platform_user_id) REFERENCES platform_users(id)"
+    },
+    {
+     "name": "tenant_ai_provider_configs_configured_by_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (configured_by_user_id) REFERENCES users(id)"
+    },
+    {
+     "name": "tenant_ai_provider_configs_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "tenant_ai_provider_configs_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "tenant_ai_provider_configs_tenant_id_provider_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, provider)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tenant_ai_provider_configs_tenant",
+     "definition": "CREATE INDEX idx_tenant_ai_provider_configs_tenant ON public.tenant_ai_provider_configs USING btree (tenant_id)"
+    },
+    {
+     "name": "tenant_ai_provider_configs_pkey",
+     "definition": "CREATE UNIQUE INDEX tenant_ai_provider_configs_pkey ON public.tenant_ai_provider_configs USING btree (id)"
+    },
+    {
+     "name": "tenant_ai_provider_configs_tenant_id_provider_key",
+     "definition": "CREATE UNIQUE INDEX tenant_ai_provider_configs_tenant_id_provider_key ON public.tenant_ai_provider_configs USING btree (tenant_id, provider)"
+    }
+   ]
+  },
+  "tenant_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "clean_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "business_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'new'::text"
+    },
+    {
+     "name": "data_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'ready'::text"
+    },
+    {
+     "name": "model_score",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "score",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "note",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "tags",
+     "type": "text[]",
+     "nullable": true,
+     "default": "'{}'::text[]"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "score_adjustment",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "tenant_companies_business_status_check",
+     "type": "c",
+     "definition": "CHECK ((business_status = ANY (ARRAY['new'::text, 'in_group'::text, 'in_plan'::text, 'contacted'::text])))"
+    },
+    {
+     "name": "tenant_companies_data_status_check",
+     "type": "c",
+     "definition": "CHECK ((data_status = ANY (ARRAY['ready'::text, 'missing_contacts'::text, 'insufficient_data'::text])))"
+    },
+    {
+     "name": "tenant_companies_score_adjustment_check",
+     "type": "c",
+     "definition": "CHECK (((score_adjustment >= '-20'::integer) AND (score_adjustment <= 20)))"
+    },
+    {
+     "name": "tenant_companies_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "tenant_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "tenant_companies_tenant_id_clean_company_id_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, clean_company_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tenant_companies_clean_company_id",
+     "definition": "CREATE INDEX idx_tenant_companies_clean_company_id ON public.tenant_companies USING btree (clean_company_id)"
+    },
+    {
+     "name": "idx_tenant_companies_tags",
+     "definition": "CREATE INDEX idx_tenant_companies_tags ON public.tenant_companies USING gin (tags)"
+    },
+    {
+     "name": "idx_tenant_companies_tenant_business_status",
+     "definition": "CREATE INDEX idx_tenant_companies_tenant_business_status ON public.tenant_companies USING btree (tenant_id, business_status)"
+    },
+    {
+     "name": "idx_tenant_companies_tenant_data_status",
+     "definition": "CREATE INDEX idx_tenant_companies_tenant_data_status ON public.tenant_companies USING btree (tenant_id, data_status)"
+    },
+    {
+     "name": "idx_tenant_companies_tenant_score",
+     "definition": "CREATE INDEX idx_tenant_companies_tenant_score ON public.tenant_companies USING btree (tenant_id, score)"
+    },
+    {
+     "name": "tenant_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX tenant_companies_pkey ON public.tenant_companies USING btree (id)"
+    },
+    {
+     "name": "tenant_companies_tenant_id_clean_company_id_key",
+     "definition": "CREATE UNIQUE INDEX tenant_companies_tenant_id_clean_company_id_key ON public.tenant_companies USING btree (tenant_id, clean_company_id)"
+    }
+   ]
+  },
+  "tenant_contacts": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "clean_contact_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "clean_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "contact_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'available'::text"
+    },
+    {
+     "name": "is_sendable",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "tenant_contacts_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "tenant_contacts_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "tenant_contacts_tenant_id_clean_contact_id_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, clean_contact_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tenant_contacts_tenant_company",
+     "definition": "CREATE INDEX idx_tenant_contacts_tenant_company ON public.tenant_contacts USING btree (tenant_id, clean_company_id)"
+    },
+    {
+     "name": "idx_tenant_contacts_tenant_sendable",
+     "definition": "CREATE INDEX idx_tenant_contacts_tenant_sendable ON public.tenant_contacts USING btree (tenant_id, is_sendable)"
+    },
+    {
+     "name": "idx_tenant_contacts_tenant_status",
+     "definition": "CREATE INDEX idx_tenant_contacts_tenant_status ON public.tenant_contacts USING btree (tenant_id, contact_status)"
+    },
+    {
+     "name": "tenant_contacts_pkey",
+     "definition": "CREATE UNIQUE INDEX tenant_contacts_pkey ON public.tenant_contacts USING btree (id)"
+    },
+    {
+     "name": "tenant_contacts_tenant_id_clean_contact_id_key",
+     "definition": "CREATE UNIQUE INDEX tenant_contacts_tenant_id_clean_contact_id_key ON public.tenant_contacts USING btree (tenant_id, clean_contact_id)"
+    }
+   ]
+  },
+  "tenant_scoring_weights": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "template_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "dimension",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "weight",
+     "type": "numeric(5,2)",
+     "nullable": false,
+     "default": "1.0"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "tenant_scoring_weights_weight_check",
+     "type": "c",
+     "definition": "CHECK ((weight >= (0)::numeric))"
+    },
+    {
+     "name": "tenant_scoring_weights_template_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (template_id) REFERENCES scoring_templates(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "tenant_scoring_weights_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "tenant_scoring_weights_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "tenant_scoring_weights_tenant_id_template_id_dimension_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, template_id, dimension)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tenant_scoring_weights_tenant_template",
+     "definition": "CREATE INDEX idx_tenant_scoring_weights_tenant_template ON public.tenant_scoring_weights USING btree (tenant_id, template_id)"
+    },
+    {
+     "name": "tenant_scoring_weights_pkey",
+     "definition": "CREATE UNIQUE INDEX tenant_scoring_weights_pkey ON public.tenant_scoring_weights USING btree (id)"
+    },
+    {
+     "name": "tenant_scoring_weights_tenant_id_template_id_dimension_key",
+     "definition": "CREATE UNIQUE INDEX tenant_scoring_weights_tenant_id_template_id_dimension_key ON public.tenant_scoring_weights USING btree (tenant_id, template_id, dimension)"
+    }
+   ]
+  },
+  "tenants": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "slug",
+     "type": "character varying(50)",
+     "nullable": false
+    },
+    {
+     "name": "industry",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "contact_name",
+     "type": "character varying(100)",
+     "nullable": true
+    },
+    {
+     "name": "contact_phone",
+     "type": "character varying(50)",
+     "nullable": true
+    },
+    {
+     "name": "contact_email",
+     "type": "character varying(255)",
+     "nullable": true
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'active'::character varying"
+    },
+    {
+     "name": "settings",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "needs_onboarding",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "tenants_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'suspended'::character varying, 'archived'::character varying])::text[])))"
+    },
+    {
+     "name": "tenants_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "uq_tenants_instance_slug",
+     "type": "u",
+     "definition": "UNIQUE (instance_id, slug)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "tenants_pkey",
+     "definition": "CREATE UNIQUE INDEX tenants_pkey ON public.tenants USING btree (id)"
+    },
+    {
+     "name": "uq_tenants_instance_slug",
+     "definition": "CREATE UNIQUE INDEX uq_tenants_instance_slug ON public.tenants USING btree (instance_id, slug)"
+    }
+   ]
+  },
+  "tendata_raw_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "keyword_master_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "source_id",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "collection_type",
+     "type": "text",
+     "nullable": false,
+     "default": "'reverse_lookup'::text"
+    },
+    {
+     "name": "globiz_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name_local",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "country_iso3",
+     "type": "character(3)",
+     "nullable": true
+    },
+    {
+     "name": "website",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "tax_no",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "incorporation_date",
+     "type": "date",
+     "nullable": true
+    },
+    {
+     "name": "employee_num",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry_desc",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "product_tags",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "pcb_suppliers",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "trade_amount_3y_usd",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "trade_count",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "contacts_count",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "has_trade_data",
+     "type": "boolean",
+     "nullable": true
+    },
+    {
+     "name": "aliases",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "detail_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'pending'::text"
+    },
+    {
+     "name": "detail_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "trade_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'pending'::text"
+    },
+    {
+     "name": "trade_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "contacts_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'pending'::text"
+    },
+    {
+     "name": "contacts_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "enrichment_error",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "exporter_name",
+     "type": "text",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "tendata_raw_companies_collection_type_check",
+     "type": "c",
+     "definition": "CHECK ((collection_type = ANY (ARRAY['direct_search'::text, 'reverse_lookup'::text])))"
+    },
+    {
+     "name": "tendata_raw_companies_contacts_status_check",
+     "type": "c",
+     "definition": "CHECK ((contacts_status = ANY (ARRAY['pending'::text, 'fetched'::text, 'failed'::text, 'skipped'::text])))"
+    },
+    {
+     "name": "tendata_raw_companies_country_iso3_check",
+     "type": "c",
+     "definition": "CHECK (((country_iso3 IS NULL) OR (country_iso3 ~ '^[A-Z]{3}$'::text)))"
+    },
+    {
+     "name": "tendata_raw_companies_detail_status_check",
+     "type": "c",
+     "definition": "CHECK ((detail_status = ANY (ARRAY['pending'::text, 'fetched'::text, 'failed'::text, 'skipped'::text])))"
+    },
+    {
+     "name": "tendata_raw_companies_trade_status_check",
+     "type": "c",
+     "definition": "CHECK ((trade_status = ANY (ARRAY['pending'::text, 'fetched'::text, 'failed'::text, 'skipped'::text])))"
+    },
+    {
+     "name": "tendata_raw_companies_keyword_master_id_fkey1",
+     "type": "f",
+     "definition": "FOREIGN KEY (keyword_master_id) REFERENCES keyword_master(id) ON DELETE SET NULL"
+    },
+    {
+     "name": "tendata_raw_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "tendata_raw_companies_keyword_master_id_source_id_collectio_key",
+     "type": "u",
+     "definition": "UNIQUE (keyword_master_id, source_id, collection_type)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tendata_raw_companies_country",
+     "definition": "CREATE INDEX idx_tendata_raw_companies_country ON public.tendata_raw_companies USING btree (country_iso3)"
+    },
+    {
+     "name": "idx_tendata_raw_companies_globiz",
+     "definition": "CREATE INDEX idx_tendata_raw_companies_globiz ON public.tendata_raw_companies USING btree (globiz_id) WHERE (globiz_id IS NOT NULL)"
+    },
+    {
+     "name": "idx_tendata_raw_companies_keyword",
+     "definition": "CREATE INDEX idx_tendata_raw_companies_keyword ON public.tendata_raw_companies USING btree (keyword_master_id)"
+    },
+    {
+     "name": "idx_tendata_raw_companies_source",
+     "definition": "CREATE INDEX idx_tendata_raw_companies_source ON public.tendata_raw_companies USING btree (source_id)"
+    },
+    {
+     "name": "tendata_raw_companies_keyword_master_id_source_id_collectio_key",
+     "definition": "CREATE UNIQUE INDEX tendata_raw_companies_keyword_master_id_source_id_collectio_key ON public.tendata_raw_companies USING btree (keyword_master_id, source_id, collection_type)"
+    },
+    {
+     "name": "tendata_raw_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX tendata_raw_companies_pkey ON public.tendata_raw_companies USING btree (id)"
+    }
+   ]
+  },
+  "tendata_raw_contacts": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "raw_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_contact_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "position",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email",
+     "type": "citext",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "chk_tendata_raw_contacts_email_not_empty",
+     "type": "c",
+     "definition": "CHECK (((email IS NULL) OR (btrim((email)::text) <> ''::text)))"
+    },
+    {
+     "name": "tendata_raw_contacts_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_tendata_raw_contacts_company",
+     "definition": "CREATE INDEX idx_tendata_raw_contacts_company ON public.tendata_raw_contacts USING btree (raw_company_id)"
+    },
+    {
+     "name": "idx_tendata_raw_contacts_email",
+     "definition": "CREATE INDEX idx_tendata_raw_contacts_email ON public.tendata_raw_contacts USING btree (email) WHERE (email IS NOT NULL)"
+    },
+    {
+     "name": "tendata_raw_contacts_pkey",
+     "definition": "CREATE UNIQUE INDEX tendata_raw_contacts_pkey ON public.tendata_raw_contacts USING btree (id)"
+    },
+    {
+     "name": "uq_tendata_raw_contacts_email_fallback",
+     "definition": "CREATE UNIQUE INDEX uq_tendata_raw_contacts_email_fallback ON public.tendata_raw_contacts USING btree (raw_company_id, email) WHERE ((source_contact_id IS NULL) AND (email IS NOT NULL))"
+    },
+    {
+     "name": "uq_tendata_raw_contacts_source_contact",
+     "definition": "CREATE UNIQUE INDEX uq_tendata_raw_contacts_source_contact ON public.tendata_raw_contacts USING btree (raw_company_id, source_contact_id) WHERE (source_contact_id IS NOT NULL)"
+    }
+   ]
+  },
+  "user_roles": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "role",
+     "type": "user_role",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "user_roles_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "user_roles_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "user_roles_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "user_roles_tenant_id_user_id_role_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, user_id, role)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "user_roles_pkey",
+     "definition": "CREATE UNIQUE INDEX user_roles_pkey ON public.user_roles USING btree (id)"
+    },
+    {
+     "name": "user_roles_tenant_id_user_id_role_key",
+     "definition": "CREATE UNIQUE INDEX user_roles_tenant_id_user_id_role_key ON public.user_roles USING btree (tenant_id, user_id, role)"
+    }
+   ]
+  },
+  "users": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "email",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "password_hash",
+     "type": "character varying(255)",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "status",
+     "type": "character varying(20)",
+     "nullable": false,
+     "default": "'active'::character varying"
+    },
+    {
+     "name": "must_change_pwd",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "failed_login_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "locked_until",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "last_login_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "test_email",
+     "type": "character varying(255)",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "users_status_check",
+     "type": "c",
+     "definition": "CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'disabled'::character varying])::text[])))"
+    },
+    {
+     "name": "users_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "users_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "users_tenant_id_email_key",
+     "type": "u",
+     "definition": "UNIQUE (tenant_id, email)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "users_pkey",
+     "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+    },
+    {
+     "name": "users_tenant_id_email_key",
+     "definition": "CREATE UNIQUE INDEX users_tenant_id_email_key ON public.users USING btree (tenant_id, email)"
+    }
+   ]
+  },
+  "waimaotong_clean_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('waimaotong_clean_companies_id_seq'::regclass)"
+    },
+    {
+     "name": "source_id",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "country_iso3",
+     "type": "character(3)",
+     "nullable": true
+    },
+    {
+     "name": "domain",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "employee_size",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "founded_year",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "products",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "emails",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "trade_amount_3y_usd",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "trade_count",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "has_trade_data",
+     "type": "boolean",
+     "nullable": true
+    },
+    {
+     "name": "contacts_count",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "keyword_master_ids",
+     "type": "uuid[]",
+     "nullable": false,
+     "default": "'{}'::uuid[]"
+    },
+    {
+     "name": "source_tags",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "customs_data",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "search_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "detail_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "trade_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "detail_status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "detail_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "trade_status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "trade_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "contacts_status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "contacts_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "enrichment_error",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "sys_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "english_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "country",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "full_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "website",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "founded_year_text",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "grade",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "score",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "sub_industry",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "match_reasons",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "potential_needs",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "recommended_products",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "sales_approach",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "risk_factors",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "company_type_analysis",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "main_business",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "product_tags",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "tag_confidence",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "score_details",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "trade_summary",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "email_priority",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "plan_id",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "search_raw",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "ai_raw",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "data_sources",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "region",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_size",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "revenue_estimate",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "products_services",
+     "type": "jsonb",
+     "nullable": true,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "target_customers",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "market_coverage",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "linkedin",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "youtube",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "other_social",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "recent_activities",
+     "type": "jsonb",
+     "nullable": true,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "key_contacts",
+     "type": "jsonb",
+     "nullable": true,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "data_source_tags",
+     "type": "jsonb",
+     "nullable": true,
+     "default": "'[]'::jsonb"
+    },
+    {
+     "name": "is_new_collection",
+     "type": "boolean",
+     "nullable": true,
+     "default": "true"
+    },
+    {
+     "name": "revenue",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sic",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "naics",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "facebook",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "twitter",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "instagram",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "logo",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "target_market",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "partners",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "brand_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "ai_analyzed_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "system_grade",
+     "type": "character(1)",
+     "nullable": true
+    },
+    {
+     "name": "system_score",
+     "type": "integer",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "waimaotong_clean_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "waimaotong_clean_companies_source_id_key",
+     "type": "u",
+     "definition": "UNIQUE (source_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_clean_companies_domain",
+     "definition": "CREATE INDEX idx_wmt_clean_companies_domain ON public.waimaotong_clean_companies USING btree (domain) WHERE ((domain IS NOT NULL) AND (domain <> ''::text))"
+    },
+    {
+     "name": "idx_wmt_clean_companies_name_country",
+     "definition": "CREATE INDEX idx_wmt_clean_companies_name_country ON public.waimaotong_clean_companies USING btree (company_name, country_iso3)"
+    },
+    {
+     "name": "idx_wmt_clean_country",
+     "definition": "CREATE INDEX idx_wmt_clean_country ON public.waimaotong_clean_companies USING btree (country_iso3)"
+    },
+    {
+     "name": "idx_wmt_clean_data_source_tags_gin",
+     "definition": "CREATE INDEX idx_wmt_clean_data_source_tags_gin ON public.waimaotong_clean_companies USING gin (data_source_tags jsonb_path_ops)"
+    },
+    {
+     "name": "idx_wmt_clean_domain",
+     "definition": "CREATE INDEX idx_wmt_clean_domain ON public.waimaotong_clean_companies USING btree (domain)"
+    },
+    {
+     "name": "idx_wmt_clean_keyword_master_ids",
+     "definition": "CREATE INDEX idx_wmt_clean_keyword_master_ids ON public.waimaotong_clean_companies USING gin (keyword_master_ids)"
+    },
+    {
+     "name": "idx_wmt_clean_name",
+     "definition": "CREATE INDEX idx_wmt_clean_name ON public.waimaotong_clean_companies USING btree (name)"
+    },
+    {
+     "name": "idx_wmt_clean_source_id",
+     "definition": "CREATE INDEX idx_wmt_clean_source_id ON public.waimaotong_clean_companies USING btree (source_id)"
+    },
+    {
+     "name": "waimaotong_clean_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX waimaotong_clean_companies_pkey ON public.waimaotong_clean_companies USING btree (id)"
+    },
+    {
+     "name": "waimaotong_clean_companies_source_id_key",
+     "definition": "CREATE UNIQUE INDEX waimaotong_clean_companies_source_id_key ON public.waimaotong_clean_companies USING btree (source_id)"
+    }
+   ]
+  },
+  "waimaotong_clean_contacts": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('waimaotong_clean_contacts_id_seq'::regclass)"
+    },
+    {
+     "name": "sys_contact_id",
+     "type": "uuid",
+     "nullable": true,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "contact_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sys_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "api_company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "position",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "department",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email_status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "mobile",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "linkedin",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "whatsapp",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "confidence",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "raw_data",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "chk_wmt_clean_contacts_email_not_empty",
+     "type": "c",
+     "definition": "CHECK (((email IS NULL) OR (btrim(email) <> ''::text)))"
+    },
+    {
+     "name": "waimaotong_clean_contacts_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "uq_clean_contact_company_cid",
+     "type": "u",
+     "definition": "UNIQUE (sys_company_id, contact_id)"
+    },
+    {
+     "name": "uq_clean_contact_company_email",
+     "type": "u",
+     "definition": "UNIQUE (sys_company_id, email)"
+    },
+    {
+     "name": "uq_clean_contact_company_name_pos",
+     "type": "u",
+     "definition": "UNIQUE (sys_company_id, name, \"position\")"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_clean_contacts_company",
+     "definition": "CREATE INDEX idx_wmt_clean_contacts_company ON public.waimaotong_clean_contacts USING btree (sys_company_id)"
+    },
+    {
+     "name": "idx_wmt_clean_contacts_email",
+     "definition": "CREATE INDEX idx_wmt_clean_contacts_email ON public.waimaotong_clean_contacts USING btree (email)"
+    },
+    {
+     "name": "idx_wmt_clean_contacts_sys_company_id",
+     "definition": "CREATE INDEX idx_wmt_clean_contacts_sys_company_id ON public.waimaotong_clean_contacts USING btree (sys_company_id)"
+    },
+    {
+     "name": "uq_clean_contact_company_cid",
+     "definition": "CREATE UNIQUE INDEX uq_clean_contact_company_cid ON public.waimaotong_clean_contacts USING btree (sys_company_id, contact_id)"
+    },
+    {
+     "name": "uq_clean_contact_company_email",
+     "definition": "CREATE UNIQUE INDEX uq_clean_contact_company_email ON public.waimaotong_clean_contacts USING btree (sys_company_id, email)"
+    },
+    {
+     "name": "uq_clean_contact_company_name_pos",
+     "definition": "CREATE UNIQUE INDEX uq_clean_contact_company_name_pos ON public.waimaotong_clean_contacts USING btree (sys_company_id, name, \"position\")"
+    },
+    {
+     "name": "waimaotong_clean_contacts_pkey",
+     "definition": "CREATE UNIQUE INDEX waimaotong_clean_contacts_pkey ON public.waimaotong_clean_contacts USING btree (id)"
+    }
+   ]
+  },
+  "waimaotong_clean_source_links": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('waimaotong_clean_source_links_id_seq'::regclass)"
+    },
+    {
+     "name": "clean_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "clean_sys_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "source_table",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "source_raw_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_type",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_keyword",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_competitor",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "api_company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_company_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_country",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "waimaotong_clean_source_links_clean_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (clean_company_id) REFERENCES waimaotong_clean_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "waimaotong_clean_source_links_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "waimaotong_clean_source_links_source_table_source_raw_id_key",
+     "type": "u",
+     "definition": "UNIQUE (source_table, source_raw_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_clean_source_links_clean_company",
+     "definition": "CREATE INDEX idx_wmt_clean_source_links_clean_company ON public.waimaotong_clean_source_links USING btree (clean_company_id)"
+    },
+    {
+     "name": "idx_wmt_clean_source_links_keyword",
+     "definition": "CREATE INDEX idx_wmt_clean_source_links_keyword ON public.waimaotong_clean_source_links USING btree (source_keyword)"
+    },
+    {
+     "name": "waimaotong_clean_source_links_pkey",
+     "definition": "CREATE UNIQUE INDEX waimaotong_clean_source_links_pkey ON public.waimaotong_clean_source_links USING btree (id)"
+    },
+    {
+     "name": "waimaotong_clean_source_links_source_table_source_raw_id_key",
+     "definition": "CREATE UNIQUE INDEX waimaotong_clean_source_links_source_table_source_raw_id_key ON public.waimaotong_clean_source_links USING btree (source_table, source_raw_id)"
+    }
+   ]
+  },
+  "waimaotong_keyword_raw_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('waimaotong_keyword_raw_companies_id_seq'::regclass)"
+    },
+    {
+     "name": "sys_company_id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "legacy_company_data_id",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "legacy_sys_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "legacy_company_analysis_id",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "source_type",
+     "type": "text",
+     "nullable": false,
+     "default": "'keyword_search'::text"
+    },
+    {
+     "name": "legacy_source_type",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_keyword",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_country",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "api_company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "real_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "id_verified",
+     "type": "boolean",
+     "nullable": true,
+     "default": "false"
+    },
+    {
+     "name": "company_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "country",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "domain",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "employee_size",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "founded_year",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "products",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "source_tags",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "contacts_count",
+     "type": "integer",
+     "nullable": true,
+     "default": "0"
+    },
+    {
+     "name": "email_count",
+     "type": "integer",
+     "nullable": true,
+     "default": "0"
+    },
+    {
+     "name": "detail_status",
+     "type": "text",
+     "nullable": true,
+     "default": "'pending'::text"
+    },
+    {
+     "name": "has_detail",
+     "type": "boolean",
+     "nullable": true,
+     "default": "false"
+    },
+    {
+     "name": "has_contacts",
+     "type": "boolean",
+     "nullable": true,
+     "default": "false"
+    },
+    {
+     "name": "raw_data",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "detail_raw_data",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "legacy_analysis_raw",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "plan_id",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "full_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "website",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "revenue",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sic",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "naics",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "linkedin",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "facebook",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "twitter",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "youtube",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "instagram",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "logo",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "target_market",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "partners",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "brand_name",
+     "type": "text",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "waimaotong_keyword_raw_companies_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "waimaotong_keyword_raw_companies_legacy_company_data_id_key",
+     "type": "u",
+     "definition": "UNIQUE (legacy_company_data_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_keyword_raw_companies_keyword",
+     "definition": "CREATE INDEX idx_wmt_keyword_raw_companies_keyword ON public.waimaotong_keyword_raw_companies USING btree (source_keyword)"
+    },
+    {
+     "name": "idx_wmt_keyword_raw_companies_source_type",
+     "definition": "CREATE INDEX idx_wmt_keyword_raw_companies_source_type ON public.waimaotong_keyword_raw_companies USING btree (source_type)"
+    },
+    {
+     "name": "idx_wmt_keyword_raw_companies_sys_company",
+     "definition": "CREATE INDEX idx_wmt_keyword_raw_companies_sys_company ON public.waimaotong_keyword_raw_companies USING btree (sys_company_id)"
+    },
+    {
+     "name": "uq_wmt_keyword_raw_company_api_keyword_country",
+     "definition": "CREATE UNIQUE INDEX uq_wmt_keyword_raw_company_api_keyword_country ON public.waimaotong_keyword_raw_companies USING btree (api_company_id, COALESCE(source_keyword, ''::text), COALESCE(country, ''::text)) WHERE ((legacy_company_data_id IS NULL) AND (api_company_id IS NOT NULL))"
+    },
+    {
+     "name": "waimaotong_keyword_raw_companies_legacy_company_data_id_key",
+     "definition": "CREATE UNIQUE INDEX waimaotong_keyword_raw_companies_legacy_company_data_id_key ON public.waimaotong_keyword_raw_companies USING btree (legacy_company_data_id)"
+    },
+    {
+     "name": "waimaotong_keyword_raw_companies_pkey",
+     "definition": "CREATE UNIQUE INDEX waimaotong_keyword_raw_companies_pkey ON public.waimaotong_keyword_raw_companies USING btree (id)"
+    }
+   ],
+   "comment": "外贸通关键词采集原始公司表；后续进入 clean 层时 data_source_tags 标记为 外贸通关键词采集"
+  },
+  "waimaotong_keyword_raw_contacts": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "default": "nextval('waimaotong_keyword_raw_contacts_id_seq'::regclass)"
+    },
+    {
+     "name": "keyword_raw_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "legacy_contact_data_id",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "source_contact_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sys_contact_id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "sys_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "api_company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "position",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "department",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email_status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "mobile",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "linkedin",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "whatsapp",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "confidence",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "waimaotong_keyword_raw_contacts_email_check",
+     "type": "c",
+     "definition": "CHECK (((email IS NULL) OR (btrim(email) <> ''::text)))"
+    },
+    {
+     "name": "waimaotong_keyword_raw_contacts_keyword_raw_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (keyword_raw_company_id) REFERENCES waimaotong_keyword_raw_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "waimaotong_keyword_raw_contacts_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "waimaotong_keyword_raw_contacts_legacy_contact_data_id_key",
+     "type": "u",
+     "definition": "UNIQUE (legacy_contact_data_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_keyword_raw_contact_company_email",
+     "definition": "CREATE INDEX idx_wmt_keyword_raw_contact_company_email ON public.waimaotong_keyword_raw_contacts USING btree (keyword_raw_company_id, lower(email)) WHERE ((email IS NOT NULL) AND (btrim(email) <> ''::text))"
+    },
+    {
+     "name": "idx_wmt_keyword_raw_contacts_company",
+     "definition": "CREATE INDEX idx_wmt_keyword_raw_contacts_company ON public.waimaotong_keyword_raw_contacts USING btree (keyword_raw_company_id)"
+    },
+    {
+     "name": "idx_wmt_keyword_raw_contacts_sys_company",
+     "definition": "CREATE INDEX idx_wmt_keyword_raw_contacts_sys_company ON public.waimaotong_keyword_raw_contacts USING btree (sys_company_id)"
+    },
+    {
+     "name": "uq_wmt_keyword_raw_contact_company_source_id",
+     "definition": "CREATE UNIQUE INDEX uq_wmt_keyword_raw_contact_company_source_id ON public.waimaotong_keyword_raw_contacts USING btree (keyword_raw_company_id, source_contact_id) WHERE (source_contact_id IS NOT NULL)"
+    },
+    {
+     "name": "waimaotong_keyword_raw_contacts_legacy_contact_data_id_key",
+     "definition": "CREATE UNIQUE INDEX waimaotong_keyword_raw_contacts_legacy_contact_data_id_key ON public.waimaotong_keyword_raw_contacts USING btree (legacy_contact_data_id)"
+    },
+    {
+     "name": "waimaotong_keyword_raw_contacts_pkey",
+     "definition": "CREATE UNIQUE INDEX waimaotong_keyword_raw_contacts_pkey ON public.waimaotong_keyword_raw_contacts USING btree (id)"
+    }
+   ],
+   "comment": "外贸通关键词采集原始联系人表，关联 waimaotong_keyword_raw_companies"
+  },
+  "waimaotong_raw_companies": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "real_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "domain",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "industry",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "employee_size",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "founded_year",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "description",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "products",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "source_tags",
+     "type": "text[]",
+     "nullable": true
+    },
+    {
+     "name": "contacts_count",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "detail_status",
+     "type": "text",
+     "nullable": false,
+     "default": "'pending'::text"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sys_company_id",
+     "type": "uuid",
+     "nullable": true,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "api_company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "country",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_type",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_keyword",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source_competitor",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "id_verified",
+     "type": "boolean",
+     "nullable": true,
+     "default": "false"
+    },
+    {
+     "name": "plan_id",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "full_address",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "website",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "has_detail",
+     "type": "boolean",
+     "nullable": true,
+     "default": "false"
+    },
+    {
+     "name": "has_contacts",
+     "type": "boolean",
+     "nullable": true,
+     "default": "false"
+    },
+    {
+     "name": "email_count",
+     "type": "integer",
+     "nullable": true
+    },
+    {
+     "name": "detail_raw_data",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "raw_data",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "error_msg",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "revenue",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sic",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "naics",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "linkedin",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "facebook",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "twitter",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "youtube",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "instagram",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "logo",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "target_market",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "partners",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "brand_name",
+     "type": "text",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "waimaotong_raw_companies_detail_status_check",
+     "type": "c",
+     "definition": "CHECK ((detail_status = ANY (ARRAY['pending'::text, 'fetched'::text, 'failed'::text, 'skipped'::text])))"
+    },
+    {
+     "name": "waimaotong_raw_companies_pkey1",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_raw_source_competitor_lower",
+     "definition": "CREATE INDEX idx_wmt_raw_source_competitor_lower ON public.waimaotong_raw_companies USING btree (lower(TRIM(BOTH FROM source_competitor))) WHERE ((source_competitor IS NOT NULL) AND (source_competitor <> ''::text))"
+    },
+    {
+     "name": "idx_wmt_raw_sys_company_id",
+     "definition": "CREATE INDEX idx_wmt_raw_sys_company_id ON public.waimaotong_raw_companies USING btree (sys_company_id)"
+    },
+    {
+     "name": "waimaotong_raw_companies_pkey1",
+     "definition": "CREATE UNIQUE INDEX waimaotong_raw_companies_pkey1 ON public.waimaotong_raw_companies USING btree (id)"
+    }
+   ]
+  },
+  "waimaotong_raw_contacts": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "bigint",
+     "nullable": false,
+     "identity": "d"
+    },
+    {
+     "name": "raw_company_id",
+     "type": "bigint",
+     "nullable": false
+    },
+    {
+     "name": "source_contact_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "position",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "department",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "email",
+     "type": "citext",
+     "nullable": true
+    },
+    {
+     "name": "email_status",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "phone",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "mobile",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "linkedin",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "whatsapp",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "source",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "confidence",
+     "type": "numeric",
+     "nullable": true
+    },
+    {
+     "name": "raw_payload",
+     "type": "jsonb",
+     "nullable": true
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": true,
+     "default": "now()"
+    },
+    {
+     "name": "sys_contact_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "contact_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "sys_company_id",
+     "type": "uuid",
+     "nullable": true
+    },
+    {
+     "name": "api_company_id",
+     "type": "text",
+     "nullable": true
+    },
+    {
+     "name": "company_id",
+     "type": "text",
+     "nullable": true
+    }
+   ],
+   "constraints": [
+    {
+     "name": "chk_wmt_raw_contacts_email_not_empty",
+     "type": "c",
+     "definition": "CHECK (((email IS NULL) OR (btrim((email)::text) <> ''::text)))"
+    },
+    {
+     "name": "waimaotong_raw_contacts_raw_company_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (raw_company_id) REFERENCES waimaotong_raw_companies(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "waimaotong_raw_contacts_pkey1",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_wmt_raw_contacts_company",
+     "definition": "CREATE INDEX idx_wmt_raw_contacts_company ON public.waimaotong_raw_contacts USING btree (raw_company_id)"
+    },
+    {
+     "name": "idx_wmt_raw_contacts_email",
+     "definition": "CREATE INDEX idx_wmt_raw_contacts_email ON public.waimaotong_raw_contacts USING btree (email) WHERE (email IS NOT NULL)"
+    },
+    {
+     "name": "uq_wmt_raw_contacts_email_fallback",
+     "definition": "CREATE UNIQUE INDEX uq_wmt_raw_contacts_email_fallback ON public.waimaotong_raw_contacts USING btree (raw_company_id, email) WHERE ((source_contact_id IS NULL) AND (email IS NOT NULL))"
+    },
+    {
+     "name": "uq_wmt_raw_contacts_source_contact",
+     "definition": "CREATE UNIQUE INDEX uq_wmt_raw_contacts_source_contact ON public.waimaotong_raw_contacts USING btree (raw_company_id, source_contact_id) WHERE (source_contact_id IS NOT NULL)"
+    },
+    {
+     "name": "waimaotong_raw_contacts_pkey1",
+     "definition": "CREATE UNIQUE INDEX waimaotong_raw_contacts_pkey1 ON public.waimaotong_raw_contacts USING btree (id)"
+    }
+   ]
+  },
+  "warmup_rule_levels": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "rule_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "level",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "daily_limit",
+     "type": "integer",
+     "nullable": false
+    },
+    {
+     "name": "min_stay_days",
+     "type": "integer",
+     "nullable": false,
+     "default": "1"
+    },
+    {
+     "name": "min_delivery_rate",
+     "type": "numeric(5,4)",
+     "nullable": false,
+     "default": "0.95"
+    },
+    {
+     "name": "max_bounce_rate",
+     "type": "numeric(5,4)",
+     "nullable": false,
+     "default": "0.02"
+    },
+    {
+     "name": "max_complaint_rate",
+     "type": "numeric(5,4)",
+     "nullable": false,
+     "default": "0.001"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "warmup_rule_levels_level_check",
+     "type": "c",
+     "definition": "CHECK ((level >= 1))"
+    },
+    {
+     "name": "warmup_rule_levels_rule_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (rule_id) REFERENCES warmup_rules(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "warmup_rule_levels_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "warmup_rule_levels_rule_id_level_key",
+     "type": "u",
+     "definition": "UNIQUE (rule_id, level)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "warmup_rule_levels_pkey",
+     "definition": "CREATE UNIQUE INDEX warmup_rule_levels_pkey ON public.warmup_rule_levels USING btree (id)"
+    },
+    {
+     "name": "warmup_rule_levels_rule_id_level_key",
+     "definition": "CREATE UNIQUE INDEX warmup_rule_levels_rule_id_level_key ON public.warmup_rule_levels USING btree (rule_id, level)"
+    }
+   ]
+  },
+  "warmup_rules": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "min_observation_emails",
+     "type": "integer",
+     "nullable": false,
+     "default": "20"
+    },
+    {
+     "name": "bounce_alert_rate",
+     "type": "numeric(5,4)",
+     "nullable": false,
+     "default": "0.05"
+    },
+    {
+     "name": "config",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false,
+     "default": "'default'::character varying"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "warmup_rules_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_warmup_rules_active",
+     "definition": "CREATE UNIQUE INDEX idx_warmup_rules_active ON public.warmup_rules USING btree (instance_id) WHERE is_active"
+    },
+    {
+     "name": "warmup_rules_pkey",
+     "definition": "CREATE UNIQUE INDEX warmup_rules_pkey ON public.warmup_rules USING btree (id)"
+    }
+   ]
+  },
+  "work_rule_sets": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false,
+     "default": "gen_random_uuid()"
+    },
+    {
+     "name": "name",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "work_days",
+     "type": "integer[]",
+     "nullable": false
+    },
+    {
+     "name": "time_segments",
+     "type": "jsonb",
+     "nullable": false
+    },
+    {
+     "name": "is_default",
+     "type": "boolean",
+     "nullable": false,
+     "default": "false"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "work_rule_sets_time_segments_check",
+     "type": "c",
+     "definition": "CHECK ((time_segments <> '[]'::jsonb))"
+    },
+    {
+     "name": "work_rule_sets_work_days_check",
+     "type": "c",
+     "definition": "CHECK ((array_length(work_days, 1) IS NOT NULL))"
+    },
+    {
+     "name": "work_rule_sets_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_work_rule_sets_one_default",
+     "definition": "CREATE UNIQUE INDEX idx_work_rule_sets_one_default ON public.work_rule_sets USING btree (is_default) WHERE is_default"
+    },
+    {
+     "name": "work_rule_sets_pkey",
+     "definition": "CREATE UNIQUE INDEX work_rule_sets_pkey ON public.work_rule_sets USING btree (id)"
+    }
+   ]
+  }
+ },
+ "views": {
+  "v_tenant_contact_classified": " SELECT tc.id AS contact_id,\n    cl.id AS level_id,\n    ca.id AS category_id,\n    cl.is_sendable\n   FROM waimaotong_clean_contacts tc\n     JOIN LATERAL ( SELECT pck.category_id,\n            pcc.level_id\n           FROM position_classification_keywords pck\n             JOIN position_classification_categories pcc ON pcc.id = pck.category_id\n          WHERE lower(tc.\"position\") ~~ (('%'::text || pck.keyword) || '%'::text)\n          ORDER BY pcc.sort_order DESC\n         LIMIT 1) matched ON true\n     JOIN position_classification_categories ca ON ca.id = matched.category_id\n     JOIN position_classification_levels cl ON cl.id = matched.level_id;"
+ },
+ "backup_tables": [
+  "backup_quota_incident_emails_20260703_084452",
+  "backup_quota_incident_enrollments_20260703_084452",
+  "backup_wmt_identity_companies_20260602_161256",
+  "backup_wmt_identity_companies_20260602_161627",
+  "backup_wmt_identity_companies_20260602_162003",
+  "backup_wmt_identity_company_scores_20260602_161627",
+  "backup_wmt_identity_company_scores_20260602_162003",
+  "backup_wmt_identity_contacts_20260602_161256",
+  "backup_wmt_identity_contacts_20260602_161627",
+  "backup_wmt_identity_contacts_20260602_162003",
+  "backup_wmt_identity_group_members_20260602_161627",
+  "backup_wmt_identity_group_members_20260602_162003",
+  "backup_wmt_identity_plan_recipients_20260602_161627",
+  "backup_wmt_identity_plan_recipients_20260602_162003",
+  "backup_wmt_identity_scoring_jobs_20260602_161627",
+  "backup_wmt_identity_scoring_jobs_20260602_162003",
+  "backup_wmt_identity_tenant_companies_20260602_161256",
+  "backup_wmt_identity_tenant_companies_20260602_161627",
+  "backup_wmt_identity_tenant_companies_20260602_162003",
+  "backup_wmt_identity_tenant_contacts_20260602_161256",
+  "backup_wmt_identity_tenant_contacts_20260602_161627",
+  "backup_wmt_identity_tenant_contacts_20260602_162003",
+  "waimaotong_clean_companies_ai_label_backup_20260709_022301"
+ ]
+}

@@ -1,0 +1,1359 @@
+// ClientGet 数据库结构总览（机器生成，请勿手改；工具 backend/scripts/schema_snapshot.py）
+// 可整体粘贴到 https://dbdiagram.io 生成 ER 图。分区表在此视为普通表。
+
+Project clientget {
+  database_type: 'PostgreSQL'
+}
+
+Table ai_models {
+  "id" UUID [pk, not null]
+  "provider" VARCHAR(50) [not null]
+  "model_id" VARCHAR(150) [not null]
+  "display_name" VARCHAR(100) [not null]
+  "is_active" BOOLEAN [not null]
+  "config" JSONB [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: '平台级 AI 模型目录（按 instance_id 隔离）。平台管理员在 admin 配置页维护；场景默认映射与 AI 调用按此选择模型。'
+}
+
+Table ai_scene_defaults {
+  "id" UUID [pk, not null]
+  "scene" VARCHAR(40) [not null]
+  "model_id" UUID [not null]
+  "config" JSONB [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: 'AI 业务场景到默认模型的映射，每场景一行。平台管理员整表 PUT 维护；业务侧按场景取默认模型（要求模型启用中，否则报未配置）。'
+}
+
+Table ai_usage_logs {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "user_id" UUID
+  "model_id" UUID [not null]
+  "usage_type" VARCHAR(40) [not null]
+  "entity_type" VARCHAR(50)
+  "entity_id" UUID
+  "input_tokens" INTEGER [not null]
+  "output_tokens" INTEGER [not null]
+  "total_tokens" INTEGER [not null]
+  "estimated_cost" NUMERIC(12,4)
+  "actual_cost" NUMERIC(12,4)
+  "status" VARCHAR(20) [not null]
+  "provider_response" JSONB
+  "idempotency_key" VARCHAR(200)
+  "provider_request_id" VARCHAR(200)
+  "latency_ms" INTEGER
+  "error_code" VARCHAR(100)
+  "error_message" TEXT
+  "created_at" TIMESTAMPTZ [not null]
+  Note: 'AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成、情报摘要）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。'
+}
+
+Table audit_logs {
+  "id" UUID [not null]
+  "tenant_id" UUID
+  "user_id" UUID
+  "platform_user_id" UUID
+  "action" VARCHAR(30) [not null]
+  "entity_type" VARCHAR(50) [not null]
+  "entity_id" UUID
+  "old_value" JSONB
+  "new_value" JSONB
+  "ip_address" INET
+  "user_agent" TEXT
+  "request_id" VARCHAR(100)
+  "created_at" TIMESTAMPTZ [not null]
+  indexes {
+    (id, created_at) [pk]
+  }
+  Note: '平台与租户操作审计流水，按 created_at 月度分区（maintain_partitions.py 预建）。各服务在配置、团队、模板等变更时写入；当前无查询端点，只写不读。'
+}
+
+Table company_blacklist {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "shared_company_id" UUID
+  "match_domain" VARCHAR(255)
+  "match_name_pattern" VARCHAR(500)
+  "reason" TEXT [not null]
+  "blocked_by" UUID
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '租户级公司黑名单：租户在客户池拉黑公司时写入快照，发送计划筛选收件人时按公司 ID、域名、名称三种方式匹配排除，命中即标记 blacklisted。'
+}
+
+Table company_scores {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "tenant_company_id" BIGINT [not null]
+  "template_id" UUID [not null]
+  "template_version_id" UUID [not null]
+  "total_score" NUMERIC(5,2) [not null]
+  "grade" CHAR(1) [not null]
+  "dimension_scores" JSONB [not null]
+  "llm_pending" BOOLEAN [not null]
+  "llm_score" NUMERIC(5,2)
+  "llm_reasoning" TEXT
+  "llm_model_id" UUID
+  "llm_usage_log_id" UUID
+  "is_retry" BOOLEAN [not null]
+  "retry_count" INTEGER [not null]
+  "related_score_id" UUID
+  "scored_at" TIMESTAMPTZ [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '公司评分结果表：确定性规则引擎（非 AI）按租户激活模板+版本对公司打分并 upsert（非重试行按 公司+模板版本 唯一）。入群组、平台模板同步、lineage 补评时写入；公司列表读 grade/total_score 作为 system_grade/system_score。'
+}
+
+Table contact_rules {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "name" VARCHAR(200) [not null]
+  "is_active" BOOLEAN [not null]
+  "rules" JSONB [not null]
+  "version" INTEGER [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户联系人挑选策略配置：租户创建时播种一条默认规则（等级优先、要求有效邮箱），设置页读取与更新。partial unique index 保证每租户仅一条激活规则；当前无发送侧代码消费该配置。'
+}
+
+Table countries {
+  "iso3" CHAR(3) [pk, not null]
+  "name_zh" TEXT [not null]
+  "name_en" TEXT [not null]
+  "timezone" TEXT [not null]
+  "rule_set_id" UUID
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '国家基础表（ISO3 主键）：收件人国家到 IANA 时区与工作时间规则集的映射，发送窗口计算的数据源；迁移种子初始化，admin 维护。'
+}
+
+Table country_holidays {
+  "id" UUID [pk, not null]
+  "country_iso3" CHAR(3) [not null]
+  "date" DATE [not null]
+  "name" TEXT
+  "source" VARCHAR(20) [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '国家假日表：发送窗口计算时跳过收件人当地假日并顺延到下个可发时点；迁移种子 2026 年数据加 admin 手工维护，(国家,日期) 唯一。'
+}
+
+Table crawl_progress {
+  "id" INTEGER [pk, not null]
+  "source" TEXT [not null]
+  "keyword_master_id" UUID [not null]
+  "task_key" TEXT [not null]
+  "status" TEXT
+  "current_page" INTEGER
+  "total_pages" INTEGER
+  "total_records" INTEGER
+  "extra" JSONB
+  "created_at" TIMESTAMP
+  "updated_at" TIMESTAMP
+  Note: '外部采集程序的关键词分页进度断点表，(source, keyword_master_id, task_key) 唯一；迁移 0054 曾以「未使用」删除，后由外部程序重建（生产约 2.3 万行），仓库代码不读写。'
+}
+
+Table domain_daily_usage {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "domain_id" UUID [not null]
+  "usage_date" DATE [not null]
+  "daily_limit" INTEGER [not null]
+  "reserved_count" INTEGER [not null]
+  "sent_count" INTEGER [not null]
+  "failed_count" INTEGER [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '域名 × 北京日历日的发送配额账本：worker 领取邮件前原子占位（不超 daily_limit），失败/推迟/僵尸回收时回退；(domain_id,usage_date) 唯一，占满即当日停领。'
+}
+
+Table domain_warmup_history {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "warmup_status_id" UUID [not null]
+  "domain" VARCHAR(255) [not null]
+  "warmup_level" INTEGER [not null]
+  "daily_limit" INTEGER [not null]
+  "total_sent" INTEGER [not null]
+  "bounce_rate" NUMERIC(5,4)
+  "complaint_rate" NUMERIC(5,4)
+  "open_rate" NUMERIC(5,4)
+  "change_type" VARCHAR(20) [not null]
+  "change_reason" TEXT
+  "changed_by" UUID
+  "snapshot_at" TIMESTAMPTZ [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '域名预热变更与快照流水：记录建域、验证通过、调档等时点的档位与指标快照；admin 动作写入，租户端只读历史列表。'
+}
+
+Table domain_warmup_status {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "domain" VARCHAR(255) [not null]
+  "spf_record" TEXT
+  "dkim_record" TEXT
+  "dmarc_record" TEXT
+  "verification_status" VARCHAR(20) [not null]
+  "dns_verified_at" TIMESTAMPTZ
+  "dns_last_checked_at" TIMESTAMPTZ
+  "warmup_rule_id" UUID
+  "warmup_level" INTEGER [not null]
+  "daily_limit" INTEGER [not null]
+  "total_sent" INTEGER [not null]
+  "bounce_rate" NUMERIC(5,4)
+  "complaint_rate" NUMERIC(5,4)
+  "open_rate" NUMERIC(5,4)
+  "level_changed_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "sender_email" VARCHAR(255)
+  Note: '租户发信域名档案：DNS 验证状态+预热档位与日配额，(tenant_id,domain) 唯一；admin 后台维护，发送链路读它校验域名可用、取发件地址、生成当日配额行。'
+}
+
+Table email_events {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "email_id" UUID [not null]
+  "email_created_at" TIMESTAMPTZ [not null]
+  "event_type" VARCHAR(20) [not null]
+  "metadata" JSONB [not null]
+  "source" VARCHAR(20) [not null]
+  "provider_event_id" TEXT
+  "occurred_at" TIMESTAMPTZ [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: 'EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等去重，是 emails 状态回写的依据；webhook 端点验签后写入。'
+}
+
+Table email_send_locks {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "enrollment_id" UUID [not null]
+  "step_id" UUID [not null]
+  "status" VARCHAR(20) [not null]
+  "locked_by" VARCHAR(100)
+  "locked_at" TIMESTAMPTZ [not null]
+  "released_at" TIMESTAMPTZ
+  "email_id" UUID
+  "email_created_at" TIMESTAMPTZ
+  Note: '(enrollment,step) 粒度的发送幂等锁，保证同一序列步骤至多成功发送一次——「不重复发送」的落库机制；worker 领取时抢锁并按结果流转，locked 超 30 分钟按僵尸锁回收。'
+}
+
+Table email_templates {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "source_type" VARCHAR(20) [not null]
+  "platform_template_id" UUID
+  "name" VARCHAR(200) [not null]
+  "category" VARCHAR(50) [not null]
+  "subject" TEXT [not null]
+  "body_html" TEXT [not null]
+  "body_text" TEXT
+  "variables" JSONB [not null]
+  "is_ai_generated" BOOLEAN [not null]
+  "ai_prompt" TEXT
+  "deleted_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户自有邮件模板：序列步骤（sequence_steps.template_id）发信时渲染其主题与正文，{{变量}} 替换后经清洗发出。来源为手写、AI 生成或平台模板复制；软删除（deleted_at）。'
+}
+
+Table emails {
+  "id" UUID [not null]
+  "tenant_id" UUID [not null]
+  "plan_id" UUID
+  "step_id" UUID
+  "step_number" INTEGER
+  "template_id" UUID
+  "enrollment_id" UUID
+  "tenant_contact_id" BIGINT [not null]
+  "from_email" VARCHAR(255) [not null]
+  "from_name" VARCHAR(200)
+  "to_email" VARCHAR(255) [not null]
+  "to_name" VARCHAR(200)
+  "subject" TEXT [not null]
+  "body_html" TEXT [not null]
+  "body_text" TEXT
+  "reply_message_id" VARCHAR(200)
+  "reply_from_email" VARCHAR(255)
+  "reply_subject" TEXT
+  "reply_body_text" TEXT
+  "reply_received_at" TIMESTAMPTZ
+  "status" VARCHAR(20) [not null]
+  "is_ai_personalized" BOOLEAN [not null]
+  "ai_usage_log_id" UUID
+  "engagelab_message_id" VARCHAR(100)
+  "scheduled_at" TIMESTAMPTZ
+  "sent_at" TIMESTAMPTZ
+  "delivered_at" TIMESTAMPTZ
+  "opened_at" TIMESTAMPTZ
+  "clicked_at" TIMESTAMPTZ
+  "replied_at" TIMESTAMPTZ
+  "bounced_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "first_opened_at" TIMESTAMPTZ
+  "open_count" INTEGER [not null]
+  "soft_bounce" BOOLEAN [not null]
+  "invalid_email" BOOLEAN [not null]
+  "report_spam" BOOLEAN [not null]
+  "unsubscribed" BOOLEAN [not null]
+  indexes {
+    (id, created_at) [pk]
+  }
+  Note: '每次实际发送的邮件实体：渲染消毒后的内容快照+投递全程状态；按 created_at 月度分区，复合主键 (id,created_at)。worker 领取时创建并发送，webhook 与对账 worker 回写状态，配额推迟时整行删除待重建。'
+}
+
+Table group_members {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "group_id" UUID [not null]
+  "tenant_company_id" BIGINT [not null]
+  "tenant_contact_id" BIGINT
+  "added_by" VARCHAR(10) [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '分组成员表：一行代表组内一家公司及其选定的默认收件联系人，(group_id, tenant_company_id) 唯一。加/移成员时联动公司 business_status（in_group/new）。'
+}
+
+Table groups {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "name" VARCHAR(200) [not null]
+  "description" TEXT
+  "auto_rules" JSONB
+  "member_count" INTEGER [not null]
+  "deleted_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户客户分组（营销名单）：发送计划 recipient_source=’group’ 时作为收件人来源。租户在客户池维护，加组同时把公司 business_status 置为 in_group，软删除。'
+}
+
+Table intelligence_article_publications {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "article_id" UUID [not null]
+  "article_created_at" TIMESTAMPTZ [not null]
+  "status" VARCHAR(20) [not null]
+  "has_summary" BOOLEAN [not null]
+  "read_at" TIMESTAMPTZ
+  "matched_by" VARCHAR(30)
+  "subscription_id" UUID
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '文章向租户的发布与阅读状态表（tenant_id+article_id 唯一）；发布流程按订阅匹配写入，租户情报中心读取并更新已读/收藏/归档状态，本仓库读写。'
+}
+
+Table intelligence_articles {
+  "id" UUID [not null]
+  "source_id" UUID
+  "title" VARCHAR(500) [not null]
+  "url" TEXT
+  "author" VARCHAR(200)
+  "published_at" TIMESTAMPTZ
+  "content_raw" TEXT
+  "content_summary" TEXT
+  "ai_category" VARCHAR(100)
+  "ai_tags" JSONB [not null]
+  "ai_relevance_score" NUMERIC(3,2)
+  "ai_model_id" UUID
+  "ai_usage_log_id" UUID
+  "status" VARCHAR(20) [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  indexes {
+    (id, created_at) [pk]
+  }
+  Note: '行业情报文章表，按 created_at 月度 RANGE 分区；由 internal 端点 /intelligence/articles/publish（scope intelligence:publish）upsert 写入，随后按租户订阅匹配发布，本仓库读写。'
+}
+
+Table intelligence_sources {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID
+  "name" VARCHAR(200) [not null]
+  "source_type" VARCHAR(20) [not null]
+  "url" TEXT
+  "fetch_config" JSONB [not null]
+  "industry_tags" JSONB [not null]
+  "is_active" BOOLEAN [not null]
+  "last_fetched_at" TIMESTAMPTZ
+  "error_count" INTEGER [not null]
+  "deleted_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '行业情报源配置表（RSS/网站/手工三类），平台 Admin 维护与启停，tenant_id 为空即平台级源；本仓库读写，但定时自动抓取尚未实现（#49），文章目前靠人工经 internal 接口发布。'
+}
+
+Table intelligence_subscriptions {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "user_id" UUID [not null]
+  "industry_tags" JSONB [not null]
+  "min_relevance" NUMERIC(3,2) [not null]
+  "notify_enabled" BOOLEAN [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户用户的情报订阅偏好表（每用户一条，PUT 全量覆盖）；发布文章时据此做行业标签交集与相关度阈值匹配，决定是否推送给该租户。本仓库读写。'
+}
+
+Table keyword_master {
+  "id" UUID [pk, not null]
+  "keyword" TEXT [not null]
+  "keyword_normalized" TEXT [not null, unique]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '全平台去重的采集关键词主库，是外部采集与数据血缘的主控实体：lixiaoyun/tendata 原始表及 crawl_progress 以 keyword_master_id 单值挂靠，wmt/lixiaoyun 清洗层以 keyword_master_ids 数组物化血缘；现由外部采集侧写入（租户订阅表 tenant_keyword 已退役），admin 数据浏览页 JOIN 显示「搜索词」。'
+}
+
+Table lixiaoyun_api_clean_companies {
+  "id" BIGINT [pk, not null]
+  "pid" TEXT [not null, unique]
+  "entname" TEXT
+  "entname_eng" TEXT
+  "legalperson" TEXT
+  "uncid" TEXT
+  "esdate" BIGINT
+  "reg_cap" TEXT
+  "regccap" TEXT
+  "enttype" TEXT
+  "entstatus" TEXT
+  "geo_address" TEXT
+  "dom" TEXT
+  "province" INTEGER
+  "city" INTEGER
+  "district" INTEGER
+  "industryphy_desc" TEXT
+  "opscope" TEXT
+  "scale" TEXT
+  "annual_turnover" TEXT
+  "official_website" TEXT
+  "ent_introduction" TEXT
+  "keyword_master_ids" UUID[]
+  "source_record_ids" BIGINT[]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "location_code" TEXT
+  "collected_at" TIMESTAMPTZ
+  "enttype_code" TEXT
+  "regno" TEXT
+  "organizational_code" TEXT
+  "opfrom" BIGINT
+  "opto" BIGINT
+  "regorg" TEXT
+  "apprdate" BIGINT
+  "revokedate" BIGINT
+  "reg_province" INTEGER
+  "reg_city" INTEGER
+  "reg_district" INTEGER
+  "oploc" TEXT
+  "entstatus_code" INTEGER
+  "industryphy" TEXT
+  "secindustry" JSONB
+  "secindustry_desc" JSONB
+  "industry_l3" TEXT
+  "industry_l3_desc" TEXT
+  "industry_l4" TEXT
+  "industry_l4_desc" TEXT
+  "historyname_list" JSONB
+  "legalperson_desc" TEXT
+  "search_payload" JSONB
+  "baseinfo_payload" JSONB
+  "industry_tags" TEXT
+  Note: '同行公司清洗层：外部程序将 lixiaoyun_api_companies 按 pid 去重聚合为一司一行（keyword_master_ids/source_record_ids 记血缘）；admin「同行清洗数据」页读取，tenant 公司列表以 entname_eng 匹配外贸通 source_competitor 补充来源竞品中文名。'
+}
+
+Table lixiaoyun_api_companies {
+  "id" BIGINT [pk, not null]
+  "location_code" TEXT [not null]
+  "collected_at" TIMESTAMPTZ [not null]
+  "pid" TEXT [not null]
+  "entname" TEXT
+  "entname_eng" TEXT
+  "legalperson" TEXT
+  "uncid" TEXT
+  "esdate" BIGINT
+  "reg_cap" TEXT
+  "geo_address" TEXT
+  "dom" TEXT
+  "entstatus" TEXT
+  "official_website" TEXT
+  "ent_introduction" TEXT
+  "search_payload" JSONB
+  "regccap" TEXT
+  "enttype" TEXT
+  "enttype_code" TEXT
+  "regno" TEXT
+  "organizational_code" TEXT
+  "opfrom" BIGINT
+  "opto" BIGINT
+  "regorg" TEXT
+  "apprdate" BIGINT
+  "revokedate" BIGINT
+  "province" INTEGER
+  "city" INTEGER
+  "district" INTEGER
+  "reg_province" INTEGER
+  "reg_city" INTEGER
+  "reg_district" INTEGER
+  "oploc" TEXT
+  "entstatus_code" INTEGER
+  "industryphy" TEXT
+  "industryphy_desc" TEXT
+  "secindustry" JSONB
+  "secindustry_desc" JSONB
+  "industry_l3" TEXT
+  "industry_l3_desc" TEXT
+  "industry_l4" TEXT
+  "industry_l4_desc" TEXT
+  "opscope" TEXT
+  "scale" TEXT
+  "annual_turnover" TEXT
+  "historyname_list" JSONB
+  "legalperson_desc" TEXT
+  "baseinfo_payload" JSONB
+  "keyword_master_id" UUID
+  Note: '外部采集程序经励销云开放 API 按关键词写入的同行公司工商数据原始记录表（一司可多条，每条挂一个关键词）；admin「同行原始数据」页只读浏览，外部清洗按 pid 去重聚合到 lixiaoyun_api_clean_companies。'
+}
+
+Table lixiaoyun_raw_companies {
+  "id" BIGINT [pk, not null]
+  "source_id" TEXT
+  "name" TEXT
+  "english_name" TEXT
+  "domain" TEXT
+  "esdate" DATE
+  "legalperson" TEXT
+  "uncid" TEXT
+  "reg_capital" TEXT
+  "employee_scale" TEXT
+  "reg_address" TEXT
+  "raw_payload" JSONB
+  "created_at" TIMESTAMPTZ
+  "keyword_master_id" UUID
+  "contact_address" TEXT
+  "paid_capital" TEXT
+  "business_scope" TEXT
+  "industry" TEXT
+  "detail_payload" JSONB
+  "contacts_payload" JSONB
+  Note: '励销云（理小云）中国同行公司搜索原始层，外部采集程序按关键词直写（keyword_master_id+source_id 联合唯一）；曾供已退役的 peer_companies 清洗管道消费，现仓库内无活跃读者（旧列表服务为未挂路由的遗留代码）。'
+}
+
+Table lixiaoyun_raw_contacts {
+  "id" BIGINT [pk, not null]
+  "raw_company_id" BIGINT [not null]
+  "source_contact_id" TEXT
+  "name" TEXT
+  "position" TEXT
+  "email" CITEXT
+  "phone" TEXT
+  "raw_payload" JSONB
+  "created_at" TIMESTAMPTZ
+  Note: '励销云同行公司联系人原始层，外部采集程序随公司行直写、级联挂在 lixiaoyun_raw_companies 下；当前仓库内无读取方。'
+}
+
+Table notifications {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "user_id" UUID [not null]
+  "title" VARCHAR(200) [not null]
+  "content" TEXT [not null]
+  "category" VARCHAR(30) [not null]
+  "entity_type" VARCHAR(50)
+  "entity_id" UUID
+  "is_read" BOOLEAN [not null]
+  "read_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '租户站内通知，一行对应一个接收用户。当前仅行业情报发布时写入；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。'
+}
+
+Table platform_email_templates {
+  "id" UUID [pk, not null]
+  "industry" VARCHAR(100) [not null]
+  "name" VARCHAR(200) [not null]
+  "description" TEXT
+  "category" VARCHAR(50) [not null]
+  "subject" TEXT [not null]
+  "body_html" TEXT [not null]
+  "body_text" TEXT
+  "variables" JSONB [not null]
+  "is_active" BOOLEAN [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: '平台级邮件模板库，按行业组织：platform admin 在管理端维护（按 instance_id 隔离）；租户创建时按其行业批量复制为租户模板，租户也可浏览同行业上架模板并单个复制。'
+}
+
+Table platform_scoring_template_versions {
+  "id" UUID [pk, not null]
+  "template_id" UUID [not null]
+  "version" INTEGER [not null]
+  "dimensions" JSONB [not null]
+  "grade_thresholds" JSONB [not null]
+  "changed_by" UUID
+  "change_reason" TEXT
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '平台评分模板的版本快照，创建与每次更新各追加一行，供审计回溯。admin 版本列表接口只读。'
+}
+
+Table platform_scoring_templates {
+  "id" UUID [pk, not null]
+  "industry" VARCHAR(100) [not null]
+  "name" VARCHAR(200) [not null]
+  "description" TEXT
+  "is_active" BOOLEAN [not null]
+  "dimensions" JSONB [not null]
+  "grade_thresholds" JSONB [not null]
+  "version" INTEGER [not null]
+  "created_by" UUID
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: '平台行业评分模板，每行业最多一个激活（部分唯一索引）。平台管理员维护；建租户时按行业复制为租户模板种子，更新时把维度结构同步到已实例化的租户模板并触发重评。'
+}
+
+Table platform_users {
+  "id" UUID [pk, not null]
+  "email" VARCHAR(255) [not null, unique]
+  "password_hash" VARCHAR(255) [not null]
+  "name" VARCHAR(100) [not null]
+  "status" VARCHAR(20) [not null]
+  "failed_login_count" INTEGER [not null]
+  "locked_until" TIMESTAMPTZ
+  "last_login_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: '平台侧管理员账号，admin 后台登录主体（JWT roles=platform_admin）。由 bootstrap 脚本创建，auth 服务维护登录与锁定状态。'
+}
+
+Table position_classification_categories {
+  "id" UUID [pk, not null]
+  "level_id" UUID [not null]
+  "name" TEXT [not null]
+  "display_name" TEXT [not null]
+  "sort_order" INTEGER [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '职位类别表（平台全局，无租户隔离）：从属于职位等级，如 executive/purchasing，是匹配关键词的分组单元；admin 维护等级树时读写（迁移 0029）。'
+}
+
+Table position_classification_keywords {
+  "id" UUID [pk, not null]
+  "category_id" UUID [not null]
+  "keyword" TEXT [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '职位匹配关键词表（平台全局）：对联系人 position 字符串做小写子串（LIKE）匹配，命中即把联系人归入所属类别与等级；admin 维护，v_tenant_contact_classified 视图实时使用。'
+}
+
+Table position_classification_levels {
+  "id" UUID [pk, not null]
+  "name" TEXT [not null]
+  "display_name" TEXT [not null]
+  "sort_order" INTEGER [not null]
+  "is_sendable" BOOLEAN [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '职位等级表（平台全局）：联系人职位分类体系顶层，种子为 A 决策层/B 采购层/X 不投递；admin 维护，分类视图与发送计划收件人筛选读取（迁移 0029）。'
+}
+
+Table scoring_jobs {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "tenant_company_id" BIGINT [not null]
+  "status" VARCHAR(20) [not null]
+  "lease_id" UUID
+  "lease_owner" VARCHAR(100)
+  "lease_expires_at" TIMESTAMPTZ
+  "attempt_count" INTEGER [not null]
+  "last_error" TEXT
+  "payload" JSONB [not null]
+  "completed_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '评分任务队列表（租约认领设计，含 claim 索引与活跃任务唯一约束）。当前代码无生产者与消费者——评分已改为同步执行，仅租户硬删与数据迁移的清理路径触达此表。'
+}
+
+Table scoring_template_versions {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "template_id" UUID [not null]
+  "version" INTEGER [not null]
+  "dimensions" JSONB [not null]
+  "grade_thresholds" JSONB [not null]
+  "changed_by" UUID
+  "change_reason" TEXT
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '租户评分模板的版本快照：建租户、租户改分值、平台同步时各追加一行。company_scores 通过 template_version_id 固定引用评分时使用的版本。'
+}
+
+Table scoring_templates {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "source_platform_template_id" UUID
+  "name" VARCHAR(200) [not null]
+  "is_active" BOOLEAN [not null]
+  "dimensions" JSONB [not null]
+  "grade_thresholds" JSONB [not null]
+  "version" INTEGER [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "industry" TEXT [not null]
+  Note: '租户级评分模板：建租户时从平台行业模板复制（无则用内置默认），每租户仅一个激活。评分引擎按激活模板算分；租户端只能修改各条件的 score 值，平台模板更新会同步维度结构。'
+}
+
+Table sending_plan_recipients {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "plan_id" UUID [not null]
+  "tenant_company_id" BIGINT [not null]
+  "tenant_contact_id" BIGINT [not null]
+  "source_type" VARCHAR(20) [not null]
+  "source_ref" UUID
+  "locked_at" TIMESTAMPTZ [not null]
+  "appended_after_start" BOOLEAN [not null]
+  "excluded_at" TIMESTAMPTZ
+  "excluded_reason" VARCHAR(100)
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '计划锁定的收件人白名单快照（公司+联系人），报名与发送以此为准；锁定与启动后追加时写入，(plan_id,tenant_contact_id) 唯一。'
+}
+
+Table sending_plans {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "created_by" UUID [not null]
+  "name" VARCHAR(200) [not null]
+  "description" TEXT
+  "status" VARCHAR(20) [not null]
+  "recipient_source" VARCHAR(20) [not null]
+  "recipient_config" JSONB [not null]
+  "send_strategy" JSONB [not null]
+  "sender_name" VARCHAR(200)
+  "sender_email" VARCHAR(255)
+  "domain_id" UUID
+  "total_recipients" INTEGER [not null]
+  "sent_count" INTEGER [not null]
+  "scheduled_at" TIMESTAMPTZ
+  "started_at" TIMESTAMPTZ
+  "completed_at" TIMESTAMPTZ
+  "deleted_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户序列邮件发送计划主档：定义收件人圈选、发送策略、发件域名与发件身份，并汇总发送进度。租户 API 创建维护，发送 worker 读取 running 计划按域领取发送。'
+}
+
+Table sequence_enrollments {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "plan_id" UUID [not null]
+  "plan_recipient_id" UUID [not null]
+  "tenant_contact_id" BIGINT [not null]
+  "current_step" INTEGER [not null]
+  "status" VARCHAR(20) [not null]
+  "enrolled_at" TIMESTAMPTZ [not null]
+  "last_step_sent_at" TIMESTAMPTZ
+  "next_step_due_at" TIMESTAMPTZ
+  "completed_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "last_skip_reason" TEXT
+  "last_skip_at" TIMESTAMPTZ
+  "send_attempt_count" INTEGER [not null]
+  Note: '联系人在某计划中的序列推进状态机（进行到第几步、下次何时发）。计划启动/追加时创建，worker 领取推进，webhook 回复/退信/退订时终止；(plan_id,tenant_contact_id) 唯一。'
+}
+
+Table sequence_steps {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "plan_id" UUID [not null]
+  "step_number" INTEGER [not null]
+  "template_id" UUID [not null]
+  "delay_days" INTEGER [not null]
+  "condition_type" VARCHAR(20) [not null]
+  "use_ai_personalization" BOOLEAN [not null]
+  "ai_instructions" TEXT
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '发送计划的序列步骤配置：第几步用哪个模板、延迟几天、按上一步反馈的触发条件。租户 API 维护，worker 按 enrollment.current_step 关联读取。'
+}
+
+Table service_idempotency_keys {
+  "id" UUID [pk, not null]
+  "service_name" VARCHAR(100) [not null]
+  "request_id" VARCHAR(200) [not null]
+  "endpoint" VARCHAR(200) [not null]
+  "request_hash" VARCHAR(128)
+  "response_status" INTEGER
+  "response_body" JSONB
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '内部服务间调用幂等表：以 服务名+请求ID+端点 三元组唯一，保存首次响应供重复请求回放（ON CONFLICT DO NOTHING）。服务层已实现读写，当前代码无调用方。'
+}
+
+Table tenant_ai_provider_configs {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "provider" VARCHAR(40) [not null]
+  "api_key_encrypted" TEXT [not null]
+  "encryption_key_version" INTEGER [not null]
+  "configured_by_user_id" UUID
+  "configured_by_platform_user_id" UUID
+  "last_rotated_at" TIMESTAMPTZ [not null]
+  "balance_status" VARCHAR(30) [not null]
+  "balance_source" VARCHAR(20)
+  "balance_amount" NUMERIC(12,4)
+  "balance_currency" VARCHAR(10) [not null]
+  "total_credits" NUMERIC(12,4)
+  "total_usage" NUMERIC(12,4)
+  "key_limit" NUMERIC(12,4)
+  "key_limit_remaining" NUMERIC(12,4)
+  "balance_checked_at" TIMESTAMPTZ
+  "last_error_code" VARCHAR(100)
+  "last_error_message" TEXT
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成、情报摘要）调用前以 balance_status 作余额闸门。'
+}
+
+Table tenant_companies {
+  "id" BIGINT [pk, not null]
+  "tenant_id" UUID [not null]
+  "clean_company_id" BIGINT [not null]
+  "business_status" TEXT [not null]
+  "data_status" TEXT [not null]
+  "model_score" NUMERIC
+  "score" NUMERIC
+  "note" TEXT
+  "tags" TEXT[]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "score_adjustment" INTEGER [not null]
+  Note: '租户私有客户池：把 waimaotong 清洗层公司按租户物化为池内记录，承载租户侧经营状态、数据完备度与人工修正。由 wmt_lineage_repair worker 按行业全池扇出及租户手动录入写入；客户池列表/详情、分组、发送计划读取。'
+}
+
+Table tenant_contacts {
+  "id" BIGINT [pk, not null]
+  "tenant_id" UUID [not null]
+  "clean_contact_id" BIGINT [not null]
+  "clean_company_id" BIGINT [not null]
+  "contact_status" TEXT [not null]
+  "is_sendable" BOOLEAN [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户联系人池：加组/建发送计划时按需从 waimaotong_clean_contacts 物化（ensure_contacts_from_wmt，仅取有邮箱者），记录租户侧投递状态。发送计划收件人筛选读取，邮件事件回传（退信/退订等）联动更新。'
+}
+
+Table tenant_scoring_weights {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "template_id" UUID [not null]
+  "dimension" TEXT [not null]
+  "weight" NUMERIC(5,2) [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '租户对评分模板各维度的自定义权重（C6），租户端 GET/PUT 接口按 模板+维度 批量 upsert。设计意图是评分时覆盖模板默认权重，当前评分引擎尚未读取此表。'
+}
+
+Table tenants {
+  "id" UUID [pk, not null]
+  "name" VARCHAR(100) [not null]
+  "slug" VARCHAR(50) [not null]
+  "industry" VARCHAR(100) [not null]
+  "contact_name" VARCHAR(100)
+  "contact_phone" VARCHAR(50)
+  "contact_email" VARCHAR(255)
+  "status" VARCHAR(20) [not null]
+  "settings" JSONB [not null]
+  "needs_onboarding" BOOLEAN [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: '平台租户主档，一行一个付费客户企业，是租户隔离（业务表 tenant_id）的根。平台管理员经 admin API 创建与管理，租户端登录、引导状态也读此表。'
+}
+
+Table tendata_raw_companies {
+  "id" BIGINT [pk, not null]
+  "keyword_master_id" UUID
+  "source_id" TEXT [not null]
+  "collection_type" TEXT [not null]
+  "globiz_id" TEXT
+  "name" TEXT
+  "name_local" TEXT
+  "country_iso3" CHAR(3)
+  "website" TEXT
+  "tax_no" TEXT
+  "incorporation_date" DATE
+  "employee_num" TEXT
+  "industry_desc" TEXT
+  "product_tags" TEXT[]
+  "pcb_suppliers" TEXT[]
+  "trade_amount_3y_usd" NUMERIC
+  "trade_count" INTEGER
+  "contacts_count" INTEGER
+  "has_trade_data" BOOLEAN
+  "aliases" TEXT[]
+  "raw_payload" JSONB
+  "detail_status" TEXT [not null]
+  "detail_fetched_at" TIMESTAMPTZ
+  "trade_status" TEXT [not null]
+  "trade_fetched_at" TIMESTAMPTZ
+  "contacts_status" TEXT [not null]
+  "contacts_fetched_at" TIMESTAMPTZ
+  "enrichment_error" JSONB
+  "created_at" TIMESTAMPTZ
+  "exporter_name" TEXT
+  Note: '腾道（Tendata）海外采购商原始层：外部采集程序按关键词直搜（direct_search）或经中国 PCB 供应商精准反推（reverse_lookup）写入，详情/贸易/联系人三路补全状态内嵌；admin /raw/tendata API 只读可查（对应前端页已移除），原仓库内清洗管道（cleanup_queue→clean_companies）已随 T-21 退役。'
+}
+
+Table tendata_raw_contacts {
+  "id" BIGINT [pk, not null]
+  "raw_company_id" BIGINT [not null]
+  "source_contact_id" TEXT
+  "name" TEXT
+  "position" TEXT
+  "email" CITEXT
+  "phone" TEXT
+  "raw_payload" JSONB
+  "created_at" TIMESTAMPTZ
+  Note: '腾道采购商联系人原始层（多子端点采集后统一格式），外部程序写入；admin /raw/tendata/{id}/contacts 接口只读展示；raw_company_id 指向 tendata_raw_companies（现无 FK 约束）。'
+}
+
+Table user_roles {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "user_id" UUID [not null]
+  "role" user_role [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '租户用户角色关联表，一人可持多角色。团队管理写入，登录时读出并入 JWT roles 声明。'
+}
+
+Table users {
+  "id" UUID [pk, not null]
+  "tenant_id" UUID [not null]
+  "email" VARCHAR(255) [not null]
+  "password_hash" VARCHAR(255) [not null]
+  "name" VARCHAR(100) [not null]
+  "status" VARCHAR(20) [not null]
+  "must_change_pwd" BOOLEAN [not null]
+  "failed_login_count" INTEGER [not null]
+  "locked_until" TIMESTAMPTZ
+  "last_login_at" TIMESTAMPTZ
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "test_email" VARCHAR(255)
+  Note: '租户成员账号，租户端登录主体。建租户时创建首个管理员，之后由租户团队管理增删改；auth 服务维护登录与锁定状态。'
+}
+
+Table waimaotong_clean_companies {
+  "id" BIGINT [pk, not null]
+  "source_id" TEXT [not null, unique]
+  "name" TEXT
+  "country_iso3" CHAR(3)
+  "domain" TEXT
+  "industry" TEXT
+  "address" TEXT
+  "phone" TEXT
+  "employee_size" TEXT
+  "founded_year" INTEGER
+  "description" TEXT
+  "products" TEXT[]
+  "emails" TEXT[]
+  "trade_amount_3y_usd" NUMERIC
+  "trade_count" INTEGER
+  "has_trade_data" BOOLEAN
+  "contacts_count" INTEGER
+  "keyword_master_ids" UUID[] [not null]
+  "source_tags" TEXT[]
+  "customs_data" JSONB
+  "search_payload" JSONB
+  "detail_payload" JSONB
+  "trade_payload" JSONB
+  "raw_payload" JSONB
+  "detail_status" TEXT
+  "detail_fetched_at" TIMESTAMPTZ
+  "trade_status" TEXT
+  "trade_fetched_at" TIMESTAMPTZ
+  "contacts_status" TEXT
+  "contacts_fetched_at" TIMESTAMPTZ
+  "enrichment_error" JSONB
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "sys_company_id" UUID
+  "company_id" TEXT
+  "company_name" TEXT
+  "english_name" TEXT
+  "country" TEXT
+  "full_address" TEXT
+  "website" TEXT
+  "founded_year_text" TEXT
+  "grade" TEXT
+  "score" INTEGER
+  "sub_industry" TEXT
+  "match_reasons" JSONB
+  "potential_needs" JSONB
+  "recommended_products" JSONB
+  "sales_approach" TEXT
+  "risk_factors" JSONB
+  "company_type_analysis" TEXT
+  "main_business" JSONB
+  "product_tags" JSONB
+  "tag_confidence" JSONB
+  "score_details" JSONB
+  "trade_summary" JSONB
+  "email_priority" TEXT
+  "plan_id" INTEGER
+  "search_raw" TEXT
+  "ai_raw" TEXT
+  "data_sources" JSONB
+  "region" TEXT
+  "company_size" TEXT
+  "revenue_estimate" TEXT
+  "products_services" JSONB
+  "target_customers" TEXT
+  "market_coverage" TEXT
+  "linkedin" TEXT
+  "youtube" TEXT
+  "other_social" TEXT
+  "recent_activities" JSONB
+  "key_contacts" JSONB
+  "data_source_tags" JSONB
+  "is_new_collection" BOOLEAN
+  "revenue" TEXT
+  "sic" TEXT
+  "naics" TEXT
+  "facebook" TEXT
+  "twitter" TEXT
+  "instagram" TEXT
+  "logo" TEXT
+  "target_market" TEXT
+  "partners" TEXT
+  "brand_name" TEXT
+  "ai_analyzed_at" TIMESTAMPTZ
+  "system_grade" CHAR(1)
+  "system_score" INTEGER
+  Note: '外贸通清洗+AI 分析后的公司主表（clean 层公池，跨实例共享），tenant_companies.clean_company_id 逻辑指向本表（无 FK）；外部清洗程序为主写方，本仓库仅写手工录入行（source_id 前缀 manual-），wmt_lineage_repair 每约 300 秒把公池分发给活跃 PCB 租户（排除手工行）。'
+}
+
+Table waimaotong_clean_contacts {
+  "id" BIGINT [pk, not null]
+  "sys_contact_id" UUID
+  "contact_id" TEXT
+  "sys_company_id" UUID
+  "api_company_id" TEXT
+  "company_id" TEXT
+  "company_name" TEXT
+  "name" TEXT
+  "position" TEXT
+  "department" TEXT
+  "email" TEXT
+  "email_status" TEXT
+  "phone" TEXT
+  "mobile" TEXT
+  "linkedin" TEXT
+  "whatsapp" TEXT
+  "source" TEXT
+  "confidence" TEXT
+  "raw_data" TEXT
+  "created_at" TIMESTAMPTZ
+  Note: '外贸通清洗后的联系人公池（约 191 万行），以 sys_company_id 挂到 clean 公司；外部清洗程序为主写方，本仓库写手工联系人并按需物化 tenant_contacts，发送链路从此表取收件人邮箱与姓名。'
+}
+
+Table waimaotong_clean_source_links {
+  "id" BIGINT [pk, not null]
+  "clean_company_id" BIGINT [not null]
+  "clean_sys_company_id" UUID
+  "source_table" TEXT [not null]
+  "source_raw_id" BIGINT [not null]
+  "source_type" TEXT
+  "source_keyword" TEXT
+  "source_competitor" TEXT
+  "api_company_id" TEXT
+  "source_company_name" TEXT
+  "source_country" TEXT
+  "created_at" TIMESTAMPTZ
+  "updated_at" TIMESTAMPTZ
+  Note: 'raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并而来（source_table+source_raw_id 联合唯一），并快照来源关键词/同行等采集上下文；外部清洗程序维护，本仓库代码零引用。'
+}
+
+Table waimaotong_keyword_raw_companies {
+  "id" BIGINT [pk, not null]
+  "sys_company_id" UUID [not null]
+  "legacy_company_data_id" INTEGER [unique]
+  "legacy_sys_company_id" UUID
+  "legacy_company_analysis_id" INTEGER
+  "source_type" TEXT [not null]
+  "legacy_source_type" TEXT
+  "source_keyword" TEXT
+  "source_country" TEXT
+  "api_company_id" TEXT
+  "real_id" TEXT
+  "id_verified" BOOLEAN
+  "company_name" TEXT
+  "name" TEXT
+  "country" TEXT
+  "domain" TEXT
+  "industry" TEXT
+  "phone" TEXT
+  "employee_size" TEXT
+  "founded_year" INTEGER
+  "description" TEXT
+  "products" TEXT[]
+  "source_tags" TEXT[]
+  "contacts_count" INTEGER
+  "email_count" INTEGER
+  "detail_status" TEXT
+  "has_detail" BOOLEAN
+  "has_contacts" BOOLEAN
+  "raw_data" JSONB
+  "detail_raw_data" JSONB
+  "legacy_analysis_raw" JSONB
+  "plan_id" INTEGER
+  "created_at" TIMESTAMPTZ
+  "updated_at" TIMESTAMPTZ
+  "full_address" TEXT
+  "website" TEXT
+  "revenue" TEXT
+  "sic" TEXT
+  "naics" TEXT
+  "linkedin" TEXT
+  "facebook" TEXT
+  "twitter" TEXT
+  "youtube" TEXT
+  "instagram" TEXT
+  "logo" TEXT
+  "target_market" TEXT
+  "partners" TEXT
+  "brand_name" TEXT
+  Note: '外贸通「关键词采集」线的原始公司表（含旧版系统 legacy_* 迁移对照列），外部程序直写，本仓库代码零引用；经外部清洗合入 clean 层时 data_source_tags 标记「外贸通关键词采集」。'
+}
+
+Table waimaotong_keyword_raw_contacts {
+  "id" BIGINT [pk, not null]
+  "keyword_raw_company_id" BIGINT [not null]
+  "legacy_contact_data_id" INTEGER [unique]
+  "source_contact_id" TEXT
+  "sys_contact_id" UUID [not null]
+  "sys_company_id" UUID
+  "api_company_id" TEXT
+  "company_id" TEXT
+  "name" TEXT
+  "position" TEXT
+  "department" TEXT
+  "email" TEXT
+  "email_status" TEXT
+  "phone" TEXT
+  "mobile" TEXT
+  "linkedin" TEXT
+  "whatsapp" TEXT
+  "source" TEXT
+  "confidence" NUMERIC
+  "raw_payload" JSONB
+  "created_at" TIMESTAMPTZ
+  "updated_at" TIMESTAMPTZ
+  Note: '外贸通关键词采集线的原始联系人表（估算约 739 万行），按 keyword_raw_company_id 挂在关键词原始公司下；外部程序直写，本仓库代码零引用。'
+}
+
+Table waimaotong_raw_companies {
+  "id" BIGINT [pk, not null]
+  "real_id" TEXT
+  "name" TEXT
+  "domain" TEXT
+  "industry" TEXT
+  "phone" TEXT
+  "employee_size" TEXT
+  "founded_year" INTEGER
+  "description" TEXT
+  "products" TEXT[]
+  "source_tags" TEXT[]
+  "contacts_count" INTEGER
+  "detail_status" TEXT [not null]
+  "created_at" TIMESTAMPTZ
+  "updated_at" TIMESTAMPTZ
+  "company_id" TEXT
+  "sys_company_id" UUID
+  "api_company_id" TEXT
+  "company_name" TEXT
+  "country" TEXT
+  "source_type" TEXT
+  "source_keyword" TEXT
+  "source_competitor" TEXT
+  "id_verified" BOOLEAN
+  "plan_id" INTEGER
+  "full_address" TEXT
+  "website" TEXT
+  "has_detail" BOOLEAN
+  "has_contacts" BOOLEAN
+  "email_count" INTEGER
+  "detail_raw_data" TEXT
+  "raw_data" TEXT
+  "error_msg" TEXT
+  "revenue" TEXT
+  "sic" TEXT
+  "naics" TEXT
+  "linkedin" TEXT
+  "facebook" TEXT
+  "twitter" TEXT
+  "youtube" TEXT
+  "instagram" TEXT
+  "logo" TEXT
+  "target_market" TEXT
+  "partners" TEXT
+  "brand_name" TEXT
+  Note: '外贸通采集程序直写的原始公司表（数据链路 raw 层第一站），经外部清洗进入 waimaotong_clean_companies；本仓库只读：Admin 外贸通页浏览，以及用 source_competitor 判定「精准反推」采集类型。'
+}
+
+Table waimaotong_raw_contacts {
+  "id" BIGINT [pk, not null]
+  "raw_company_id" BIGINT [not null]
+  "source_contact_id" TEXT
+  "name" TEXT
+  "position" TEXT
+  "department" TEXT
+  "email" CITEXT
+  "email_status" TEXT
+  "phone" TEXT
+  "mobile" TEXT
+  "linkedin" TEXT
+  "whatsapp" TEXT
+  "source" TEXT
+  "confidence" NUMERIC
+  "raw_payload" JSONB
+  "created_at" TIMESTAMPTZ
+  "sys_contact_id" UUID
+  "contact_id" TEXT
+  "sys_company_id" UUID
+  "api_company_id" TEXT
+  "company_id" TEXT
+  Note: '外贸通原始联系人表（raw 层），按 raw_company_id 挂在原始公司下，外部程序直写；本仓库只读展示于 Admin 详情，0050 迁移曾据此物化 waimaotong_clean_contacts。'
+}
+
+Table warmup_rule_levels {
+  "id" UUID [pk, not null]
+  "rule_id" UUID [not null]
+  "level" INTEGER [not null]
+  "daily_limit" INTEGER [not null]
+  "min_stay_days" INTEGER [not null]
+  "min_delivery_rate" NUMERIC(5,4) [not null]
+  "max_bounce_rate" NUMERIC(5,4) [not null]
+  "max_complaint_rate" NUMERIC(5,4) [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '预热规则档位明细：每档的日发送上限与升档健康指标门槛；保存规则时整组重建，选档时把 daily_limit 复制进域名记录。'
+}
+
+Table warmup_rules {
+  "id" UUID [pk, not null]
+  "name" VARCHAR(100) [not null]
+  "is_active" BOOLEAN [not null]
+  "min_observation_emails" INTEGER [not null]
+  "bounce_alert_rate" NUMERIC(5,4) [not null]
+  "config" JSONB [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  "instance_id" VARCHAR [not null]
+  Note: '发信域名预热规则（平台级，按实例隔离）：定义观察样本与告警阈值，档位明细在 warmup_rule_levels；admin 配置，新建域名/租户时取激活规则定档。'
+}
+
+Table work_rule_sets {
+  "id" UUID [pk, not null]
+  "name" TEXT [not null]
+  "work_days" INTEGER[] [not null]
+  "time_segments" JSONB [not null]
+  "is_default" BOOLEAN [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '工作时间规则集：定义可发送的星期与当地时段，国家经 rule_set_id 引用；admin 维护，worker 领取邮件时据此判定收件人当地是否可发。'
+}
+
+Ref: ai_scene_defaults."model_id" > ai_models."id"
+Ref: ai_usage_logs."model_id" > ai_models."id"
+Ref: ai_usage_logs."tenant_id" > tenants."id"
+Ref: ai_usage_logs."user_id" > users."id"
+Ref: audit_logs."platform_user_id" > platform_users."id"
+Ref: audit_logs."tenant_id" > tenants."id"
+Ref: audit_logs."user_id" > users."id"
+Ref: company_blacklist."blocked_by" > users."id"
+Ref: company_blacklist."tenant_id" > tenants."id"
+Ref: company_scores."llm_model_id" > ai_models."id"
+Ref: company_scores."llm_usage_log_id" > ai_usage_logs."id"
+Ref: company_scores."related_score_id" > company_scores."id"
+Ref: company_scores."template_id" > scoring_templates."id"
+Ref: company_scores."template_version_id" > scoring_template_versions."id"
+Ref: company_scores."tenant_company_id" > tenant_companies."id" [delete: cascade]
+Ref: company_scores."tenant_id" > tenants."id"
+Ref: contact_rules."tenant_id" > tenants."id"
+Ref: countries."rule_set_id" > work_rule_sets."id"
+Ref: country_holidays."country_iso3" > countries."iso3" [delete: cascade]
+Ref: domain_daily_usage."domain_id" > domain_warmup_status."id"
+Ref: domain_daily_usage."tenant_id" > tenants."id"
+Ref: domain_warmup_history."changed_by" > users."id"
+Ref: domain_warmup_history."tenant_id" > tenants."id"
+Ref: domain_warmup_history."warmup_status_id" > domain_warmup_status."id" [delete: cascade]
+Ref: domain_warmup_status."tenant_id" > tenants."id"
+Ref: domain_warmup_status."warmup_rule_id" > warmup_rules."id"
+Ref: email_events."tenant_id" > tenants."id"
+Ref: email_send_locks."enrollment_id" > sequence_enrollments."id"
+Ref: email_send_locks."step_id" > sequence_steps."id"
+Ref: email_send_locks."tenant_id" > tenants."id"
+Ref: email_templates."platform_template_id" > platform_email_templates."id"
+Ref: email_templates."tenant_id" > tenants."id"
+Ref: emails."ai_usage_log_id" > ai_usage_logs."id"
+Ref: emails."enrollment_id" > sequence_enrollments."id"
+Ref: emails."plan_id" > sending_plans."id"
+Ref: emails."step_id" > sequence_steps."id"
+Ref: emails."template_id" > email_templates."id"
+Ref: emails."tenant_contact_id" > tenant_contacts."id" [delete: cascade]
+Ref: emails."tenant_id" > tenants."id"
+Ref: group_members."group_id" > groups."id" [delete: cascade]
+Ref: group_members."tenant_company_id" > tenant_companies."id" [delete: cascade]
+Ref: group_members."tenant_contact_id" > tenant_contacts."id"
+Ref: group_members."tenant_id" > tenants."id"
+Ref: groups."tenant_id" > tenants."id"
+Ref: intelligence_article_publications."subscription_id" > intelligence_subscriptions."id"
+Ref: intelligence_article_publications."tenant_id" > tenants."id"
+Ref: intelligence_articles."ai_model_id" > ai_models."id"
+Ref: intelligence_articles."ai_usage_log_id" > ai_usage_logs."id"
+Ref: intelligence_sources."tenant_id" > tenants."id"
+Ref: intelligence_subscriptions."tenant_id" > tenants."id"
+Ref: intelligence_subscriptions."user_id" > users."id"
+Ref: lixiaoyun_api_companies."keyword_master_id" > keyword_master."id"
+Ref: lixiaoyun_raw_companies."keyword_master_id" > keyword_master."id"
+Ref: lixiaoyun_raw_contacts."raw_company_id" > lixiaoyun_raw_companies."id" [delete: cascade]
+Ref: notifications."tenant_id" > tenants."id"
+Ref: notifications."user_id" > users."id"
+Ref: platform_scoring_template_versions."changed_by" > platform_users."id"
+Ref: platform_scoring_template_versions."template_id" > platform_scoring_templates."id"
+Ref: platform_scoring_templates."created_by" > platform_users."id"
+Ref: position_classification_categories."level_id" > position_classification_levels."id" [delete: cascade]
+Ref: position_classification_keywords."category_id" > position_classification_categories."id" [delete: cascade]
+Ref: scoring_jobs."tenant_company_id" > tenant_companies."id" [delete: cascade]
+Ref: scoring_jobs."tenant_id" > tenants."id"
+Ref: scoring_template_versions."changed_by" > users."id"
+Ref: scoring_template_versions."template_id" > scoring_templates."id"
+Ref: scoring_template_versions."tenant_id" > tenants."id"
+Ref: scoring_templates."source_platform_template_id" > platform_scoring_templates."id"
+Ref: scoring_templates."tenant_id" > tenants."id"
+Ref: sending_plan_recipients."plan_id" > sending_plans."id" [delete: cascade]
+Ref: sending_plan_recipients."tenant_company_id" > tenant_companies."id" [delete: cascade]
+Ref: sending_plan_recipients."tenant_contact_id" > tenant_contacts."id" [delete: cascade]
+Ref: sending_plan_recipients."tenant_id" > tenants."id"
+Ref: sending_plans."created_by" > users."id"
+Ref: sending_plans."domain_id" > domain_warmup_status."id"
+Ref: sending_plans."tenant_id" > tenants."id"
+Ref: sequence_enrollments."plan_id" > sending_plans."id"
+Ref: sequence_enrollments."plan_recipient_id" > sending_plan_recipients."id"
+Ref: sequence_enrollments."tenant_contact_id" > tenant_contacts."id" [delete: cascade]
+Ref: sequence_enrollments."tenant_id" > tenants."id"
+Ref: sequence_steps."plan_id" > sending_plans."id" [delete: cascade]
+Ref: sequence_steps."template_id" > email_templates."id"
+Ref: sequence_steps."tenant_id" > tenants."id"
+Ref: tenant_ai_provider_configs."configured_by_platform_user_id" > platform_users."id"
+Ref: tenant_ai_provider_configs."configured_by_user_id" > users."id"
+Ref: tenant_ai_provider_configs."tenant_id" > tenants."id" [delete: cascade]
+Ref: tenant_companies."tenant_id" > tenants."id" [delete: cascade]
+Ref: tenant_contacts."tenant_id" > tenants."id" [delete: cascade]
+Ref: tenant_scoring_weights."template_id" > scoring_templates."id" [delete: cascade]
+Ref: tenant_scoring_weights."tenant_id" > tenants."id" [delete: cascade]
+Ref: tendata_raw_companies."keyword_master_id" > keyword_master."id"
+Ref: user_roles."tenant_id" > tenants."id"
+Ref: user_roles."user_id" > users."id" [delete: cascade]
+Ref: users."tenant_id" > tenants."id"
+Ref: waimaotong_clean_source_links."clean_company_id" > waimaotong_clean_companies."id" [delete: cascade]
+Ref: waimaotong_keyword_raw_contacts."keyword_raw_company_id" > waimaotong_keyword_raw_companies."id" [delete: cascade]
+Ref: waimaotong_raw_contacts."raw_company_id" > waimaotong_raw_companies."id" [delete: cascade]
+Ref: warmup_rule_levels."rule_id" > warmup_rules."id" [delete: cascade]
