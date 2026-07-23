@@ -81,8 +81,6 @@ SMOKE_CASES = [
     ("PUT", "/ai-config/scene-defaults", "/ai-config/scene-defaults", "put_ai_scene_defaults", [ROW], 200, "success",
      [{"scene": "scoring", "model_id": "m-001"}]),
     ("GET", "/ai-config/pricing", "/ai-config/pricing", "get_ai_pricing", ROW, 200, "success", NOBODY),
-    ("PUT", "/ai-config/pricing", "/ai-config/pricing", "put_ai_pricing", ROW, 200, "success",
-     {"items": []}),
     ("GET", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "list_tenant_users", [ROW], 200, "paginated", NOBODY),
     ("POST", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "create_tenant_user", ROW, 200, "success",
      {"email": "user@example.com", "name": "冒烟用户"}),
@@ -91,7 +89,7 @@ SMOKE_CASES = [
     ("DELETE", "/tenants/{tenant_id}/users/{user_id}", "/tenants/t-001/users/u-001", "delete_tenant_user", None, 200, "deleted", NOBODY),
     ("GET", "/tenants/{tenant_id}/domains", "/tenants/t-001/domains", "list_tenant_domains", [ROW], 200, "paginated", NOBODY),
     ("POST", "/tenants/{tenant_id}/domains", "/tenants/t-001/domains", "create_tenant_domain", ROW, 200, "success",
-     {"domain": "mail.example.com", "warmup_rule_id": "wr-001", "warmup_level": 1}),
+     {"domain": "mail.example.com", "warmup_rule_id": "1a2b3c4d-0000-4000-8000-000000000001", "warmup_level": 1}),
     ("POST", "/tenants/{tenant_id}/domains/{domain_id}/verify", "/tenants/t-001/domains/d-001/verify", "verify_tenant_domain", ROW, 200, "success", NOBODY),
     ("GET", "/tenants/{tenant_id}/domains/{domain_id}", "/tenants/t-001/domains/d-001", "get_tenant_domain", ROW, 200, "success", NOBODY),
     ("PATCH", "/tenants/{tenant_id}/domains/{domain_id}", "/tenants/t-001/domains/d-001", "update_tenant_domain", ROW, 200, "success", {}),
@@ -277,13 +275,6 @@ _SECOND_BATCH_INVALID_CASES = [
     ),
     pytest.param(
         "PUT",
-        "/ai-config/pricing",
-        "put_ai_pricing",
-        {"items": "not-a-list"},
-        id="PUT:/ai-config/pricing",
-    ),
-    pytest.param(
-        "PUT",
         "/scoring-templates/tmpl-001",
         "update_platform_scoring_template",
         {"industry": "x" * 101},
@@ -398,7 +389,7 @@ _THIRD_BATCH_INVALID_CASES = [
         "create_tenant_domain",
         {
             "domain": "x" * 256,
-            "warmup_rule_id": "wr-001",
+            "warmup_rule_id": "1a2b3c4d-0000-4000-8000-000000000001",
             "warmup_level": 1,
         },
         id="POST:/tenants/domains",
@@ -499,13 +490,14 @@ async def test_batch_import_passes_validated_items_to_service(
 async def test_tenant_domain_update_rejects_out_of_range_warmup_level(
     client, monkeypatch
 ):
-    """租户域名更新应在路由边界拒绝超出请求契约的预热等级"""
+    """预热档位下限对齐 DB CHECK (warmup_level >= 1)；上限不设，由 service
+    对预热规则表的 JOIN 校验兜底（规则可定义任意档位数）"""
     mock = AsyncMock(return_value=ROW)
     monkeypatch.setattr(config_module.service, "update_tenant_domain", mock)
 
     resp = await client.patch(
         PREFIX + "/tenants/t-001/domains/d-001",
-        json={"warmup_level": 11},
+        json={"warmup_level": 0},
     )
 
     assert resp.status_code == 422, resp.text
@@ -527,3 +519,20 @@ async def test_tenant_domain_update_only_passes_provided_fields(
 
     assert resp.status_code == 200, resp.text
     assert mock.await_args.kwargs["payload"] == body
+
+
+async def test_tenant_domain_update_explicit_null_clears_sender_email(
+    client, monkeypatch
+):
+    """显式传 sender_email: null 必须原样到达 service（键存在性=清空列），
+    不得被 exclude_unset 丢弃——这是全模块唯一显式 null 有业务含义的字段"""
+    mock = AsyncMock(return_value=ROW)
+    monkeypatch.setattr(config_module.service, "update_tenant_domain", mock)
+
+    resp = await client.patch(
+        PREFIX + "/tenants/t-001/domains/d-001",
+        json={"sender_email": None},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert mock.await_args.kwargs["payload"] == {"sender_email": None}

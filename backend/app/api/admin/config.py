@@ -5,7 +5,6 @@ from app.core.responses import paginated_response, success_response
 from app.schemas.admin_config import (
     AIModelCreate,
     AIModelUpdate,
-    AIPricingUpdate,
     AISceneDefaultsUpdate,
     EmailTemplateCreate,
     EmailTemplateUpdate,
@@ -314,20 +313,6 @@ async def put_ai_scene_defaults(
 @router.get("/ai-config/pricing")
 async def get_ai_pricing(context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
     return success_response(await service.get_ai_pricing(context.connection))
-
-
-@router.put("/ai-config/pricing")
-async def put_ai_pricing(
-    payload: AIPricingUpdate,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    return success_response(
-        await service.put_ai_pricing(
-            context.connection,
-            payload=payload.model_dump(),
-            platform_user_id=context.platform_user_id,
-        )
-    )
 
 
 @router.get("/tenants/{tenant_id}/users")

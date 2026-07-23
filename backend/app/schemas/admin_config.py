@@ -133,23 +133,6 @@ class AISceneDefaultsUpdate(RootModel[list[AISceneDefaultUpdate]]):
     """批量更新 AI 场景默认配置请求（PUT /admin/api/v1/ai-config/scene-defaults）"""
 
 
-class AIPricingItemUpdate(BaseModel):
-    """兼容旧版 AI 定价请求的单个模型价格"""
-
-    model_id: str = Field(..., min_length=1, description="AI 模型行 ID")
-    input_price: float = Field(..., description="输入价格")
-    output_price: float = Field(..., description="输出价格")
-
-
-class AIPricingUpdate(BaseModel):
-    """更新 AI 定价配置请求（PUT /admin/api/v1/ai-config/pricing）"""
-
-    items: list[AIPricingItemUpdate] = Field(
-        default_factory=list,
-        description="兼容旧版定价请求；当前价格列已移除",
-    )
-
-
 class ScoringTemplateUpdate(BaseModel):
     """更新平台评分模板请求（PUT /admin/api/v1/scoring-templates/{template_id}）"""
 
@@ -227,7 +210,7 @@ class TenantDomainCreate(BaseModel):
     """添加租户发信域名请求"""
 
     domain: str = Field(..., min_length=1, max_length=255, description="发信域名")
-    warmup_rule_id: str = Field(..., min_length=1, description="预热规则 ID")
+    warmup_rule_id: UUID = Field(..., description="预热规则 ID")
     warmup_level: int = Field(..., ge=1, description="预热档位")
     spf_record: str | None = Field(None, description="SPF 记录")
     dkim_record: str | None = Field(None, description="DKIM 记录")
@@ -248,6 +231,9 @@ class TenantDomainCreate(BaseModel):
 class TenantDomainUpdate(BaseModel):
     """局部更新租户发信域名请求"""
 
-    warmup_rule_id: UUID | None = Field(None, description="预热规则ID")
-    warmup_level: int | None = Field(None, ge=1, le=10, description="预热等级")
-    sender_email: str | None = Field(None, max_length=255, description="发件邮箱")
+    warmup_rule_id: UUID | None = Field(None, description="预热规则 ID")
+    # 上限不设：档位数由预热规则自身定义（warmup_rule_levels 无上限），
+    # 档位存在性由 service 层对规则表的 JOIN 校验兜底
+    warmup_level: int | None = Field(None, ge=1, description="预热档位")
+    # 显式传 null 表示清空发件邮箱（service 按键存在性处理），与缺席不同
+    sender_email: EmailStr | None = Field(None, max_length=255, description="发件邮箱")

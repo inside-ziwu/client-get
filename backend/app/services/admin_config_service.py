@@ -953,16 +953,6 @@ class AdminConfigService:
         scenes = await self.list_ai_scene_defaults(conn)
         return {"models": models, "scene_defaults": scenes}
 
-    async def put_ai_pricing(
-        self,
-        conn: AsyncConnection,
-        *,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        # input_price / output_price columns have been removed; pricing is now managed per-model
-        return await self.get_ai_pricing(conn)
-
     async def list_tenant_users(self, conn: AsyncConnection, tenant_id: str) -> list[dict]:
         result = await conn.execute(
             text(
