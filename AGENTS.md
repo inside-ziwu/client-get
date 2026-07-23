@@ -24,7 +24,7 @@
 
 ## 2. 数据库事实纪律
 
-- `backend/03_database/schema.sql` 是手工蓝图，已知与生产存在漂移（细目见 issue #61「Schema 主权收复」与 #64「空库无法从 Alembic 基线建库」），**不得单独作为实施依据**；数据模型事实以 alembic 迁移链 + 生产核对为准。T-25 落地后 schema.sql 转为 `pg_dump --schema-only` 生成物，届时禁止手改。
+- `backend/03_database/schema.sql` 是手工蓝图，已知与生产存在漂移（细目见 issue #61「Schema 主权收复」与 #64「空库无法从 Alembic 基线建库」），**不得单独作为实施依据**；数据模型事实以 alembic 迁移链 + 生产核对为准。#61 ④ 的 pg_dump 化落地后 schema.sql 转为生成物，届时禁止手改（结构快照契约已先行：`backend/03_database/schema_snapshot.json`，git diff 即带外变更探测器）。
 - 每次 schema 变更一个 alembic revision。backend 镜像启动会自动执行 `alembic upgrade head`，**迁移失败会直接阻断 API 启动**——迁移合并前必须核对存量数据与 FK 链。
 - `waimaotong_*` 等外部直写表的 schema 主权不在本仓库：对其结构、数据或关联 FK 的任何变更，先与用户确认。
 

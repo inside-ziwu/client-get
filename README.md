@@ -303,7 +303,7 @@ client_get/
 
 ## 10. 测试与质量现状
 
-- 后端：45 个测试文件、307 个测试函数；默认全量执行为 306 passed、5 个 PostgreSQL 可选集成测试在未提供本机连接串时 skipped；提供 T-21 本机 PG16 连接串后为 310 passed、1 skipped。重点锁定跨租户不可见性、实例隔离、发送计划生命周期、认证、客户池 repair 与退役表迁移原子回滚；`ruff` 已配置，**无 mypy**
+- 后端：45 个测试文件、307 个测试函数；默认全量执行为 306 passed、5 个 PostgreSQL 可选集成测试在未提供本机连接串时 skipped；提供本机 PG16 连接串后为 310 passed、1 skipped。重点锁定跨租户不可见性、实例隔离、发送计划生命周期、认证、客户池 repair 与退役表迁移原子回滚；`ruff` 已配置，**无 mypy**
 - 前端：tenant Vitest 当前 7 个测试文件、33 项测试；shared-ui 覆盖布局交互与路由反馈；admin 零单元测试，以 type-check 与 production build 为当前门禁
 - **CI 现状：GitHub Actions 只构建镜像，不跑任何测试或 lint**——质量门禁缺失是已登记的头部债务（#50）
 - 类型契约：前端 shared-types 为手写，与后端 Pydantic 无自动同步（已发现漂移实例，#51）
