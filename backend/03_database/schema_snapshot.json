@@ -7844,29 +7844,5 @@
  "views": {
   "v_tenant_contact_classified": " SELECT tc.id AS contact_id,\n    cl.id AS level_id,\n    ca.id AS category_id,\n    cl.is_sendable\n   FROM waimaotong_clean_contacts tc\n     JOIN LATERAL ( SELECT pck.category_id,\n            pcc.level_id\n           FROM position_classification_keywords pck\n             JOIN position_classification_categories pcc ON pcc.id = pck.category_id\n          WHERE lower(tc.\"position\") ~~ (('%'::text || pck.keyword) || '%'::text)\n          ORDER BY pcc.sort_order DESC\n         LIMIT 1) matched ON true\n     JOIN position_classification_categories ca ON ca.id = matched.category_id\n     JOIN position_classification_levels cl ON cl.id = matched.level_id;"
  },
- "backup_tables": [
-  "backup_quota_incident_emails_20260703_084452",
-  "backup_quota_incident_enrollments_20260703_084452",
-  "backup_wmt_identity_companies_20260602_161256",
-  "backup_wmt_identity_companies_20260602_161627",
-  "backup_wmt_identity_companies_20260602_162003",
-  "backup_wmt_identity_company_scores_20260602_161627",
-  "backup_wmt_identity_company_scores_20260602_162003",
-  "backup_wmt_identity_contacts_20260602_161256",
-  "backup_wmt_identity_contacts_20260602_161627",
-  "backup_wmt_identity_contacts_20260602_162003",
-  "backup_wmt_identity_group_members_20260602_161627",
-  "backup_wmt_identity_group_members_20260602_162003",
-  "backup_wmt_identity_plan_recipients_20260602_161627",
-  "backup_wmt_identity_plan_recipients_20260602_162003",
-  "backup_wmt_identity_scoring_jobs_20260602_161627",
-  "backup_wmt_identity_scoring_jobs_20260602_162003",
-  "backup_wmt_identity_tenant_companies_20260602_161256",
-  "backup_wmt_identity_tenant_companies_20260602_161627",
-  "backup_wmt_identity_tenant_companies_20260602_162003",
-  "backup_wmt_identity_tenant_contacts_20260602_161256",
-  "backup_wmt_identity_tenant_contacts_20260602_161627",
-  "backup_wmt_identity_tenant_contacts_20260602_162003",
-  "waimaotong_clean_companies_ai_label_backup_20260709_022301"
- ]
+ "backup_tables": []
 }

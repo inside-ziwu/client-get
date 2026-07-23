@@ -16,6 +16,7 @@
 - **带外列**：`tenant_companies.score_adjustment` 生产存在、代码在用、不在任何迁移（#61 ②）。2026-07-22 核实：#61 提到需排查的 `score_adjusted_at/by/reason` 三列**既不在生产也无任何代码引用**，无报错风险。
 - **带外表**：`crawl_progress` 曾被迁移 0054 以「未使用」删除，现存表为外部采集程序**带外重建**（生产约 2.3 万行），仓库代码零读写。
 - **带外删除**：`cleanup_queue` 不在生产但仍存在于跑到同版本 head 的开发库（2026-07-22 双库快照对比证实）——它是被生产侧**带外删除**的，迁移链（含 0714）从未删它。
+- **备份表清理（2026-07-23，#61 ①）**：原 23 张备份快照表已全部 dump 留档后 DROP（外部书面确认 + 三方依赖核查为零；留档 `~/ClientGet-db-archive/backup-tables-20260723/`，23 个 .sql.gz 逐张行数核验通过，合计 340,596 行）。来源考证（外部确认）：6-02 三批 20 张为外贸通仓库 `repair_clean_company_identity.py` 身份合并保护备份；7-03 两张为本仓库配额事故恢复脚本产物；7-09 一张为外部 AI 标签调整前快照。
 - **迁移链编号倒挂**：`20260625_0100_add_instance_id` 的 `down_revision` 指向 `20260701_0002`，实际拓扑为 `…0614_0002 → 0701_0001 → 0701_0002 → 0625_0100 → 0708_0001…`。按文件名排序读迁移史会得出错误顺序，考古时以 `down_revision` 链为准。
 - **恒空列**：`waimaotong_clean_companies.email_priority`（#61 ⑥）。
 - **本文档的视图定义取自生产**（`pg_get_viewdef`），不受 schema.sql 中过时视图定义影响。
@@ -32,7 +33,11 @@
 | `backend/scripts/restore_quota_incident_enrollments.py:131,142` | 一次性事故恢复脚本，产出过 `backup_quota_incident_*` 备份表 |
 | `backend/03_database/schema.sql` | 手工蓝图，已知漂移（见上），运行时不执行 |
 
-另：`waimaotong_*`、`lixiaoyun_*`、`tendata_*` 等外部直写表的 schema 主权不在本仓库（AGENTS.md §2），生产中它们的结构变更可能完全不经过本仓库（例：`waimaotong_clean_companies_ai_label_backup_20260709_022301` 为外部程序所建）。
+另：`waimaotong_*`、`lixiaoyun_*`、`tendata_*` 等外部直写表的 schema 主权不在本仓库（AGENTS.md §2），生产中它们的结构变更可能完全不经过本仓库。
+
+**与外部管道方的数据契约约定（2026-07-23 备份表对账时外部书面确认）**：
+- `waimaotong_clean_companies` **禁止清空重建**——外部采集口径为增量 upsert/update（其 `clean_waimaotong.py` 有明文），以保护 `tenant_companies.clean_company_id` 等历史关联；
+- `waimaotong_keyword_raw_companies`/`waimaotong_keyword_raw_contacts`/`crawl_progress` 为外部在用生产表；双方约定：**任一方新建/重建采集相关表须纳入数据契约并提前知会**（我方侧的探测手段即本快照的 git diff）。
 
 ### C. 字段命名与业务含义不一致（DB 列名 ≠ 代码/API 字段名）
 
