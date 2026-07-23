@@ -1,7 +1,24 @@
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Depends
 from starlette.responses import Response
 
 from app.core.responses import paginated_response, success_response
+from app.schemas.admin_config import (
+    AIModelCreate,
+    AIModelUpdate,
+    AISceneDefaultsUpdate,
+    EmailTemplateCreate,
+    EmailTemplateUpdate,
+    IntelligenceSourceBatchImport,
+    IntelligenceSourceCreate,
+    IntelligenceSourceUpdate,
+    ScoringTemplateCreate,
+    ScoringTemplateUpdate,
+    TenantDomainCreate,
+    TenantDomainUpdate,
+    TenantUserCreate,
+    TenantUserUpdate,
+    WarmupRuleUpdate,
+)
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
 from app.services.admin_config_service import AdminConfigService
 
@@ -25,13 +42,13 @@ async def list_platform_scoring_templates(
 
 @router.post("/scoring-templates")
 async def create_platform_scoring_template(
-    payload: dict,
+    payload: ScoringTemplateCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_platform_scoring_template(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -48,14 +65,14 @@ async def get_platform_scoring_template(
 @router.put("/scoring-templates/{template_id}")
 async def update_platform_scoring_template(
     template_id: str,
-    payload: dict,
+    payload: ScoringTemplateUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.update_platform_scoring_template(
             context.connection,
             template_id=template_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -87,13 +104,13 @@ async def list_intelligence_sources(context: PlatformAuthContext = Depends(get_c
 
 @router.post("/intelligence-sources")
 async def create_intelligence_source(
-    payload: dict,
+    payload: IntelligenceSourceCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_intelligence_source(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -101,10 +118,10 @@ async def create_intelligence_source(
 
 @router.post("/intelligence-sources/batch-import")
 async def batch_import_intelligence_sources(
-    payload: dict,
+    payload: IntelligenceSourceBatchImport,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
-    items = payload["items"] if isinstance(payload, dict) and "items" in payload else payload
+    items = payload.model_dump(exclude_unset=True)["items"]
     created = await service.batch_import_intelligence_sources(
         context.connection,
         items=items,
@@ -116,14 +133,14 @@ async def batch_import_intelligence_sources(
 @router.patch("/intelligence-sources/{source_id}")
 async def patch_intelligence_source(
     source_id: str,
-    payload: dict,
+    payload: IntelligenceSourceUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.patch_intelligence_source(
             context.connection,
             source_id=source_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -150,13 +167,13 @@ async def list_platform_email_templates(context: PlatformAuthContext = Depends(g
 
 @router.post("/email-templates")
 async def create_platform_email_template(
-    payload: dict,
+    payload: EmailTemplateCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_platform_email_template(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -173,14 +190,14 @@ async def get_platform_email_template(
 @router.put("/email-templates/{template_id}")
 async def update_platform_email_template(
     template_id: str,
-    payload: dict,
+    payload: EmailTemplateUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.update_platform_email_template(
             context.connection,
             template_id=template_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -214,11 +231,14 @@ async def list_warmup_rules(context: PlatformAuthContext = Depends(get_current_p
 
 
 @router.put("/warmup-rules")
-async def put_warmup_rules(payload: dict, context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
+async def put_warmup_rules(
+    payload: WarmupRuleUpdate,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
     return success_response(
         await service.put_warmup_rules(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -231,11 +251,14 @@ async def list_ai_models(context: PlatformAuthContext = Depends(get_current_plat
 
 
 @router.post("/ai-config/models")
-async def create_ai_model(payload: dict, context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
+async def create_ai_model(
+    payload: AIModelCreate,
+    context: PlatformAuthContext = Depends(get_current_platform_user),
+) -> dict:
     return success_response(
         await service.create_ai_model(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -244,14 +267,14 @@ async def create_ai_model(payload: dict, context: PlatformAuthContext = Depends(
 @router.patch("/ai-config/models/{model_id}")
 async def patch_ai_model(
     model_id: str,
-    payload: dict,
+    payload: AIModelUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.patch_ai_model(
             context.connection,
             model_id=model_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -275,13 +298,13 @@ async def list_ai_scene_defaults(context: PlatformAuthContext = Depends(get_curr
 
 @router.put("/ai-config/scene-defaults")
 async def put_ai_scene_defaults(
-    payload: list = Body(...),
+    payload: AISceneDefaultsUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.put_ai_scene_defaults(
             context.connection,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -290,17 +313,6 @@ async def put_ai_scene_defaults(
 @router.get("/ai-config/pricing")
 async def get_ai_pricing(context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
     return success_response(await service.get_ai_pricing(context.connection))
-
-
-@router.put("/ai-config/pricing")
-async def put_ai_pricing(payload: dict, context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
-    return success_response(
-        await service.put_ai_pricing(
-            context.connection,
-            payload=payload,
-            platform_user_id=context.platform_user_id,
-        )
-    )
 
 
 @router.get("/tenants/{tenant_id}/users")
@@ -312,14 +324,14 @@ async def list_tenant_users(tenant_id: str, context: PlatformAuthContext = Depen
 @router.post("/tenants/{tenant_id}/users")
 async def create_tenant_user(
     tenant_id: str,
-    payload: dict,
+    payload: TenantUserCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_tenant_user(
             context.connection,
             tenant_id=tenant_id,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -329,7 +341,7 @@ async def create_tenant_user(
 async def patch_tenant_user(
     tenant_id: str,
     user_id: str,
-    payload: dict,
+    payload: TenantUserUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
@@ -337,7 +349,7 @@ async def patch_tenant_user(
             context.connection,
             tenant_id=tenant_id,
             user_id=user_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -370,14 +382,14 @@ async def list_tenant_domains(
 @router.post("/tenants/{tenant_id}/domains")
 async def create_tenant_domain(
     tenant_id: str,
-    payload: dict,
+    payload: TenantDomainCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_tenant_domain(
             context.connection,
             tenant_id=tenant_id,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -412,7 +424,7 @@ async def get_tenant_domain(
 async def update_tenant_domain(
     tenant_id: str,
     domain_id: str,
-    payload: dict,
+    payload: TenantDomainUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
@@ -420,7 +432,7 @@ async def update_tenant_domain(
             context.connection,
             tenant_id=tenant_id,
             domain_id=domain_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
