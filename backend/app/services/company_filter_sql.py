@@ -1,17 +1,3 @@
-CONTACT_COUNT_RANGE_SQL = {
-    "0": "{alias}.contacts_count = 0",
-    "1-3": "{alias}.contacts_count BETWEEN 1 AND 3",
-    "4-10": "{alias}.contacts_count BETWEEN 4 AND 10",
-    "11-30": "{alias}.contacts_count BETWEEN 11 AND 30",
-    "30+": "{alias}.contacts_count > 30",
-}
-
-
-def contact_count_range_clause(range_value: str | None, alias: str = "cc") -> str | None:
-    template = CONTACT_COUNT_RANGE_SQL.get(range_value or "")
-    return template.format(alias=alias) if template else None
-
-
 def employee_count_lower_expr(alias: str = "cc", column: str = "employee_num") -> str:
     field = f"{alias}.{column}"
     return f"""
