@@ -9,10 +9,14 @@ from app.schemas.admin_config import (
     AISceneDefaultsUpdate,
     EmailTemplateCreate,
     EmailTemplateUpdate,
+    IntelligenceSourceBatchImport,
     IntelligenceSourceCreate,
+    IntelligenceSourceUpdate,
     ScoringTemplateCreate,
     ScoringTemplateUpdate,
+    TenantDomainCreate,
     TenantUserCreate,
+    TenantUserUpdate,
     WarmupRuleUpdate,
 )
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
@@ -114,10 +118,10 @@ async def create_intelligence_source(
 
 @router.post("/intelligence-sources/batch-import")
 async def batch_import_intelligence_sources(
-    payload: dict,
+    payload: IntelligenceSourceBatchImport,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
-    items = payload["items"] if isinstance(payload, dict) and "items" in payload else payload
+    items = payload.model_dump(exclude_unset=True)["items"]
     created = await service.batch_import_intelligence_sources(
         context.connection,
         items=items,
@@ -129,14 +133,14 @@ async def batch_import_intelligence_sources(
 @router.patch("/intelligence-sources/{source_id}")
 async def patch_intelligence_source(
     source_id: str,
-    payload: dict,
+    payload: IntelligenceSourceUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.patch_intelligence_source(
             context.connection,
             source_id=source_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -351,7 +355,7 @@ async def create_tenant_user(
 async def patch_tenant_user(
     tenant_id: str,
     user_id: str,
-    payload: dict,
+    payload: TenantUserUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
@@ -359,7 +363,7 @@ async def patch_tenant_user(
             context.connection,
             tenant_id=tenant_id,
             user_id=user_id,
-            payload=payload,
+            payload=payload.model_dump(exclude_unset=True),
             platform_user_id=context.platform_user_id,
         )
     )
@@ -392,14 +396,14 @@ async def list_tenant_domains(
 @router.post("/tenants/{tenant_id}/domains")
 async def create_tenant_domain(
     tenant_id: str,
-    payload: dict,
+    payload: TenantDomainCreate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
     return success_response(
         await service.create_tenant_domain(
             context.connection,
             tenant_id=tenant_id,
-            payload=payload,
+            payload=payload.model_dump(),
             platform_user_id=context.platform_user_id,
         )
     )

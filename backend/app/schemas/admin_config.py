@@ -172,3 +172,73 @@ class EmailTemplateUpdate(BaseModel):
     body_text: str | None = Field(None, description="纯文本正文")
     variables: list[dict] | None = Field(None, description="模板变量")
     is_active: bool | None = Field(None, description="是否激活")
+
+
+class TenantUserUpdate(BaseModel):
+    """局部更新租户用户请求"""
+
+    email: EmailStr | None = Field(None, max_length=255, description="用户邮箱")
+    name: str | None = Field(None, min_length=1, max_length=100, description="用户姓名")
+    password: str | None = Field(None, description="新密码")
+    status: Literal["active", "disabled"] | None = Field(None, description="用户状态")
+    must_change_pwd: bool | None = Field(None, description="是否必须修改密码")
+    roles: list[Literal["admin", "operator", "viewer"]] | None = Field(
+        None,
+        description="租户角色",
+    )
+
+
+class TenantUpdate(BaseModel):
+    """局部更新租户请求（PATCH /admin/api/v1/tenants/{tenant_id}）"""
+
+    name: str | None = Field(None, min_length=1, max_length=100, description="租户名称")
+    industry: str | None = Field(None, min_length=1, max_length=100, description="行业")
+    contact_name: str | None = Field(None, max_length=100, description="联系人姓名")
+    contact_phone: str | None = Field(None, max_length=50, description="联系人电话")
+    contact_email: EmailStr | None = Field(
+        None,
+        max_length=255,
+        description="联系人邮箱",
+    )
+
+
+class IntelligenceSourceBatchImport(BaseModel):
+    """批量导入平台情报源请求"""
+
+    items: list[IntelligenceSourceCreate] = Field(..., description="待导入情报源")
+
+
+class IntelligenceSourceUpdate(BaseModel):
+    """局部更新平台情报源请求"""
+
+    name: str | None = Field(None, min_length=1, max_length=200, description="情报源名称")
+    source_type: Literal["rss", "website", "manual"] | None = Field(
+        None,
+        description="情报源类型",
+    )
+    url: str | None = Field(None, description="情报源地址")
+    fetch_config: dict | None = Field(None, description="抓取配置")
+    industry_tags: list[str] | None = Field(None, description="行业标签")
+    is_active: bool | None = Field(None, description="是否激活")
+
+
+class TenantDomainCreate(BaseModel):
+    """添加租户发信域名请求"""
+
+    domain: str = Field(..., min_length=1, max_length=255, description="发信域名")
+    warmup_rule_id: str = Field(..., min_length=1, description="预热规则 ID")
+    warmup_level: int = Field(..., ge=1, description="预热档位")
+    spf_record: str | None = Field(None, description="SPF 记录")
+    dkim_record: str | None = Field(None, description="DKIM 记录")
+    dmarc_record: str | None = Field(None, description="DMARC 记录")
+    verification_status: Literal[
+        "pending",
+        "verifying",
+        "verified",
+        "failed",
+    ] = Field(default="pending", description="域名验证状态")
+    sender_email: EmailStr | None = Field(
+        None,
+        max_length=255,
+        description="发件邮箱",
+    )

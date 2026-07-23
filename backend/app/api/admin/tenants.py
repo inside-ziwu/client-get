@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.core.responses import paginated_response, success_response
+from app.schemas.admin_config import TenantUpdate
 from app.schemas.ai_provider import OpenRouterConfigRequest
 from app.schemas.tenants import TenantCreateRequest, TenantDetail, TenantListItem
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
@@ -40,10 +41,14 @@ async def get_tenant(tenant_id: str, context: PlatformAuthContext = Depends(get_
 @router.patch("/{tenant_id}")
 async def patch_tenant(
     tenant_id: str,
-    payload: dict,
+    payload: TenantUpdate,
     context: PlatformAuthContext = Depends(get_current_platform_user),
 ) -> dict:
-    tenant = await service.update_tenant(context.connection, tenant_id=tenant_id, payload=payload)
+    tenant = await service.update_tenant(
+        context.connection,
+        tenant_id=tenant_id,
+        payload=payload.model_dump(exclude_unset=True),
+    )
     return success_response(TenantDetail(**tenant).model_dump())
 
 

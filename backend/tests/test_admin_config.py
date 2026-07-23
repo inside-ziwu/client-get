@@ -22,12 +22,21 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 import app.api.admin.config as config_module
+import app.api.admin.tenants as tenants_module
 from app.db.pools import get_connection
 from app.main import create_app
 from app.security.dependencies import PlatformAuthContext, get_current_platform_user
 
 PREFIX = "/admin/api/v1"
 ROW = {"id": "obj-001", "name": "冒烟"}
+TENANT_ROW = {
+    "id": "t-001",
+    "name": "冒烟租户",
+    "slug": "smoke-tenant",
+    "industry": "PCB",
+    "status": "active",
+    "needs_onboarding": False,
+}
 NOBODY = object()  # 区分"不发 body"与"发空 body"
 
 # (method, 路由模板, 实际请求 path, service 方法名, service 返回值, 期望状态码, 信封类型, 请求 body)
@@ -48,7 +57,8 @@ SMOKE_CASES = [
     ("POST", "/intelligence-sources", "/intelligence-sources", "create_intelligence_source", ROW, 200, "success",
      {"name": "行业动态 RSS", "source_type": "rss"}),
     ("POST", "/intelligence-sources/batch-import", "/intelligence-sources/batch-import", "batch_import_intelligence_sources", [ROW], 200, "paginated", {"items": []}),
-    ("PATCH", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "patch_intelligence_source", ROW, 200, "success", {}),
+    ("PATCH", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "patch_intelligence_source", ROW, 200, "success",
+     {"name": "更新后情报源"}),
     ("DELETE", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "delete_intelligence_source", None, 200, "deleted", NOBODY),
     ("GET", "/email-templates", "/email-templates", "list_platform_email_templates", [ROW], 200, "paginated", NOBODY),
     ("POST", "/email-templates", "/email-templates", "create_platform_email_template", ROW, 200, "success",
@@ -76,10 +86,12 @@ SMOKE_CASES = [
     ("GET", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "list_tenant_users", [ROW], 200, "paginated", NOBODY),
     ("POST", "/tenants/{tenant_id}/users", "/tenants/t-001/users", "create_tenant_user", ROW, 200, "success",
      {"email": "user@example.com", "name": "冒烟用户"}),
-    ("PATCH", "/tenants/{tenant_id}/users/{user_id}", "/tenants/t-001/users/u-001", "update_tenant_user", ROW, 200, "success", {}),
+    ("PATCH", "/tenants/{tenant_id}/users/{user_id}", "/tenants/t-001/users/u-001", "update_tenant_user", ROW, 200, "success",
+     {"name": "更新后用户"}),
     ("DELETE", "/tenants/{tenant_id}/users/{user_id}", "/tenants/t-001/users/u-001", "delete_tenant_user", None, 200, "deleted", NOBODY),
     ("GET", "/tenants/{tenant_id}/domains", "/tenants/t-001/domains", "list_tenant_domains", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/tenants/{tenant_id}/domains", "/tenants/t-001/domains", "create_tenant_domain", ROW, 200, "success", {}),
+    ("POST", "/tenants/{tenant_id}/domains", "/tenants/t-001/domains", "create_tenant_domain", ROW, 200, "success",
+     {"domain": "mail.example.com", "warmup_rule_id": "wr-001", "warmup_level": 1}),
     ("POST", "/tenants/{tenant_id}/domains/{domain_id}/verify", "/tenants/t-001/domains/d-001/verify", "verify_tenant_domain", ROW, 200, "success", NOBODY),
     ("GET", "/tenants/{tenant_id}/domains/{domain_id}", "/tenants/t-001/domains/d-001", "get_tenant_domain", ROW, 200, "success", NOBODY),
     ("PATCH", "/tenants/{tenant_id}/domains/{domain_id}", "/tenants/t-001/domains/d-001", "update_tenant_domain", ROW, 200, "success", {}),
@@ -232,7 +244,9 @@ _REQUIRED_FIELD_CASES = [
                  id="POST:/ai-config/models"),
     pytest.param("POST", "/tenants/t-001/users", "email/name",
                  id="POST:/tenants/users"),
-    pytest.param("POST", "/tenants/t-001/domains", "warmup_rule_id/warmup_level",
+    pytest.param("POST", "/intelligence-sources/batch-import", "items",
+                 id="POST:/intelligence-sources/batch-import"),
+    pytest.param("POST", "/tenants/t-001/domains", "domain/warmup_rule_id/warmup_level",
                  id="POST:/tenants/domains"),
 ]
 
@@ -342,3 +356,141 @@ async def test_second_batch_partial_update_only_passes_provided_fields(
 
     assert resp.status_code == 200, resp.text
     assert mock.await_args.kwargs["payload"] == body
+
+
+_THIRD_BATCH_INVALID_CASES = [
+    pytest.param(
+        config_module,
+        "PATCH",
+        "/tenants/t-001/users/u-001",
+        "update_tenant_user",
+        {"email": "not-an-email"},
+        id="PATCH:/tenants/users",
+    ),
+    pytest.param(
+        tenants_module,
+        "PATCH",
+        "/tenants/t-001",
+        "update_tenant",
+        {"contact_email": "not-an-email"},
+        id="PATCH:/tenants",
+    ),
+    pytest.param(
+        config_module,
+        "POST",
+        "/intelligence-sources/batch-import",
+        "batch_import_intelligence_sources",
+        {"items": [{"name": "非法情报源", "source_type": "unknown"}]},
+        id="POST:/intelligence-sources/batch-import",
+    ),
+    pytest.param(
+        config_module,
+        "PATCH",
+        "/intelligence-sources/src-001",
+        "patch_intelligence_source",
+        {"source_type": "unknown"},
+        id="PATCH:/intelligence-sources",
+    ),
+    pytest.param(
+        config_module,
+        "POST",
+        "/tenants/t-001/domains",
+        "create_tenant_domain",
+        {
+            "domain": "x" * 256,
+            "warmup_rule_id": "wr-001",
+            "warmup_level": 1,
+        },
+        id="POST:/tenants/domains",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "route_module,method,path,service_attr,body",
+    _THIRD_BATCH_INVALID_CASES,
+)
+async def test_third_batch_invalid_payload_returns_422(
+    client, monkeypatch, route_module, method, path, service_attr, body
+):
+    """第三批端点应在路由边界拒绝违反数据库约束或请求契约的字段"""
+    service_return = TENANT_ROW if route_module is tenants_module else ROW
+    mock = AsyncMock(return_value=service_return)
+    monkeypatch.setattr(route_module.service, service_attr, mock)
+
+    resp = await client.request(method, PREFIX + path, json=body)
+
+    assert resp.status_code == 422, resp.text
+    mock.assert_not_awaited()
+
+
+_THIRD_BATCH_PARTIAL_UPDATE_CASES = [
+    pytest.param(
+        config_module,
+        "/tenants/t-001/users/u-001",
+        "update_tenant_user",
+        {"name": "仅更新用户名称"},
+        id="PATCH:/tenants/users",
+    ),
+    pytest.param(
+        tenants_module,
+        "/tenants/t-001",
+        "update_tenant",
+        {"name": "仅更新租户名称"},
+        id="PATCH:/tenants",
+    ),
+    pytest.param(
+        config_module,
+        "/intelligence-sources/src-001",
+        "patch_intelligence_source",
+        {"name": "仅更新情报源名称"},
+        id="PATCH:/intelligence-sources",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "route_module,path,service_attr,body",
+    _THIRD_BATCH_PARTIAL_UPDATE_CASES,
+)
+async def test_third_batch_partial_update_only_passes_provided_fields(
+    client, monkeypatch, route_module, path, service_attr, body
+):
+    """第三批 PATCH 模型不得向 service 注入未提供的 None"""
+    service_return = TENANT_ROW if route_module is tenants_module else ROW
+    mock = AsyncMock(return_value=service_return)
+    monkeypatch.setattr(route_module.service, service_attr, mock)
+
+    resp = await client.patch(PREFIX + path, json=body)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["data"]["id"] == service_return["id"]
+    assert mock.await_args.kwargs["payload"] == body
+
+
+async def test_tenant_update_missing_body_returns_422(client):
+    """admin/tenants 的 PATCH 请求体保持必填"""
+    resp = await client.patch(PREFIX + "/tenants/t-001")
+    assert resp.status_code == 422, resp.text
+
+
+async def test_batch_import_passes_validated_items_to_service(
+    client, monkeypatch
+):
+    """batch-import 应将包装对象中的情报源列表传给 service"""
+    mock = AsyncMock(return_value=[])
+    monkeypatch.setattr(
+        config_module.service,
+        "batch_import_intelligence_sources",
+        mock,
+    )
+
+    resp = await client.post(
+        PREFIX + "/intelligence-sources/batch-import",
+        json={"items": [{"name": "RSS 情报源", "source_type": "rss"}]},
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert mock.await_args.kwargs["items"] == [
+        {"name": "RSS 情报源", "source_type": "rss"}
+    ]
