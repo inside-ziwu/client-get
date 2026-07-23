@@ -22,7 +22,7 @@ class IntelligenceService:
         result = await conn.execute(
             text(
                 """
-                SELECT p.id AS publication_id, p.status AS publication_status, p.has_summary, p.read_at, p.created_at AS published_at,
+                SELECT p.id AS publication_id, p.status AS publication_status, p.has_summary, p.read_at, p.created_at AS published_to_tenant_at,
                        a.id AS article_id, a.created_at AS article_created_at, a.title, a.url, a.author, a.published_at,
                        a.content_summary, a.ai_category, a.ai_tags, a.ai_relevance_score
                 FROM intelligence_article_publications p
@@ -39,7 +39,7 @@ class IntelligenceService:
         result = await conn.execute(
             text(
                 """
-                SELECT p.id AS publication_id, p.status AS publication_status, p.has_summary, p.read_at, p.created_at AS published_at,
+                SELECT p.id AS publication_id, p.status AS publication_status, p.has_summary, p.read_at, p.created_at AS published_to_tenant_at,
                        a.id AS article_id, a.created_at AS article_created_at, a.title, a.url, a.author, a.published_at,
                        a.content_summary, a.content_raw, a.ai_category, a.ai_tags, a.ai_relevance_score
                 FROM intelligence_article_publications p
@@ -379,7 +379,9 @@ class IntelligenceService:
             "ai_tags": row["ai_tags"],
             "ai_relevance_score": float(row["ai_relevance_score"]) if row["ai_relevance_score"] is not None else None,
             "read_at": row["read_at"].isoformat() if row["read_at"] else None,
-            "published_to_tenant_at": row["published_at"].isoformat() if row["published_at"] else None,
+            "published_to_tenant_at": row["published_to_tenant_at"].isoformat()
+            if row["published_to_tenant_at"]
+            else None,
         }
         if include_content:
             item["content_raw"] = row.get("content_raw")
