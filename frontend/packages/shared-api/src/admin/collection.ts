@@ -96,7 +96,6 @@ export interface WmtCleanCompanyRow {
   description: string | null;
   grade: string | null;
   score: number | null;
-  email_priority: string | null;
   company_type_analysis: string | null;
   product_tags: string[];
   data_source_tags: string[];

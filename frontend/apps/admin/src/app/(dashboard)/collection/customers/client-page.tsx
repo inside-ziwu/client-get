@@ -419,7 +419,6 @@ export function CustomerArchivePage() {
                       rows={[
                         ['细分行业', dash(detail.sub_industry)],
                         ['公司类型分析', dash(detail.company_type_analysis)],
-                        ['邮箱优先级', dash(detail.email_priority)],
                         ['销售策略', dash(detail.sales_approach)],
                       ]}
                     />

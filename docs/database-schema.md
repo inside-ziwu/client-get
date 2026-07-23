@@ -1483,7 +1483,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 | tag_confidence | JSONB | ✓ |  | 产品标签置信度信息（JSON） |
 | score_details | JSONB | ✓ |  | AI 评分明细：各维度得分 JSON（Admin/租户详情展示） |
 | trade_summary | JSONB | ✓ |  | 贸易数据摘要（JSON） |
-| email_priority | TEXT | ✓ |  | 恒空列：代码有读取但无写入方，清理计划见 #61 |
+| email_priority | TEXT | ✓ |  | 恒空列：无写入方；代码已停止读取（2026-07-23，#61 ⑥），列本身是否删除待外部管道方定夺 |
 | plan_id | INTEGER | ✓ |  |  |
 | search_raw | TEXT | ✓ |  | 搜索原始返回文本 |
 | ai_raw | TEXT | ✓ |  | AI 分析原始返回文本 |
@@ -2078,7 +2078,7 @@ graph LR
 - **带外删除**：`cleanup_queue` 不在生产但仍存在于跑到同版本 head 的开发库（2026-07-22 双库快照对比证实）——它是被生产侧**带外删除**的，迁移链（含 0714）从未删它。
 - **备份表清理（2026-07-23，#61 ①）**：原 23 张备份快照表已全部 dump 留档后 DROP（外部书面确认 + 三方依赖核查为零；留档 `~/ClientGet-db-archive/backup-tables-20260723/`，23 个 .sql.gz 逐张行数核验通过，合计 340,596 行）。来源考证（外部确认）：6-02 三批 20 张为外贸通仓库 `repair_clean_company_identity.py` 身份合并保护备份；7-03 两张为本仓库配额事故恢复脚本产物；7-09 一张为外部 AI 标签调整前快照。
 - **迁移链编号倒挂**：`20260625_0100_add_instance_id` 的 `down_revision` 指向 `20260701_0002`，实际拓扑为 `…0614_0002 → 0701_0001 → 0701_0002 → 0625_0100 → 0708_0001…`。按文件名排序读迁移史会得出错误顺序，考古时以 `down_revision` 链为准。
-- **恒空列**：`waimaotong_clean_companies.email_priority`（#61 ⑥）。
+- **恒空列**：`waimaotong_clean_companies.email_priority`——2026-07-23 起代码已停止读取（#61 ⑥，后端 4 处+前端 4 处清理），列本身是否删除待外部管道方定夺（对账时已知会）。
 - **本文档的视图定义取自生产**（`pg_get_viewdef`），不受 schema.sql 中过时视图定义影响。
 
 ### B. DDL 出处全集（建表语句在哪里）
