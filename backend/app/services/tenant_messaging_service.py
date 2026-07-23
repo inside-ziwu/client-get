@@ -2022,13 +2022,28 @@ class TenantMessagingService:
         payload: dict,
     ) -> dict:
         email = await self._load_email(conn, email_id)
+        # 幂等闸门放锁表而非 emails.status：webhook 可能先于回调把 status 推进到
+        # delivered/opened 等后续态，emails.status 区分不了「回调已处理」与「事件抢跑」
+        lock_result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET status = 'sent', released_at = now()
+                WHERE email_id = :email_id AND status = 'locked'
+                RETURNING id
+                """
+            ),
+            {"email_id": email_id},
+        )
+        if lock_result.mappings().first() is None:
+            return {"email_id": email_id, "status": email["status"], "duplicate": True}
         await conn.execute(
             text(
                 """
                 UPDATE emails
-                SET status = 'sent',
+                SET status = CASE WHEN status = 'queued' THEN 'sent' ELSE status END,
                     engagelab_message_id = COALESCE(:engagelab_message_id, engagelab_message_id),
-                    sent_at = COALESCE(:sent_at, now())
+                    sent_at = COALESCE(:sent_at, sent_at, now())
                 WHERE id = :email_id AND created_at = :created_at
                 """
             ),
@@ -2040,16 +2055,6 @@ class TenantMessagingService:
                 if payload.get("sent_at")
                 else None,
             },
-        )
-        await conn.execute(
-            text(
-                """
-                UPDATE email_send_locks
-                SET status = 'sent', released_at = now()
-                WHERE email_id = :email_id
-                """
-            ),
-            {"email_id": email_id},
         )
         await conn.execute(
             text(
@@ -2139,28 +2144,52 @@ class TenantMessagingService:
         domain_id = payload.get("domain_id")
         status_code = payload.get("status_code")
         error_category = payload.get("error_category")
+        # 幂等闸门，理由同 mark_email_sent
+        lock_result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET status = 'failed', released_at = now()
+                WHERE email_id = :email_id AND status = 'locked'
+                RETURNING id
+                """
+            ),
+            {"email_id": email_id},
+        )
+        if lock_result.mappings().first() is None:
+            enrollment_result = await conn.execute(
+                text(
+                    """
+                    SELECT send_attempt_count
+                    FROM sequence_enrollments
+                    WHERE id = :enrollment_id
+                    """
+                ),
+                {"enrollment_id": email["enrollment_id"]},
+            )
+            enrollment = enrollment_result.mappings().first()
+            return {
+                "email_id": email_id,
+                "status": email["status"],
+                "reason": payload.get("reason"),
+                "send_attempt_count": int(enrollment["send_attempt_count"] or 0)
+                if enrollment
+                else 0,
+                "duplicate": True,
+            }
         await conn.execute(
             text(
                 """
                 UPDATE emails
                 SET status = 'failed'
                 WHERE id = :email_id AND created_at = :created_at
+                  AND status = 'queued'
                 """
             ),
             {
                 "email_id": email["id"],
                 "created_at": email["created_at"],
             },
-        )
-        await conn.execute(
-            text(
-                """
-                UPDATE email_send_locks
-                SET status = 'failed', released_at = now()
-                WHERE email_id = :email_id
-                """
-            ),
-            {"email_id": email_id},
         )
         await self._release_reserved_quota(conn, domain_id=domain_id, plan_id=email["plan_id"])
 
