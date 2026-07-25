@@ -115,7 +115,7 @@ export default function CompaniesPage() {
       ),
     },
     { id: 'country', header: '国家', width: 'small', align: 'center', type: 'text', value: 'country_iso3', format: (value) => countryZh(value as string | undefined) },
-    { id: 'collectionType', header: '采集类型', width: 'small', align: 'center', type: 'text', value: 'collection_type', format: (value) => collectionTypeLabel(value as Company['collection_type']) },
+    { id: 'collectionType', header: '采集类型', width: 'large', align: 'center', type: 'text', value: 'collection_type', format: (value) => collectionTypeLabel(value as Company['collection_type']) },
     { id: 'domain', header: '域名', width: 'large', type: 'text', value: 'domain' },
     { id: 'industry', header: '行业', width: 'large', type: 'text', value: 'industry_desc' },
     { id: 'employees', header: '员工规模', width: 'small', align: 'center', type: 'text', value: 'employee_num' },
@@ -128,7 +128,7 @@ export default function CompaniesPage() {
     { id: 'sourceCompetitor', header: '来源同行', width: 'small', type: 'text', value: 'source_competitor' },
     { id: 'sourceCompetitorCn', header: '来源同行（中文名）', width: 'medium', type: 'text', value: 'source_competitor_cn' },
     { id: 'contacts', header: '联系人数', width: 'small', align: 'center', type: 'number', value: 'contacts_count' },
-    { id: 'createdAt', header: '入库时间', width: 'medium', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
+    { id: 'createdAt', header: '入库时间', width: 'large', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
     {
       id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
       render: (row) => (
