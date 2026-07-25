@@ -124,11 +124,11 @@ export default function CompaniesPage() {
     { id: 'modelScore', header: '大模型评分', width: 'small', align: 'center', type: 'number', value: 'wmt_score' },
     { id: 'systemGrade', header: '模板评级', width: 'small', align: 'center', type: 'text', value: 'system_grade', render: (row) => row.system_grade ? <RatingTag grade={row.system_grade} variant="system" /> : '-' },
     { id: 'systemScore', header: '模板评分', width: 'small', align: 'center', type: 'number', value: 'system_score' },
-    { id: 'subIndustry', header: '细分行业', type: 'text', value: 'sub_industry' },
-    { id: 'sourceCompetitor', header: '来源同行', type: 'text', value: 'source_competitor' },
-    { id: 'sourceCompetitorCn', header: '来源同行（中文名）', type: 'text', value: 'source_competitor_cn' },
+    { id: 'subIndustry', header: '细分行业', width: 'small', type: 'text', value: 'sub_industry' },
+    { id: 'sourceCompetitor', header: '来源同行', width: 'small', type: 'text', value: 'source_competitor' },
+    { id: 'sourceCompetitorCn', header: '来源同行（中文名）', width: 'medium', type: 'text', value: 'source_competitor_cn' },
     { id: 'contacts', header: '联系人数', width: 'small', align: 'center', type: 'number', value: 'contacts_count' },
-    { id: 'createdAt', header: '入库时间', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
+    { id: 'createdAt', header: '入库时间', width: 'medium', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
     {
       id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
       render: (row) => (

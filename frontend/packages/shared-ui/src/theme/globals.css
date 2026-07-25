@@ -59,7 +59,7 @@
   --ui-control-width-small: 160px;
   --ui-control-width-medium: 224px;
   --ui-control-width-large: 320px;
-  --ui-table-column-small: 96px;
-  --ui-table-column-medium: 144px;
-  --ui-table-column-large: 224px;
+  --ui-table-column-small: 64px;
+  --ui-table-column-medium: 96px;
+  --ui-table-column-large: 144px;
 }
