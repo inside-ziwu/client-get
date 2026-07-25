@@ -130,7 +130,7 @@ export default function CompaniesPage() {
     { id: 'contacts', header: '联系人数', width: 'small', align: 'center', type: 'number', value: 'contacts_count' },
     { id: 'createdAt', header: '入库时间', width: 'large', align: 'center', type: 'date', value: 'created_at', format: (value) => formatDateTime(value as string | undefined) },
     {
-      id: 'actions', header: '操作', width: 'medium', align: 'center', type: 'actions',
+      id: 'actions', header: '操作', width: 'large', align: 'center', type: 'actions',
       render: (row) => (
         <div className="flex items-center justify-center gap-ui-xxs">
           <Button variant="link" className="h-8 px-ui-xxs text-ui-foreground" onClick={() => setDetailId(row.id)}>详情</Button>
