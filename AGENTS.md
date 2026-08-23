@@ -1,3 +1,25 @@
+<!-- TRELLIS:START -->
+# Trellis Instructions
+
+These instructions are for AI assistants working in this project.
+
+This project is managed by Trellis. The working knowledge you need lives under `.trellis/`:
+
+- `.trellis/workflow.md` — development phases, when to create tasks, skill routing
+- `.trellis/spec/` — package- and layer-scoped coding guidelines (read before writing code in a given layer)
+- `.trellis/workspace/` — per-developer journals and session traces
+- `.trellis/tasks/` — active and archived tasks (PRDs, research, jsonl context)
+
+If a Trellis command is available on your platform (e.g. `/trellis:finish-work`, `/trellis:continue`), prefer it over manual steps. Not every platform exposes every command.
+
+If you're using Codex or another agent-capable tool, additional project-scoped helpers may live in:
+- `.agents/skills/` — reusable Trellis skills
+- `.codex/agents/` — optional custom subagents
+
+Managed by Trellis. Edits outside this block are preserved; edits inside may be overwritten by a future `trellis update`.
+
+<!-- TRELLIS:END -->
+
 # AGENTS.md
 
 > 给所有 AI 编码代理（Claude Code / Codex / 其他）的最高工作约束。本文件只写红线、纪律与项目特有约定；架构、命令、产品口径、部署与运维等事实见 [README.md](README.md)（仓库总入口），逐条债务见 GitHub Issues（`gh issue list`，优先级为 P0–P3 label），踩坑库见 `docs/solutions/`。发现本文与代码不符时，以代码 + 测试为准，并修订本文。
