@@ -1,1 +1,8 @@
 {"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/08-23-industry-news/prd.md", "reason": "按 AC1–AC6 逐条核对"}
+{"file": ".trellis/tasks/08-23-industry-news/design.md", "reason": "核对实现与设计一致：表结构、端点、页面、清理清单"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "门禁、真库验证纪律、禁止模式、评审清单"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "隔离过滤、UNIQUE 与时区写法、迁移纪律"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "门禁、测试模式、UI 规则、评审清单"}
+{"file": ".trellis/spec/guides/delivery-checklist.md", "reason": "验证证据、Issues 销账、文档与 spec 同步"}
+{"file": ".trellis/spec/guides/production-operations.md", "reason": "种子导入与迁移的生产操作三段式"}

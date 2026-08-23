@@ -1,1 +1,19 @@
 {"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/08-23-industry-news/prd.md", "reason": "需求与验收（AC1–AC6）、决策日志"}
+{"file": ".trellis/tasks/08-23-industry-news/design.md", "reason": "数据模型 DDL、抓取模块、调度、API 契约、前端结构、清理清单"}
+{"file": "CONTEXT.md", "reason": "术语：行业动态 / 动态 / 动态源 / 类别 / 语种 / 同稿 / 已读 / 抓取 / 实例"}
+{"file": "docs/adr/0001-industry-news-sources-are-industry-assets.md", "reason": "动态源为实例内行业级资产，带 instance_id"}
+{"file": "docs/adr/0002-industry-news-is-pure-programmatic-fetching.md", "reason": "纯程序化抓取，解析规则随种子由开发维护"}
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "分层、路由组挂载、鉴权上下文"}
+{"file": ".trellis/spec/backend/api-guidelines.md", "reason": "Pydantic 收参、响应包装、静态路由在前、前端契约同步"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "手写 SQL、隔离列、迁移纪律、时区、一次性脚本"}
+{"file": ".trellis/spec/backend/workers.md", "reason": "lifespan 循环、实例级 advisory lock、clock 注入、结构化日志"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "AppError 与 404 口径"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "JSON 日志与不得记录的内容"}
+{"file": ".trellis/spec/frontend/directory-structure.md", "reason": "tenant 页面模式、admin 预取壳、API 前缀"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "queryKeys 工厂、乐观更新与 invalidate"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "五件套公开 API 与列表交互口径"}
+{"file": ".trellis/spec/frontend/design-system.md", "reason": "令牌、五态、语义色、已读未读样式依据"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "shared-types / shared-api 同步规则"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "新端点 / 新表 的跨层同步清单"}
+{"file": ".trellis/spec/guides/git-workflow.md", "reason": "worktree 隔离与白名单提交"}
