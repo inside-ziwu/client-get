@@ -1,6 +1,6 @@
 # T-23 列表页设计系统实施进度（2026 Q3）
 
-> 本文件是 T-23（#59）列表页设计系统迁移的**纯执行跟踪文档**：实施计划、批次边界与完成状态全部记录于此，按周更新；T-23 销账后整个文件可归档删除。永久设计契约与五件套组件 API 见 [DESIGN.md](DESIGN.md)；本文与代码不符时，以代码 + 测试为准。
+> 本文件是 T-23（#59）列表页设计系统迁移的**纯执行跟踪文档**：实施计划、批次边界与完成状态全部记录于此，按周更新；T-23 销账后整个文件可归档删除。永久设计契约与五件套组件 API 见 [design-system.md](.trellis/spec/frontend/design-system.md)；本文与代码不符时，以代码 + 测试为准。
 >
 > 最后更新：2026-07-22。
 
@@ -12,7 +12,7 @@
 | Gate A | 组件测试 + 双端 type-check/build | ✅ 通过 |
 | T-21 合并门 | 采集页删除合并、页面/API 复扫 | ✅ 已合并 |
 | Phase B：双页打样 | Tenant companies + Admin email-templates | ✅ 2026-07-15 通过用户走查 |
-| 五件套 API 冻结 | 公开契约见 DESIGN.md「公开 API 冻结」 | ✅ 2026-07-15（组件提交 `38becd5`） |
+| 五件套 API 冻结 | 公开契约见 .trellis/spec/frontend/component-guidelines.md「公开 API 冻结」 | ✅ 2026-07-15（组件提交 `38becd5`） |
 | Phase C1：简单 Admin（2 页） | intelligence-sources、scoring-templates | ✅ 2026-07-15 完成，走查通过 |
 | Phase C2：简单 Tenant（3 页） | intelligence、settings/team、templates | ✅ 2026-07-15 完成，人工 Gate 通过 |
 | Phase C3：交互配置与发送计划（4 页） | ai-config、warmup-rules、work-schedule、send-plans + page-kit DataTable 清理 | ⬜ 未启动（前置：C2 已合并） |
@@ -20,11 +20,11 @@
 | Phase C5：tenants 巨型页（1 页） | admin `/tenants` 拆 Tab 迁移 | ⬜ 未启动 |
 | 最终验收与销账 | 全仓 grep 门禁、`status` → `active`、#59 关闭 | ⬜ 未启动 |
 
-[DESIGN.md](DESIGN.md) frontmatter 的 `status` 当前为 `adopting`：新建或迁移的列表页必须遵守设计契约，存量页面仍按下方批次分批迁移，不能只改全局颜色后宣称完成。C5 与最终验收完成后 `status` 调整为 `active`。
+[design-system.md](.trellis/spec/frontend/design-system.md) frontmatter 的 `status` 当前为 `adopting`：新建或迁移的列表页必须遵守设计契约，存量页面仍按下方批次分批迁移，不能只改全局颜色后宣称完成。C5 与最终验收完成后 `status` 调整为 `active`。
 
 ## 当前实现与目标的边界
 
-> 自 DESIGN.md Overview 迁入。「当前实现」指尚未迁移页面的存量形态，随 C3–C5 推进逐步消失。
+> 自设计系统文件（原 DESIGN.md）Overview 迁入。「当前实现」指尚未迁移页面的存量形态，随 C3–C5 推进逐步消失。
 
 | 维度     | 当前实现                        | T-23 目标                              |
 | -------- | ------------------------------- | -------------------------------------- |
@@ -36,7 +36,7 @@
 
 ## 迭代顺序
 
-> 自 DESIGN.md Iteration Guide 迁入。
+> 自设计系统文件（原 DESIGN.md）Iteration Guide 迁入。
 
 1. Phase A 先新增目标 token/alias 和五件套，不重映射现有 `background`、`primary` 等全局语义变量，也不迁业务页；为纯组件状态建立 Vitest。
 2. Phase B 只迁 tenant companies 与 admin email-templates，进行桌面/移动端用户走查。
@@ -104,7 +104,7 @@ T-21 合并 ─► rebase ─► 页面/API 复扫 ──────┘        
 
 - Phase A 只是 additive alias，不能让尚未迁移的页面提前变成白底黑按钮。
 - DataTable 列宽使用静态 class map；禁止模板拼接 Tailwind class。
-- `DESIGN.md` 继续保持 `status: proposed`。
+- `DESIGN.md`（现 `.trellis/spec/frontend/design-system.md`）继续保持 `status: proposed`。
 
 #### A1 · 原子层补强
 
@@ -279,13 +279,13 @@ npx @google/design.md lint DESIGN.md
 
 Gate B 已于 2026-07-15 通过：
 
-1. 五件套 public API 已冻结，冻结面见 [DESIGN.md](DESIGN.md) Components 章节。
-2. DESIGN.md `status` 已从 `proposed` 调整为 `adopting`，表示新页面必须遵守但存量仍在迁移。
+1. 五件套 public API 已冻结，冻结面见 [component-guidelines.md](.trellis/spec/frontend/component-guidelines.md) Components 章节。
+2. 设计系统文件 `status` 已从 `proposed` 调整为 `adopting`，表示新页面必须遵守但存量仍在迁移。
 3. Phase C 可以开始；每批仍须按本节回归门槛独立验证。
 
 ### 打样与迁移边界
 
-> 自 DESIGN.md Components 迁入。
+> 自设计系统文件（原 DESIGN.md）Components 迁入。
 
 Phase B 固定打样两页：
 
@@ -394,7 +394,7 @@ npx @google/design.md lint DESIGN.md
 
 - 双端 type-check/build 和 shared-ui/tenant tests 通过。
 - 390 / 768 / 1440 视口回归通过。
-- DESIGN.md `status` 从 `adopting` 调整为 `active`。
+- 设计系统文件 `status` 从 `adopting` 调整为 `active`。
 - T-23（#59）关闭销账，issue 附五件套、打样、全量 grep 与走查证据。
 - README 仅在功能矩阵或行为口径实际变化时更新；纯视觉迁移不伪造产品行为变化。
 
@@ -406,17 +406,9 @@ npx @google/design.md lint DESIGN.md
 - Sheet 宽度 token、暗色模式、后端 API/数据库行为、信息架构重做。
 - T-21 已删除页面的任何恢复或迁移。
 
-## 附录：列表页与筛选交互行为口径（2026-07-22 自 README §5 迁入）
+## 附录：列表页与筛选交互行为口径
 
-> 行为契约原文迁移，属列表页设计系统管辖；与 [DESIGN.md](DESIGN.md) 组件节（FilterBar / DataTable / TableState 等）重复处，随 #59 Phase C 收尾合并归一。
-
-- **公司列表行操作**：右侧固定操作列居中常驻“详情 / 群组 / 拉黑”三个与列表正文同为 14px/500、32px 高的轻量文字按钮，不使用更多菜单；拉黑默认中性、hover/focus 显示危险色。拉黑仍必须经过二次确认，提交期间禁止重复操作和关闭弹窗。
-- **列表刷新反馈**：翻页或查询刷新期间保留旧行与分页上下文；表格使用独立状态行显示“更新中…”，不得覆盖固定表头或行操作。
-- **平台邮件模板行操作**：操作列居中常驻“编辑 / 删除”两个与列表正文同为 14px/500、32px 高的文字按钮，不使用图标；删除默认中性、hover/focus 显示危险色，并保留二次确认。
-- **平台配置状态**：评分模板与情报源列表统一使用可操作 Switch，提交期间禁用当前行；编辑器统一显示“状态 + Switch + 启用/停用”。评分模板行业输入只更新草稿，点击「查询」或按 Enter 后才应用，重置同时清空草稿与已应用条件。
-- **页面级新增操作**：已迁移列表页统一使用 shared-ui `CreateButton`：40px 高、近黑主色、左侧 Plus 图标；页面不得自行散写主按钮颜色、尺寸或决定是否显示新增图标。非新增语义不使用该组件，同页次操作使用 outline。
-- **Tenant 简单列表**：情报、团队与模板统一使用 shared-ui ListPage/DataTable/TableState；列宽只使用 `small/medium/large/{ custom }` 契约，短枚举与操作居中，时间不换行，行操作提交期间只禁用当前行。团队新增成员操作框按控件契约使用姓名/角色 `small`、邮箱 `medium`，不与列表列宽混用。模板保留“我的模板/平台模板库”双 Tab 与原有编辑、预览、复制、克隆、测试发送、删除行为；平台模板“预览”当前存在误复制风险（#65，修复前勿用于只读核验）。
-- **公司筛选交互**：16 项查询条件常驻，并按业务语义合并呈现为 12 个控件：进口额、进口次数、联系人、成立年份各使用一体式起止范围；关键词使用 `medium`，国家、细分行业、产品标签、采集类型、群组状态与两种评级显式使用 `small`，范围组件显式使用 256px 自定义宽度。查询/重置跟随最后一个条件，1920px 主工作区保持两排。未选择统一显示“不限”，单选条件可单独选回“不限”而无需整体重置。远程多选加载时可打开并显示转圈与“正在加载选项…”，接口返回后原位刷新；空数组显示“暂无可选项”。FilterBar 内的多选保持 40px 单行紧凑展示：单项显示标签并截断，多项显示“已选 N 项”，取消选择在弹层内完成；弹层复选框固定 16px，不随长标签压缩。每次打开多选弹层时，已选项按选择顺序置顶并与其余选项分隔；本次打开期间顺序冻结，避免勾选后跳动，关闭再打开才按最新状态重排；搜索时只显示匹配结果，不强制分组。
+> 2026-08-23 已迁入 [.trellis/spec/frontend/component-guidelines.md](.trellis/spec/frontend/component-guidelines.md)「列表页与筛选交互行为口径」，本文不再保留副本。
 
 ## Known Gaps
 

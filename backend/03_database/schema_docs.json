@@ -98,7 +98,7 @@
   },
   {
    "name": "外部数据管道（外部直写，schema 主权不在本仓库）",
-   "description": "waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态。按 AGENTS.md §2：对这些表结构的任何变更须先与用户确认。",
+   "description": "waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态。按 .trellis/spec/backend/database-guidelines.md：对这些表结构的任何变更须先与用户确认。",
    "tables": [
     "waimaotong_raw_companies",
     "waimaotong_raw_contacts",

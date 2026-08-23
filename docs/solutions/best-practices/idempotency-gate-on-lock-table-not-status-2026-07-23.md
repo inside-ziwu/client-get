@@ -40,4 +40,4 @@ tags: [idempotency, callback, webhook, state-machine, email_send_locks]
 ## Related
 
 - PR #86（实现与测试）、PR #84(拆除通用幂等表的决策)
-- `docs/solutions/conventions/sql-semantics-verification-under-pure-mock-tests.md`（本次闸门 SQL 的 Neon 真库断言即按该约定执行）
+- `.trellis/spec/backend/quality-guidelines.md（真库验证纪律）`（本次闸门 SQL 的 Neon 真库断言即按该约定执行）

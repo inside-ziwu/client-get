@@ -21,9 +21,9 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill backend guidelines
-- [ ] Fill frontend guidelines
-- [ ] Add code examples
+- [x] Fill backend guidelines
+- [x] Fill frontend guidelines
+- [x] Add code examples
 
 ---
 
@@ -137,3 +137,9 @@ spec — a one-time setup so every future AI session follows the team's
 conventions instead of writing generic code. Before we start, do you have
 any existing convention docs (CLAUDE.md, .cursorrules, CONTRIBUTING.md,
 etc.) I can pull from, or should I scan the codebase from scratch?"
+
+
+## 执行记录（2026-08-23）
+
+- spec 全部中文；内容自 AGENTS.md / README.md / DESIGN.md / docs/solutions 迁移并按代码实证补写，原文件收口为指针或删除（见同日 PR）。
+- 文件集：backend 9（新增 api-guidelines / domain-rules / workers）、frontend 7（新增 design-system / component-guidelines，删除 hook-guidelines）、guides 6（新增 git-workflow / delivery-checklist / production-operations，两篇思考指南改写为中文）。

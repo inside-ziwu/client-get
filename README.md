@@ -2,7 +2,7 @@
 
 > **本文是仓库总入口**：前半是「🚀 快速开始」（装环境、跑起来），后半（§1–§13）是产品、架构与运维的深度参考（原 HANDBOOK 并入）。基线日期：2026-07-14（全量只读审计），快速开始部分 2026-07-22 核验。
 >
-> **文档体系**：本文 + [AGENTS.md](AGENTS.md)（AI 与协作者宪法：项目身份、安全红线、纪律）+ GitHub Issues（唯一债务与需求台账，`gh issue list`）+ 一个附属：[docs/solutions/](docs/solutions/)（踩坑知识库）。本文与代码冲突时，以代码与测试为准，并修订本文。
+> **文档体系**：本文（人看的总入口：快速开始、产品、功能现状、部署、运维）+ [AGENTS.md](AGENTS.md)（项目身份、安全红线、spec 索引）+ [.trellis/spec/](.trellis/spec/)（编码约定、数据库与迁移纪律、行为口径、设计系统、Git 与收尾、运维细则——由 Trellis 在编码前注入）+ GitHub Issues（唯一债务与需求台账，`gh issue list`）。[docs/solutions/](docs/solutions/) 为已冻结的历史事故档案。本文与代码冲突时，以代码与测试为准，并修订本文。
 
 ## 🚀 快速开始
 
@@ -102,12 +102,7 @@ cd backend && uv run pytest -q
 cd frontend && pnpm type-check
 ```
 
-后端用例以 mock 为主，无真库也能跑大部分（详见 §10）；涉及 SQL 语义、时区窗口、状态机的改动不能只靠 mock 验证（纪律见 [AGENTS.md](AGENTS.md) §3）。
-
-**已知失效命令**（修复前不得作为门禁，[AGENTS.md](AGENTS.md) §3 引用本清单）：
-
-- 前端根 `pnpm lint`：缺 ESLint 依赖（#50）。
-- Tenant `test:contract`：指向不存在的文件（#56）。
+后端用例以 mock 为主，无真库也能跑大部分（现状见 §10）。门禁范围、已知失效命令清单（当前：根 `pnpm lint`、tenant `test:contract`）与"SQL 语义 / 时区 / 状态机必须真库验证"的纪律见 [.trellis/spec/backend/quality-guidelines.md](.trellis/spec/backend/quality-guidelines.md) 与 [.trellis/spec/frontend/quality-guidelines.md](.trellis/spec/frontend/quality-guidelines.md)。
 
 ### 常见问题排查
 
@@ -165,7 +160,7 @@ cd frontend && pnpm type-check
 |---|---|---|
 | 认证体系 | 🟡 | 登录、强制改密、onboarding 可用；**tenant 不签发 refresh token，前端 401 拦截器硬编码 admin 续期路径，令牌过期即强制登出**（#76）。`shared-api/src/client.ts:82` |
 | 仪表盘 | ✅ | 邮件统计趋势、计划概览、配额/AI 余额、漏斗。`tenant/core.py` 5 端点 |
-| 公司列表与筛选 | ✅ | 16 项多维条件（含采集类型、已入群）紧凑常驻；交互与列宽契约见 [PROGRESS-2026-Q3.md](PROGRESS-2026-Q3.md) 附录（随 #59 收尾归一入 [DESIGN.md](DESIGN.md)）。函数索引优化过查询性能。`tenant_query_service.py` |
+| 公司列表与筛选 | ✅ | 16 项多维条件（含采集类型、已入群）紧凑常驻；交互与列宽契约见 [.trellis/spec/frontend/component-guidelines.md](.trellis/spec/frontend/component-guidelines.md)。函数索引优化过查询性能。`tenant_query_service.py` |
 | 优选客户（群组） | ✅ | 入群自动物化联系人。tenant `/curated-customers` |
 | 评分 | ✅ | **租户评分是确定性规则引擎，不是 AI**；仅依该租户当前模板/版本写入 `company_scores`，平台不对全局客户池打分。`scoring_engine_service.py` |
 | 邮件模板 | 🟡 | 双 Tab 列表、TipTap 富文本、纯文本兜底、测试发送；「AI 生成」当前为启发式桩（#46）；**平台模板“预览”会误调用复制接口，已排期修复**（#65）。tenant `/templates` |
@@ -212,49 +207,15 @@ client_get/
 └── 03_database/schema.sql   数据库蓝图（1497 行，含 RLS policy 定义；已知与生产漂移，见 #61，勿单独作为实施依据）
 ```
 
-**后端路由组**：admin 侧 config/collection/tenants/work-schedule/contact-classification/auth；tenant 侧 messaging/ops/settings/core/team/intelligence/auth；internal 仅保留发送与情报服务端点；webhooks 接收 EngageLab 事件。采集和数据源凭证端点已退役。
-
-**核心表族谱**：身份（platform_users/tenants/users/user_roles）→ 外部原始层（waimaotong_/tendata_/lixiaoyun_raw_*）→ 外部清洗共享层（waimaotong_clean_*/lixiaoyun_api_clean_*）→ 租户业务层（tenant_companies/tenant_contacts/company_scores/groups）→ 外联层（sending_plans/sequence_enrollments/emails/email_events/email_templates）→ 域名预热（domain_warmup_*/domain_daily_usage/work_rule_sets/countries）→ 支撑（notifications/audit_logs/ai_usage_logs）。逐表结构与业务说明见 [docs/database-schema.md](docs/database-schema.md)（生产快照自动生成）。
-
-**认证与隔离**：JWT HS256，三种 kind（platform/tenant/service）；租户 token 校验 slug 与 URL 一致、角色与 DB 实时比对；多实例用 `iid` claim。租户数据隔离现状要如实理解：RLS policy 已定义约 20 张表，但 **FORCE ROW LEVEL SECURITY 从未启用**，应用使用单一连接角色——实际隔离靠 service 层手写 `tenant_id` 过滤 + 9 个隔离专项测试文件锁定（#43 是登记的加固项）。
-
-**worker 部署形态**：sending worker 为独立进程（`scripts/run_sending_worker.py` 常驻，内含约每 10 分钟一轮的对账）；客户池修复循环在 API 进程 lifespan 内常驻，使用带 `instance_id` 的 advisory lock 防同实例并发。
+路由组与鉴权上下文、核心表族谱、认证与隔离现状、worker 部署形态等编码事实已迁入 [.trellis/spec/backend/directory-structure.md](.trellis/spec/backend/directory-structure.md) 与 [database-guidelines.md](.trellis/spec/backend/database-guidelines.md)；前端结构见 [.trellis/spec/frontend/directory-structure.md](.trellis/spec/frontend/directory-structure.md)。逐表结构见 [docs/database-schema.md](docs/database-schema.md)（生产快照自动生成）。
 
 ## 5. 关键行为口径
 
-这些是散落在代码里的重要业务决策，按此为准：
-
-| 口径 | 规则 |
-|---|---|
-| 发送间隔 | 固定 **3 秒**（worker fallback 与新建计划默认 `[3,3]`） |
-| 收件人选取 | 按联系人等级排序选取，**单公司上限 8 人**；排除 unsubscribed/bounced/invalid |
-| 发送窗口 | 按**收件人国家**的工作日历（工作日+节假日+时区）决定；不在窗口内则顺延 |
-| 配额熔断 | 同域名连续 3 次配额错误 → 熔断至北京时间次日凌晨；10 分钟窗口内 3 次 429 → 限流熔断 |
-| 发送幂等键 | `enrollment_id:step_id` |
-| 状态对账 | webhook 为主，对账 worker 约每 10 分钟主动查询兜底 |
-| 仪表盘统计 | 邮件统计**排除 failed**；「已评分公司」只计入租户当前活跃模板的最新版本分数 |
-| 租户评分 | 确定性规则引擎（非 AI），结果归租户所有；平台模板只是创建租户时的默认种子。「AI 评级/邮件生成/情报摘要」当前为启发式桩 |
-| 采集类型 | `manual` 看 `source_id LIKE 'manual-%'`；`keyword` 看精确标签「外贸通关键词采集」；`reverse` 看精确「腾道」标签或非空 `source_competitor`；其余为 `unknown`。优先级 manual > keyword > reverse。 |
-| PCB 供应商评分 | 只有显式 `reverse` 才视为「有中国 PCB 供应商」；keyword/manual/unknown 均为否 |
-| 域名验证 | **当前为假验证**：点击即置 verified，不做任何 DNS 校验（#47，勿向客户承诺） |
-| 预热升档 | 仅手动调整，无自动升档（#48） |
-| 计划完成 | 全部 enrollment 终态后自动置 completed |
-| 客户池修复 | 300 秒/轮，共享全池但排除手工私有行；按实例 + PCB 行业隔离，幂等可重复执行 |
-| 时间基准 | 生产数据库会话时区 UTC；熔断恢复等业务锚点用北京时间 |
-
-列表页与筛选的 UI 交互契约（行操作、刷新反馈、控件宽度等）见 [PROGRESS-2026-Q3.md](PROGRESS-2026-Q3.md) 附录（随 #59 收尾归一入 [DESIGN.md](DESIGN.md)）。
+发送间隔、收件人选取、发送窗口、配额熔断、统计口径、评分、采集类型、域名验证等全部行为口径已迁入 [.trellis/spec/backend/domain-rules.md](.trellis/spec/backend/domain-rules.md)（唯一出处，行为变更时同步修订）。列表页与筛选的 UI 交互口径见 [.trellis/spec/frontend/component-guidelines.md](.trellis/spec/frontend/component-guidelines.md)。
 
 ## 6. 多实例（Instance A / B）
 
-同一套代码 + 共享底层数据库，按 `CLIENTGET_INSTANCE_ID` 区分实例：
-
-> **硬性声明：A、B 共用同一个物理 PostgreSQL `clientget` 数据库，不是两套独立数据库。** `instance_id` 只提供逻辑数据边界；repair、评分、发送和所有批量操作仍竞争同一套连接、CPU、I/O 与锁。即使只操作 B，也必须同时审计 A 的在途发送负载，不能把 B 当成无影响的测试库。
-
-- 每实例独立 JWT secret，token 带 `iid` claim；管理员、租户、认证、worker 任务按实例隔离
-- `waimaotong_clean_companies`/`waimaotong_clean_contacts` 公池跨实例共享；`tenant_companies` 关系按实例的租户隔离，手工录入行不跨租户分发
-- 新实例初始化：`backend/scripts/init_instance.py`（创建实例管理员）
-- 前端按构建时注入的 API 地址区分实例，前端代码无实例概念
-- 各实例当前的运营状态与负责人尚未确认（#66），它也卡着 #61 的 schema 基准决策
+同一套代码 + **共享同一个物理 PostgreSQL 数据库**，按 `CLIENTGET_INSTANCE_ID` 区分实例。硬性声明、隔离边界与新实例初始化见 [.trellis/spec/backend/domain-rules.md](.trellis/spec/backend/domain-rules.md)「多实例」。各实例当前的运营状态与负责人尚未确认（#66）。
 
 ## 7. 环境与部署
 
@@ -299,7 +260,7 @@ client_get/
 | 一次性事故处理 | `restore_quota_incident_enrollments.py`（2026-07-02 配额事故）、`hard_delete_zhaokui_test_data.py`（租户硬删除目前仅此 ad hoc 出口，#57）、`migrate_legacy.py` |
 | 部署辅助 | `push-backend.sh`（仅本地调试） |
 
-生产数据库操作纪律见 [AGENTS.md](AGENTS.md) §1 与 [docs/solutions/conventions/production-data-operation-safety.md](docs/solutions/conventions/production-data-operation-safety.md)。客户池 repair（`WMT_LINEAGE_REPAIR_ENABLED`）是高危批量写路径：激活或参数变更需按该纪律逐项审批，禁止对生产迁移重复手工 DROP 或 downgrade（历史发布过程与证据见 #75）。
+生产数据库操作纪律见 [AGENTS.md](AGENTS.md) §1 与 [.trellis/spec/guides/production-operations.md](.trellis/spec/guides/production-operations.md)。客户池 repair（`WMT_LINEAGE_REPAIR_ENABLED`）是高危批量写路径：激活或参数变更需按该纪律逐项审批，禁止对生产迁移重复手工 DROP 或 downgrade（历史发布过程与证据见 #75）。
 
 ## 10. 测试与质量现状
 
@@ -318,8 +279,9 @@ client_get/
 
 ## 13. 文档体系与维护规则
 
-1. **真相链**：代码 + 测试 > 本文 > 其他一切。发现本文与代码不符，改本文。
-2. **行为变更**：影响 §3 矩阵或 §5 口径的变更，合并时同步修订本文对应行。
-3. **实施完成**：销账对应 issue——修复 PR 描述带 `Fixes #NN` 随合并自动关闭，无 PR 的用 `gh issue close` 附证据（这是每次收尾的固定动作）。
-4. **新踩坑**：沉淀到 `docs/solutions/`（现有 14 篇，分 best-practices/conventions/database-issues/integration-issues/runtime-errors/workflow-issues 六类）。
-5. **历史考古**：旧文档 `git show archive/2026-07-pre-handbook:<路径>`；原 TODO.md 台账 `git show e35335d^:TODO.md`；2026-05-16 前的更早历史在远程分支 `origin/codex/tenant-nextjs-rewrite`、`origin/codex/admin-server-prefetch`。
+1. **真相链**：代码 + 测试 > `.trellis/spec/` 与本文 > 其他一切。发现文档与代码不符，改文档。
+2. **分工**：本文只保留人看的入口与事实（快速开始、产品、功能现状矩阵、部署、运维脚本、债务、非目标）；编码约定、数据库与迁移纪律、行为口径、设计系统、Git 与收尾流程、运维细则**只写在 `.trellis/spec/`**，本文只链接不复制。
+3. **行为变更**：影响 §3 矩阵的变更合并时同步修订对应行；影响行为口径的变更修订 `.trellis/spec/backend/domain-rules.md`。
+4. **实施完成**：销账对应 issue——修复 PR 描述带 `Fixes #NN` 随合并自动关闭，无 PR 的用 `gh issue close` 附证据（收尾清单见 [.trellis/spec/guides/delivery-checklist.md](.trellis/spec/guides/delivery-checklist.md)）。
+5. **新教训**：写进 spec 对应的「常见错误」或规则节；`docs/solutions/` 已于 2026-08-23 冻结为历史档案，不再新增。
+6. **历史考古**：旧文档 `git show archive/2026-07-pre-handbook:<路径>`；原 TODO.md 台账 `git show e35335d^:TODO.md`；原 `DESIGN.md` 与 `docs/solutions/conventions/` 见 2026-08-23 迁移提交之前的历史；2026-05-16 前的更早历史在远程分支 `origin/codex/tenant-nextjs-rewrite`、`origin/codex/admin-server-prefetch`。

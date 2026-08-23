@@ -1,6 +1,6 @@
 # ClientGet Frontend
 
-pnpm monorepo（Next.js 15 + React 19）：`apps/tenant`（租户端，端口 3001）+ `apps/admin`（管理端，端口 3000）+ `packages/*` 共享包（shared-ui / shared-api / shared-hooks / shared-types）。**完整文档见根目录 [README.md](../README.md)**（架构 §4、本地开发 §8）。
+pnpm monorepo（Next.js 15 + React 19）：`apps/tenant`（租户端，端口 3001）+ `apps/admin`（管理端，端口 3000）+ `packages/*` 共享包（shared-ui / shared-api / shared-hooks / shared-types）。**完整文档见根目录 [README.md](../README.md)**；目录结构、页面模式、设计系统与组件契约、状态管理、类型契约与门禁见 [.trellis/spec/frontend/](../.trellis/spec/frontend/index.md)。
 
 ## 快速开始
 
