@@ -45,3 +45,10 @@
 ## 待办
 
 观察 2026-08-24 08:00（北京）自动轮次：新增条目整体置顶、14 源 `last_success_at` 刷新、错误计数、去重 → 稳定后 PR B（遗留清理；发布 B 后不可回退到 B 之前的镜像）。
+
+## 发布 B（同日，PR #101 合并后；用户选择不等次日 08:00 轮次）
+
+- 发布前只读复核：四表 2/0/0/0 行、`intelligence_summary` 场景行两实例各 1、无外部 FK，与迁移 docstring 一致。
+- 镜像：backend `2026.08.23-r2`；admin / tenant `2026.08.23-r3`（A）、`2026.08.23-b-r4`（B）。用户按「A backend → B backend → 四前端」串行更新。
+- 部署后验证：两实例 `/health` 200；`/openapi.json` 156 → 146 条路由（10 条 `intelligence*` 消失，6 条行业动态路由仍在）；`schema_snapshot.py --prod` diff 恰好 = 四表删除 + `alembic_version → 20260824_0002`，既有 65 张表零变化；生产 `pg_tables` 无 `intelligence*` / `articles_p_*`，`ai_scene_defaults` 只剩 scoring / email_generation / data_analysis；行业动态 14 源 / 148 条未受影响。
+- 自此不可回退到 `2026.08.23-r1` 及更早的 backend 镜像。
