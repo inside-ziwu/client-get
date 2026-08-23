@@ -3,7 +3,7 @@
   "name": "industry-news",
   "title": "行业动态（替换遗留情报模块）",
   "description": "租户端按实例内行业可见的每日行业动态流：13 站纯程序化抓取标题+链接，去重、90 天窗口、按用户已读；管理端监控页；删除遗留 intelligence_* 模块",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -22,5 +22,7 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "",
-  "meta": {}
+  "meta": {
+    "orchestration": "orca-lite: 本会话协调，Orca 管 worktree/终端；工人 Grok4.6(codex) 后端、Kimi K3 前端"
+  }
 }
