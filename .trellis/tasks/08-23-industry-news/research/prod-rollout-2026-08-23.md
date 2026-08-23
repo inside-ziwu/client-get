@@ -29,6 +29,19 @@
 - PCB Update 样本含 `pcdandf.com/…/19444-pcea-announces-…`（CR1 修复前会被裸 `pcea` 误杀）；「PCB West Panel to Take On What's Next for PCB Design」同稿出现在 PCEA / PCB West / Circuits Assembly 三源，入库按 dedup_key 只留一条。
 - HTML / JSON-LD 源多数 `published_at = null`，按设计以 `fetched_at` 参与窗口与排序。
 
+## 首轮抓取与验收
+
+- 用户在 A 实例 API 容器配 `INDUSTRY_NEWS_FETCH_ENABLED=true`（08:00 循环跑在 FastAPI lifespan 里，worker 与 B 不配）并重启，管理端「立即抓取」首轮：14:04:21 UTC 完成，14/14 成功、错误计数 0，入库 148 条（抓到 176，差额为 RSS 源早于 90 天的旧稿）。
+- 只读核对：`dedup_key` / `canonical_url` 零重复（三源同稿「PCB West Panel…」只留 Circuits Assembly 一条）；`canonical_url` 无 `utm_` / `#`；条目全部 `instance_id='default'`；114 条无发布时间（HTML / JSON-LD 源）。
+- AC1 / AC2 / AC4 / AC5 由用户在生产手动验证通过；AC3 的去重与 90 天过滤已由首轮证实，「08:00 轮次整体置顶」待次日观察。
+
+## 验收中发现的前端问题（#100，同日发布）
+
+1. 折叠侧栏悬停展开层被页面盖住：`aside` 是 sticky（自成层叠上下文、z-index auto），主栏 z-50 页头与 DataTable 的 relative 容器 / 粘性表头画在其上——所有列表页通病。展开时给 `aside` 加 `z-[60]`。
+2. 行业动态筛选区两行：改 FilterBar `layout="compact"` + `actionsPlacement="inline"`（与公司列表一致）。
+
+发布：仅 4 个前端镜像（admin / tenant `2026.08.23-r2`，B `2026.08.23-b-r3`），backend 不动；用户更新后确认两处均已修复。
+
 ## 待办
 
-开关 `INDUSTRY_NEWS_FETCH_ENABLED=true` 只配在 **A 实例 API 容器**（`clientget-backend`，08:00 循环跑在 FastAPI lifespan 里；B 不配）→ 重启 → 管理端「立即抓取」首轮（不依赖开关）→ AC1–AC5 → 观察一轮 08:00 → PR B。
+观察 2026-08-24 08:00（北京）自动轮次：新增条目整体置顶、14 源 `last_success_at` 刷新、错误计数、去重 → 稳定后 PR B（遗留清理；发布 B 后不可回退到 B 之前的镜像）。
