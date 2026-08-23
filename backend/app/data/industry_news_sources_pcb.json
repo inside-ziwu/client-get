@@ -1,0 +1,165 @@
+[
+  {
+    "code": "pcb-update",
+    "name": "PCB Update",
+    "industry": "PCB",
+    "category": "PCB 行业新闻",
+    "lang": "en",
+    "strategy": "html",
+    "url": "https://pcbupdate.com/",
+    "parse_config": {
+      "item_selector": "td > p > a[href^='http']",
+      "title_from": "parent",
+      "href_exclude": "pcbupdate\\.com|pcea|mediakit"
+    }
+  },
+  {
+    "code": "pcea",
+    "name": "PCEA",
+    "industry": "PCB",
+    "category": "PCB 技术 / 工程",
+    "lang": "en",
+    "strategy": "rss",
+    "url": "https://pcea.net/feed/",
+    "parse_config": {}
+  },
+  {
+    "code": "iconnect007",
+    "name": "I-Connect007",
+    "industry": "PCB",
+    "category": "PCB 制造 / 行业新闻",
+    "lang": "en",
+    "strategy": "html",
+    "url": "https://iconnect007.com/landing/pcb/news",
+    "parse_config": {
+      "item_selector": "a[href*='/article/']",
+      "href_pattern": "/article/"
+    }
+  },
+  {
+    "code": "pcdandf",
+    "name": "PCD&F",
+    "industry": "PCB",
+    "category": "PCB 设计 / 工程",
+    "lang": "en",
+    "strategy": "rss",
+    "url": "https://pcdandf.com/pcdesign/index.php?format=feed&type=rss",
+    "parse_config": {}
+  },
+  {
+    "code": "circuits-assembly",
+    "name": "Circuits Assembly",
+    "industry": "PCB",
+    "category": "PCBA / EMS",
+    "lang": "en",
+    "strategy": "rss",
+    "url": "https://circuitsassembly.com/ca/editorial/menu-news.feed?type=rss",
+    "parse_config": {}
+  },
+  {
+    "code": "ipc",
+    "name": "IPC",
+    "industry": "PCB",
+    "category": "行业标准 / 认证",
+    "lang": "en",
+    "strategy": "rss",
+    "url": "https://www.electronics.org/rss.xml",
+    "parse_config": {}
+  },
+  {
+    "code": "pcb-west",
+    "name": "PCB West",
+    "industry": "PCB",
+    "category": "美国 PCB 展会",
+    "lang": "en",
+    "strategy": "rss",
+    "url": "https://pcbwest.com/feed/",
+    "parse_config": {}
+  },
+  {
+    "code": "pcb-east",
+    "name": "PCB East",
+    "industry": "PCB",
+    "category": "美国 PCB 展会",
+    "lang": "en",
+    "strategy": "rss",
+    "url": "https://pcbeast.com/feed/",
+    "parse_config": {}
+  },
+  {
+    "code": "tpca",
+    "name": "TPCA",
+    "industry": "PCB",
+    "category": "台湾 PCB 产业 / 展会",
+    "lang": "zh-TW",
+    "strategy": "html",
+    "url": "https://www.tpca.org.tw/web/list_news.php?menu_no=312&mod_no=184",
+    "parse_config": {
+      "item_selector": "div.item h2 a"
+    }
+  },
+  {
+    "code": "nepcon-japan",
+    "name": "NEPCON JAPAN",
+    "industry": "PCB",
+    "category": "日本电子制造展会",
+    "lang": "en",
+    "strategy": "html",
+    "url": "https://www.nepconjapan.jp/hub/en-gb/press.html",
+    "parse_config": {
+      "item_selector": "div.cmp-text p a",
+      "href_pattern": "pressrelease|\\.pdf"
+    }
+  },
+  {
+    "code": "productronica",
+    "name": "Productronica",
+    "industry": "PCB",
+    "category": "欧洲电子制造",
+    "lang": "en",
+    "strategy": "jsonld",
+    "url": "https://productronica.com/en/trade-fair/press/press-releases/",
+    "parse_config": {
+      "href_pattern": "/press-releases/detail/"
+    }
+  },
+  {
+    "code": "electronica",
+    "name": "electronica",
+    "industry": "PCB",
+    "category": "欧洲电子行业",
+    "lang": "en",
+    "strategy": "jsonld",
+    "url": "https://electronica.de/en/trade-fair/journalists/press-releases/",
+    "parse_config": {
+      "href_pattern": "/press-releases/detail/"
+    }
+  },
+  {
+    "code": "cpca-news",
+    "name": "CPCA 协会动态",
+    "industry": "PCB",
+    "category": "中国 PCB 行业",
+    "lang": "zh-CN",
+    "strategy": "html",
+    "url": "https://www.cpca.org.cn/news.html",
+    "parse_config": {
+      "item_selector": "li.news-item a.lk",
+      "title_selector": "p.tit"
+    }
+  },
+  {
+    "code": "cpca-weekly",
+    "name": "CPCA 每周资讯",
+    "industry": "PCB",
+    "category": "中国 PCB 行业",
+    "lang": "zh-CN",
+    "strategy": "html",
+    "url": "https://www.cpca.org.cn/industry.html",
+    "parse_config": {
+      "item_selector": "div.newspaper-item",
+      "link_selector": "a.download-btn",
+      "title_selector": "p.name"
+    }
+  }
+]

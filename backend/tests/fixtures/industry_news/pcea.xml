@@ -1,0 +1,525 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"
+	xmlns:content="http://purl.org/rss/1.0/modules/content/"
+	xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+	xmlns:dc="http://purl.org/dc/elements/1.1/"
+	xmlns:atom="http://www.w3.org/2005/Atom"
+	xmlns:sy="http://purl.org/rss/1.0/modules/syndication/"
+	xmlns:slash="http://purl.org/rss/1.0/modules/slash/"
+	>
+
+<channel>
+	<title>Printed Circuit Engineering Association</title>
+	<atom:link href="https://pcea.net/feed/" rel="self" type="application/rss+xml" />
+	<link>https://pcea.net</link>
+	<description>An Organization Addressing Challenges in the Electronics Industry</description>
+	<lastBuildDate>Fri, 21 Aug 2026 19:24:29 +0000</lastBuildDate>
+	<language>en-US</language>
+	<sy:updatePeriod>
+	hourly	</sy:updatePeriod>
+	<sy:updateFrequency>
+	1	</sy:updateFrequency>
+	<generator>https://wordpress.org/?v=7.0.4</generator>
+
+<image>
+	<url>https://pcea.net/wp-content/uploads/2024/02/cropped-Digital-Favicon_bug_fullcolor-32x32.png</url>
+	<title>Printed Circuit Engineering Association</title>
+	<link>https://pcea.net</link>
+	<width>32</width>
+	<height>32</height>
+</image> 
+	<item>
+		<title>PCEA Announces Fall Webinar Schedule</title>
+		<link>https://pcea.net/2026/08/21/pcea-announces-fall-webinar-schedule/#utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=pcea-announces-fall-webinar-schedule</link>
+		
+		<dc:creator><![CDATA[Andy Shaughnessy]]></dc:creator>
+		<pubDate>Fri, 21 Aug 2026 19:24:26 +0000</pubDate>
+				<category><![CDATA[Press Release]]></category>
+		<category><![CDATA[PCEA]]></category>
+		<category><![CDATA[Webinars]]></category>
+		<guid isPermaLink="false">https://pcea.net/?p=12527</guid>
+
+					<description><![CDATA[PEACHTREE CITY, GA – AUGUST 21, 2026 – The Printed Circuit Engineering Association (PCEA) today announced its fall webinar schedule, a pair of online sessions aimed squarely at the working]]></description>
+										<content:encoded><![CDATA[
+<p class="wp-block-paragraph"><strong>PEACHTREE CITY, GA – AUGUST 21, 2026 – </strong>The Printed Circuit Engineering Association (PCEA) today announced its fall webinar schedule, a pair of online sessions aimed squarely at the working printed circuit board designer.</p>
+
+
+
+<p class="wp-block-paragraph">On Oct. 21, veteran PCB designer Judi Emerson will present “How to Be a GREAT Designer,” from 1 to 2:30 p.m. EDT.</p>
+
+
+
+<p class="wp-block-paragraph">Putting down copper traces properly is only part of the job. As Emerson points out, a great PCB designer also has to be an expert on the product, an expert with the ECAD tool, an expert on fabrication and assembly processes, an advocate for the needs of the board, a time bender and, on occasion, a miracle worker. Those demands are sharper still for the solo designer with no team or established process to lean on.</p>
+
+
+
+<p class="wp-block-paragraph">This session covers the “other” work a designer does beyond the board itself, including time management, change control, and building the processes that protect a designer’s schedule and sanity. Where other presentations explain how to do great PCB design, this one explains how to be a great PCB designer.</p>
+
+
+
+<p class="wp-block-paragraph">Emerson has been a PCB designer for 30 years, working primarily for Tier 1 automotive suppliers. She holds a bachelor’s in electrical engineering from Lawrence Technological University and is CID+ certified. Apart from a short stint at Visteon and a brief spell with a PCB supplier during the 2001 electronics downturn, she has been the first or only PCB designer at every job she has held, delivering designs for a range of products while learning on the job how to manage everything that surrounds the design process.</p>
+
+
+
+<p class="wp-block-paragraph">On Nov. 4, senior PCB design engineer and instructor Susy Webb will present “Designing the Signal Routing to Control Energy in Digital PCBs,” a 3.5-hour webinar running from 11 a.m. to 2:30 p.m. EST.</p>
+
+
+
+<p class="wp-block-paragraph">Great care is often given to the way signals are routed, but the full energy path is frequently not considered or even understood. As signal energy travels around a layer or moves layer to layer through the stackup, a range of complications can lead to poor signal integrity or EMI performance.</p>
+
+
+
+<p class="wp-block-paragraph">The webinar examines what signal energy is and where it is actually located, along with its ability to spread out and the containment measures that may be needed; the physics of rise time, signal flow and impedance control, plus EMI mechanisms and control measures; transmission lines, crosstalk and reference planes; and the way signals fanout, route, return and change layers, with a detailed look at routing order, location and spacing. Webb will also cover stackup design and quality planes, which provide a path for energy to travel from layer to layer while minimizing potential antennas. Attendees will come away understanding why certain routing scenarios are more effective than others.</p>
+
+
+
+<p class="wp-block-paragraph">Webb is a senior PCB design engineer and design instructor with more than 45 years of experience spanning oceanographic exploration and monitoring equipment, point-to-point microwave network systems, and CPCI and ATX computer motherboards. She is CID certified, a regular speaker at PCB West and PCB East, a former columnist for <em>PCD&amp;F</em>, a chapter writer for Clyde Coombs’ <em>Printed Circuits Handbook</em>, and coauthor of the PCEA CPCD program. She is an active member of the PCEA board and education committees.</p>
+
+
+
+<p class="wp-block-paragraph">“These two topics sit at the center of what designers wrestle with every day, and neither one gets the formal training it deserves,” said Mike Buetow, president of PCEA. “How you control energy and order your routing decides whether a board actually performs, and how you manage the process around the design decides whether it ships on time. Designers who get both right are the ones their companies can’t do without.”</p>
+
+
+
+<p class="wp-block-paragraph">The Oct. 21 webinar is free. Registration for the Nov. 4 webinar is $395.</p>
+
+
+
+<p class="wp-block-paragraph">To register for the Oct. 21 webinar,<a href="https://register.gotowebinar.com/register/1007093734705310041" target="_blank" rel="noreferrer noopener"> click here</a>. To register for the Nov. 4 webinar,<a href="https://register.gotowebinar.com/register/628844142495600988" target="_blank" rel="noreferrer noopener"> click here</a>. For more information on PCEA webinars, visit <a href="http://pcea.net/" target="_blank" rel="noreferrer noopener">pcea.net</a>.</p>
+]]></content:encoded>
+					
+		
+		
+			</item>
+		<item>
+		<title>PCB West Panel to Take On What’s Next for PCB Design</title>
+		<link>https://pcea.net/2026/08/18/pcb-west-panel-to-take-on-whats-next-for-pcb-design/#utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=pcb-west-panel-to-take-on-whats-next-for-pcb-design</link>
+		
+		<dc:creator><![CDATA[Andy Shaughnessy]]></dc:creator>
+		<pubDate>Tue, 18 Aug 2026 20:31:00 +0000</pubDate>
+				<category><![CDATA[Press Release]]></category>
+		<category><![CDATA[Future of PCB Design Panel]]></category>
+		<category><![CDATA[Matt Leary]]></category>
+		<category><![CDATA[Newgrange Design]]></category>
+		<guid isPermaLink="false">https://pcea.net/?p=12515</guid>
+
+					<description><![CDATA[PEACHTREE CITY, GA – AUGUST 18, 2026 – The Printed Circuit Engineering Association (PCEA) today announced a panel discussion on the technologies reshaping printed circuit board design over the next]]></description>
+										<content:encoded><![CDATA[
+<p class="wp-block-paragraph"><strong>PEACHTREE CITY, GA – AUGUST 18, 2026 –</strong> The Printed Circuit Engineering Association (PCEA) today announced a panel discussion on the technologies reshaping printed circuit board design over the next two to five years will take place at PCB West 2026.</p>
+
+
+
+<p class="wp-block-paragraph">“The Future of PCB Design” (session 10) will be moderated by Matt Leary, founder and president of Newgrange Design. The 90-minute session takes place Sept. 29 from 3:30 to 5 p.m. at the Santa Clara Convention Center in Santa Clara, CA. It is included with conference registration.</p>
+
+
+
+<p class="wp-block-paragraph">The panel will examine four developments designers are likely to encounter before the end of the decade: the current – and realistic – role of AI in PCB design; interposer boards that sit between the PCB and the semiconductor; advances in high-speed and high-current design; and the integration of optical interconnects. The emphasis is on exposure to what is coming, and on what designers should be doing now to prepare, rather than a deep technical dive into any single topic.</p>
+
+
+
+<p class="wp-block-paragraph">Panelists include Joe Dickson of WUS Printed Circuits, Takuro Sakamoto of Elephantech, Steven Clark, Ph.D., of Stanford University (retired), and Mohammad Matin of Celus.</p>
+
+
+
+<p class="wp-block-paragraph">Leary founded Newgrange Design, a Wakefield, MA-based PCB design and engineering services firm, in 1996. The company marks its 30th year in 2026 and today fields a staff of more than 30 designers and engineers working across the major ECAD platforms, along with library development, signal integrity simulation and cable documentation. Leary began his career as a full-time PCB designer and is a frequent speaker at PCEA events.</p>
+
+
+
+<p class="wp-block-paragraph">“These four topics are not academic exercises – they are going to land on designers’ desks, and sooner than most people think,” said Mike Buetow, president, PCEA. “Designers who understand where AI actually helps today, what interposers mean for their stackups, and how optical integration changes the rules will be the ones companies turn to. Matt has built a business by staying in front of exactly these shifts, and he has assembled a panel that spans fabrication, materials, research and design automation. This is the kind of session that pays for itself.”</p>
+
+
+
+<p class="wp-block-paragraph">PCB West will be held Sept. 29 – Oct. 2 at the Santa Clara Convention Center in Santa Clara, CA. The event includes a one-day exhibition on Sept. 30. Registration is open at pcbwest.com.</p>
+
+
+
+<p class="wp-block-paragraph"><strong>Editors: A photo of Leary is available upon request.</strong></p>
+]]></content:encoded>
+					
+		
+		
+			</item>
+		<item>
+		<title>PCB Market Authority Nakahara to Deliver Industry Outlook at PCB West</title>
+		<link>https://pcea.net/2026/08/13/pcb-market-authority-nakahara-to-deliver-industry-outlook-at-pcb-west/#utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=pcb-market-authority-nakahara-to-deliver-industry-outlook-at-pcb-west</link>
+		
+		<dc:creator><![CDATA[Andy Shaughnessy]]></dc:creator>
+		<pubDate>Thu, 13 Aug 2026 16:34:26 +0000</pubDate>
+				<category><![CDATA[Press Release]]></category>
+		<category><![CDATA[nakahara]]></category>
+		<category><![CDATA[NTI100]]></category>
+		<guid isPermaLink="false">https://pcea.net/?p=12490</guid>
+
+					<description><![CDATA[PEACHTREE CITY, GA – August 13, 2026 – The Printed Circuit Engineering Association (PCEA) today announced that Dr. Hayao Nakahara, president of N.T. Information Ltd. and author of the annual]]></description>
+										<content:encoded><![CDATA[
+<p class="wp-block-paragraph"><strong>PEACHTREE CITY, GA – August 13, 2026 – </strong>The Printed Circuit Engineering Association (PCEA) today announced that Dr. Hayao Nakahara, president of N.T. Information Ltd. and author of the annual NTI-100 ranking of the world’s largest printed circuit board manufacturers, will present “The PCB Market Outlook” at PCB West 2026.</p>
+
+
+
+<p class="wp-block-paragraph">His session, “The PCB Market Outlook,” takes place Sept. 30 from 10 to 11 a.m. at the Santa Clara Convention Center in Santa Clara, CA.</p>
+
+
+
+<p class="wp-block-paragraph">Dr. Nakahara will examine the past, present and future of the PCB market, the forces pushing the industry, and the effects of AI – not only on demand, but on the technology changes fabricators and designers will be asked to absorb. The class is open to all experience levels and is intended for designers, hardware and test engineers, fabrication and assembly personnel, and business leaders.</p>
+
+
+
+<p class="wp-block-paragraph" id="Nakahara-PCBWest-NTI100">Dr. Nakahara has compiled the NTI-100, the definitive ranking of printed circuit board manufacturers with annual PCB revenues above $100 million, every year since 1999. The list is published each fall in PRINTED CIRCUIT DESIGN &amp; FAB.</p>
+
+
+
+<p class="wp-block-paragraph">His most recent ranking found a record 159 fabricators topped the $100 million mark in 2024, up from 134 the year prior, and put worldwide PCB production at approximately $96 billion, with China accounting for roughly 59% of global output. The 2024 data also tracked an accelerating buildout in Southeast Asia, where more than 60 fabricators are constructing plants in Thailand, Malaysia and Vietnam.</p>
+
+
+
+<p class="wp-block-paragraph">Dr. Nakahara founded N.T. Information in 1986 and has toured more than 600 PCB manufacturing plants in 67 countries over a career spanning six decades. He began in the industry at Photocircuits Corp. in 1965 and spent 15 years with the PCK Technology division of Kollmorgen Corp. He holds a master’s in electrical engineering from the University of Washington and a doctorate in electrical engineering from Columbia University.</p>
+
+
+
+<p class="wp-block-paragraph">“Dr. Nakahara’s data are the backbone of how this industry understands itself,” said Mike Buetow, president, PCEA. “When an OEM decides where to source, or a fabricator decides where to put its next dollar of capital equipment, the NTI-100 is the reference they reach for. No one else has spent six decades walking the factory floors in 67 countries and then done the arithmetic. For anyone making a sourcing, capacity or investment decision, this hour is the best market intelligence in the industry.”</p>
+
+
+
+<p class="wp-block-paragraph">Registration is open at pcbwest.com. Conference registrants who sign up by August 21 can take advantage of the Early Bird Special discounts for the conference.</p>
+
+
+
+<p class="wp-block-paragraph">PCB West will be held September 29 &#8211; October 2, 2026, at the Santa Clara (CA) Convention Center. The event includes a one-day exhibition on September 30, which will include a free lunch on the exhibit floor.</p>
+]]></content:encoded>
+					
+		
+		
+			</item>
+		<item>
+		<title>A Day of Assembly Classes at PCB West 2026</title>
+		<link>https://pcea.net/2026/08/12/a-day-of-assembly-classes-at-pcb-west-2026/#utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=a-day-of-assembly-classes-at-pcb-west-2026</link>
+		
+		<dc:creator><![CDATA[Andy Shaughnessy]]></dc:creator>
+		<pubDate>Wed, 12 Aug 2026 21:11:32 +0000</pubDate>
+				<category><![CDATA[Press Release]]></category>
+		<category><![CDATA[assembly]]></category>
+		<category><![CDATA[solder]]></category>
+		<category><![CDATA[solder paste]]></category>
+		<guid isPermaLink="false">https://pcea.net/?p=12486</guid>
+
+					<description><![CDATA[PEACHTREE CITY, GA – August 12, 2026 – PCB West 2026 offers 11 presentations on circuit assembly processes across two days in September at the Santa Clara (CA) Convention Center.&#160;]]></description>
+										<content:encoded><![CDATA[
+<p class="wp-block-paragraph"><strong>PEACHTREE CITY, GA – August 12, 2026 – </strong>PCB West 2026 offers 11 presentations on circuit assembly processes across two days in September at the Santa Clara (CA) Convention Center.&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">The two-day event on September 29-30 features a half-day workshop on solder paste qualification, coupled with 10 presentations spanning the spectrum on electronics assembly, from basic fundamentals of circuit assembly processes to more advanced topics.&nbsp;&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">The program “Introduction to Circuit Assembly Processes” covers the fundamentals: Chrys Shea of Shea Engineering’s class on the SMT printing process, pick-and-place fundamentals with Daniel Stanphill of Aurora Boardworks, the basic components of solder paste with Anna Lifton of MacDermid Alpha, and the basics of cleaning with Doug Pauls of ItDepends.</p>
+
+
+
+<p class="wp-block-paragraph">“Advanced CA Processes” picks up in the afternoon: X-ray imaging resolution misconceptions, Type 5 solder pastes and beyond, stencil design and manufacturing, placement for high-reliability applications, formic acid reflow soldering, and cleanliness measurement with conformal coatings.</p>
+
+
+
+<p class="wp-block-paragraph">Shea will also present “A Data-Driven Solder Paste Qualification Process,” a half-day course on building a qualification protocol that produces defensible data instead of opinions.</p>
+
+
+
+<p class="wp-block-paragraph">PCB West will be held Sept. 29 to Oct. 2, 2026, at the Santa Clara Convention Center. The event includes a one-day exhibition on September 30.</p>
+
+
+
+<p class="wp-block-paragraph">To register, visit pcbwest.com.&nbsp;</p>
+]]></content:encoded>
+					
+		
+		
+			</item>
+		<item>
+		<title>August 2026 Newsletter</title>
+		<link>https://pcea.net/2026/08/10/august-2026-newsletter/#utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=august-2026-newsletter</link>
+		
+		<dc:creator><![CDATA[Mike Buetow]]></dc:creator>
+		<pubDate>Mon, 10 Aug 2026 14:23:55 +0000</pubDate>
+				<category><![CDATA[Newsletter]]></category>
+		<guid isPermaLink="false">https://pcea.net/?p=12454</guid>
+
+					<description><![CDATA[Hello members! As summer winds down, we hope you are enjoying the last few moments of (relative) peace before the kids go back to school and the madness starts anew.]]></description>
+										<content:encoded><![CDATA[
+<h2 class="wp-block-heading"></h2>
+
+
+
+<p class="wp-block-paragraph">Hello members!</p>
+
+
+
+<p class="wp-block-paragraph">As summer winds down, we hope you are enjoying the last few moments of (relative) peace before the kids go back to school and the madness starts anew.</p>
+
+
+
+<p class="wp-block-paragraph">We at PCEA have a busy fall planned, too.&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">Up first, of course, is <strong>PCB West</strong>. Those who register in the next couple weeks will get the <strong>best discount </strong>for the <strong>technical conference</strong>, but hurry: the price goes up after <strong>Aug. 21</strong>! Rick Hartley, Karen Burnham, Susy Webb, Stephen Chavez, and Tomas Chester are among those filling more than 120 hours of deep dives into PCB design and engineering at this year’s conference. PCB West takes place Sept. 29 – Oct. 2 at the Santa Clara Convention Center in Santa Clara, CA. The event includes a one-day exhibition with more than 110 exhibitors and a dozen free technical presentations on Sept. 30.&nbsp;<a href="https://pcbwest.com/" target="_blank" rel="noreferrer noopener">Sign up now here</a>.&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">We just released the latest version of our <em><strong>Printed Circuit Board Basics</strong> </em>book. The sixth edition is updated to include, among other things, sections on UHDI and AI. It&#8217;s <a href="https://pcea.net/2026/07/27/printed-circuit-board-basics-an-introduction-to-the-pcb-industry/" target="_blank" rel="noreferrer noopener">available for free download</a> to all PCEA members.</p>
+
+
+
+<p class="wp-block-paragraph">We are just weeks away from the debut of a new on-demand tutorial on <strong>noise and impedance control </strong>in printed circuit design. Building on our <strong>on-demand </strong>classes at <a href="https://pcea.net/pcu" target="_blank" rel="noreferrer noopener">Printed Circuit University</a>, the new class, &#8220;Advanced Electronics: Electromagnetic Applications in Printed Circuit Engineering,&#8221; reframes PCB behavior around electromagnetic field theory rather than conventional circuit theory. Based on Chapter 7 of the <em>Printed Circuit Engineering Professional</em> handbook, and written by a cadre of experts led by Rick Hartley, it covers:</p>
+
+
+
+<ul class="wp-block-list">
+<li>Energy movement</li>
+
+
+
+<li>Critical frequency</li>
+
+
+
+<li>Transmission lines and critical length</li>
+
+
+
+<li>Dielectric constant accuracy</li>
+
+
+
+<li>Analog critical length economics</li>
+
+
+
+<li>Impedance and discontinuities</li>
+
+
+
+<li>Impedance control by board style</li>
+
+
+
+<li>Digital IC impedance and termination</li>
+
+
+
+<li>Noise margin, and GND/VCC bounce</li>
+
+
+
+<li>Crosstalk and timing</li>
+</ul>
+
+
+
+<p class="wp-block-paragraph">In November, Susy Webb will present a half-day webinar on <strong>Designing the Signal Routing to Control Energy in Digital PCBs.</strong> Learn the physics of rise time, signal flow, impedance control, and some EMI mechanisms and control measures for designing boards. <a href="https://attendee.gotowebinar.com/register/628844142495600988" target="_blank" rel="noreferrer noopener">Register here </a>for the Nov. 4 presentation.&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">Also this fall, we will offer a new webinar on <strong>mastering the fundamentals of being a designer</strong>; scheduled for Oct. 21 at 1 p.m. Eastern.&nbsp;&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">Finally, a warm <strong>welcome back </strong>to<strong> Brooke (Anglin) Downey</strong>! She rejoins us after a couple years away as vice president of sales. We are thrilled to have her back!</p>
+
+
+
+<p class="wp-block-paragraph">Hope to see you soon!</p>
+
+
+
+<p class="wp-block-paragraph">Mike Buetow<br>PCEA President<br><a href="mailto:mike@pcea.net">mike@pcea.net</a></p>
+
+
+
+<h2 class="wp-block-heading">PCEA Training Update&nbsp;</h2>
+
+
+
+<p class="wp-block-paragraph">Congratulations to our newly&nbsp;certified designers:</p>
+
+
+
+<ul class="wp-block-list">
+<li>Cori Nicholson</li>
+
+
+
+<li>Michael Smith</li>
+</ul>
+
+
+
+<h2 class="wp-block-heading">Recent Discord Chatter</h2>
+
+
+
+<p class="wp-block-paragraph">Overheard on the PCEA Discord server:</p>
+
+
+
+<ul class="wp-block-list">
+<li>Fanout with via-in-pad</li>
+
+
+
+<li>Component footprint creation</li>
+
+
+
+<li>Developing standard ECAD procedures&nbsp;</li>
+</ul>
+
+
+
+<p class="wp-block-paragraph">Want to join? Send a note to <a href="mailto:membership@pcea.net?subject=I%20want%20to%20join%20the%20PCEA%20Discord!">membership@pcea.net</a>. &nbsp;</p>
+
+
+
+<h2 class="wp-block-heading">Local Chapters</h2>
+
+
+
+<p class="wp-block-paragraph">Please forward your chapter news to pcea@pcea.net for inclusion on our website and in future newsletters.</p>
+
+
+
+<p class="wp-block-paragraph"><strong>National:</strong>&nbsp;Our annual meeting takes place Sept. 29, 2026, at PCB West. All PCEA members are welcome.</p>
+
+
+
+<p class="wp-block-paragraph"><strong>Orange County, CA:</strong>&nbsp;We plan to hold an online meeting in early September. The guest speaker is Justin Fleming of Livewire, and the topic is implementing accurate and standards-compliant footprints.</p>
+
+
+
+<h2 class="wp-block-heading">New PCEA Members</h2>
+
+
+
+<ul class="wp-block-list">
+<li><a href="https://www.weidmuller.com/en/index.jsp" target="_blank" rel="noreferrer noopener">Weidmueller USA</a></li>
+</ul>
+
+
+
+<h2 class="wp-block-heading">Upcoming PCEA Events</h2>
+
+
+
+<p class="wp-block-paragraph"><a href="https://www.linkedin.com/company/38173597/admin/dashboard/" target="_blank" rel="noreferrer noopener">Follow us on LinkedIn</a>! Don&#8217;t miss the latest happenings.</p>
+
+
+
+<ul class="wp-block-list">
+<li><a href="https://pceatraining.net" target="_blank" rel="noreferrer noopener"><strong>PCEA Training.</strong></a> PCEA will hold Printed Circuit Engineering Professional curriculum and certification classes as follows:
+<ul class="wp-block-list">
+<li>Sept. 4, 11, 18, 25, Oct. 9&nbsp;</li>
+
+
+
+<li>Sept. 28 &#8211; Oct. 2 (live abridged class, taught in-person in conjunction with PCB West)</li>
+
+
+
+<li>Oct. 16, 23, 30, Nov. 6, 13</li>
+</ul>
+</li>
+
+
+
+<li><strong><a href="https://www.pcbwest.com" target="_blank" rel="noreferrer noopener">PCB West</a>.&nbsp;</strong>Sept. 29-Oct. 2, 2026, Santa Clara (CA) Convention Center.</li>
+
+
+
+<li><a href="https://attendee.gotowebinar.com/register/1007093734705310041" target="_blank" rel="noreferrer noopener">How to Be a GREAT Designer webinar</a> with Judi Emerson, Oct. 21</li>
+
+
+
+<li><a href="https://attendee.gotowebinar.com/register/628844142495600988" target="_blank" rel="noreferrer noopener">Designing the Signal Routing to Control Energy in Digital PCBs</a> webinar with Susy Webb, Nov. 4</li>
+
+
+
+<li><strong><a href="https://PCBEast.com" target="_blank" rel="noreferrer noopener">PCB East</a>.</strong>&nbsp;April 27-30, 2027, DCU Center, Worcester, MA&nbsp;</li>
+</ul>
+
+
+
+<h2 class="wp-block-heading">Reading Material</h2>
+
+
+
+<p class="wp-block-paragraph">See below for highlights of the recent issues of PCD&amp;F/Circuits Assembly.&nbsp;</p>
+
+
+
+<ul class="wp-block-list">
+<li><strong>Understanding the PDN.</strong> Reflections on distributed electromagnetics.</li>
+
+
+
+<li><strong>Flex DfM guidelines.</strong> Boost manufacturing yields and minimize production risks.</li>
+
+
+
+<li><strong>UHDI capability charts.</strong> Understanding the distinction between process capability and design intent.</li>
+
+
+
+<li><strong>Stop the documentation madness!</strong> How AI can transform routine reports and work instructions, allowing engineering teams time to focus on higher-value work.</li>
+
+
+
+<li><strong>The reshaping semiconductor supply chain.</strong> Manufacturers are prioritizing capacity, adjusting pricing and tightening availability for mature-node devices.</li>
+
+
+
+<li><strong>ICT vs. flying probe.</strong> Factory testing of PCB assemblies.</li>
+
+
+
+<li><strong>RF PCB layout.</strong> Transmission lines, impedance and PDN design.</li>
+
+
+
+<li><strong>Dynamic flex applications.</strong> Bonding a flex circuit to a thin piece of plastic in an application where the bonded area will flex dynamically.</li>
+</ul>
+
+
+
+<p class="wp-block-paragraph">&nbsp;<a href="https://digital.pcea.net" rel="noreferrer noopener" target="_blank">Read it all here</a>. Have an idea for an article? Contact us at pcea@pcea.net. No writing experience required!</p>
+]]></content:encoded>
+					
+		
+		
+			</item>
+		<item>
+		<title>Susy Webb to Lead Signal Routing Webinar Nov. 4</title>
+		<link>https://pcea.net/2026/08/10/webinar-designing-the-signal-routing/#utm_source=rss&#038;utm_medium=rss&#038;utm_campaign=webinar-designing-the-signal-routing</link>
+		
+		<dc:creator><![CDATA[Mike Buetow]]></dc:creator>
+		<pubDate>Mon, 10 Aug 2026 09:12:00 +0000</pubDate>
+				<category><![CDATA[Press Release]]></category>
+		<category><![CDATA[Susy Webb]]></category>
+		<category><![CDATA[Susy Webb to Lead Signal Routing Webinar Nov. 4]]></category>
+		<guid isPermaLink="false">https://pcea.net/?p=12445</guid>
+
+					<description><![CDATA[PEACHTREE CITY, GA – August 10, 2026 – The Printed Circuit Engineering Association will host a 3.5-hour signal routing webinar on Nov. 4. The webinar, “Designing the Signal Routing to]]></description>
+										<content:encoded><![CDATA[
+
+
+<p class="wp-block-paragraph"><strong>PEACHTREE CITY, GA – August 10, 2026 –</strong> The Printed Circuit Engineering Association will host a 3.5-hour signal routing webinar on Nov. 4. The webinar, “Designing the Signal Routing to Control Energy in Digital PCBs,” will be presented by PCB design instructor Susy Webb.</p>
+
+
+
+<p class="wp-block-paragraph">While great care is often given to the way signals are routed, frequently the full energy path is not considered or even understood. As the signal energy travels around a layer or moves layer to layer throughout the stackup, many troublesome complications can lead to poor signal integrity or EMI performance.&nbsp;</p>
+
+
+
+<p class="wp-block-paragraph">This webinar will examine:</p>
+
+
+
+<ul class="wp-block-list">
+<li>The electronics and physics of signals: what this energy is and where it is

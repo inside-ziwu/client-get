@@ -18,11 +18,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.config import get_settings
+from app.utils.industry import PCB_INDUSTRY_ALIASES as _PCB_INDUSTRY_ALIASES
 
 logger = logging.getLogger(__name__)
 
 _ADVISORY_LOCK_KEY = 2_026_052_101
-_PCB_INDUSTRY_ALIASES = ["pcb", "电路板"]
 _SCORING_BATCH_SIZE = 500
 
 
