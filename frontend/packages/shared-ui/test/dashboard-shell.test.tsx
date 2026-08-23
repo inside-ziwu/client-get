@@ -95,4 +95,23 @@ describe('DashboardShell', () => {
     const desktopNavigation = screen.getByRole('navigation', { name: '桌面主导航' });
     expect(desktopNavigation.closest('aside')).toHaveClass('sticky', 'top-0');
   });
+
+  it('折叠后悬停展开层抬升到页头与表格之上', () => {
+    renderShell();
+    const aside = screen.getByRole('navigation', { name: '桌面主导航' }).closest('aside');
+    if (!aside) throw new Error('aside 不存在');
+
+    fireEvent.click(screen.getByRole('button', { name: '收起侧边栏' }));
+    expect(aside).not.toHaveClass('z-[60]');
+
+    fireEvent.mouseEnter(aside);
+    expect(aside).toHaveClass('z-[60]');
+    expect(within(aside).getByRole('navigation', { name: '展开的桌面主导航' })).toBeInTheDocument();
+
+    fireEvent.mouseLeave(aside);
+    expect(aside).not.toHaveClass('z-[60]');
+    expect(
+      within(aside).queryByRole('navigation', { name: '展开的桌面主导航' }),
+    ).not.toBeInTheDocument();
+  });
 });

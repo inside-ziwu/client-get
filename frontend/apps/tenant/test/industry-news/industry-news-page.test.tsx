@@ -182,4 +182,15 @@ describe('IndustryNewsPage 行业动态', () => {
       );
     });
   });
+
+  it('筛选区为紧凑单行：四个条件与重置/查询在同一容器内', async () => {
+    renderPage();
+    await screen.findByRole('table', { name: '动态列表' });
+
+    const inline = screen.getByTestId('filter-bar-inline-layout');
+    expect(within(inline).getByRole('group', { name: '类别' })).toBeInTheDocument();
+    expect(within(inline).getByRole('switch', { name: '只看未读' })).toBeInTheDocument();
+    expect(await within(inline).findByRole('button', { name: '查询' })).toBeInTheDocument();
+    expect(within(inline).getByRole('button', { name: '重置' })).toBeInTheDocument();
+  });
 });
