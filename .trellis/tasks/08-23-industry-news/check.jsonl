@@ -6,3 +6,8 @@
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "门禁、测试模式、UI 规则、评审清单"}
 {"file": ".trellis/spec/guides/delivery-checklist.md", "reason": "验证证据、Issues 销账、文档与 spec 同步"}
 {"file": ".trellis/spec/guides/production-operations.md", "reason": "种子导入与迁移的生产操作三段式"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-data-model.md", "reason": "核对实现是否按评审处置落地"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-backend.md", "reason": "核对实现是否按评审处置落地"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-frontend.md", "reason": "核对实现是否按评审处置落地"}
+{"file": ".trellis/tasks/08-23-industry-news/research/review-resolution.md", "reason": "核对实现是否按评审处置落地"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-codex.md", "reason": "核对 C2–C9 处置是否落地"}

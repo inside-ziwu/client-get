@@ -17,3 +17,8 @@
 {"file": ".trellis/spec/frontend/type-safety.md", "reason": "shared-types / shared-api 同步规则"}
 {"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "新端点 / 新表 的跨层同步清单"}
 {"file": ".trellis/spec/guides/git-workflow.md", "reason": "worktree 隔离与白名单提交"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-data-model.md", "reason": "评审核证结论与处置，实现时对照"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-backend.md", "reason": "评审核证结论与处置，实现时对照"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-frontend.md", "reason": "评审核证结论与处置，实现时对照"}
+{"file": ".trellis/tasks/08-23-industry-news/research/review-resolution.md", "reason": "评审核证结论与处置，实现时对照"}
+{"file": ".trellis/tasks/08-23-industry-news/research/design-review-codex.md", "reason": "Codex 第二视角评审：产品口径与共库运维"}
