@@ -78,9 +78,16 @@ describe('CompaniesPage Pattern 打样', () => {
     await screen.findByRole('table', { name: '公司列表' });
     await screen.findByText('远航科技');
 
-    for (const name of ['国家', '采集类型', '员工规模']) {
+    for (const name of ['国家', '员工规模']) {
       expect(screen.getByRole('columnheader', { name })).toHaveClass(
         'w-ui-table-small',
+        'text-center',
+      );
+    }
+    // dc516e9 / 9547612：采集类型、入库时间、操作三列放宽为 large
+    for (const name of ['采集类型', '入库时间', '操作']) {
+      expect(screen.getByRole('columnheader', { name })).toHaveClass(
+        'w-ui-table-large',
         'text-center',
       );
     }
