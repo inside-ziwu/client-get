@@ -328,6 +328,51 @@ Table groups {
   Note: '租户客户分组（营销名单）：发送计划 recipient_source=’group’ 时作为收件人来源。租户在客户池维护，加组同时把公司 business_status 置为 in_group，软删除。'
 }
 
+Table industry_news_items {
+  "id" UUID [pk, not null]
+  "instance_id" VARCHAR [not null]
+  "source_id" UUID [not null]
+  "title" VARCHAR(500) [not null]
+  "url" TEXT [not null]
+  "canonical_url" TEXT [not null]
+  "dedup_key" VARCHAR(40) [not null]
+  "published_at" TIMESTAMPTZ
+  "fetched_at" TIMESTAMPTZ [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  Note: '抓取到的行业动态（标题+原文链接）。同稿由 (instance_id, canonical_url) 与 (instance_id, dedup_key) 两条 UNIQUE 兜底，写入 ON CONFLICT DO NOTHING。不分区。'
+}
+
+Table industry_news_reads {
+  "tenant_id" UUID [not null]
+  "user_id" UUID [not null]
+  "item_id" UUID [not null]
+  "read_at" TIMESTAMPTZ [not null]
+  indexes {
+    (user_id, item_id) [pk]
+  }
+  Note: '用户对动态的已读记录；无记录即未读。复合主键 (user_id, item_id)；用户物理删除时 CASCADE。'
+}
+
+Table industry_news_sources {
+  "id" UUID [pk, not null]
+  "instance_id" VARCHAR [not null]
+  "industry" VARCHAR(50) [not null]
+  "code" VARCHAR(50) [not null]
+  "name" VARCHAR(100) [not null]
+  "url" TEXT [not null]
+  "category" VARCHAR(100) [not null]
+  "lang" VARCHAR(10) [not null]
+  "strategy" VARCHAR(20) [not null]
+  "parse_config" JSONB [not null]
+  "is_active" BOOLEAN [not null]
+  "last_fetched_at" TIMESTAMPTZ
+  "last_success_at" TIMESTAMPTZ
+  "error_count" INTEGER [not null]
+  "created_at" TIMESTAMPTZ [not null]
+  "updated_at" TIMESTAMPTZ [not null]
+  Note: '行业动态源配置表，属于实例内的行业级资产（ADR 0001）。源属性与解析规则由仓库种子导入，管理端只读展示并可启停；抓取 worker 按启用源拉取标题+链接。'
+}
+
 Table intelligence_article_publications {
   "id" UUID [pk, not null]
   "tenant_id" UUID [not null]
@@ -1292,6 +1337,10 @@ Ref: group_members."tenant_company_id" > tenant_companies."id" [delete: cascade]
 Ref: group_members."tenant_contact_id" > tenant_contacts."id"
 Ref: group_members."tenant_id" > tenants."id"
 Ref: groups."tenant_id" > tenants."id"
+Ref: industry_news_items."source_id" > industry_news_sources."id"
+Ref: industry_news_reads."item_id" > industry_news_items."id" [delete: cascade]
+Ref: industry_news_reads."tenant_id" > tenants."id"
+Ref: industry_news_reads."user_id" > users."id" [delete: cascade]
 Ref: intelligence_article_publications."subscription_id" > intelligence_subscriptions."id"
 Ref: intelligence_article_publications."tenant_id" > tenants."id"
 Ref: intelligence_articles."ai_model_id" > ai_models."id"

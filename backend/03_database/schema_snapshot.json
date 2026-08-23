@@ -1,7 +1,7 @@
 {
  "_readme": "数据库结构契约（机器生成，禁止手改）。生成工具 backend/scripts/schema_snapshot.py。git diff 本文件 = 带外变更探测器：迁移合并后重跑，diff 应恰好等于迁移内容。不含行数/分区子表名单/时间戳等波动数据。",
  "alembic_version": [
-  "20260723_0003"
+  "20260824_0001"
  ],
  "tables": {
   "ai_models": {
@@ -2080,6 +2080,285 @@
     {
      "name": "groups_tenant_id_name_key",
      "definition": "CREATE UNIQUE INDEX groups_tenant_id_name_key ON public.groups USING btree (tenant_id, name)"
+    }
+   ]
+  },
+  "industry_news_items": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false
+    },
+    {
+     "name": "source_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "title",
+     "type": "character varying(500)",
+     "nullable": false
+    },
+    {
+     "name": "url",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "canonical_url",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "dedup_key",
+     "type": "character varying(40)",
+     "nullable": false
+    },
+    {
+     "name": "published_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": false
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "industry_news_items_source_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (source_id) REFERENCES industry_news_sources(id)"
+    },
+    {
+     "name": "industry_news_items_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "uq_industry_news_items_instance_canonical_url",
+     "type": "u",
+     "definition": "UNIQUE (instance_id, canonical_url)"
+    },
+    {
+     "name": "uq_industry_news_items_instance_dedup_key",
+     "type": "u",
+     "definition": "UNIQUE (instance_id, dedup_key)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_industry_news_items_instance_fetched",
+     "definition": "CREATE INDEX idx_industry_news_items_instance_fetched ON public.industry_news_items USING btree (instance_id, fetched_at DESC)"
+    },
+    {
+     "name": "idx_industry_news_items_source",
+     "definition": "CREATE INDEX idx_industry_news_items_source ON public.industry_news_items USING btree (source_id)"
+    },
+    {
+     "name": "industry_news_items_pkey",
+     "definition": "CREATE UNIQUE INDEX industry_news_items_pkey ON public.industry_news_items USING btree (id)"
+    },
+    {
+     "name": "uq_industry_news_items_instance_canonical_url",
+     "definition": "CREATE UNIQUE INDEX uq_industry_news_items_instance_canonical_url ON public.industry_news_items USING btree (instance_id, canonical_url)"
+    },
+    {
+     "name": "uq_industry_news_items_instance_dedup_key",
+     "definition": "CREATE UNIQUE INDEX uq_industry_news_items_instance_dedup_key ON public.industry_news_items USING btree (instance_id, dedup_key)"
+    }
+   ]
+  },
+  "industry_news_reads": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "tenant_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "user_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "item_id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "read_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "industry_news_reads_item_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (item_id) REFERENCES industry_news_items(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "industry_news_reads_tenant_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (tenant_id) REFERENCES tenants(id)"
+    },
+    {
+     "name": "industry_news_reads_user_id_fkey",
+     "type": "f",
+     "definition": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+    },
+    {
+     "name": "industry_news_reads_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (user_id, item_id)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_industry_news_reads_tenant_user",
+     "definition": "CREATE INDEX idx_industry_news_reads_tenant_user ON public.industry_news_reads USING btree (tenant_id, user_id)"
+    },
+    {
+     "name": "industry_news_reads_pkey",
+     "definition": "CREATE UNIQUE INDEX industry_news_reads_pkey ON public.industry_news_reads USING btree (user_id, item_id)"
+    }
+   ]
+  },
+  "industry_news_sources": {
+   "kind": "table",
+   "columns": [
+    {
+     "name": "id",
+     "type": "uuid",
+     "nullable": false
+    },
+    {
+     "name": "instance_id",
+     "type": "character varying",
+     "nullable": false
+    },
+    {
+     "name": "industry",
+     "type": "character varying(50)",
+     "nullable": false
+    },
+    {
+     "name": "code",
+     "type": "character varying(50)",
+     "nullable": false
+    },
+    {
+     "name": "name",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "url",
+     "type": "text",
+     "nullable": false
+    },
+    {
+     "name": "category",
+     "type": "character varying(100)",
+     "nullable": false
+    },
+    {
+     "name": "lang",
+     "type": "character varying(10)",
+     "nullable": false
+    },
+    {
+     "name": "strategy",
+     "type": "character varying(20)",
+     "nullable": false
+    },
+    {
+     "name": "parse_config",
+     "type": "jsonb",
+     "nullable": false,
+     "default": "'{}'::jsonb"
+    },
+    {
+     "name": "is_active",
+     "type": "boolean",
+     "nullable": false,
+     "default": "true"
+    },
+    {
+     "name": "last_fetched_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "last_success_at",
+     "type": "timestamp with time zone",
+     "nullable": true
+    },
+    {
+     "name": "error_count",
+     "type": "integer",
+     "nullable": false,
+     "default": "0"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    },
+    {
+     "name": "updated_at",
+     "type": "timestamp with time zone",
+     "nullable": false,
+     "default": "now()"
+    }
+   ],
+   "constraints": [
+    {
+     "name": "industry_news_sources_strategy_check",
+     "type": "c",
+     "definition": "CHECK (((strategy)::text = ANY ((ARRAY['rss'::character varying, 'html'::character varying, 'jsonld'::character varying])::text[])))"
+    },
+    {
+     "name": "industry_news_sources_pkey",
+     "type": "p",
+     "definition": "PRIMARY KEY (id)"
+    },
+    {
+     "name": "uq_industry_news_sources_instance_code",
+     "type": "u",
+     "definition": "UNIQUE (instance_id, code)"
+    }
+   ],
+   "indexes": [
+    {
+     "name": "idx_industry_news_sources_instance_industry",
+     "definition": "CREATE INDEX idx_industry_news_sources_instance_industry ON public.industry_news_sources USING btree (instance_id, industry, is_active)"
+    },
+    {
+     "name": "industry_news_sources_pkey",
+     "definition": "CREATE UNIQUE INDEX industry_news_sources_pkey ON public.industry_news_sources USING btree (id)"
+    },
+    {
+     "name": "uq_industry_news_sources_instance_code",
+     "definition": "CREATE UNIQUE INDEX uq_industry_news_sources_instance_code ON public.industry_news_sources USING btree (instance_id, code)"
     }
    ]
   },

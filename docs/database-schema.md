@@ -1,12 +1,12 @@
 # ClientGet 生产数据库结构文档
 
-> **来源与快照性质**：本文档由 `backend/scripts/schema_snapshot.py` 自 **生产库（Sealos PG）**（`pg_catalog` 只读查询）自动生成，生成日期 **2026-07-24**，库内 alembic 版本 **20260723_0003**。**请勿手改本文件**——结构以 `backend/03_database/schema_snapshot.json`（机器契约，diff 即带外变更探测器）为准，业务说明维护在 `schema_docs.json`，漂移注记维护在 `schema_notes.md`，改完重跑脚本渲染。
+> **来源与快照性质**：本文档由 `backend/scripts/schema_snapshot.py` 自 **生产库（Sealos PG）**（`pg_catalog` 只读查询）自动生成，生成日期 **2026-08-23**，库内 alembic 版本 **20260824_0001**。**请勿手改本文件**——结构以 `backend/03_database/schema_snapshot.json`（机器契约，diff 即带外变更探测器）为准，业务说明维护在 `schema_docs.json`，漂移注记维护在 `schema_notes.md`，改完重跑脚本渲染。
 >
 > **行数**为 `pg_class.reltuples` 估算值（`-1`/`0` 表示从未 ANALYZE 或确实为空），仅供判断表的活跃度。
 >
 > **业务说明的来源与边界**：生产库列注释覆盖率为零，「说明」列中的业务语义提炼自代码事实（services/api 层的实际读写用法、alembic 迁移注释、schema.sql 蓝图注释、DESIGN/README/docs/solutions），初版调查日期 2026-07-22。**留空 = 代码中无可靠依据**（多见于外部直写表的数据商原始字段），宁缺毋滥、不做编造；外部表（`waimaotong_*` 等）列名字面含义明确者按字面标注。若说明与代码现状冲突，以代码为准并修订 `schema_docs.json`。
 
-**总量**：业务表 **62** 张（其中分区父表 3 张，当前共 18 个分区子表）+ 备份快照表 **0** 张 + `alembic_version`；业务视图 1 个（监控扩展视图未列出）。
+**总量**：业务表 **65** 张（其中分区父表 3 张，当前共 21 个分区子表）+ 备份快照表 **0** 张 + `alembic_version`；业务视图 1 个（监控扩展视图未列出）。
 
 ## 目录
 
@@ -18,6 +18,7 @@
 - **序列发送链路**：[`sending_plans`](#sending_plans)、[`sequence_steps`](#sequence_steps)、[`sequence_enrollments`](#sequence_enrollments)、[`sending_plan_recipients`](#sending_plan_recipients)、[`emails`](#emails)、[`email_events`](#email_events)、[`email_send_locks`](#email_send_locks)
 - **发送窗口与域名信誉**：[`countries`](#countries)、[`country_holidays`](#country_holidays)、[`work_rule_sets`](#work_rule_sets)、[`warmup_rules`](#warmup_rules)、[`warmup_rule_levels`](#warmup_rule_levels)、[`domain_warmup_status`](#domain_warmup_status)、[`domain_warmup_history`](#domain_warmup_history)、[`domain_daily_usage`](#domain_daily_usage)
 - **行业情报**：[`intelligence_sources`](#intelligence_sources)、[`intelligence_articles`](#intelligence_articles)、[`intelligence_article_publications`](#intelligence_article_publications)、[`intelligence_subscriptions`](#intelligence_subscriptions)
+- **行业动态**：[`industry_news_sources`](#industry_news_sources)、[`industry_news_items`](#industry_news_items)、[`industry_news_reads`](#industry_news_reads)
 - **外部数据管道（外部直写，schema 主权不在本仓库）**：[`waimaotong_raw_companies`](#waimaotong_raw_companies)、[`waimaotong_raw_contacts`](#waimaotong_raw_contacts)、[`waimaotong_keyword_raw_companies`](#waimaotong_keyword_raw_companies)、[`waimaotong_keyword_raw_contacts`](#waimaotong_keyword_raw_contacts)、[`waimaotong_clean_companies`](#waimaotong_clean_companies)、[`waimaotong_clean_contacts`](#waimaotong_clean_contacts)、[`waimaotong_clean_source_links`](#waimaotong_clean_source_links)、[`lixiaoyun_raw_companies`](#lixiaoyun_raw_companies)、[`lixiaoyun_raw_contacts`](#lixiaoyun_raw_contacts)、[`lixiaoyun_api_companies`](#lixiaoyun_api_companies)、[`lixiaoyun_api_clean_companies`](#lixiaoyun_api_clean_companies)、[`tendata_raw_companies`](#tendata_raw_companies)、[`tendata_raw_contacts`](#tendata_raw_contacts)、[`crawl_progress`](#crawl_progress)、[`keyword_master`](#keyword_master)
 - [业务视图](#业务视图)
 - [外键关系总览](#外键关系总览)
@@ -158,7 +159,7 @@
 
 平台与租户操作审计流水，按 created_at 月度分区（maintain_partitions.py 预建）。各服务在配置、团队、模板等变更时写入；当前无查询端点，只写不读。
 
-**分区表** `RANGE (created_at)`，子表：`audit_logs_default`, `audit_logs_p_2026_04`, `audit_logs_p_2026_05`, `audit_logs_p_2026_06`, `audit_logs_p_2026_07`, `audit_logs_p_2026_08`；估算行数 —（分区父表见子表）。
+**分区表** `RANGE (created_at)`，子表：`audit_logs_default`, `audit_logs_p_2026_04`, `audit_logs_p_2026_05`, `audit_logs_p_2026_06`, `audit_logs_p_2026_07`, `audit_logs_p_2026_08`, `audit_logs_p_2026_09`；估算行数 —（分区父表见子表）。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -429,7 +430,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 公司评分结果表：确定性规则引擎（非 AI）按租户激活模板+版本对公司打分并 upsert（非重试行按 公司+模板版本 唯一）。入群组、平台模板同步、lineage 补评时写入；公司列表读 grade/total_score 作为 system_grade/system_score。
 
-估算行数 188,562。
+估算行数 226,449。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -464,7 +465,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 租户私有客户池：把 waimaotong 清洗层公司按租户物化为池内记录，承载租户侧经营状态、数据完备度与人工修正。由 wmt_lineage_repair worker 按行业全池扇出及租户手动录入写入；客户池列表/详情、分组、发送计划读取。
 
-估算行数 175,667。
+估算行数 212,895。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -491,7 +492,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 租户联系人池：加组/建发送计划时按需从 waimaotong_clean_contacts 物化（ensure_contacts_from_wmt，仅取有邮箱者），记录租户侧投递状态。发送计划收件人筛选读取，邮件事件回传（退信/退订等）联动更新。
 
-估算行数 530,449。
+估算行数 1,189,305。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -535,7 +536,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 租户客户分组（营销名单）：发送计划 recipient_source='group' 时作为收件人来源。租户在客户池维护，加组同时把公司 business_status 置为 in_group，软删除。
 
-估算行数 24。
+估算行数 46。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -557,7 +558,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 分组成员表：一行代表组内一家公司及其选定的默认收件联系人，(group_id, tenant_company_id) 唯一。加/移成员时联动公司 business_status（in_group/new）。
 
-估算行数 18,710。
+估算行数 39,088。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -683,7 +684,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 租户自有邮件模板：序列步骤（sequence_steps.template_id）发信时渲染其主题与正文，{{变量}} 替换后经清洗发出。来源为手写、AI 生成或平台模板复制；软删除（deleted_at）。
 
-估算行数 45。
+估算行数 53。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -715,7 +716,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 租户序列邮件发送计划主档：定义收件人圈选、发送策略、发件域名与发件身份，并汇总发送进度。租户 API 创建维护，发送 worker 读取 running 计划按域领取发送。
 
-估算行数 37。
+估算行数 54。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -748,7 +749,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 发送计划的序列步骤配置：第几步用哪个模板、延迟几天、按上一步反馈的触发条件。租户 API 维护，worker 按 enrollment.current_step 关联读取。
 
-估算行数 33。
+估算行数 43。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -772,7 +773,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 联系人在某计划中的序列推进状态机（进行到第几步、下次何时发）。计划启动/追加时创建，worker 领取推进，webhook 回复/退信/退订时终止；(plan_id,tenant_contact_id) 唯一。
 
-估算行数 210,960。
+估算行数 333,237。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -803,7 +804,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 计划锁定的收件人白名单快照（公司+联系人），报名与发送以此为准；锁定与启动后追加时写入，(plan_id,tenant_contact_id) 唯一。
 
-估算行数 245,100。
+估算行数 363,665。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -830,7 +831,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 每次实际发送的邮件实体：渲染消毒后的内容快照+投递全程状态；按 created_at 月度分区，复合主键 (id,created_at)。worker 领取时创建并发送，webhook 与对账 worker 回写状态，配额推迟时整行删除待重建。
 
-**分区表** `RANGE (created_at)`，子表：`emails_default`, `emails_p_2026_04`, `emails_p_2026_05`, `emails_p_2026_06`, `emails_p_2026_07`, `emails_p_2026_08`；估算行数 —（分区父表见子表）。
+**分区表** `RANGE (created_at)`，子表：`emails_default`, `emails_p_2026_04`, `emails_p_2026_05`, `emails_p_2026_06`, `emails_p_2026_07`, `emails_p_2026_08`, `emails_p_2026_09`；估算行数 —（分区父表见子表）。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -881,7 +882,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 
 EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等去重，是 emails 状态回写的依据；webhook 端点验签后写入。
 
-估算行数 354,700。
+估算行数 552,226。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -904,7 +905,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 (enrollment,step) 粒度的发送幂等锁，保证同一序列步骤至多成功发送一次——「不重复发送」的落库机制；worker 领取时抢锁并按结果流转，locked 超 30 分钟按僵尸锁回收。
 
-估算行数 184,215。
+估算行数 283,645。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1065,7 +1066,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 域名预热变更与快照流水：记录建域、验证通过、调档等时点的档位与指标快照；admin 动作写入，租户端只读历史列表。
 
-估算行数 15。
+估算行数 17。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1091,7 +1092,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 域名 × 北京日历日的发送配额账本：worker 领取邮件前原子占位（不超 daily_limit），失败/推迟/僵尸回收时回退；(domain_id,usage_date) 唯一，占满即当日停领。
 
-估算行数 46。
+估算行数 71。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1142,7 +1143,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 行业情报文章表，按 created_at 月度 RANGE 分区；由 internal 端点 /intelligence/articles/publish（scope intelligence:publish）upsert 写入，随后按租户订阅匹配发布，本仓库读写。
 
-**分区表** `RANGE (created_at)`，子表：`articles_p_2026_04`, `articles_p_2026_05`, `articles_p_2026_06`, `articles_p_2026_07`, `articles_p_2026_08`, `intelligence_articles_default`；估算行数 —（分区父表见子表）。
+**分区表** `RANGE (created_at)`，子表：`articles_p_2026_04`, `articles_p_2026_05`, `articles_p_2026_06`, `articles_p_2026_07`, `articles_p_2026_08`, `articles_p_2026_09`, `intelligence_articles_default`；估算行数 —（分区父表见子表）。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1209,6 +1210,81 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 **外键**：`tenant_id` → `tenants(id)`；`user_id` → `users(id)`
 
+## 行业动态
+
+实例内行业级动态源、抓取到的动态，以及按用户记录的已读状态。
+
+### industry_news_sources
+
+行业动态源配置表，属于实例内的行业级资产（ADR 0001）。源属性与解析规则由仓库种子导入，管理端只读展示并可启停；抓取 worker 按启用源拉取标题+链接。
+
+估算行数 —（分区父表见子表）。
+
+| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| id | UUID | ✗ |  | **PK** |
+| instance_id | VARCHAR | ✗ |  | 所属实例；与其他平台表同为无长度 varchar，有意不设 DEFAULT。 |
+| industry | VARCHAR(50) | ✗ |  | 规范行业值（如 PCB），由 canonical_industry 归一后写入。 |
+| code | VARCHAR(50) | ✗ |  | 稳定代号（pcea / cpca-news 等），种子按 (instance_id, code) upsert，地址可变。 |
+| name | VARCHAR(100) | ✗ |  | 动态源名称，租户列表「来源」列展示。 |
+| url | TEXT | ✗ |  | 入口地址（RSS feed 或列表页）。 |
+| category | VARCHAR(100) | ✗ |  | 客户确认的类别标签，动态继承其源的类别。 |
+| lang | VARCHAR(10) | ✗ |  | 语种：en / zh-CN / zh-TW。 |
+| strategy | VARCHAR(20) | ✗ |  | 解析策略：rss / html / jsonld。；取值: rss, html, jsonld |
+| parse_config | JSONB | ✗ | `'{}'` | 解析规则 JSON，只由种子写入。 |
+| is_active | BOOLEAN | ✗ | `true` | 是否启用；停用后不再抓取，其动态从租户列表与筛选项中隐藏。 |
+| last_fetched_at | TIMESTAMPTZ | ✓ |  | 上次尝试抓取时间（成功或失败都会更新）。 |
+| last_success_at | TIMESTAMPTZ | ✓ |  | 上次成功时间（解析出至少 1 条）。 |
+| error_count | INTEGER | ✗ | `0` | 连续失败或 0 条的计数；成功归零。 |
+| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间 |
+| updated_at | TIMESTAMPTZ | ✗ | `now()` | 更新时间 |
+
+**唯一约束**：`instance_id, code`
+
+**索引**：`idx_industry_news_sources_instance_industry` (instance_id, industry, is_active)
+
+### industry_news_items
+
+抓取到的行业动态（标题+原文链接）。同稿由 (instance_id, canonical_url) 与 (instance_id, dedup_key) 两条 UNIQUE 兜底，写入 ON CONFLICT DO NOTHING。不分区。
+
+估算行数 —（分区父表见子表）。
+
+| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| id | UUID | ✗ |  | **PK** |
+| instance_id | VARCHAR | ✗ |  | 所属实例，与动态源一致。 |
+| source_id | UUID | ✗ |  | 所属动态源。；FK → `industry_news_sources.id` |
+| title | VARCHAR(500) | ✗ |  | 原文标题，截断 500 字符，不翻译。 |
+| url | TEXT | ✗ |  | 原文链接（原样保存）。 |
+| canonical_url | TEXT | ✗ |  | 规范化 URL，用于同稿判定。 |
+| dedup_key | VARCHAR(40) | ✗ |  | sha1(规范化标题) 的 40 位十六进制。 |
+| published_at | TIMESTAMPTZ | ✓ |  | 站点给出的发布时间，可空；早于 90 天的条目不入库。 |
+| fetched_at | TIMESTAMPTZ | ✗ |  | 该轮抓取的统一时间戳（run_at），同一轮所有动态相同。 |
+| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间 |
+
+**唯一约束**：`instance_id, canonical_url`；`instance_id, dedup_key`
+
+**外键**：`source_id` → `industry_news_sources(id)`
+
+**索引**：`idx_industry_news_items_instance_fetched` (instance_id, fetched_at DESC)；`idx_industry_news_items_source` (source_id)
+
+### industry_news_reads
+
+用户对动态的已读记录；无记录即未读。复合主键 (user_id, item_id)；用户物理删除时 CASCADE。
+
+估算行数 —（分区父表见子表）。
+
+| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
+|---|---|---|---|---|
+| tenant_id | UUID | ✗ |  | 租户隔离键，service 层 SQL 显式过滤。；FK → `tenants.id` |
+| user_id | UUID | ✗ |  | 标记已读的用户；随用户物理删除。；**PK**；FK → `users.id` |
+| item_id | UUID | ✗ |  | 已读的动态。；**PK**；FK → `industry_news_items.id` |
+| read_at | TIMESTAMPTZ | ✗ | `now()` | 标记已读的时间。 |
+
+**外键**：`item_id` → `industry_news_items(id)` ON DELETE CASCADE；`tenant_id` → `tenants(id)`；`user_id` → `users(id)` ON DELETE CASCADE
+
+**索引**：`idx_industry_news_reads_tenant_user` (tenant_id, user_id)
+
 ## 外部数据管道（外部直写，schema 主权不在本仓库）
 
 waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态。按 .trellis/spec/backend/database-guidelines.md：对这些表结构的任何变更须先与用户确认。
@@ -1273,7 +1349,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 
 外贸通原始联系人表（raw 层），按 raw_company_id 挂在原始公司下，外部程序直写；本仓库只读展示于 Admin 详情，0050 迁移曾据此物化 waimaotong_clean_contacts。
 
-估算行数 242,544。
+估算行数 242,547。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1307,7 +1383,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 
 外贸通「关键词采集」线的原始公司表（含旧版系统 legacy_* 迁移对照列），外部程序直写，本仓库代码零引用；经外部清洗合入 clean 层时 data_source_tags 标记「外贸通关键词采集」。
 
-估算行数 193,825；外贸通关键词采集原始公司表；后续进入 clean 层时 data_source_tags 标记为 外贸通关键词采集。
+估算行数 380,442；外贸通关键词采集原始公司表；后续进入 clean 层时 data_source_tags 标记为 外贸通关键词采集。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1368,7 +1444,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 
 外贸通关键词采集线的原始联系人表（估算约 739 万行），按 keyword_raw_company_id 挂在关键词原始公司下；外部程序直写，本仓库代码零引用。
 
-估算行数 8,725,007；外贸通关键词采集原始联系人表，关联 waimaotong_keyword_raw_companies。
+估算行数 17,222,860；外贸通关键词采集原始联系人表，关联 waimaotong_keyword_raw_companies。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1405,7 +1481,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 
 外贸通清洗+AI 分析后的公司主表（clean 层公池，跨实例共享），tenant_companies.clean_company_id 逻辑指向本表（无 FK）；外部清洗程序为主写方，本仓库仅写手工录入行（source_id 前缀 manual-），wmt_lineage_repair 每约 300 秒把公池分发给活跃 PCB 租户（排除手工行）。
 
-估算行数 46,960。
+估算行数 54,998。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1504,7 +1580,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 
 外贸通清洗后的联系人公池（约 191 万行），以 sys_company_id 挂到 clean 公司；外部清洗程序为主写方，本仓库写手工联系人并按需物化 tenant_contacts，发送链路从此表取收件人邮箱与姓名。
 
-估算行数 2,036,039。
+估算行数 2,466,995。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1537,7 +1613,7 @@ waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态
 
 raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并而来（source_table+source_raw_id 联合唯一），并快照来源关键词/同行等采集上下文；外部清洗程序维护，本仓库代码零引用。
 
-估算行数 90,644。
+估算行数 181,444。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1620,7 +1696,7 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 
 外部采集程序经励销云开放 API 按关键词写入的同行公司工商数据原始记录表（一司可多条，每条挂一个关键词）；admin「同行原始数据」页只读浏览，外部清洗按 pid 去重聚合到 lixiaoyun_api_clean_companies。
 
-估算行数 78,269。
+估算行数 78,322。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1793,7 +1869,7 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 
 腾道采购商联系人原始层（多子端点采集后统一格式），外部程序写入；admin /raw/tendata/{id}/contacts 接口只读展示；raw_company_id 指向 tendata_raw_companies（现无 FK 约束）。
 
-估算行数 696,960。
+估算行数 697,225。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1888,6 +1964,8 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `email_templates.id` → `emails.template_id`
 - `email_templates.id` → `sequence_steps.template_id`
 - `groups.id` → `group_members.group_id`（ON DELETE CASCADE）
+- `industry_news_items.id` → `industry_news_reads.item_id`（ON DELETE CASCADE）
+- `industry_news_sources.id` → `industry_news_items.source_id`
 - `intelligence_subscriptions.id` → `intelligence_article_publications.subscription_id`
 - `keyword_master.id` → `lixiaoyun_api_companies.keyword_master_id`
 - `keyword_master.id` → `lixiaoyun_raw_companies.keyword_master_id`（ON DELETE SET NULL）
@@ -1937,6 +2015,7 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `tenants.id` → `emails.tenant_id`
 - `tenants.id` → `group_members.tenant_id`
 - `tenants.id` → `groups.tenant_id`
+- `tenants.id` → `industry_news_reads.tenant_id`
 - `tenants.id` → `intelligence_article_publications.tenant_id`
 - `tenants.id` → `intelligence_sources.tenant_id`
 - `tenants.id` → `intelligence_subscriptions.tenant_id`
@@ -1958,6 +2037,7 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `users.id` → `audit_logs.user_id`
 - `users.id` → `company_blacklist.blocked_by`
 - `users.id` → `domain_warmup_history.changed_by`
+- `users.id` → `industry_news_reads.user_id`（ON DELETE CASCADE）
 - `users.id` → `intelligence_subscriptions.user_id`
 - `users.id` → `notifications.user_id`
 - `users.id` → `scoring_template_versions.changed_by`
@@ -1973,8 +2053,8 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 
 下图为除高扇出「枢纽表」外的外键拓扑（`A --> B` 表示 B 持有指向 A 的外键）。以下枢纽表被过多表引用，为保持图形可读未画入：
 
-- **`tenants`** ← 被 31 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`company_scores`、`contact_rules`、`domain_daily_usage`、`domain_warmup_history`、`domain_warmup_status`、`email_events`、`email_send_locks`、`email_templates`、`emails`、`group_members`、`groups`、`intelligence_article_publications`、`intelligence_sources`、`intelligence_subscriptions`、`notifications`、`scoring_jobs`、`scoring_template_versions`、`scoring_templates`、`sending_plan_recipients`、`sending_plans`、`sequence_enrollments`、`sequence_steps`、`tenant_ai_provider_configs`、`tenant_companies`、`tenant_contacts`、`tenant_scoring_weights`、`user_roles`、`users`
-- **`users`** ← 被 10 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`domain_warmup_history`、`intelligence_subscriptions`、`notifications`、`scoring_template_versions`、`sending_plans`、`tenant_ai_provider_configs`、`user_roles`
+- **`tenants`** ← 被 32 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`company_scores`、`contact_rules`、`domain_daily_usage`、`domain_warmup_history`、`domain_warmup_status`、`email_events`、`email_send_locks`、`email_templates`、`emails`、`group_members`、`groups`、`industry_news_reads`、`intelligence_article_publications`、`intelligence_sources`、`intelligence_subscriptions`、`notifications`、`scoring_jobs`、`scoring_template_versions`、`scoring_templates`、`sending_plan_recipients`、`sending_plans`、`sequence_enrollments`、`sequence_steps`、`tenant_ai_provider_configs`、`tenant_companies`、`tenant_contacts`、`tenant_scoring_weights`、`user_roles`、`users`
+- **`users`** ← 被 11 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`domain_warmup_history`、`industry_news_reads`、`intelligence_subscriptions`、`notifications`、`scoring_template_versions`、`sending_plans`、`tenant_ai_provider_configs`、`user_roles`
 
 ```mermaid
 graph LR
@@ -1993,6 +2073,8 @@ graph LR
     email_templates --> emails
     email_templates --> sequence_steps
     groups --> group_members
+    industry_news_items --> industry_news_reads
+    industry_news_sources --> industry_news_items
     intelligence_subscriptions --> intelligence_article_publications
     keyword_master --> lixiaoyun_api_companies
     keyword_master --> lixiaoyun_raw_companies
