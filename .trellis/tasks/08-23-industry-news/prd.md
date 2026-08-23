@@ -52,13 +52,13 @@
 ### R5 遗留清理
 
 - 删除 `intelligence_sources / intelligence_articles / intelligence_article_publications / intelligence_subscriptions` 四表（含分区）、internal `/intelligence/articles/publish` 端点、租户 `intelligence` 路由、管理端 `intelligence-sources` 端点、两个页面、`shared-api` / `shared-types` 对应类型、相关测试、README 功能矩阵对应行与 `docs/database-schema.md` 对应节。
-- 管理端「AI 配置」页隐藏 `intelligence_summary` 场景；数据库 CHECK 枚举与 `ai_scene_defaults` 行不动；通知分类枚举 `intelligence` 不动。
+- 管理端「AI 配置」页隐藏 `intelligence_summary` 场景；PR B 删除 `ai_scene_defaults` 中该场景的默认模型行（否则被它引用的模型永远删不掉），数据库 CHECK 枚举与通知分类枚举 `intelligence` 不动。
 
 ## 动态源种子（Instance A · PCB，14 行）
 
 | 名称 | 类别（客户定） | 语种 | 策略 | 地址 | 解析要点（代码内维护） |
 |---|---|---|---|---|---|
-| PCB Update | PCB 行业新闻 | en | html | `https://pcbupdate.com/` | `td > p > a[href^="http"]`，标题取所在段落全文；排除 pcbupdate.com / pcea 订阅 / mediakit 链接 |
+| PCB Update | PCB 行业新闻 | en | html | `https://pcbupdate.com/` | `td > p > a[href^="http"]`，标题取所在段落全文；只排除自家导航链接（`pcbupdate.com`、`pcea.net/pcb-update-subscription`、`googleapis.com/pcea-digitalmedia`），不得用裸 `pcea` 误杀第三方新闻 |
 | PCEA | PCB 技术 / 工程 | en | rss | `https://pcea.net/feed/` | — |
 | I-Connect007 | PCB 制造 / 行业新闻 | en | html | `https://iconnect007.com/landing/pcb/news` | `a[href*="/article/"]` |
 | PCD&F | PCB 设计 / 工程 | en | rss | `https://pcdandf.com/pcdesign/index.php?format=feed&type=rss` | — |

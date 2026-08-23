@@ -9,19 +9,10 @@ import {
   DataTable,
   type DataTableColumn,
   ListPage,
+  industryNewsLangLabel,
 } from '@shared/ui';
 import { adminApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
-
-const LANG_LABELS: Record<string, string> = {
-  en: '英文',
-  'zh-CN': '简体中文',
-  'zh-TW': '繁体中文',
-};
-
-function langLabel(lang: string) {
-  return LANG_LABELS[lang] ?? lang;
-}
 
 const STRATEGY_STATUS_MAP: Record<string, { label: string; tone: 'neutral' }> = {
   rss: { label: 'RSS', tone: 'neutral' },
@@ -93,7 +84,7 @@ export function IndustryNewsSourcesPage() {
       width: 'small',
       type: 'text',
       value: 'lang',
-      format: (value) => langLabel(value as string),
+      format: (value) => industryNewsLangLabel(value as string),
     },
     {
       id: 'strategy',

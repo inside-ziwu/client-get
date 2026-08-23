@@ -164,3 +164,51 @@ async def test_scheduled_round_is_visible_to_trigger_fetch(monkeypatch):
     await loop_task
     assert seen == [{"triggered": False, "reason": "in_progress"}]
     assert not worker._background_tasks
+
+
+@pytest.mark.asyncio
+async def test_trigger_fetch_reports_in_progress_when_lock_held_by_other_process(monkeypatch):
+    """另一进程持有事务锁时不能谎报 triggered=True。"""
+    worker._background_tasks.clear()
+    monkeypatch.setattr(worker, "run_once", AsyncMock())  # 不应被调用
+    engine = MagicMock()
+    scalar = AsyncMock(side_effect=[3, False])  # 两次 begin 共用：有启用源；锁被占
+
+    class _Begin:
+        async def __aenter__(self):
+            conn = AsyncMock()
+            conn.scalar = scalar
+            return conn
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    engine.begin.return_value = _Begin()
+    result = await worker.trigger_fetch(engine, instance_id="default")
+    worker.run_once.assert_not_awaited()
+    assert result == {"triggered": False, "reason": "in_progress"}
+    assert not worker._background_tasks
+
+
+@pytest.mark.asyncio
+async def test_trigger_fetch_logs_skipped_result(monkeypatch, caplog):
+    run_once = AsyncMock(return_value={"skipped": True, "reason": "in_progress"})
+    monkeypatch.setattr(worker, "run_once", run_once)
+    engine = MagicMock()
+
+    class _Begin:
+        async def __aenter__(self):
+            conn = AsyncMock()
+            conn.scalar = AsyncMock(return_value=True)
+            return conn
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    engine.begin.return_value = _Begin()
+    worker._background_tasks.clear()
+    with caplog.at_level("WARNING"):
+        result = await worker.trigger_fetch(engine, instance_id="default")
+        await asyncio.gather(*list(worker._background_tasks))
+    assert result == {"triggered": True}
+    assert any("立即抓取被跳过" in record.getMessage() for record in caplog.records)

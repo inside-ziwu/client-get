@@ -125,8 +125,14 @@ export function AIConfigPage() {
       await adminApi.aiConfig.deleteModel(id);
       toast.success('模型已删除');
       await load();
-    } catch {
-      toast.error('删除失败');
+    } catch (error) {
+      // 显示后端原因（如「该模型仍被场景默认配置引用」），否则管理员无从排查
+      const detail =
+        (error as { response?: { data?: { error?: { message?: string } } }; message?: string })?.response?.data?.error
+          ?.message ??
+        (error as Error)?.message ??
+        '未知错误';
+      toast.error(`删除失败：${detail}`);
     }
   };
 

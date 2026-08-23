@@ -54,3 +54,16 @@ app.services.industry_news.fetchers.FetchError: 模拟站点改版：解析失�
 
 结果：通过 16，失败 0
 ```
+
+## 复跑（code-review 修复后，同日）
+
+CR2 让 `tenants` 查询带 `instance_id`，脚本「借外键」随之调整：断言租户 + 两个用户改为在阶段 2 事务内自造（`dev-assert` 实例，随 ROLLBACK 消失；零残留计数新增 `tenants` / `users` 两项），借来的 `default` 实例真实租户只作跨实例对照。新增两条断言，其余 16 条原样通过：
+
+```
+  ✓ 跨实例租户 id：tenants 查询带 instance_id → list/filters/mark_read 均 404  codes=[404, 404, 404]
+  ✓ 同实例租户重新启用源后仍可见（对照组）  total=2
+  ✓ 阶段 3：ROLLBACK 后 dev-assert 零残留  count=0
+  ✓ 清理后 dev-assert2 零残留  count=0
+
+结果：通过 18，失败 0
+```

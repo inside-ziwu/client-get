@@ -341,3 +341,37 @@ async def test_mark_read_checks_visible_set_then_upserts():
     insert_params = conn.execute.await_args_list[1].args[1]
     assert "ON CONFLICT (user_id, item_id) DO NOTHING" in insert_sql
     assert insert_params == {"tenant_id": "t1", "user_id": "u1", "item_id": "i1"}
+
+
+@pytest.mark.asyncio
+async def test_list_sql_keeps_isolation_predicates_and_params():
+    """AGENTS.md §1：隔离相关 SQL 必须有测试锁定——删掉任一隔离谓词本测试即失败。"""
+    conn = _conn_for_list(items=[])
+    await IndustryNewsService().list_items(
+        conn, tenant_id="t-1", user_id="u-1", instance_id="inst-a", now_utc=NOW
+    )
+    tenant_call, list_call = conn.execute.await_args_list[0], conn.execute.await_args_list[1]
+    tenant_sql, tenant_params = str(tenant_call.args[0].text), tenant_call.args[1]
+    assert "FROM tenants" in tenant_sql
+    assert "instance_id = :instance_id" in tenant_sql  # 平台级表必须带 instance_id
+    assert tenant_params == {"tenant_id": "t-1", "instance_id": "inst-a"}
+    list_sql, params = str(list_call.args[0].text), list_call.args[1]
+    assert "i.instance_id = :instance_id" in list_sql
+    assert "r.user_id = CAST(:user_id AS uuid)" in list_sql
+    assert "r.tenant_id = CAST(:tenant_id AS uuid)" in list_sql
+    assert params["instance_id"] == "inst-a"
+    assert params["tenant_id"] == "t-1"
+    assert params["user_id"] == "u-1"
+    count_sql = str(conn.scalar.await_args.args[0].text)
+    assert "i.instance_id = :instance_id" in count_sql
+    assert "r.tenant_id = CAST(:tenant_id AS uuid)" in count_sql
+
+
+@pytest.mark.asyncio
+async def test_lock_is_free_uses_instance_scoped_xact_lock():
+    conn = AsyncMock()
+    conn.scalar = AsyncMock(return_value=False)
+    assert await IndustryNewsService().lock_is_free(conn, "inst-a") is False
+    sql = str(conn.scalar.await_args.args[0].text)
+    assert "pg_try_advisory_xact_lock" in sql and "hashtext(:instance_id)" in sql
+    assert conn.scalar.await_args.args[1]["instance_id"] == "inst-a"

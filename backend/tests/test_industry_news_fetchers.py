@@ -137,3 +137,37 @@ async def test_5xx_retries_twice():
     )
     assert items
     assert calls["n"] == 3
+
+
+@pytest.mark.asyncio
+async def test_pcb_update_keeps_third_party_links_with_pcea_in_slug():
+    """href_exclude 只排除 PCB Update 自家导航链接，不误杀 slug 含 pcea 的第三方新闻。"""
+    seed = _load_seed()["pcb-update"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=(FIXTURES / "pcb-update.html").read_text())
+
+    items = await IndustryNewsFetcher(transport=httpx.MockTransport(handler)).fetch_items(seed)
+    urls = [item.url for item in items]
+    assert any("pcdandf.com" in url and "pcea-" in url for url in urls)
+    assert not any("pcea.net/pcb-update-subscription" in url for url in urls)
+    assert not any("pcea-digitalmedia" in url for url in urls)
+
+
+@pytest.mark.asyncio
+async def test_relative_links_use_final_url_after_redirect():
+    """站点 301 到新路径后，页内相对链接以最终 URL 为基址。"""
+    seed = {
+        "name": "redirect",
+        "url": "https://example.com/old/",
+        "strategy": "html",
+        "parse_config": {"item_selector": "a"},
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/old/":
+            return httpx.Response(301, headers={"Location": "https://example.com/new/sub/"})
+        return httpx.Response(200, text='<a href="detail/123.html">重定向后的相对链接标题</a>')
+
+    items = await IndustryNewsFetcher(transport=httpx.MockTransport(handler)).fetch_items(seed)
+    assert [item.url for item in items] == ["https://example.com/new/sub/detail/123.html"]

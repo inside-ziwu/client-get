@@ -1,9 +1,14 @@
 """行业动态抓取 CLI。
 
+两种互斥模式：
+  --once              连库跑一轮（写库），可用 --source 只抓一个源
+  --from-file <seed>  不连库，按种子文件直接抓取并打印（验收解析规则用，永不写库）
+
 用法：
   uv run python scripts/run_industry_news_fetch.py --once
   uv run python scripts/run_industry_news_fetch.py --once --source "PCB Update"
-  uv run python scripts/run_industry_news_fetch.py --from-file <seed.json> --dry-run
+  uv run python scripts/run_industry_news_fetch.py \
+      --from-file app/data/industry_news_sources_pcb.json
 """
 
 from __future__ import annotations
@@ -11,7 +16,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import sys
 from pathlib import Path
 
 from app.core.config import get_settings
@@ -79,34 +83,19 @@ async def run(args: argparse.Namespace) -> None:
         await close_engines()
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run industry news fetch")
-    parser.add_argument("--once", action="store_true", help="跑一轮后退出（连库）")
-    parser.add_argument("--source", default=None, help="只抓指定源名称")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="只与 --from-file 搭配：不连库、只打印"
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="行业动态抓取：连库跑一轮，或按种子文件不连库试抓")
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--once", action="store_true", help="连库跑一轮后退出（写库）")
+    mode.add_argument(
+        "--from-file", default=None, help="不连库，按种子文件直接抓取并打印（不写库）"
     )
-    parser.add_argument("--from-file", default=None, help="不连库，直接按种子文件抓取")
-    return parser.parse_args()
+    parser.add_argument("--source", default=None, help="只抓指定源名称")
+    return parser.parse_args(argv)
 
 
 def main() -> None:
-    args = parse_args()
-    if args.from_file:
-        if not args.dry_run:
-            print("--from-file 必须搭配 --dry-run（不写库）", file=sys.stderr)
-            raise SystemExit(2)
-        asyncio.run(run(args))
-        return
-    if not args.once:
-        print("连库模式请加 --once", file=sys.stderr)
-        raise SystemExit(2)
-    if args.dry_run:
-        print(
-            "--dry-run 只支持 --from-file（连库 --once 会写库，无 dry-run 模式）", file=sys.stderr
-        )
-        raise SystemExit(2)
-    asyncio.run(run(args))
+    asyncio.run(run(parse_args()))
 
 
 if __name__ == "__main__":

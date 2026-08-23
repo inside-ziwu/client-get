@@ -10,7 +10,7 @@
     "parse_config": {
       "item_selector": "td > p > a[href^='http']",
       "title_from": "parent",
-      "href_exclude": "pcbupdate\\.com|pcea|mediakit"
+      "href_exclude": "pcbupdate\\.com|pcea\\.net/pcb-update-subscription|googleapis\\.com/pcea-digitalmedia"
     }
   },
   {

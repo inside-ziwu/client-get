@@ -14,7 +14,9 @@ import {
   ListPage,
   Pagination,
   Switch,
+  industryNewsLangLabel,
 } from '@shared/ui';
+import { toast } from 'sonner';
 import { tenantApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/format';
 
@@ -27,16 +29,6 @@ type NewsFilterValues = {
 };
 
 const EMPTY_FILTERS: NewsFilterValues = { categories: [], sources: [], lang: '', unread_only: '' };
-
-const LANG_LABELS: Record<string, string> = {
-  en: '英文',
-  'zh-CN': '简体中文',
-  'zh-TW': '繁体中文',
-};
-
-function langLabel(lang: string) {
-  return LANG_LABELS[lang] ?? lang;
-}
 
 function buildListParams(applied: NewsFilterValues, page: number, pageSize: number): IndustryNewsFilters {
   return {
@@ -78,9 +70,18 @@ export default function IndustryNewsPage() {
     placeholderData: keepPreviousData,
   });
 
-  // 点击标题新窗口打开原文并置当前用户已读；成功后不 invalidate 列表，点过的行保持可见
+  // 点击标题新窗口打开原文并置当前用户已读；成功后不 invalidate 列表，点过的行保持可见；
+  // 失败（网络中断、源刚被停用返回 404）时回滚本地已读态并提示，避免"看起来已读、刷新又未读"
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => tenantApi.industryNews.markRead(id),
+    onError: (_error, id) => {
+      setClickedIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+      toast.error('标记已读失败，请稍后重试');
+    },
   });
 
   const markClicked = (id: string) => {
@@ -115,7 +116,7 @@ export default function IndustryNewsPage() {
       kind: 'select',
       label: '语种',
       placeholder: '不限',
-      options: (filterOptions?.langs ?? []).map((lang) => ({ label: langLabel(lang), value: lang })),
+      options: (filterOptions?.langs ?? []).map((lang) => ({ label: industryNewsLangLabel(lang), value: lang })),
       optionState,
     },
     {
@@ -178,7 +179,7 @@ export default function IndustryNewsPage() {
       width: 'small',
       type: 'text',
       value: 'lang',
-      format: (value) => langLabel(value as string),
+      format: (value) => industryNewsLangLabel(value as string),
     },
     {
       id: 'time',

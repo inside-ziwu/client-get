@@ -1,5 +1,7 @@
 """A6 真库三段式断言（Neon DEV）：借外键 → 事务内断言 → ROLLBACK 复核零残留；
-run_once 的 savepoint / 锁 断言单独用 dev-assert2 实例，commit 后清理。连接串不打印。"""
+run_once 的 savepoint / 锁 断言单独用 dev-assert2 实例，commit 后清理。连接串不打印。
+CR2 修复后 tenants 查询带 instance_id，因此阶段 2 在事务内自造 dev-assert 实例的测试租户 + 两个用户
+（随 ROLLBACK 消失），并用借来的 default 实例真实租户断言跨实例解析为空。"""
 import asyncio
 from datetime import UTC, datetime, timedelta
 
@@ -29,11 +31,25 @@ async def insert_source(conn, *, inst, code, active=True, lang="en", category="�
     return {"id": sid, "instance_id": inst, "industry": "PCB", "code": code, "name": f"源-{code}", "url": f"https://example.test/{code}",
             "category": category, "lang": lang, "strategy": "rss", "parse_config": {}, "is_active": active}
 
-async def phase_transactional(engine, svc, tenant_id, u1, u2):
+async def make_tenant_with_users(conn, *, inst):
+    tenant_id = str(new_uuid())
+    await conn.execute(text("""
+        INSERT INTO tenants (id, instance_id, name, slug, industry) VALUES (:id, :inst, :name, :slug, 'PCB')"""),
+        {"id": tenant_id, "inst": inst, "name": f"断言租户-{inst}", "slug": f"assert-{tenant_id[:8]}"})
+    users = []
+    for i in (1, 2):
+        uid = str(new_uuid()); users.append(uid)
+        await conn.execute(text("""
+            INSERT INTO users (id, tenant_id, email, password_hash, name) VALUES (:id, :t, :email, 'x', :name)"""),
+            {"id": uid, "t": tenant_id, "email": f"assert-{uid}@example.test", "name": f"断言用户{i}"})
+    return tenant_id, users[0], users[1]
+
+async def phase_transactional(engine, svc, foreign_tenant_id, foreign_u1):
     print("\n== 阶段 2：事务内断言（结束 ROLLBACK）==")
     async with engine.connect() as conn:
         tx = await conn.begin()
         try:
+            tenant_id, u1, u2 = await make_tenant_with_users(conn, inst=INST)
             s1 = await insert_source(conn, inst=INST, code="assert-a")
             s2 = await insert_source(conn, inst=INST, code="assert-b", active=False, category="类别B")
             items = [
@@ -89,6 +105,21 @@ async def phase_transactional(engine, svc, tenant_id, u1, u2):
             _, t_after = await svc.list_items(conn, tenant_id=tenant_id, user_id=u1, instance_id=INST, now_utc=NOW)
             opts = await svc.list_filter_options(conn, tenant_id=tenant_id, instance_id=INST)
             check(t_after == 0 and opts["has_sources"] is False, "停用即隐藏：列表清空、has_sources=false", f"total={t_after} has_sources={opts['has_sources']}")
+            # CR2：default 实例的真实租户 id 在 dev-assert 实例下查不到 tenants 行 → 三个入口统一 404 租户不存在
+            await svc.set_source_active(conn, instance_id=INST, source_id=s1["id"], is_active=True)
+            codes = []
+            for call in (
+                lambda: svc.list_items(conn, tenant_id=foreign_tenant_id, user_id=foreign_u1, instance_id=INST, now_utc=NOW),
+                lambda: svc.list_filter_options(conn, tenant_id=foreign_tenant_id, instance_id=INST),
+                lambda: svc.mark_read(conn, tenant_id=foreign_tenant_id, user_id=foreign_u1, instance_id=INST, item_id=target, now_utc=NOW),
+            ):
+                try:
+                    await call(); codes.append("ok")
+                except AppError as e:
+                    codes.append(e.status_code)
+            check(codes == [404, 404, 404], "跨实例租户 id：tenants 查询带 instance_id → list/filters/mark_read 均 404", f"codes={codes}")
+            same_items, same_total = await svc.list_items(conn, tenant_id=tenant_id, user_id=u1, instance_id=INST, now_utc=NOW)
+            check(same_total == 2, "同实例租户重新启用源后仍可见（对照组）", f"total={same_total}")
             try:
                 await svc.set_source_active(conn, instance_id="other-inst", source_id=s1["id"], is_active=True); check(False, "跨实例启停应 404")
             except AppError as e:
@@ -96,7 +127,7 @@ async def phase_transactional(engine, svc, tenant_id, u1, u2):
         finally:
             await tx.rollback()
     async with engine.connect() as conn:
-        n = await conn.scalar(text("SELECT (SELECT count(*) FROM industry_news_sources WHERE instance_id=:i) + (SELECT count(*) FROM industry_news_items WHERE instance_id=:i) + (SELECT count(*) FROM industry_news_reads r JOIN industry_news_items i ON i.id=r.item_id WHERE i.instance_id=:i)"), {"i": INST})
+        n = await conn.scalar(text("SELECT (SELECT count(*) FROM industry_news_sources WHERE instance_id=:i) + (SELECT count(*) FROM industry_news_items WHERE instance_id=:i) + (SELECT count(*) FROM industry_news_reads r JOIN industry_news_items i ON i.id=r.item_id WHERE i.instance_id=:i) + (SELECT count(*) FROM tenants WHERE instance_id=:i) + (SELECT count(*) FROM users WHERE tenant_id IN (SELECT id FROM tenants WHERE instance_id=:i))"), {"i": INST})
         check(n == 0, "阶段 3：ROLLBACK 后 dev-assert 零残留", f"count={n}")
 
 class FakeFetcher:
@@ -142,12 +173,12 @@ async def main():
     try:
         print("== 阶段 1：借外键 ==")
         async with engine.connect() as conn:
-            t = (await conn.execute(text("SELECT id, name, industry FROM tenants WHERE industry='PCB' AND status='active' AND id IN (SELECT tenant_id FROM users WHERE status='active' GROUP BY tenant_id HAVING count(*)>=2) LIMIT 1"))).mappings().first()
-            users = (await conn.execute(text("SELECT id FROM users WHERE tenant_id=:t AND status='active' ORDER BY created_at LIMIT 2"), {"t": t["id"]})).scalars().all()
-        tenant_id, u1, u2 = str(t["id"]), str(users[0]), str(users[1])
-        print(f"  租户 {t['name']}（industry={t['industry']}），两个用户已借到")
+            t = (await conn.execute(text("SELECT id, name, industry, instance_id FROM tenants WHERE industry='PCB' AND status='active' AND instance_id='default' AND id IN (SELECT tenant_id FROM users WHERE status='active') LIMIT 1"))).mappings().first()
+            users = (await conn.execute(text("SELECT id FROM users WHERE tenant_id=:t AND status='active' ORDER BY created_at LIMIT 1"), {"t": t["id"]})).scalars().all()
+        foreign_tenant_id, foreign_u1 = str(t["id"]), str(users[0])
+        print(f"  借到 {t['instance_id']} 实例租户 {t['name']}（industry={t['industry']}）作跨实例对照；断言租户与用户在事务内自造")
         svc = IndustryNewsService()
-        await phase_transactional(engine, svc, tenant_id, u1, u2)
+        await phase_transactional(engine, svc, foreign_tenant_id, foreign_u1)
         await phase_run_once(engine)
     finally:
         await close_engines()

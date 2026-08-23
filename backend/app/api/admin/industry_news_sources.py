@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
@@ -29,7 +30,7 @@ async def trigger_industry_news_fetch(context: PlatformContext) -> dict:
 
 @router.patch("/{source_id}")
 async def patch_industry_news_source(
-    source_id: str,
+    source_id: UUID,
     payload: IndustryNewsSourceToggle,
     context: PlatformContext,
 ) -> dict:
@@ -37,7 +38,7 @@ async def patch_industry_news_source(
         await service.set_source_active(
             context.connection,
             instance_id=get_settings().instance_id,
-            source_id=source_id,
+            source_id=str(source_id),
             is_active=payload.is_active,
         )
     )

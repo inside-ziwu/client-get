@@ -92,18 +92,40 @@ def _has_in_progress_task() -> bool:
     return any(not task.done() for task in _background_tasks)
 
 
+async def _lock_is_free(engine: AsyncEngine, instance_id: str) -> bool:
+    """跨进程探测：另一进程（CLI、滚动发布中的旧 Pod）持有事务锁时也要如实返回 in_progress。"""
+    async with engine.begin() as conn:
+        return await _service.lock_is_free(conn, instance_id)
+
+
 async def trigger_fetch(engine: AsyncEngine | None = None, *, instance_id: str) -> dict[str, Any]:
     if _has_in_progress_task():
         return {"triggered": False, "reason": "in_progress"}
     engine = engine or get_engine()
     if not await _has_active_sources(engine, instance_id):
         return {"triggered": False, "reason": "no_sources"}
+    if not await _lock_is_free(engine, instance_id):
+        return {"triggered": False, "reason": "in_progress"}
 
     async def _runner() -> None:
         try:
-            await run_once(engine, instance_id=instance_id)
+            result = await run_once(engine, instance_id=instance_id)
         except Exception:
             logger.exception("industry_news_fetch: 立即抓取失败 instance_id=%s", instance_id)
+            return
+        if result.get("skipped"):
+            logger.warning(
+                "industry_news_fetch: 立即抓取被跳过 instance_id=%s reason=%s",
+                instance_id,
+                result.get("reason"),
+            )
+        else:
+            logger.info(
+                "industry_news_fetch: 立即抓取完成 instance_id=%s sources=%s ok=%s",
+                instance_id,
+                result.get("source_count"),
+                result.get("ok_count"),
+            )
 
     _spawn(_runner())
     return {"triggered": True}

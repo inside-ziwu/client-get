@@ -72,7 +72,10 @@ _SQL_MARK_ERROR = text(
     WHERE id = CAST(:id AS uuid) AND instance_id = :instance_id
     """
 )
-_SQL_TENANT_INDUSTRY = text("SELECT industry FROM tenants WHERE id = CAST(:tenant_id AS uuid)")
+_SQL_TENANT_INDUSTRY = text(
+    "SELECT industry FROM tenants"
+    " WHERE id = CAST(:tenant_id AS uuid) AND instance_id = :instance_id"
+)
 _LIST_WHERE = """
     i.instance_id = :instance_id AND s.industry = :industry AND s.is_active
       AND i.fetched_at >= :window_start
@@ -174,8 +177,13 @@ class IndustryNewsService:
     def __init__(self, *, fetcher: IndustryNewsFetcher | None = None) -> None:
         self.fetcher = fetcher or IndustryNewsFetcher()
 
-    async def resolve_tenant_industry(self, conn: AsyncConnection, tenant_id: str) -> str | None:
-        result = await conn.execute(_SQL_TENANT_INDUSTRY, {"tenant_id": tenant_id})
+    async def resolve_tenant_industry(
+        self, conn: AsyncConnection, tenant_id: str, instance_id: str
+    ) -> str | None:
+        """平台级表 tenants 必须同时过滤 instance_id（AGENTS.md §1）。"""
+        result = await conn.execute(
+            _SQL_TENANT_INDUSTRY, {"tenant_id": tenant_id, "instance_id": instance_id}
+        )
         row = result.mappings().first()
         if row is None:
             raise AppError(code="NOT_FOUND", message="租户不存在", status_code=404)
@@ -382,7 +390,7 @@ class IndustryNewsService:
         page_size: int = 50,
         now_utc: datetime | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        industry = await self.resolve_tenant_industry(conn, tenant_id)
+        industry = await self.resolve_tenant_industry(conn, tenant_id, instance_id)
         if industry is None:
             return [], 0
         now = now_utc or datetime.now(UTC)
@@ -410,7 +418,7 @@ class IndustryNewsService:
         tenant_id: str,
         instance_id: str,
     ) -> dict[str, Any]:
-        industry = await self.resolve_tenant_industry(conn, tenant_id)
+        industry = await self.resolve_tenant_industry(conn, tenant_id, instance_id)
         if industry is None:
             return _empty_filters()
         rows = (
@@ -445,7 +453,7 @@ class IndustryNewsService:
         item_id: str,
         now_utc: datetime | None = None,
     ) -> dict[str, Any]:
-        industry = await self.resolve_tenant_industry(conn, tenant_id)
+        industry = await self.resolve_tenant_industry(conn, tenant_id, instance_id)
         if industry is None:
             raise AppError(code="NOT_FOUND", message="动态不存在或无权访问", status_code=404)
         now = now_utc or datetime.now(UTC)
@@ -507,6 +515,11 @@ class IndustryNewsService:
         if row is None:
             raise AppError(code="NOT_FOUND", message="动态源不存在或无权访问", status_code=404)
         return self._serialize_source(row)
+
+    async def lock_is_free(self, conn: AsyncConnection, instance_id: str) -> bool:
+        """探测实例级事务锁是否空闲；锁随调用方事务结束自动释放，只用于「立即抓取」的诚实回答。"""
+        params = {"key": ADVISORY_LOCK_KEY, "instance_id": instance_id}
+        return bool(await conn.scalar(_SQL_LOCK, params))
 
     async def count_active_sources(self, conn: AsyncConnection, instance_id: str) -> int:
         value = await conn.scalar(

@@ -70,6 +70,10 @@ async def noauth_client():
     app.dependency_overrides.clear()
 
 
+ITEM_UUID = "01a02e44-eeef-7257-9ed6-f809ac615de1"
+SOURCE_UUID = "01a02e44-d7d8-7cc1-9b67-5b5b7f06bba1"
+
+
 @pytest.mark.asyncio
 async def test_tenant_and_admin_require_auth(noauth_client):
     tenant = await noauth_client.get("/t/acme/api/v1/industry-news/items")
@@ -89,7 +93,7 @@ async def test_tenant_list_passes_filters_and_has_more(tenant_client, monkeypatc
         params=(
             ("category[]", "A"),
             ("category[]", "B"),
-            ("source_id[]", "s1"),
+            ("source_id[]", SOURCE_UUID),
             ("unread_only", "true"),
             ("page", "1"),
             ("page_size", "50"),
@@ -101,7 +105,7 @@ async def test_tenant_list_passes_filters_and_has_more(tenant_client, monkeypatc
     assert body["pagination"]["has_more"] is True
     kwargs = mock.await_args.kwargs
     assert kwargs["categories"] == ["A", "B"]
-    assert kwargs["source_ids"] == ["s1"]
+    assert kwargs["source_ids"] == [SOURCE_UUID]
     assert kwargs["lang"] is None
     assert kwargs["unread_only"] is True
     assert kwargs["page"] == 1
@@ -156,9 +160,32 @@ async def test_admin_list_returns_plain_array(admin_client, monkeypatch):
 @pytest.mark.asyncio
 async def test_admin_patch_requires_boolean_payload(admin_client):
     resp = await admin_client.patch(
-        "/admin/api/v1/industry-news-sources/src-001", json={"is_active": "maybe"}
+        f"/admin/api/v1/industry-news-sources/{SOURCE_UUID}", json={"is_active": "maybe"}
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_malformed_ids_are_422_not_500(admin_client, tenant_client, monkeypatch):
+    """非 UUID 的 id 在路由层被拒绝，不会把 asyncpg DataError 漏成 500。"""
+    monkeypatch.setattr(
+        "app.api.admin.industry_news_sources.service.set_source_active", AsyncMock()
+    )
+    monkeypatch.setattr("app.api.tenant.industry_news.service.mark_read", AsyncMock())
+    monkeypatch.setattr(
+        "app.api.tenant.industry_news.service.list_items", AsyncMock(return_value=([], 0))
+    )
+    bad_patch = await admin_client.patch(
+        "/admin/api/v1/industry-news-sources/src-001", json={"is_active": False}
+    )
+    bad_read = await tenant_client.post("/t/acme/api/v1/industry-news/items/missing/read")
+    bad_filter = await tenant_client.get(
+        "/t/acme/api/v1/industry-news/items", params={"source_id[]": "abc"}
+    )
+    assert bad_patch.status_code == 422
+    assert bad_read.status_code == 422
+    assert bad_filter.status_code == 422
+    assert bad_read.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 @pytest.mark.asyncio
@@ -167,7 +194,7 @@ async def test_mark_read_idempotent_and_404(tenant_client, monkeypatch):
         "app.api.tenant.industry_news.service.mark_read",
         AsyncMock(return_value={"item_id": "i1", "is_read": True}),
     )
-    ok = await tenant_client.post("/t/acme/api/v1/industry-news/items/i1/read")
+    ok = await tenant_client.post(f"/t/acme/api/v1/industry-news/items/{ITEM_UUID}/read")
     assert ok.status_code == 200
     assert ok.json() == {"data": {"item_id": "i1", "is_read": True}}
 
@@ -179,7 +206,7 @@ async def test_mark_read_idempotent_and_404(tenant_client, monkeypatch):
             side_effect=AppError(code="NOT_FOUND", message="动态不存在或无权访问", status_code=404)
         ),
     )
-    missing = await tenant_client.post("/t/acme/api/v1/industry-news/items/missing/read")
+    missing = await tenant_client.post(f"/t/acme/api/v1/industry-news/items/{ITEM_UUID}/read")
     assert missing.status_code == 404
 
 
@@ -215,7 +242,7 @@ async def test_admin_patch_other_instance_404(admin_client, monkeypatch):
         ),
     )
     resp = await admin_client.patch(
-        "/admin/api/v1/industry-news-sources/src-001",
+        f"/admin/api/v1/industry-news-sources/{SOURCE_UUID}",
         json={"is_active": False},
     )
     assert resp.status_code == 404

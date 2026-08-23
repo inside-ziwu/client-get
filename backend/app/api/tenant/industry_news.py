@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
@@ -14,7 +15,7 @@ CategoryFilter = Annotated[
     list[str], Query(default_factory=list, alias="category[]", description="类别多选")
 ]
 SourceFilter = Annotated[
-    list[str], Query(default_factory=list, alias="source_id[]", description="来源多选")
+    list[UUID], Query(default_factory=list, alias="source_id[]", description="来源多选")
 ]
 PageParam = Annotated[int, Query(ge=1)]
 PageSizeParam = Annotated[int, Query(ge=1, le=100)]
@@ -36,7 +37,7 @@ async def list_industry_news_items(
         user_id=context.user_id,
         instance_id=get_settings().instance_id,
         categories=category or None,
-        source_ids=source_id or None,
+        source_ids=[str(value) for value in source_id] or None,
         lang=lang,
         unread_only=unread_only,
         page=page,
@@ -57,13 +58,13 @@ async def list_industry_news_filters(context: TenantContext) -> dict:
 
 
 @router.post("/industry-news/items/{item_id}/read")
-async def mark_industry_news_read(item_id: str, context: TenantContext) -> dict:
+async def mark_industry_news_read(item_id: UUID, context: TenantContext) -> dict:
     return success_response(
         await service.mark_read(
             context.connection,
             tenant_id=context.tenant_id,
             user_id=context.user_id,
             instance_id=get_settings().instance_id,
-            item_id=item_id,
+            item_id=str(item_id),
         )
     )

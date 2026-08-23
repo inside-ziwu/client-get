@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { type Mock, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
 vi.mock('@/lib/api', () => ({
   tenantApi: {
     industryNews: {
@@ -115,6 +117,19 @@ describe('IndustryNewsPage 行业动态', () => {
     // 已拍板口径：标记已读不 invalidate 列表，点过的行保持可见，直到下一次取数
     expect(link).toBeInTheDocument();
     expect(tenantApi.industryNews.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('标记已读失败时回滚本地已读态并提示', async () => {
+    (tenantApi.industryNews.markRead as Mock).mockRejectedValue(new Error('network'));
+    const { toast } = await import('sonner');
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: 'PCEA 发布新一期技术期刊' });
+    fireEvent.click(link);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('标记已读失败，请稍后重试'));
+    // 本地已读态被回滚：标题恢复未读样式
+    await waitFor(() => expect(link).toHaveClass('text-ui-foreground'));
+    expect(link).not.toHaveClass('text-ui-muted-foreground');
   });
 
   it('筛选选项加载失败时提示并可重试，列表仍可浏览', async () => {

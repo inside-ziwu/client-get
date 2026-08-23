@@ -456,7 +456,8 @@ export interface AiModel {
 
 // === 行业动态 ===
 
-export type IndustryNewsLang = 'en' | 'zh-CN' | 'zh-TW';
+/** 语种码（如 en / zh-CN / zh-TW）由动态源种子驱动，DB 无 CHECK，保持开放；标签映射见 @shared/ui 的 industryNewsLangLabel */
+export type IndustryNewsLang = string;
 
 export type IndustryNewsStrategy = 'rss' | 'html' | 'jsonld';
 

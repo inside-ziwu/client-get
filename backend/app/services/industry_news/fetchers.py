@@ -243,14 +243,15 @@ class IndustryNewsFetcher:
         url = source["url"]
         strategy = source["strategy"]
         parse_config = source.get("parse_config") or {}
-        body = await self._get_text(url)
+        body, final_url = await self._get_text(url)
+        # 相对链接以跟随重定向后的最终 URL 为基址，站点改路径时不会拼到旧路径上
         return await asyncio.to_thread(
-            parse_body, strategy, body, source_url=url, parse_config=parse_config
+            parse_body, strategy, body, source_url=final_url, parse_config=parse_config
         )
 
-    async def _get_text(self, url: str) -> str:
+    async def _get_text(self, url: str) -> tuple[str, str]:
+        """返回 (正文, 最终 URL)；超时/传输错误与 5xx 重试 RETRY_ATTEMPTS 次，4xx 不重试。"""
         headers = {"User-Agent": self.user_agent, "Accept": "*/*"}
-        last_error: Exception | None = None
         attempts = 1 + RETRY_ATTEMPTS
         async with httpx.AsyncClient(
             follow_redirects=True,
@@ -259,19 +260,16 @@ class IndustryNewsFetcher:
             transport=self.transport,
         ) as client:
             for attempt in range(attempts):
+                last = attempt + 1 >= attempts
                 try:
                     response = await client.get(url)
-                except (httpx.TimeoutException, httpx.TransportError) as exc:
-                    last_error = exc
-                    if attempt + 1 >= attempts:
+                except httpx.TransportError as exc:  # 含 TimeoutException
+                    if last:
                         raise FetchError(f"请求失败: {url}") from exc
                     continue
-                if 400 <= response.status_code < 500:
-                    raise FetchError(f"源返回 {response.status_code}: {url}")
-                if response.status_code >= 500:
-                    last_error = FetchError(f"源返回 {response.status_code}: {url}")
-                    if attempt + 1 >= attempts:
-                        raise last_error
-                    continue
-                return response.text
-        raise FetchError(f"请求失败: {url}") from last_error
+                status = response.status_code
+                if status < 400:
+                    return response.text, str(response.url)
+                if status < 500 or last:
+                    raise FetchError(f"源返回 {status}: {url}")
+        raise FetchError(f"请求失败: {url}")  # 循环内必定 return/raise，此行仅为类型完整
