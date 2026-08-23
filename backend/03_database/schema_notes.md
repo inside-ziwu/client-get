@@ -10,7 +10,7 @@
 
 - **迁移链与生产一致**（2026-07-22 核对）：生产 `alembic_version = 20260714_0001` == 仓库迁移链 head（`20260714_0001_drop_retired_collection_tables`）。
 - **但空库重放迁移链会失败**（#64）：首个迁移建 `company_scores.tenant_company_id uuid`，与 `tenant_companies.id bigint` 类型冲突。迁移链只能演进存量库，不能作为从零建库的事实源。
-- **`schema.sql` 蓝图漂移（不得作为实施依据，AGENTS.md §2）**：
+- **`schema.sql` 蓝图漂移（不得作为实施依据，.trellis/spec/backend/database-guidelines.md）**：
   - 图有实无 15 张（蓝图声明、生产已不存在）：`clean_companies`、`clean_company_keywords`、`clean_company_sources`、`clean_contacts`、`cleanup_queue`、`collection_keywords`、`collection_runs`、`collection_task_keywords`、`collection_tasks`、`competitor_companies`、`competitor_contacts`、`data_source_credentials`、`data_sources`、`shared_contacts`、`tenant_keyword`；
   - 实有图无 8 张（生产存在、蓝图缺失，全部为外部管道表）：`crawl_progress`、`lixiaoyun_api_clean_companies`、`lixiaoyun_api_companies`、`waimaotong_clean_companies`、`waimaotong_clean_contacts`、`waimaotong_clean_source_links`、`waimaotong_keyword_raw_companies`、`waimaotong_keyword_raw_contacts`。
 - **带外列**：`tenant_companies.score_adjustment` 生产存在、代码在用、不在任何迁移（#61 ②）。2026-07-22 核实：#61 提到需排查的 `score_adjusted_at/by/reason` 三列**既不在生产也无任何代码引用**，无报错风险。
@@ -33,7 +33,7 @@
 | `backend/scripts/restore_quota_incident_enrollments.py:131,142` | 一次性事故恢复脚本，产出过 `backup_quota_incident_*` 备份表 |
 | `backend/03_database/schema.sql` | 手工蓝图，已知漂移（见上），运行时不执行 |
 
-另：`waimaotong_*`、`lixiaoyun_*`、`tendata_*` 等外部直写表的 schema 主权不在本仓库（AGENTS.md §2），生产中它们的结构变更可能完全不经过本仓库。
+另：`waimaotong_*`、`lixiaoyun_*`、`tendata_*` 等外部直写表的 schema 主权不在本仓库（.trellis/spec/backend/database-guidelines.md），生产中它们的结构变更可能完全不经过本仓库。
 
 **与外部管道方的数据契约约定（2026-07-23 备份表对账时外部书面确认）**：
 - `waimaotong_clean_companies` **禁止清空重建**——外部采集口径为增量 upsert/update（其 `clean_waimaotong.py` 有明文），以保护 `tenant_companies.clean_company_id` 等历史关联；

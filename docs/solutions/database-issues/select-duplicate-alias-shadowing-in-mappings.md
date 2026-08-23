@@ -35,4 +35,4 @@ tags: [sqlalchemy, mappings, alias, join, silent-failure]
 ## Related
 
 - PR #89（修复与防回归测试）
-- `docs/solutions/conventions/sql-semantics-verification-under-pure-mock-tests.md`（mock 盲区约定）
+- `.trellis/spec/backend/quality-guidelines.md（真库验证纪律）`（mock 盲区约定）
