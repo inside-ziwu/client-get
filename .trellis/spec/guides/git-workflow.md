@@ -26,3 +26,7 @@ git worktree remove .claude/worktrees/<任务名>   # 合并后清理
 ## 提交白名单
 
 提交时显式列出文件（`git add <路径...>`），不用 `git add -A`，避免卷入其他会话的 WIP；提交前 `git status --short` 复核暂存区不含 `.env*`、凭证、客户数据与无关文件。
+
+## 常见错误
+
+- **不要在命令串里连用 `git stash` … `git stash pop`**：本仓库的 `.git` 里长期存着多条历史 stash（`stash@{0}` 是 main 上的旧 WIP，含 README / CLAUDE.md / TODO.md）。当工作区本来干净时 `git stash` 什么也不存，随后的 `pop` 会把那条旧 stash 套进工作区并产生冲突（2026-08-23 评审代理与协调者各踩一次）。要看 main 上某文件的版本用 `git show main:<路径>`，要临时切换用 worktree；确需 stash 时先 `git stash list` 核对，并用 `git stash push -m <标记>` / `git stash pop stash@{n}` 指定条目。
