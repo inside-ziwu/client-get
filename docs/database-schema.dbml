@@ -50,7 +50,7 @@ Table ai_usage_logs {
   "error_code" VARCHAR(100)
   "error_message" TEXT
   "created_at" TIMESTAMPTZ [not null]
-  Note: 'AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成、情报摘要）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。'
+  Note: 'AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。'
 }
 
 Table audit_logs {
@@ -373,72 +373,6 @@ Table industry_news_sources {
   Note: '行业动态源配置表，属于实例内的行业级资产（ADR 0001）。源属性与解析规则由仓库种子导入，管理端只读展示并可启停；抓取 worker 按启用源拉取标题+链接。'
 }
 
-Table intelligence_article_publications {
-  "id" UUID [pk, not null]
-  "tenant_id" UUID [not null]
-  "article_id" UUID [not null]
-  "article_created_at" TIMESTAMPTZ [not null]
-  "status" VARCHAR(20) [not null]
-  "has_summary" BOOLEAN [not null]
-  "read_at" TIMESTAMPTZ
-  "matched_by" VARCHAR(30)
-  "subscription_id" UUID
-  "created_at" TIMESTAMPTZ [not null]
-  "updated_at" TIMESTAMPTZ [not null]
-  Note: '文章向租户的发布与阅读状态表（tenant_id+article_id 唯一）；发布流程按订阅匹配写入，租户情报中心读取并更新已读/收藏/归档状态，本仓库读写。'
-}
-
-Table intelligence_articles {
-  "id" UUID [not null]
-  "source_id" UUID
-  "title" VARCHAR(500) [not null]
-  "url" TEXT
-  "author" VARCHAR(200)
-  "published_at" TIMESTAMPTZ
-  "content_raw" TEXT
-  "content_summary" TEXT
-  "ai_category" VARCHAR(100)
-  "ai_tags" JSONB [not null]
-  "ai_relevance_score" NUMERIC(3,2)
-  "ai_model_id" UUID
-  "ai_usage_log_id" UUID
-  "status" VARCHAR(20) [not null]
-  "created_at" TIMESTAMPTZ [not null]
-  indexes {
-    (id, created_at) [pk]
-  }
-  Note: '行业情报文章表，按 created_at 月度 RANGE 分区；由 internal 端点 /intelligence/articles/publish（scope intelligence:publish）upsert 写入，随后按租户订阅匹配发布，本仓库读写。'
-}
-
-Table intelligence_sources {
-  "id" UUID [pk, not null]
-  "tenant_id" UUID
-  "name" VARCHAR(200) [not null]
-  "source_type" VARCHAR(20) [not null]
-  "url" TEXT
-  "fetch_config" JSONB [not null]
-  "industry_tags" JSONB [not null]
-  "is_active" BOOLEAN [not null]
-  "last_fetched_at" TIMESTAMPTZ
-  "error_count" INTEGER [not null]
-  "deleted_at" TIMESTAMPTZ
-  "created_at" TIMESTAMPTZ [not null]
-  "updated_at" TIMESTAMPTZ [not null]
-  Note: '行业情报源配置表（RSS/网站/手工三类），平台 Admin 维护与启停，tenant_id 为空即平台级源；本仓库读写，但定时自动抓取尚未实现（#49），文章目前靠人工经 internal 接口发布。'
-}
-
-Table intelligence_subscriptions {
-  "id" UUID [pk, not null]
-  "tenant_id" UUID [not null]
-  "user_id" UUID [not null]
-  "industry_tags" JSONB [not null]
-  "min_relevance" NUMERIC(3,2) [not null]
-  "notify_enabled" BOOLEAN [not null]
-  "created_at" TIMESTAMPTZ [not null]
-  "updated_at" TIMESTAMPTZ [not null]
-  Note: '租户用户的情报订阅偏好表（每用户一条，PUT 全量覆盖）；发布文章时据此做行业标签交集与相关度阈值匹配，决定是否推送给该租户。本仓库读写。'
-}
-
 Table keyword_master {
   "id" UUID [pk, not null]
   "keyword" TEXT [not null]
@@ -606,7 +540,7 @@ Table notifications {
   "is_read" BOOLEAN [not null]
   "read_at" TIMESTAMPTZ
   "created_at" TIMESTAMPTZ [not null]
-  Note: '租户站内通知，一行对应一个接收用户。当前仅行业情报发布时写入；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。'
+  Note: '租户站内通知，一行对应一个接收用户。原唯一写入方（行业情报发布）已随情报模块删除（2026-08，迁移 20260824_0002），当前无写入路径；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。'
 }
 
 Table platform_email_templates {
@@ -841,7 +775,7 @@ Table tenant_ai_provider_configs {
   "last_error_message" TEXT
   "created_at" TIMESTAMPTZ [not null]
   "updated_at" TIMESTAMPTZ [not null]
-  Note: '每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成、情报摘要）调用前以 balance_status 作余额闸门。'
+  Note: '每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成）调用前以 balance_status 作余额闸门。'
 }
 
 Table tenant_companies {
@@ -1341,13 +1275,6 @@ Ref: industry_news_items."source_id" > industry_news_sources."id"
 Ref: industry_news_reads."item_id" > industry_news_items."id" [delete: cascade]
 Ref: industry_news_reads."tenant_id" > tenants."id"
 Ref: industry_news_reads."user_id" > users."id" [delete: cascade]
-Ref: intelligence_article_publications."subscription_id" > intelligence_subscriptions."id"
-Ref: intelligence_article_publications."tenant_id" > tenants."id"
-Ref: intelligence_articles."ai_model_id" > ai_models."id"
-Ref: intelligence_articles."ai_usage_log_id" > ai_usage_logs."id"
-Ref: intelligence_sources."tenant_id" > tenants."id"
-Ref: intelligence_subscriptions."tenant_id" > tenants."id"
-Ref: intelligence_subscriptions."user_id" > users."id"
 Ref: lixiaoyun_api_companies."keyword_master_id" > keyword_master."id"
 Ref: lixiaoyun_raw_companies."keyword_master_id" > keyword_master."id"
 Ref: lixiaoyun_raw_contacts."raw_company_id" > lixiaoyun_raw_companies."id" [delete: cascade]

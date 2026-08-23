@@ -1,12 +1,12 @@
 # ClientGet 生产数据库结构文档
 
-> **来源与快照性质**：本文档由 `backend/scripts/schema_snapshot.py` 自 **生产库（Sealos PG）**（`pg_catalog` 只读查询）自动生成，生成日期 **2026-08-23**，库内 alembic 版本 **20260824_0001**。**请勿手改本文件**——结构以 `backend/03_database/schema_snapshot.json`（机器契约，diff 即带外变更探测器）为准，业务说明维护在 `schema_docs.json`，漂移注记维护在 `schema_notes.md`，改完重跑脚本渲染。
+> **来源与快照性质**：本文档由 `backend/scripts/schema_snapshot.py` 自 **生产库（Sealos PG）**（`pg_catalog` 只读查询）自动生成，生成日期 **2026-08-23**，库内 alembic 版本 **20260824_0002**。**请勿手改本文件**——结构以 `backend/03_database/schema_snapshot.json`（机器契约，diff 即带外变更探测器）为准，业务说明维护在 `schema_docs.json`，漂移注记维护在 `schema_notes.md`，改完重跑脚本渲染。
 >
 > **行数**为 `pg_class.reltuples` 估算值（`-1`/`0` 表示从未 ANALYZE 或确实为空），仅供判断表的活跃度。
 >
 > **业务说明的来源与边界**：生产库列注释覆盖率为零，「说明」列中的业务语义提炼自代码事实（services/api 层的实际读写用法、alembic 迁移注释、schema.sql 蓝图注释、DESIGN/README/docs/solutions），初版调查日期 2026-07-22。**留空 = 代码中无可靠依据**（多见于外部直写表的数据商原始字段），宁缺毋滥、不做编造；外部表（`waimaotong_*` 等）列名字面含义明确者按字面标注。若说明与代码现状冲突，以代码为准并修订 `schema_docs.json`。
 
-**总量**：业务表 **65** 张（其中分区父表 3 张，当前共 21 个分区子表）+ 备份快照表 **0** 张 + `alembic_version`；业务视图 1 个（监控扩展视图未列出）。
+**总量**：业务表 **61** 张（其中分区父表 2 张，当前共 14 个分区子表）+ 备份快照表 **0** 张 + `alembic_version`；业务视图 1 个（监控扩展视图未列出）。
 
 ## 目录
 
@@ -17,7 +17,6 @@
 - **邮件模板**：[`platform_email_templates`](#platform_email_templates)、[`email_templates`](#email_templates)
 - **序列发送链路**：[`sending_plans`](#sending_plans)、[`sequence_steps`](#sequence_steps)、[`sequence_enrollments`](#sequence_enrollments)、[`sending_plan_recipients`](#sending_plan_recipients)、[`emails`](#emails)、[`email_events`](#email_events)、[`email_send_locks`](#email_send_locks)
 - **发送窗口与域名信誉**：[`countries`](#countries)、[`country_holidays`](#country_holidays)、[`work_rule_sets`](#work_rule_sets)、[`warmup_rules`](#warmup_rules)、[`warmup_rule_levels`](#warmup_rule_levels)、[`domain_warmup_status`](#domain_warmup_status)、[`domain_warmup_history`](#domain_warmup_history)、[`domain_daily_usage`](#domain_daily_usage)
-- **行业情报**：[`intelligence_sources`](#intelligence_sources)、[`intelligence_articles`](#intelligence_articles)、[`intelligence_article_publications`](#intelligence_article_publications)、[`intelligence_subscriptions`](#intelligence_subscriptions)
 - **行业动态**：[`industry_news_sources`](#industry_news_sources)、[`industry_news_items`](#industry_news_items)、[`industry_news_reads`](#industry_news_reads)
 - **外部数据管道（外部直写，schema 主权不在本仓库）**：[`waimaotong_raw_companies`](#waimaotong_raw_companies)、[`waimaotong_raw_contacts`](#waimaotong_raw_contacts)、[`waimaotong_keyword_raw_companies`](#waimaotong_keyword_raw_companies)、[`waimaotong_keyword_raw_contacts`](#waimaotong_keyword_raw_contacts)、[`waimaotong_clean_companies`](#waimaotong_clean_companies)、[`waimaotong_clean_contacts`](#waimaotong_clean_contacts)、[`waimaotong_clean_source_links`](#waimaotong_clean_source_links)、[`lixiaoyun_raw_companies`](#lixiaoyun_raw_companies)、[`lixiaoyun_raw_contacts`](#lixiaoyun_raw_contacts)、[`lixiaoyun_api_companies`](#lixiaoyun_api_companies)、[`lixiaoyun_api_clean_companies`](#lixiaoyun_api_clean_companies)、[`tendata_raw_companies`](#tendata_raw_companies)、[`tendata_raw_contacts`](#tendata_raw_contacts)、[`crawl_progress`](#crawl_progress)、[`keyword_master`](#keyword_master)
 - [业务视图](#业务视图)
@@ -121,7 +120,7 @@
 
 ### tenant_ai_provider_configs
 
-每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成、情报摘要）调用前以 balance_status 作余额闸门。
+每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成）调用前以 balance_status 作余额闸门。
 
 估算行数 2。
 
@@ -181,7 +180,7 @@
 
 ### notifications
 
-租户站内通知，一行对应一个接收用户。当前仅行业情报发布时写入；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。
+租户站内通知，一行对应一个接收用户。原唯一写入方（行业情报发布）已随情报模块删除（2026-08，迁移 20260824_0002），当前无写入路径；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。
 
 估算行数 0。
 
@@ -192,8 +191,8 @@
 | user_id | UUID | ✗ |  | 通知接收者（租户用户），列表按用户过滤。；FK → `users.id` |
 | title | VARCHAR(200) | ✗ |  | 通知标题。 |
 | content | TEXT | ✗ |  | 通知正文。 |
-| category | VARCHAR(30) | ✗ |  | 通知分类；当前代码仅情报发布路径写入 intelligence。；取值: scoring_complete, plan_complete, reply_received, balance_low, intel… |
-| entity_type | VARCHAR(50) | ✓ |  | 关联业务对象类型，如 intelligence_article。 |
+| category | VARCHAR(30) | ✗ |  | 通知分类；CHECK 枚举保留 intelligence 等值，当前无写入路径。；取值: scoring_complete, plan_complete, reply_received, balance_low, intel… |
+| entity_type | VARCHAR(50) | ✓ |  | 关联业务对象类型（历史值 intelligence_article，对应表已删除）。 |
 | entity_id | UUID | ✓ |  | 关联业务对象 ID，供前端跳转。 |
 | is_read | BOOLEAN | ✗ | `false` | 已读标记；支持单条与一键全部已读。 |
 | read_at | TIMESTAMPTZ | ✓ |  | 标记已读的时间。 |
@@ -249,7 +248,7 @@ AI 业务场景到默认模型的映射，每场景一行。平台管理员整�
 
 ### ai_usage_logs
 
-AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成、情报摘要）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。
+AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。
 
 估算行数 0。
 
@@ -260,7 +259,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 | user_id | UUID | ✓ |  | 触发调用的租户用户，可空。；FK → `users.id` |
 | model_id | UUID | ✗ |  | 本次调用使用的 AI 模型。；FK → `ai_models.id` |
 | usage_type | VARCHAR(40) | ✗ |  | 用量场景，与 ai_scene_defaults.scene 同一口径。；取值: scoring, email_generation, intelligence_summary, data_analysis |
-| entity_type | VARCHAR(50) | ✓ |  | 关联业务对象类型，如 intelligence_article、email_template。 |
+| entity_type | VARCHAR(50) | ✓ |  | 关联业务对象类型，如 email_template（历史值 intelligence_article，对应表已删除）。 |
 | entity_id | UUID | ✓ |  | 关联业务对象 ID。 |
 | input_tokens | INTEGER | ✗ | `0` | 输入 token 数，完成时按供应商回传写入。 |
 | output_tokens | INTEGER | ✗ | `0` | 输出 token 数，完成时按供应商回传写入。 |
@@ -1111,105 +1110,6 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 **外键**：`domain_id` → `domain_warmup_status(id)`；`tenant_id` → `tenants(id)`
 
-## 行业情报
-
-情报源、文章（分区表）、发布与订阅。
-
-### intelligence_sources
-
-行业情报源配置表（RSS/网站/手工三类），平台 Admin 维护与启停，tenant_id 为空即平台级源；本仓库读写，但定时自动抓取尚未实现（#49），文章目前靠人工经 internal 接口发布。
-
-估算行数 2。
-
-| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
-|---|---|---|---|---|
-| id | UUID | ✗ |  | **PK** |
-| tenant_id | UUID | ✓ |  | 租户隔离键（service 层 SQL 显式过滤，AGENTS.md §1）；FK → `tenants.id` |
-| name | VARCHAR(200) | ✗ |  | 情报源名称 |
-| source_type | VARCHAR(20) | ✗ |  | 来源类型：rss/website/manual；取值: rss, website, manual |
-| url | TEXT | ✓ |  | 来源抓取地址（RSS/网站 URL） |
-| fetch_config | JSONB | ✗ | `'{"frequency_hours": 24}'` | 抓取配置 JSON，默认 {"frequency_hours":24} |
-| industry_tags | JSONB | ✗ | `'[]'` | 该源覆盖的行业标签数组（JSON） |
-| is_active | BOOLEAN | ✗ | `true` | 是否启用，Admin 列表可直接启停 |
-| last_fetched_at | TIMESTAMPTZ | ✓ |  | 最近抓取时间；采集器未实现，当前无写入方 |
-| error_count | INTEGER | ✗ | `0` | 抓取失败计数；采集器未实现，当前无写入方 |
-| deleted_at | TIMESTAMPTZ | ✓ |  | 软删除时间（NULL=未删除） |
-| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间 |
-| updated_at | TIMESTAMPTZ | ✗ | `now()` | 更新时间 |
-
-**外键**：`tenant_id` → `tenants(id)`
-
-### intelligence_articles
-
-行业情报文章表，按 created_at 月度 RANGE 分区；由 internal 端点 /intelligence/articles/publish（scope intelligence:publish）upsert 写入，随后按租户订阅匹配发布，本仓库读写。
-
-**分区表** `RANGE (created_at)`，子表：`articles_p_2026_04`, `articles_p_2026_05`, `articles_p_2026_06`, `articles_p_2026_07`, `articles_p_2026_08`, `articles_p_2026_09`, `intelligence_articles_default`；估算行数 —（分区父表见子表）。
-
-| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
-|---|---|---|---|---|
-| id | UUID | ✗ |  | **PK** |
-| source_id | UUID | ✓ |  | 所属情报源 intelligence_sources.id（无外键约束） |
-| title | VARCHAR(500) | ✗ |  | 文章标题 |
-| url | TEXT | ✓ |  | 原文链接 |
-| author | VARCHAR(200) | ✓ |  | 作者 |
-| published_at | TIMESTAMPTZ | ✓ |  | 原文发布时间，缺省取入库时间 |
-| content_raw | TEXT | ✓ |  | 原文全文 |
-| content_summary | TEXT | ✓ |  | 摘要；当前实现为原文归一化后截取前 240 字符 |
-| ai_category | VARCHAR(100) | ✓ |  | AI 分类（发布方提供） |
-| ai_tags | JSONB | ✗ | `'[]'` | AI 标签数组，与订阅 industry_tags 求交集做推送匹配 |
-| ai_relevance_score | NUMERIC(3,2) | ✓ |  | AI 相关度评分（0-1），低于订阅 min_relevance 不推送 |
-| ai_model_id | UUID | ✓ |  | 生成摘要所用 AI 模型，发布成功后回填；FK → `ai_models.id` |
-| ai_usage_log_id | UUID | ✓ |  | 摘要计费对应的 AI 用量日志 ID；FK → `ai_usage_logs.id` |
-| status | VARCHAR(20) | ✗ | `'pending'` | pending/processed/published/archived；发布到租户后置 published；取值: pending, processed, published, archived |
-| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间；**PK**；分区键 |
-
-**外键**：`ai_model_id` → `ai_models(id)`；`ai_usage_log_id` → `ai_usage_logs(id)`
-
-### intelligence_article_publications
-
-文章向租户的发布与阅读状态表（tenant_id+article_id 唯一）；发布流程按订阅匹配写入，租户情报中心读取并更新已读/收藏/归档状态，本仓库读写。
-
-估算行数 0。
-
-| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
-|---|---|---|---|---|
-| id | UUID | ✗ |  | **PK** |
-| tenant_id | UUID | ✗ |  | 租户隔离键（service 层 SQL 显式过滤，AGENTS.md §1）；FK → `tenants.id` |
-| article_id | UUID | ✗ |  | 文章 ID，与 article_created_at 联合定位分区表记录 |
-| article_created_at | TIMESTAMPTZ | ✗ |  | 文章 created_at 冗余副本，用于 JOIN 分区表 |
-| status | VARCHAR(20) | ✗ | `'unread'` | 阅读状态：unread/read/starred/archived；取值: unread, read, starred, archived |
-| has_summary | BOOLEAN | ✗ | `true` | 是否含 AI 摘要（租户 AI 配置可用且计费成功为 true）；false 时不返回摘要正文 |
-| read_at | TIMESTAMPTZ | ✓ |  | 标记已读的时间 |
-| matched_by | VARCHAR(30) | ✓ |  | 匹配方式 subscription/manual/system；当前发布流程写 subscription；取值: subscription, manual, system |
-| subscription_id | UUID | ✓ |  | 命中的订阅记录 ID（多条命中时取首条）；FK → `intelligence_subscriptions.id` |
-| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间 |
-| updated_at | TIMESTAMPTZ | ✗ | `now()` | 更新时间 |
-
-**唯一约束**：`tenant_id, article_id`
-
-**外键**：`subscription_id` → `intelligence_subscriptions(id)`；`tenant_id` → `tenants(id)`
-
-**索引**：`idx_article_publications_tenant` (tenant_id, status)
-
-### intelligence_subscriptions
-
-租户用户的情报订阅偏好表（每用户一条，PUT 全量覆盖）；发布文章时据此做行业标签交集与相关度阈值匹配，决定是否推送给该租户。本仓库读写。
-
-估算行数 0。
-
-| 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
-|---|---|---|---|---|
-| id | UUID | ✗ |  | **PK** |
-| tenant_id | UUID | ✗ |  | 租户隔离键（service 层 SQL 显式过滤，AGENTS.md §1）；FK → `tenants.id` |
-| user_id | UUID | ✗ |  | 订阅所属用户；FK → `users.id` |
-| industry_tags | JSONB | ✗ | `'[]'` | 关注行业标签数组；为空则不按标签过滤 |
-| min_relevance | NUMERIC(3,2) | ✗ | `0.5` | 推送要求的最低 AI 相关度阈值，默认 0.5 |
-| notify_enabled | BOOLEAN | ✗ | `true` | 是否同时写站内通知（notifications） |
-| created_at | TIMESTAMPTZ | ✗ | `now()` | 创建时间 |
-| updated_at | TIMESTAMPTZ | ✗ | `now()` | 更新时间 |
-
-**外键**：`tenant_id` → `tenants(id)`；`user_id` → `users(id)`
-
 ## 行业动态
 
 实例内行业级动态源、抓取到的动态，以及按用户记录的已读状态。
@@ -1247,7 +1147,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 抓取到的行业动态（标题+原文链接）。同稿由 (instance_id, canonical_url) 与 (instance_id, dedup_key) 两条 UNIQUE 兜底，写入 ON CONFLICT DO NOTHING。不分区。
 
-估算行数 —（分区父表见子表）。
+估算行数 148。
 
 | 字段名 | 数据类型 | 可空 | 默认值 | 说明 |
 |---|---|---|---|---|
@@ -1952,10 +1852,8 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `ai_models.id` → `ai_scene_defaults.model_id`
 - `ai_models.id` → `ai_usage_logs.model_id`
 - `ai_models.id` → `company_scores.llm_model_id`
-- `ai_models.id` → `intelligence_articles.ai_model_id`
 - `ai_usage_logs.id` → `company_scores.llm_usage_log_id`
 - `ai_usage_logs.id` → `emails.ai_usage_log_id`
-- `ai_usage_logs.id` → `intelligence_articles.ai_usage_log_id`
 - `company_scores.id` → `company_scores.related_score_id`
 - `countries.iso3` → `country_holidays.country_iso3`（ON DELETE CASCADE）
 - `domain_warmup_status.id` → `domain_daily_usage.domain_id`
@@ -1966,7 +1864,6 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `groups.id` → `group_members.group_id`（ON DELETE CASCADE）
 - `industry_news_items.id` → `industry_news_reads.item_id`（ON DELETE CASCADE）
 - `industry_news_sources.id` → `industry_news_items.source_id`
-- `intelligence_subscriptions.id` → `intelligence_article_publications.subscription_id`
 - `keyword_master.id` → `lixiaoyun_api_companies.keyword_master_id`
 - `keyword_master.id` → `lixiaoyun_raw_companies.keyword_master_id`（ON DELETE SET NULL）
 - `keyword_master.id` → `tendata_raw_companies.keyword_master_id`（ON DELETE SET NULL）
@@ -2016,9 +1913,6 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `tenants.id` → `group_members.tenant_id`
 - `tenants.id` → `groups.tenant_id`
 - `tenants.id` → `industry_news_reads.tenant_id`
-- `tenants.id` → `intelligence_article_publications.tenant_id`
-- `tenants.id` → `intelligence_sources.tenant_id`
-- `tenants.id` → `intelligence_subscriptions.tenant_id`
 - `tenants.id` → `notifications.tenant_id`
 - `tenants.id` → `scoring_jobs.tenant_id`
 - `tenants.id` → `scoring_template_versions.tenant_id`
@@ -2038,7 +1932,6 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 - `users.id` → `company_blacklist.blocked_by`
 - `users.id` → `domain_warmup_history.changed_by`
 - `users.id` → `industry_news_reads.user_id`（ON DELETE CASCADE）
-- `users.id` → `intelligence_subscriptions.user_id`
 - `users.id` → `notifications.user_id`
 - `users.id` → `scoring_template_versions.changed_by`
 - `users.id` → `sending_plans.created_by`
@@ -2053,18 +1946,16 @@ raw→clean 血缘映射表：记录每家 clean 公司由哪些 raw 行合并�
 
 下图为除高扇出「枢纽表」外的外键拓扑（`A --> B` 表示 B 持有指向 A 的外键）。以下枢纽表被过多表引用，为保持图形可读未画入：
 
-- **`tenants`** ← 被 32 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`company_scores`、`contact_rules`、`domain_daily_usage`、`domain_warmup_history`、`domain_warmup_status`、`email_events`、`email_send_locks`、`email_templates`、`emails`、`group_members`、`groups`、`industry_news_reads`、`intelligence_article_publications`、`intelligence_sources`、`intelligence_subscriptions`、`notifications`、`scoring_jobs`、`scoring_template_versions`、`scoring_templates`、`sending_plan_recipients`、`sending_plans`、`sequence_enrollments`、`sequence_steps`、`tenant_ai_provider_configs`、`tenant_companies`、`tenant_contacts`、`tenant_scoring_weights`、`user_roles`、`users`
-- **`users`** ← 被 11 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`domain_warmup_history`、`industry_news_reads`、`intelligence_subscriptions`、`notifications`、`scoring_template_versions`、`sending_plans`、`tenant_ai_provider_configs`、`user_roles`
+- **`tenants`** ← 被 29 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`company_scores`、`contact_rules`、`domain_daily_usage`、`domain_warmup_history`、`domain_warmup_status`、`email_events`、`email_send_locks`、`email_templates`、`emails`、`group_members`、`groups`、`industry_news_reads`、`notifications`、`scoring_jobs`、`scoring_template_versions`、`scoring_templates`、`sending_plan_recipients`、`sending_plans`、`sequence_enrollments`、`sequence_steps`、`tenant_ai_provider_configs`、`tenant_companies`、`tenant_contacts`、`tenant_scoring_weights`、`user_roles`、`users`
+- **`users`** ← 被 10 张表引用：`ai_usage_logs`、`audit_logs`、`company_blacklist`、`domain_warmup_history`、`industry_news_reads`、`notifications`、`scoring_template_versions`、`sending_plans`、`tenant_ai_provider_configs`、`user_roles`
 
 ```mermaid
 graph LR
     ai_models --> ai_scene_defaults
     ai_models --> ai_usage_logs
     ai_models --> company_scores
-    ai_models --> intelligence_articles
     ai_usage_logs --> company_scores
     ai_usage_logs --> emails
-    ai_usage_logs --> intelligence_articles
     company_scores --> company_scores
     countries --> country_holidays
     domain_warmup_status --> domain_daily_usage
@@ -2075,7 +1966,6 @@ graph LR
     groups --> group_members
     industry_news_items --> industry_news_reads
     industry_news_sources --> industry_news_items
-    intelligence_subscriptions --> intelligence_article_publications
     keyword_master --> lixiaoyun_api_companies
     keyword_master --> lixiaoyun_raw_companies
     keyword_master --> tendata_raw_companies
@@ -2150,8 +2040,8 @@ graph LR
 
 | 位置 | 性质 |
 |---|---|
-| `backend/alembic/versions/`（70 个迁移） | 唯一正式 schema 演进渠道；镜像启动自动 `upgrade head` |
-| `backend/app/db/partitions.py:46-67` | **运行时 DDL**：启动时为 `audit_logs`/`emails`/`intelligence_articles` 自动创建当月+次月分区 |
+| `backend/alembic/versions/`（迁移链，head 以快照 `alembic_version` 为准） | 唯一正式 schema 演进渠道；镜像启动自动 `upgrade head` |
+| `backend/app/db/partitions.py` | **运行时 DDL**：启动时为 `audit_logs`/`emails` 自动创建当月+次月分区 |
 | `backend/scripts/maintain_partitions.py` | 分区维护脚本（仅覆盖 `emails`/`audit_logs`，与上者逻辑重叠） |
 | `backend/scripts/restore_quota_incident_enrollments.py:131,142` | 一次性事故恢复脚本，产出过 `backup_quota_incident_*` 备份表 |
 | `backend/03_database/schema.sql` | 手工蓝图，已知漂移（见上），运行时不执行 |
@@ -2178,7 +2068,6 @@ graph LR
 | tenant_contacts | `contact_status` | `status` | `tenant_ops_service.py:405` |
 | sending_plans | `sender_email` / `sender_name` | `from_email` / `from_name` | `tenant_messaging_service.py:1825-1826,1859-1860` |
 | sequence_steps | `step_number` | `previous_step` | `tenant_messaging_service.py:2973` |
-| intelligence_article_publications | `status` / `created_at` | `publication_status`→`status`、`published_at`→`published_to_tenant_at` | `intelligence_service.py:375,382` |
 | ai_models | `display_name` / `is_active` | `model_display_name` / `model_is_active` | `admin_config_service.py:872-873` |
 
 （Pydantic `alias=` 全部用于环境变量/Header/Query 绑定，未发现 DB 列映射。）
@@ -2198,7 +2087,7 @@ graph LR
 
 ### D. 空表（估算行数为 0，可能是未启用/待接线功能）
 
-`ai_usage_logs`、`company_blacklist`、`intelligence_article_publications`、`intelligence_subscriptions`、`notifications`、`scoring_jobs`、`tenant_scoring_weights`（以及备份表中 4 张 scoring 相关快照）。判断是否废弃需结合代码引用频次（见仓库调查记录）。
+`ai_usage_logs`、`company_blacklist`、`notifications`、`scoring_jobs`、`tenant_scoring_weights`（以及备份表中 4 张 scoring 相关快照）。判断是否废弃需结合代码引用频次（见仓库调查记录）。
 
 ### E. 设计存在但运行链路未接线的设施（2026-07-22 代码扫描证实的负向事实）
 
@@ -2216,7 +2105,6 @@ graph LR
 | `tenant_companies.model_score`/`score` | 只有 SELECT 无写入，评分事实存 `company_scores`；前端「大模型评分」实际绑定 `wmt_score` | 预留列 |
 | `groups.auto_rules` | 仅透传存储，无自动分组引擎（`group_members.added_by` 恒写 'manual'） | |
 | `contact_rules.rules` | 租户初始化写入默认值，发送侧无任何消费方 | |
-| `intelligence_sources.last_fetched_at`/`error_count` | 情报定时采集未实现（#49），无写入方 | |
 | `audit_logs.ip_address`/`user_agent`/`request_id`、`ai_usage_logs.latency_ms` | 无填充路径 | 预留 |
 
 **2026-07-23 逐项拍板结果**：
@@ -2224,4 +2112,4 @@ graph LR
 - **拆除**：`service_idempotency_keys` 表 + `InternalIdempotencyService`（零调用方，幂等由 `email_send_locks` 承担；305 行已 dump 留档，迁移 20260723_0003）；
 - **保留（预留待接线）**：`scoring_jobs` 队列、`emails.scheduled_at`、`groups.auto_rules`、`contact_rules.rules`（核实修正：发送侧**在用**平台级职位过滤 `v_tenant_contact_classified`，未接线的仅租户自定义规则层）；
 - **文档修正**：`tenant_scoring_weights_service.py` docstring 已改正（原声称评分 worker 读取权重，实际未接线）；
-- intelligence 定时采集继续由 #49 追踪。
+- 情报模块（`intelligence_*` 四表）已于 2026-08 被「行业动态」替换并随迁移 20260824_0002 删除；#49 关闭。
