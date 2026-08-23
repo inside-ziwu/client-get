@@ -68,6 +68,16 @@ export interface IntelFilters extends PaginationParams {
   status?: string;
 }
 
+// 行业动态列表查询参数；数组键名带 []，axios 序列化为重复参数，后端以 Query(alias="category[]") 收取
+export interface IndustryNewsFilters {
+  'category[]'?: string[];
+  'source_id[]'?: string[];
+  lang?: string;
+  unread_only?: boolean;
+  page?: number;
+  page_size?: number;
+}
+
 export interface TenantFilters extends PaginationParams {
   keyword?: string;
   status?: string;

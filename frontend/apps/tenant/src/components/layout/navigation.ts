@@ -27,7 +27,7 @@ export const tenantNavigationGroups = [
       { href: '/send-plans', label: '发送计划', icon: Send },
     ],
   },
-  { label: '情报', items: [{ href: '/intelligence', label: '情报中心', icon: Newspaper }] },
+  { label: '行业动态', items: [{ href: '/industry-news', label: '行业动态', icon: Newspaper }] },
   {
     label: '设置',
     items: [

@@ -62,7 +62,8 @@ export function AIConfigPage() {
     if (!query.data) return;
 
     setModels(query.data.models ?? []);
-    setSceneDefaults(query.data.scene_defaults ?? []);
+    // 行业动态上线后隐藏「情报摘要」场景：既不渲染，也不再随整份 PUT 提交
+    setSceneDefaults((query.data.scene_defaults ?? []).filter((item) => item.scene !== 'intelligence_summary'));
   }, [query.data, query.isError]);
 
   const openCreate = () => {
