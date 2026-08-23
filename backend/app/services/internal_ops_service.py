@@ -1,14 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.services.intelligence_service import IntelligenceService
 from app.services.tenant_messaging_service import TenantMessagingService
 
 
 class InternalOpsService:
     def __init__(self) -> None:
         self.messaging = TenantMessagingService()
-        self.intelligence = IntelligenceService()
 
     async def claim_due_emails(self, conn: AsyncConnection, payload: dict) -> dict:
         return await self.messaging.claim_due_emails(
@@ -32,6 +30,3 @@ class InternalOpsService:
             domain_id=payload["domain_id"],
             count=payload.get("count", 1),
         )
-
-    async def publish_article(self, conn: AsyncConnection, payload: dict) -> dict:
-        return await self.intelligence.publish_article(conn, payload=payload)

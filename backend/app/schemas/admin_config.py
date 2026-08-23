@@ -42,20 +42,6 @@ class EmailTemplateCreate(BaseModel):
     is_active: bool = Field(default=True, description="是否激活")
 
 
-class IntelligenceSourceCreate(BaseModel):
-    """创建平台情报源请求（POST /admin/api/v1/intelligence-sources）"""
-
-    name: str = Field(..., min_length=1, max_length=200, description="情报源名称")
-    source_type: Literal["rss", "website", "manual"] = Field(..., description="情报源类型")
-    url: str | None = Field(None, description="情报源地址")
-    fetch_config: dict = Field(
-        default_factory=lambda: {"frequency_hours": 24},
-        description="抓取配置",
-    )
-    industry_tags: list[str] = Field(default_factory=list, description="行业标签")
-    is_active: bool = Field(default=True, description="是否激活")
-
-
 class WarmupRuleLevelUpdate(BaseModel):
     """预热规则档位请求"""
 
@@ -122,7 +108,6 @@ class AISceneDefaultUpdate(BaseModel):
     scene: Literal[
         "scoring",
         "email_generation",
-        "intelligence_summary",
         "data_analysis",
     ] = Field(..., description="AI 使用场景")
     model_id: str = Field(..., min_length=1, description="AI 模型行 ID")
@@ -184,26 +169,6 @@ class TenantUpdate(BaseModel):
         max_length=255,
         description="联系人邮箱",
     )
-
-
-class IntelligenceSourceBatchImport(BaseModel):
-    """批量导入平台情报源请求"""
-
-    items: list[IntelligenceSourceCreate] = Field(..., description="待导入情报源")
-
-
-class IntelligenceSourceUpdate(BaseModel):
-    """局部更新平台情报源请求"""
-
-    name: str | None = Field(None, min_length=1, max_length=200, description="情报源名称")
-    source_type: Literal["rss", "website", "manual"] | None = Field(
-        None,
-        description="情报源类型",
-    )
-    url: str | None = Field(None, description="情报源地址")
-    fetch_config: dict | None = Field(None, description="抓取配置")
-    industry_tags: list[str] | None = Field(None, description="行业标签")
-    is_active: bool | None = Field(None, description="是否激活")
 
 
 class TenantDomainCreate(BaseModel):

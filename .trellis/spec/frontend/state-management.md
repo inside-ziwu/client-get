@@ -1,6 +1,6 @@
 # 状态管理与数据获取
 
-> 事实来源：`packages/shared-api/src/query-keys.ts`、`client.ts`、`packages/shared-hooks/src/*`、`apps/tenant/src/app/(dashboard)/intelligence/page.tsx`。
+> 事实来源：`packages/shared-api/src/query-keys.ts`、`client.ts`、`packages/shared-hooks/src/*`、`apps/tenant/src/app/(dashboard)/industry-news/page.tsx`。
 
 ## 三类状态
 
@@ -14,9 +14,9 @@
 
 ## React Query 约定
 
-- **queryKey 用 `queryKeys` 工厂**（`@shared/api`）：`queryKeys.intelligence.list(filters)` / `.all()`，tenant 侧 key 自动带 `tid`（`['tenant', <tid>, 'intelligence', 'list', filters]`），切换租户不会串缓存。存量页面还有字面量 key（如 `['tenant', 'companies', 'list', …]`，T-17 收敛未做）——**新代码一律用工厂**，改到旧页面时顺手换。
+- **queryKey 用 `queryKeys` 工厂**（`@shared/api`）：`queryKeys.industryNews.list(filters)` / `.filters()` / `.all()`，tenant 侧 key 自动带 `tid`（`['tenant', <tid>, 'industryNews', 'list', filters]`），切换租户不会串缓存。存量页面还有字面量 key（如 `['tenant', 'companies', 'list', …]`，T-17 收敛未做）——**新代码一律用工厂**，改到旧页面时顺手换。
 - `queryFn` 直接调 `tenantApi.<feature>.list(...)`，返回 `.data.data`（`ApiResponse` 解包在页面做）。
-- mutation 成功后 `queryClient.invalidateQueries({ queryKey: queryKeys.<feature>.all() })`，不手改缓存。
+- mutation 成功后 `queryClient.invalidateQueries({ queryKey: queryKeys.<feature>.all() })`，不手改缓存。已确认的例外：行业动态「点击标题置已读」不 invalidate 列表，用页面本地 `clickedIds` 显示已读态（失败时回滚并 toast），让开着「只看未读」时行不会在点击瞬间消失——这是页面状态，不是手改缓存。
 - 翻页 / 筛选刷新期间保留旧行与分页上下文，表格用 `TableState` 显示"更新中…"——不要在 refetch 时清空列表。
 - admin SSR：`createPrefetchPage` 的 key 必须与客户端 key 完全相同。
 

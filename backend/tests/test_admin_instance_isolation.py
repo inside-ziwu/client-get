@@ -591,7 +591,6 @@ class TestPlatformDashboardInstanceId:
             "active_tenants": 5,
             "total_users": 20,
             "running_sending_plans": 3,
-            "total_articles": 100,
             "configured_openrouter_tenants": 2,
         }
         conn.execute = AsyncMock(return_value=_mock_mappings_one(dashboard_row))
@@ -616,7 +615,6 @@ class TestPlatformDashboardInstanceId:
             "active_tenants": 0,
             "total_users": 0,
             "running_sending_plans": 0,
-            "total_articles": 0,
             "configured_openrouter_tenants": 0,
         }
         conn.execute = AsyncMock(return_value=_mock_mappings_one(dashboard_row))

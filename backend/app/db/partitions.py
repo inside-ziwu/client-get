@@ -9,7 +9,6 @@ query performance (partition pruning).
 Tables managed:
   - audit_logs        → audit_logs_p_YYYY_MM
   - emails            → emails_p_YYYY_MM
-  - intelligence_articles → articles_p_YYYY_MM
 """
 
 import logging
@@ -23,7 +22,6 @@ logger = logging.getLogger(__name__)
 _MANAGED: list[tuple[str, str]] = [
     ("audit_logs", "audit_logs_p"),
     ("emails", "emails_p"),
-    ("intelligence_articles", "articles_p"),
 ]
 
 

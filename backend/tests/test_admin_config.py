@@ -1,6 +1,6 @@
 """admin/config 路由冒烟测试
 
-覆盖 app/api/admin/config.py 全部 38 个端点的路由层最小可用性，三类断言：
+覆盖 app/api/admin/config.py 全部 32 个端点的路由层最小可用性，三类断言：
 1. 冒烟：认证通过后路由可达，service 被调用，响应信封符合
    {"data": ...} / paginated / 204 约定；
 2. 认证：不带 token 一律 401（验证每个端点都挂了平台认证依赖）；
@@ -53,13 +53,6 @@ SMOKE_CASES = [
      {"name": "更新后评分模板"}),
     ("DELETE", "/scoring-templates/{template_id}", "/scoring-templates/tmpl-001", "delete_platform_scoring_template", None, 200, "deleted", NOBODY),
     ("GET", "/scoring-templates/{template_id}/versions", "/scoring-templates/tmpl-001/versions", "list_platform_scoring_template_versions", [ROW], 200, "paginated", NOBODY),
-    ("GET", "/intelligence-sources", "/intelligence-sources", "list_intelligence_sources", [ROW], 200, "paginated", NOBODY),
-    ("POST", "/intelligence-sources", "/intelligence-sources", "create_intelligence_source", ROW, 200, "success",
-     {"name": "行业动态 RSS", "source_type": "rss"}),
-    ("POST", "/intelligence-sources/batch-import", "/intelligence-sources/batch-import", "batch_import_intelligence_sources", [ROW], 200, "paginated", {"items": []}),
-    ("PATCH", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "patch_intelligence_source", ROW, 200, "success",
-     {"name": "更新后情报源"}),
-    ("DELETE", "/intelligence-sources/{source_id}", "/intelligence-sources/src-001", "delete_intelligence_source", None, 200, "deleted", NOBODY),
     ("GET", "/email-templates", "/email-templates", "list_platform_email_templates", [ROW], 200, "paginated", NOBODY),
     ("POST", "/email-templates", "/email-templates", "create_platform_email_template", ROW, 200, "success",
      {"industry": "pcb", "name": "冒烟邮件模板", "subject": "冒烟主题", "body_html": ""}),
@@ -234,16 +227,12 @@ _REQUIRED_FIELD_CASES = [
                  id="POST:/scoring-templates"),
     pytest.param("POST", "/email-templates", "industry/name/subject/body_html",
                  id="POST:/email-templates"),
-    pytest.param("POST", "/intelligence-sources", "name/source_type",
-                 id="POST:/intelligence-sources"),
     pytest.param("PUT", "/warmup-rules", "name",
                  id="PUT:/warmup-rules"),
     pytest.param("POST", "/ai-config/models", "model_id/display_name",
                  id="POST:/ai-config/models"),
     pytest.param("POST", "/tenants/t-001/users", "email/name",
                  id="POST:/tenants/users"),
-    pytest.param("POST", "/intelligence-sources/batch-import", "items",
-                 id="POST:/intelligence-sources/batch-import"),
     pytest.param("POST", "/tenants/t-001/domains", "domain/warmup_rule_id/warmup_level",
                  id="POST:/tenants/domains"),
 ]
@@ -369,22 +358,6 @@ _THIRD_BATCH_INVALID_CASES = [
     pytest.param(
         config_module,
         "POST",
-        "/intelligence-sources/batch-import",
-        "batch_import_intelligence_sources",
-        {"items": [{"name": "非法情报源", "source_type": "unknown"}]},
-        id="POST:/intelligence-sources/batch-import",
-    ),
-    pytest.param(
-        config_module,
-        "PATCH",
-        "/intelligence-sources/src-001",
-        "patch_intelligence_source",
-        {"source_type": "unknown"},
-        id="PATCH:/intelligence-sources",
-    ),
-    pytest.param(
-        config_module,
-        "POST",
         "/tenants/t-001/domains",
         "create_tenant_domain",
         {
@@ -430,13 +403,6 @@ _THIRD_BATCH_PARTIAL_UPDATE_CASES = [
         {"name": "仅更新租户名称"},
         id="PATCH:/tenants",
     ),
-    pytest.param(
-        config_module,
-        "/intelligence-sources/src-001",
-        "patch_intelligence_source",
-        {"name": "仅更新情报源名称"},
-        id="PATCH:/intelligence-sources",
-    ),
 ]
 
 
@@ -463,28 +429,6 @@ async def test_tenant_update_missing_body_returns_422(client):
     """admin/tenants 的 PATCH 请求体保持必填"""
     resp = await client.patch(PREFIX + "/tenants/t-001")
     assert resp.status_code == 422, resp.text
-
-
-async def test_batch_import_passes_validated_items_to_service(
-    client, monkeypatch
-):
-    """batch-import 应将包装对象中的情报源列表传给 service"""
-    mock = AsyncMock(return_value=[])
-    monkeypatch.setattr(
-        config_module.service,
-        "batch_import_intelligence_sources",
-        mock,
-    )
-
-    resp = await client.post(
-        PREFIX + "/intelligence-sources/batch-import",
-        json={"items": [{"name": "RSS 情报源", "source_type": "rss"}]},
-    )
-
-    assert resp.status_code == 200, resp.text
-    assert mock.await_args.kwargs["items"] == [
-        {"name": "RSS 情报源", "source_type": "rss"}
-    ]
 
 
 async def test_tenant_domain_update_rejects_out_of_range_warmup_level(

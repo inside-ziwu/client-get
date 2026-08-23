@@ -87,16 +87,6 @@
    ]
   },
   {
-   "name": "行业情报",
-   "description": "情报源、文章（分区表）、发布与订阅。",
-   "tables": [
-    "intelligence_sources",
-    "intelligence_articles",
-    "intelligence_article_publications",
-    "intelligence_subscriptions"
-   ]
-  },
-  {
    "name": "行业动态",
    "description": "实例内行业级动态源、抓取到的动态，以及按用户记录的已读状态。",
    "tables": [
@@ -175,7 +165,7 @@
    "role": "角色枚举；更新角色时先删后插全量重写。"
   },
   "tenant_ai_provider_configs": {
-   "__table__": "每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成、情报摘要）调用前以 balance_status 作余额闸门。",
+   "__table__": "每租户一行的 OpenRouter API Key 配置与余额缓存（60 秒 TTL）。租户设置页或平台管理员写入；AI 功能（邮件生成）调用前以 balance_status 作余额闸门。",
    "provider": "AI 供应商，当前仅 openrouter；与租户组成唯一键。",
    "api_key_encrypted": "OpenRouter API Key 的 Fernet 加密密文。",
    "encryption_key_version": "加密密钥版本，当前恒写 1，为密钥轮换预留。",
@@ -208,12 +198,12 @@
    "request_id": "请求链路 ID；当前写入路径未填充。"
   },
   "notifications": {
-   "__table__": "租户站内通知，一行对应一个接收用户。当前仅行业情报发布时写入；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。",
+   "__table__": "租户站内通知，一行对应一个接收用户。原唯一写入方（行业情报发布）已随情报模块删除（2026-08，迁移 20260824_0002），当前无写入路径；租户端通知中心按用户读取并标记已读，仪表盘统计未读数。",
    "user_id": "通知接收者（租户用户），列表按用户过滤。",
    "title": "通知标题。",
    "content": "通知正文。",
-   "category": "通知分类；当前代码仅情报发布路径写入 intelligence。",
-   "entity_type": "关联业务对象类型，如 intelligence_article。",
+   "category": "通知分类；CHECK 枚举保留 intelligence 等值，当前无写入路径。",
+   "entity_type": "关联业务对象类型（历史值 intelligence_article，对应表已删除）。",
    "entity_id": "关联业务对象 ID，供前端跳转。",
    "is_read": "已读标记；支持单条与一键全部已读。",
    "read_at": "标记已读的时间。"
@@ -233,11 +223,11 @@
    "config": "场景级扩展参数 JSONB，透传保存。"
   },
   "ai_usage_logs": {
-   "__table__": "AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成、情报摘要）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。",
+   "__table__": "AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。AI 功能（邮件生成）经 AiUsageLogService 写入；租户端用量汇总与 30 天趋势按 completed 记录统计。",
    "user_id": "触发调用的租户用户，可空。",
    "model_id": "本次调用使用的 AI 模型。",
    "usage_type": "用量场景，与 ai_scene_defaults.scene 同一口径。",
-   "entity_type": "关联业务对象类型，如 intelligence_article、email_template。",
+   "entity_type": "关联业务对象类型，如 email_template（历史值 intelligence_article，对应表已删除）。",
    "entity_id": "关联业务对象 ID。",
    "input_tokens": "输入 token 数，完成时按供应商回传写入。",
    "output_tokens": "输出 token 数，完成时按供应商回传写入。",
@@ -614,50 +604,6 @@
    "reserved_count": "已占用配额数；领取 +1 且不得超上限，失败/配额推迟/僵尸回收 -1，发送成功不回退",
    "sent_count": "当日成功发送数统计位；当前代码未回写，恒 0",
    "failed_count": "当日失败数统计位；当前代码未回写，恒 0"
-  },
-  "intelligence_sources": {
-   "__table__": "行业情报源配置表（RSS/网站/手工三类），平台 Admin 维护与启停，tenant_id 为空即平台级源；本仓库读写，但定时自动抓取尚未实现（#49），文章目前靠人工经 internal 接口发布。",
-   "name": "情报源名称",
-   "source_type": "来源类型：rss/website/manual",
-   "url": "来源抓取地址（RSS/网站 URL）",
-   "fetch_config": "抓取配置 JSON，默认 {\"frequency_hours\":24}",
-   "industry_tags": "该源覆盖的行业标签数组（JSON）",
-   "is_active": "是否启用，Admin 列表可直接启停",
-   "last_fetched_at": "最近抓取时间；采集器未实现，当前无写入方",
-   "error_count": "抓取失败计数；采集器未实现，当前无写入方"
-  },
-  "intelligence_articles": {
-   "__table__": "行业情报文章表，按 created_at 月度 RANGE 分区；由 internal 端点 /intelligence/articles/publish（scope intelligence:publish）upsert 写入，随后按租户订阅匹配发布，本仓库读写。",
-   "source_id": "所属情报源 intelligence_sources.id（无外键约束）",
-   "title": "文章标题",
-   "url": "原文链接",
-   "author": "作者",
-   "published_at": "原文发布时间，缺省取入库时间",
-   "content_raw": "原文全文",
-   "content_summary": "摘要；当前实现为原文归一化后截取前 240 字符",
-   "ai_category": "AI 分类（发布方提供）",
-   "ai_tags": "AI 标签数组，与订阅 industry_tags 求交集做推送匹配",
-   "ai_relevance_score": "AI 相关度评分（0-1），低于订阅 min_relevance 不推送",
-   "ai_model_id": "生成摘要所用 AI 模型，发布成功后回填",
-   "ai_usage_log_id": "摘要计费对应的 AI 用量日志 ID",
-   "status": "pending/processed/published/archived；发布到租户后置 published"
-  },
-  "intelligence_article_publications": {
-   "__table__": "文章向租户的发布与阅读状态表（tenant_id+article_id 唯一）；发布流程按订阅匹配写入，租户情报中心读取并更新已读/收藏/归档状态，本仓库读写。",
-   "article_id": "文章 ID，与 article_created_at 联合定位分区表记录",
-   "article_created_at": "文章 created_at 冗余副本，用于 JOIN 分区表",
-   "status": "阅读状态：unread/read/starred/archived",
-   "has_summary": "是否含 AI 摘要（租户 AI 配置可用且计费成功为 true）；false 时不返回摘要正文",
-   "read_at": "标记已读的时间",
-   "matched_by": "匹配方式 subscription/manual/system；当前发布流程写 subscription",
-   "subscription_id": "命中的订阅记录 ID（多条命中时取首条）"
-  },
-  "intelligence_subscriptions": {
-   "__table__": "租户用户的情报订阅偏好表（每用户一条，PUT 全量覆盖）；发布文章时据此做行业标签交集与相关度阈值匹配，决定是否推送给该租户。本仓库读写。",
-   "user_id": "订阅所属用户",
-   "industry_tags": "关注行业标签数组；为空则不按标签过滤",
-   "min_relevance": "推送要求的最低 AI 相关度阈值，默认 0.5",
-   "notify_enabled": "是否同时写站内通知（notifications）"
   },
   "industry_news_sources": {
    "__table__": "行业动态源配置表，属于实例内的行业级资产（ADR 0001）。源属性与解析规则由仓库种子导入，管理端只读展示并可启停；抓取 worker 按启用源拉取标题+链接。",

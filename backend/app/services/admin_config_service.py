@@ -442,159 +442,6 @@ class AdminConfigService:
             "body_text": template["body_text"],
         }
 
-    async def list_intelligence_sources(self, conn: AsyncConnection) -> list[dict]:
-        result = await conn.execute(
-            text(
-                """
-                SELECT id, tenant_id, name, source_type, url, fetch_config, industry_tags, is_active,
-                       last_fetched_at, error_count, deleted_at, created_at, updated_at
-                FROM intelligence_sources
-                WHERE deleted_at IS NULL AND tenant_id IS NULL
-                ORDER BY updated_at DESC
-                """
-            )
-        )
-        return [self._serialize_intelligence_source(row) for row in result.mappings().all()]
-
-    async def create_intelligence_source(
-        self,
-        conn: AsyncConnection,
-        *,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        source_id = str(new_uuid())
-        await conn.execute(
-            text(
-                """
-                INSERT INTO intelligence_sources
-                  (id, tenant_id, name, source_type, url, fetch_config, industry_tags, is_active)
-                VALUES
-                  (:id, NULL, :name, :source_type, :url, CAST(:fetch_config AS jsonb), CAST(:industry_tags AS jsonb), :is_active)
-                """
-            ),
-            {
-                "id": source_id,
-                "name": payload["name"],
-                "source_type": payload["source_type"],
-                "url": payload.get("url"),
-                "fetch_config": self._to_json(payload.get("fetch_config", {"frequency_hours": 24})),
-                "industry_tags": self._to_json(payload.get("industry_tags", [])),
-                "is_active": payload.get("is_active", True),
-            },
-        )
-        created = await self.get_intelligence_source(conn, source_id)
-        await self.audit.write(
-            conn,
-            action="create",
-            entity_type="intelligence_source",
-            entity_id=source_id,
-            platform_user_id=platform_user_id,
-            new_value=created,
-        )
-        return created
-
-    async def batch_import_intelligence_sources(
-        self,
-        conn: AsyncConnection,
-        *,
-        items: list[dict],
-        platform_user_id: str,
-    ) -> list[dict]:
-        created = []
-        for item in items:
-            created.append(await self.create_intelligence_source(conn, payload=item, platform_user_id=platform_user_id))
-        return created
-
-    async def get_intelligence_source(self, conn: AsyncConnection, source_id: str) -> dict:
-        result = await conn.execute(
-            text(
-                """
-                SELECT id, tenant_id, name, source_type, url, fetch_config, industry_tags, is_active,
-                       last_fetched_at, error_count, deleted_at, created_at, updated_at
-                FROM intelligence_sources
-                WHERE id = :source_id AND deleted_at IS NULL
-                """
-            ),
-            {"source_id": source_id},
-        )
-        row = result.mappings().first()
-        if row is None:
-            raise AppError(code="NOT_FOUND", message="情报源不存在", status_code=404)
-        return self._serialize_intelligence_source(row)
-
-    async def patch_intelligence_source(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_id: str,
-        payload: dict,
-        platform_user_id: str,
-    ) -> dict:
-        before = await self.get_intelligence_source(conn, source_id)
-        await conn.execute(
-            text(
-                """
-                UPDATE intelligence_sources
-                SET name = COALESCE(:name, name),
-                    source_type = COALESCE(:source_type, source_type),
-                    url = COALESCE(:url, url),
-                    fetch_config = CAST(:fetch_config AS jsonb),
-                    industry_tags = CAST(:industry_tags AS jsonb),
-                    is_active = COALESCE(:is_active, is_active),
-                    updated_at = now()
-                WHERE id = :source_id
-                """
-            ),
-            {
-                "source_id": source_id,
-                "name": payload.get("name"),
-                "source_type": payload.get("source_type"),
-                "url": payload.get("url"),
-                "fetch_config": self._to_json(payload.get("fetch_config", before["fetch_config"])),
-                "industry_tags": self._to_json(payload.get("industry_tags", before["industry_tags"])),
-                "is_active": payload.get("is_active"),
-            },
-        )
-        after = await self.get_intelligence_source(conn, source_id)
-        await self.audit.write(
-            conn,
-            action="update",
-            entity_type="intelligence_source",
-            entity_id=source_id,
-            platform_user_id=platform_user_id,
-            old_value=before,
-            new_value=after,
-        )
-        return after
-
-    async def delete_intelligence_source(
-        self,
-        conn: AsyncConnection,
-        *,
-        source_id: str,
-        platform_user_id: str,
-    ) -> None:
-        before = await self.get_intelligence_source(conn, source_id)
-        await conn.execute(
-            text(
-                """
-                UPDATE intelligence_sources
-                SET deleted_at = now(), updated_at = now()
-                WHERE id = :source_id
-                """
-            ),
-            {"source_id": source_id},
-        )
-        await self.audit.write(
-            conn,
-            action="delete",
-            entity_type="intelligence_source",
-            entity_id=source_id,
-            platform_user_id=platform_user_id,
-            old_value=before,
-        )
-
     async def list_warmup_rules(self, conn: AsyncConnection) -> list[dict]:
         result = await conn.execute(
             text(
@@ -1460,7 +1307,6 @@ class AdminConfigService:
                   (SELECT count(*) FROM tenants WHERE status = 'active' AND instance_id = :instance_id) AS active_tenants,
                   (SELECT count(*) FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE t.instance_id = :instance_id) AS total_users,
                   (SELECT count(*) FROM sending_plans sp JOIN tenants t ON t.id = sp.tenant_id WHERE sp.status = 'running' AND sp.deleted_at IS NULL AND t.instance_id = :instance_id) AS running_sending_plans,
-                  (SELECT count(*) FROM intelligence_articles) AS total_articles,
                   (SELECT count(*) FROM tenant_ai_provider_configs c JOIN tenants t ON t.id = c.tenant_id WHERE c.provider = 'openrouter' AND t.instance_id = :instance_id) AS configured_openrouter_tenants
                 """
             ),
@@ -1471,7 +1317,6 @@ class AdminConfigService:
             "active_tenants": row["active_tenants"],
             "total_users": row["total_users"],
             "running_sending_plans": row["running_sending_plans"],
-            "total_articles": row["total_articles"],
             "configured_openrouter_tenants": row["configured_openrouter_tenants"],
         }
 
@@ -1549,22 +1394,6 @@ class AdminConfigService:
             "subject": sanitize_subject(payload.get("subject")),
             "body_html": sanitize_html(payload.get("body_html")),
             "body_text": sanitize_plain_text(payload.get("body_text")),
-        }
-
-    def _serialize_intelligence_source(self, row) -> dict:
-        return {
-            "id": str(row["id"]),
-            "tenant_id": str(row["tenant_id"]) if row["tenant_id"] else None,
-            "name": row["name"],
-            "source_type": row["source_type"],
-            "url": row["url"],
-            "fetch_config": row["fetch_config"],
-            "industry_tags": row["industry_tags"],
-            "is_active": row["is_active"],
-            "last_fetched_at": row["last_fetched_at"].isoformat() if row["last_fetched_at"] else None,
-            "error_count": row["error_count"],
-            "created_at": row["created_at"].isoformat(),
-            "updated_at": row["updated_at"].isoformat(),
         }
 
     def _serialize_ai_model(self, row) -> dict:

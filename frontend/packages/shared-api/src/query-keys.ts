@@ -32,11 +32,6 @@ export const queryKeys = {
     trend: (filters?: Record<string, unknown>) => [...queryKeys.emails.all(), 'trend', filters] as const,
     aiAnalysis: (filters?: Record<string, unknown>) => [...queryKeys.emails.all(), 'aiAnalysis', filters] as const,
   },
-  intelligence: {
-    all: () => ['tenant', tenantScope(), 'intelligence'] as const,
-    list: (filters?: Record<string, unknown>) => [...queryKeys.intelligence.all(), 'list', filters] as const,
-    subscriptions: () => [...queryKeys.intelligence.all(), 'subscriptions'] as const,
-  },
   industryNews: {
     all: () => ['tenant', tenantScope(), 'industryNews'] as const,
     list: (filters?: Record<string, unknown>) => [...queryKeys.industryNews.all(), 'list', filters] as const,
@@ -81,11 +76,6 @@ export const queryKeys = {
       all: () => ['admin', 'scoringTemplates'] as const,
       list: () => [...queryKeys.admin.scoringTemplates.all(), 'list'] as const,
       detail: (id: string) => [...queryKeys.admin.scoringTemplates.all(), 'detail', id] as const,
-    },
-    intelligenceSources: {
-      all: () => ['admin', 'intelligenceSources'] as const,
-      list: () => [...queryKeys.admin.intelligenceSources.all(), 'list'] as const,
-      detail: (id: string) => [...queryKeys.admin.intelligenceSources.all(), 'detail', id] as const,
     },
     emailTemplates: {
       all: () => ['admin', 'emailTemplates'] as const,

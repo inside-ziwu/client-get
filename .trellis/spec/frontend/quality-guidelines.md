@@ -11,9 +11,9 @@
 
 ## 测试模式
 
-- `vi.mock('@/lib/api', () => ({ tenantApi: { <feature>: { list: vi.fn(), ... } } }))` 替身 API 层；`QueryClient` 关闭 retry 后用 `QueryClientProvider` 包裹渲染（参照 `test/intelligence/intelligence-page.test.tsx`）。
+- `vi.mock('@/lib/api', () => ({ tenantApi: { <feature>: { list: vi.fn(), ... } } }))` 替身 API 层；`QueryClient` 关闭 retry 后用 `QueryClientProvider` 包裹渲染（参照 `test/industry-news/industry-news-page.test.tsx`）。
 - 断言用户可见行为（文案、按钮状态、表格行），不断言实现细节；`beforeEach` 设默认 resolved 值。
-- 测试按功能目录放（`test/companies/`、`test/intelligence/`），文件名描述场景（`companies-pagination-continuity.test.tsx`）。
+- 测试按功能目录放（`test/companies/`、`test/industry-news/`），文件名描述场景（`companies-pagination-continuity.test.tsx`）。
 
 ## UI 规则（设计契约摘要，全文见 design-system.md）
 

@@ -27,11 +27,6 @@ export type SequenceEnrollmentStatus = 'active' | 'completed' | 'replied' | 'bou
 export type EmailStatus = 'pending' | 'queued' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'replied' | 'bounced' | 'complained' | 'unsubscribed' | 'failed';
 export type EmailEventType = 'sent' | 'delivered' | 'opened' | 'clicked' | 'replied' | 'bounced' | 'complained' | 'unsubscribed';
 
-// === 情报 ===
-export type IntelligenceSourceType = 'rss' | 'website' | 'manual';
-export type IntelligenceArticleStatus = 'pending' | 'processed' | 'published' | 'archived';
-export type ArticlePublicationStatus = 'unread' | 'read' | 'starred' | 'archived';
-
 // === 域名预热 ===
 export type DomainVerificationStatus = 'pending' | 'verifying' | 'verified' | 'failed';
 

@@ -3,7 +3,6 @@ import { authApi } from './auth';
 import { collectionApi } from './collection';
 import { contactClassificationApi } from './contact-classification';
 import { scoringTemplatesApi } from './scoring-templates';
-import { intelligenceSourcesApi } from './intelligence-sources';
 import { industryNewsSourcesApi } from './industry-news-sources';
 import { emailTemplatesApi } from './email-templates';
 import { warmupRulesApi } from './warmup-rules';
@@ -17,7 +16,6 @@ export function createAdminApi(client: AxiosInstance) {
     collection: collectionApi(client),
     contactClassification: contactClassificationApi(client),
     scoringTemplates: scoringTemplatesApi(client),
-    intelligenceSources: intelligenceSourcesApi(client),
     industryNewsSources: industryNewsSourcesApi(client),
     emailTemplates: emailTemplatesApi(client),
     warmupRules: warmupRulesApi(client),

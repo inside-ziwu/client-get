@@ -1,12 +1,12 @@
 # API 约定
 
-> 事实来源：`app/core/responses.py`、`app/core/errors.py`、`app/schemas/`、`app/api/admin/config.py`（16 个端点已全量 Pydantic 化，#94）、`frontend/packages/shared-types/src/api.ts`。
+> 事实来源：`app/core/responses.py`、`app/core/errors.py`、`app/schemas/`、`app/api/admin/config.py`（写入端点已全量 Pydantic 化，#94）、`frontend/packages/shared-types/src/api.ts`。
 
 ## 收参：一律 Pydantic model
 
 - 请求体用 `app/schemas/` 下的 `BaseModel` 子类，字段带 `Field(..., description=…)`；**禁止 `payload: dict` 裸收参**。存量裸 dict 端点（主要在 tenant 侧与 internal 侧）在被修改时顺手改造，逐步向 OpenAPI 契约生成过渡。
-- 创建用 `payload.model_dump()`；局部更新（PATCH）用 `payload.model_dump(exclude_unset=True)`，service 只更新出现的键。参照 `IntelligenceSourceCreate` / `IntelligenceSourceUpdate` 与 `admin/config.py` 中的用法。
-- 枚举取值用 `Literal[...]`，与数据库 CHECK 约束一致（例：`source_type: Literal["rss", "website", "manual"]`）。
+- 创建用 `payload.model_dump()`；局部更新（PATCH）用 `payload.model_dump(exclude_unset=True)`，service 只更新出现的键。参照 `ScoringTemplateCreate` / `ScoringTemplateUpdate` 与 `admin/config.py` 中 `update_platform_scoring_template` 的用法。
+- 枚举取值用 `Literal[...]`，与数据库 CHECK 约束一致（例：`TenantUserCreate.status: Literal["active", "disabled"]` 对应 `users_status_check`）。
 - 查询参数用 `Query(...)`；日期字符串在 route 层解析成 `date` / `datetime` 再交给 service（参照 `api/tenant/core.py::dashboard_email_stats`）。
 
 ## 响应包装
@@ -18,7 +18,7 @@
 
 ## 路由顺序
 
-**静态路由必须放在动态 `/{id}` 路由之前**，否则被动态段吞掉。参照 `admin/config.py`：`POST /intelligence-sources/batch-import` 定义在 `PATCH /intelligence-sources/{source_id}` 之前。
+**静态路由必须放在动态 `/{id}` 路由之前**，否则被动态段吞掉。参照 `admin/industry_news_sources.py`：`POST /industry-news-sources/fetch` 定义在 `PATCH /industry-news-sources/{source_id}` 之前。
 
 ## 与前端的契约同步
 
