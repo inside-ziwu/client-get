@@ -97,6 +97,15 @@
    ]
   },
   {
+   "name": "行业动态",
+   "description": "实例内行业级动态源、抓取到的动态，以及按用户记录的已读状态。",
+   "tables": [
+    "industry_news_sources",
+    "industry_news_items",
+    "industry_news_reads"
+   ]
+  },
+  {
    "name": "外部数据管道（外部直写，schema 主权不在本仓库）",
    "description": "waimaotong/lixiaoyun/tendata 三路外部采购商数据入池与清洗中间态。按 .trellis/spec/backend/database-guidelines.md：对这些表结构的任何变更须先与用户确认。",
    "tables": [
@@ -649,6 +658,40 @@
    "industry_tags": "关注行业标签数组；为空则不按标签过滤",
    "min_relevance": "推送要求的最低 AI 相关度阈值，默认 0.5",
    "notify_enabled": "是否同时写站内通知（notifications）"
+  },
+  "industry_news_sources": {
+   "__table__": "行业动态源配置表，属于实例内的行业级资产（ADR 0001）。源属性与解析规则由仓库种子导入，管理端只读展示并可启停；抓取 worker 按启用源拉取标题+链接。",
+   "instance_id": "所属实例；与其他平台表同为无长度 varchar，有意不设 DEFAULT。",
+   "industry": "规范行业值（如 PCB），由 canonical_industry 归一后写入。",
+   "code": "稳定代号（pcea / cpca-news 等），种子按 (instance_id, code) upsert，地址可变。",
+   "name": "动态源名称，租户列表「来源」列展示。",
+   "url": "入口地址（RSS feed 或列表页）。",
+   "category": "客户确认的类别标签，动态继承其源的类别。",
+   "lang": "语种：en / zh-CN / zh-TW。",
+   "strategy": "解析策略：rss / html / jsonld。",
+   "parse_config": "解析规则 JSON，只由种子写入。",
+   "is_active": "是否启用；停用后不再抓取，其动态从租户列表与筛选项中隐藏。",
+   "last_fetched_at": "上次尝试抓取时间（成功或失败都会更新）。",
+   "last_success_at": "上次成功时间（解析出至少 1 条）。",
+   "error_count": "连续失败或 0 条的计数；成功归零。"
+  },
+  "industry_news_items": {
+   "__table__": "抓取到的行业动态（标题+原文链接）。同稿由 (instance_id, canonical_url) 与 (instance_id, dedup_key) 两条 UNIQUE 兜底，写入 ON CONFLICT DO NOTHING。不分区。",
+   "instance_id": "所属实例，与动态源一致。",
+   "source_id": "所属动态源。",
+   "title": "原文标题，截断 500 字符，不翻译。",
+   "url": "原文链接（原样保存）。",
+   "canonical_url": "规范化 URL，用于同稿判定。",
+   "dedup_key": "sha1(规范化标题) 的 40 位十六进制。",
+   "published_at": "站点给出的发布时间，可空；早于 90 天的条目不入库。",
+   "fetched_at": "该轮抓取的统一时间戳（run_at），同一轮所有动态相同。"
+  },
+  "industry_news_reads": {
+   "__table__": "用户对动态的已读记录；无记录即未读。复合主键 (user_id, item_id)；用户物理删除时 CASCADE。",
+   "tenant_id": "租户隔离键，service 层 SQL 显式过滤。",
+   "user_id": "标记已读的用户；随用户物理删除。",
+   "item_id": "已读的动态。",
+   "read_at": "标记已读的时间。"
   },
   "waimaotong_raw_companies": {
    "__table__": "外贸通采集程序直写的原始公司表（数据链路 raw 层第一站），经外部清洗进入 waimaotong_clean_companies；本仓库只读：Admin 外贸通页浏览，以及用 source_competitor 判定「精准反推」采集类型。",

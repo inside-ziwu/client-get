@@ -96,6 +96,16 @@ class Settings(BaseSettings):
         default=300,
         alias="WMT_LINEAGE_REPAIR_INTERVAL_SECONDS",
     )
+    industry_news_fetch_enabled: bool = Field(
+        default=False,
+        alias="INDUSTRY_NEWS_FETCH_ENABLED",
+    )
+    industry_news_fetch_hour_beijing: int = Field(
+        default=8,
+        ge=0,
+        le=23,
+        alias="INDUSTRY_NEWS_FETCH_HOUR_BEIJING",
+    )
 
     @field_validator("debug", mode="before")
     @classmethod

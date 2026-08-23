@@ -15,3 +15,17 @@ def beijing_day_bounds(now_utc: datetime | None = None) -> tuple[datetime, datet
     today = beijing_today(now_utc)
     start = datetime.combine(today, time.min, tzinfo=BEIJING_TZ)
     return start, start + timedelta(days=1)
+
+
+def next_beijing_time(hour: int, now_utc: datetime | None = None) -> datetime:
+    """返回下一个北京 ``hour:00``（含跨日），aware datetime。
+
+    当前北京时间恰好等于目标时刻时，返回次日同一时刻（不做启动补跑）。
+    ``hour`` 越界由 ``time()`` 抛 ``ValueError``。
+    """
+    now = now_utc or datetime.now(UTC)
+    today = beijing_today(now)
+    candidate = datetime.combine(today, time(hour=hour), tzinfo=BEIJING_TZ)
+    if candidate <= now.astimezone(BEIJING_TZ):
+        candidate = candidate + timedelta(days=1)
+    return candidate
