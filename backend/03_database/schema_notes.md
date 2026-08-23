@@ -27,8 +27,8 @@
 
 | 位置 | 性质 |
 |---|---|
-| `backend/alembic/versions/`（74 个迁移，截至 20260824_0002） | 唯一正式 schema 演进渠道；镜像启动自动 `upgrade head` |
-| `backend/app/db/partitions.py` | **运行时 DDL**：启动时为 `audit_logs`/`emails` 自动创建当月+次月分区（`intelligence_articles` 随 20260824_0002 删表一并移出） |
+| `backend/alembic/versions/`（迁移链，head 以快照 `alembic_version` 为准） | 唯一正式 schema 演进渠道；镜像启动自动 `upgrade head` |
+| `backend/app/db/partitions.py` | **运行时 DDL**：启动时为 `audit_logs`/`emails` 自动创建当月+次月分区 |
 | `backend/scripts/maintain_partitions.py` | 分区维护脚本（仅覆盖 `emails`/`audit_logs`，与上者逻辑重叠） |
 | `backend/scripts/restore_quota_incident_enrollments.py:131,142` | 一次性事故恢复脚本，产出过 `backup_quota_incident_*` 备份表 |
 | `backend/03_database/schema.sql` | 手工蓝图，已知漂移（见上），运行时不执行 |

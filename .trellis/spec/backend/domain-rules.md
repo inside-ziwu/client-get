@@ -17,7 +17,7 @@
 | 发送幂等键 | `enrollment_id:step_id` |
 | 状态对账 | webhook 为主，对账 worker 约每 10 分钟主动查询兜底 |
 | 仪表盘统计 | 邮件统计**排除 failed**；「已评分公司」只计入租户当前活跃模板的最新版本分数 |
-| 租户评分 | 确定性规则引擎（非 AI），结果归租户所有；平台模板只是创建租户时的默认种子。「AI 评级 / 邮件生成」当前为启发式桩（#46）；情报摘要场景随情报模块删除 |
+| 租户评分 | 确定性规则引擎（非 AI），结果归租户所有；平台模板只是创建租户时的默认种子。「AI 评级 / 邮件生成」当前为启发式桩（#46） |
 | 采集类型 | `manual` 看 `source_id LIKE 'manual-%'`；`keyword` 看精确标签「外贸通关键词采集」；`reverse` 看精确「腾道」标签或非空 `source_competitor`；其余为 `unknown`。优先级 manual > keyword > reverse |
 | PCB 供应商评分 | 只有显式 `reverse` 才视为「有中国 PCB 供应商」；keyword / manual / unknown 均为否 |
 | 域名验证 | **当前为假验证**：点击即置 verified，不做任何 DNS 校验（#47，勿向客户承诺） |

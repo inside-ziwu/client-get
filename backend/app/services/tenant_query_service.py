@@ -1064,13 +1064,6 @@ class TenantQueryService:
                     if can_mutate_ai and is_available
                     else self._capability_reason(can_mutate_ai, is_configured, status),
                 },
-                {
-                    "feature": "intelligence_summary",
-                    "available": is_available,
-                    "reason": None
-                    if is_available
-                    else self._provider_reason(is_configured, status),
-                },
             ],
         }
 

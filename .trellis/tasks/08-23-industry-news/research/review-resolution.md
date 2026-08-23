@@ -72,3 +72,15 @@
 | CR10 | 语种码表两份 + 封闭联合与 DB 口径不一致 | `@shared/ui` 统一 `industryNewsLangLabel`，`IndustryNewsLang` 改为开放 `string` |
 | 未报 | 其余清理项（转发方法、三处手抄健康参数、`_list_params`、worker 无用参数）及驳回项 | `_get_text` 死代码随 CR8 清理；其余不扩大本 PR |
 | 存量 | `tenant_messaging_service.py:73/115` 同类查询缺 `instance_id` | 登记 #98 |
+
+## code-review（PR #101，high，8 视角 × 验证）→ 处置
+
+| # | 发现 | 判定 | 处置 |
+|---|---|---|---|
+| CR-B1 | `AISceneDefaultUpdate.scene` Literal 仍接受 `intelligence_summary`，PUT 可把迁移刚删的默认行写回 | PLAUSIBLE | Literal 删该值；`tenant_query_service` 能力清单同名项一并删；测试断言该 scene 被 422；design §6 同步 |
+| CR-B2 | 前端去掉过滤后发布错位时整份 PUT 回灌 | PLAUSIBLE | 由 CR-B1 的后端拒绝兜底（新后端 ⇒ 迁移已跑 ⇒ 无该行；旧后端接受亦无害），前端不再加过滤 |
+| CR-B3 | 迁移测试手抄 47 列清单做 re.search，改坏 NOT NULL/类型照样绿；getsource 断言脆弱 | CONFIRMED | 删列清单，只留结构性断言；`init_instance` 场景清单提为 `AI_SCENE_SEEDS` 常量直接断言；新增本机 PostgreSQL 门控的往返 + 回滚用例（桩父表 + `ai_scene_defaults`，抽查 9 列类型/可空性），Docker `postgres:16` 实跑 11/11 |
+| CR-B4 | 测试脚手架与 `test_drop_retired_collection_tables_migration.py` 逐行重复 | CONFIRMED | 抽到 `tests/migration_helpers.py` + conftest `postgres_schema` fixture，两份测试共用 |
+| CR-B5 | README / spec / schema_notes 用墓碑句替代删段 | PLAUSIBLE | README:154/:169、domain-rules:20、database-guidelines:44、schema_notes:31 直接删句/括注 |
+| CR-B6 | `schema_notes.md:30` 硬编码迁移计数 | PLAUSIBLE | 改为「head 以快照 alembic_version 为准」；README:201 同类过期计数一并改 |
+| 驳回 | 两实例发布窗口（dashboard overview 无前端调用方；旧镜像重启即挂是串行换 tag 规则下所有带迁移发布的固有属性，docstring 已写）、快照再生时序（PR 正文与 implement.md 已明示）、docstring 过长（design §2 与 spec 明文要求） | REFUTED | 不改 |

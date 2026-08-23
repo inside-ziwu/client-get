@@ -108,7 +108,6 @@ class AISceneDefaultUpdate(BaseModel):
     scene: Literal[
         "scoring",
         "email_generation",
-        "intelligence_summary",
         "data_analysis",
     ] = Field(..., description="AI 使用场景")
     model_id: str = Field(..., min_length=1, description="AI 模型行 ID")

@@ -19,6 +19,9 @@ from sqlalchemy import create_engine, text
 from app.core.ids import new_uuid
 from app.security.passwords import hash_password
 
+# 新实例默认种下的 AI 场景（与 schemas/admin_config.py 的 scene Literal 保持一致）
+AI_SCENE_SEEDS = ("scoring", "email_generation", "data_analysis")
+
 
 def _require_env(key: str) -> str:
     value = os.environ.get(key, "").strip()
@@ -206,8 +209,7 @@ def main() -> None:
         print("[5/6] ai_models")
 
         # ── 6. ai_scene_defaults ───────────────────────────────────────────
-        scenes = ["scoring", "email_generation", "data_analysis"]
-        for scene in scenes:
+        for scene in AI_SCENE_SEEDS:
             conn.execute(
                 text(
                     """
