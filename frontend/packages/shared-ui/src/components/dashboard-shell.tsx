@@ -130,6 +130,8 @@ export function DashboardShell({
             className={cn(
               'sticky top-0 hidden h-screen shrink-0 self-start border-r border-border bg-white transition-all duration-200 lg:block',
               collapsed ? 'w-16' : 'w-64',
+              // sticky 自成层叠上下文，悬停展开层要盖过主栏 z-50 的页头与 DataTable 的定位/粘性表头
+              expandedOverlay && 'z-[60]',
             )}
             onMouseEnter={() => collapsed && setHovered(true)}
             onMouseLeave={() => setHovered(false)}

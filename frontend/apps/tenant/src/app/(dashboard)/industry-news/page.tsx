@@ -115,6 +115,7 @@ export default function IndustryNewsPage() {
       name: 'lang',
       kind: 'select',
       label: '语种',
+      width: 'small',
       placeholder: '不限',
       options: (filterOptions?.langs ?? []).map((lang) => ({ label: industryNewsLangLabel(lang), value: lang })),
       optionState,
@@ -123,6 +124,7 @@ export default function IndustryNewsPage() {
       name: 'unread_only',
       kind: 'custom',
       label: '只看未读',
+      width: 'small',
       render: ({ values, setValue, disabled }) => (
         <div className="flex h-10 items-center">
           <Switch
@@ -228,6 +230,8 @@ export default function IndustryNewsPage() {
             fields={fields}
             appliedCount={appliedCount}
             isSubmitting={listQuery.isFetching}
+            layout="compact"
+            actionsPlacement="inline"
             onChange={setDraftFilters}
             onSubmit={handleApplyFilters}
             onReset={handleResetFilters}
