@@ -41,3 +41,11 @@ export type { EmailLog } from './tenant/emails';
 export type { TeamUser } from './tenant/team';
 export type { TenantScoringTemplate } from './tenant/scoring';
 export type { IntelligenceArticle, IntelligenceSubscription } from './tenant/intelligence';
+export type {
+  IndustryNewsItem,
+  IndustryNewsSource,
+  IndustryNewsFilterOptions,
+  IndustryNewsFilters,
+  IndustryNewsLang,
+  IndustryNewsStrategy,
+} from '@shared/types';
