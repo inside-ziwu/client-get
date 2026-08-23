@@ -453,3 +453,51 @@ export interface AiModel {
   created_at: string;
   updated_at: string;
 }
+
+// === 行业动态 ===
+
+/** 语种码（如 en / zh-CN / zh-TW）由动态源种子驱动，DB 无 CHECK，保持开放；标签映射见 @shared/ui 的 industryNewsLangLabel */
+export type IndustryNewsLang = string;
+
+export type IndustryNewsStrategy = 'rss' | 'html' | 'jsonld';
+
+// 租户端行业动态列表条目（GET /industry-news/items 的 data 元素）
+export interface IndustryNewsItem {
+  id: string;
+  title: string;
+  url: string;
+  source_id: string;
+  source_name: string;
+  category: string;
+  lang: IndustryNewsLang;
+  /** 发布时间优先，缺则抓取时间（ISO 字符串） */
+  time: string;
+  is_read: boolean;
+  target_domain: string;
+  /** 外链剪报类来源：目标域名与来源域名不同 */
+  is_external: boolean;
+}
+
+// 管理端动态源（GET /industry-news-sources 的 data 元素）
+export interface IndustryNewsSource {
+  id: string;
+  code: string;
+  name: string;
+  url: string;
+  industry: string;
+  category: string;
+  lang: IndustryNewsLang;
+  strategy: IndustryNewsStrategy;
+  is_active: boolean;
+  last_fetched_at?: string;
+  last_success_at?: string;
+  error_count: number;
+}
+
+// 租户端筛选选项（GET /industry-news/filters 的 data）
+export interface IndustryNewsFilterOptions {
+  categories: string[];
+  sources: Array<{ id: string; name: string }>;
+  langs: IndustryNewsLang[];
+  has_sources: boolean;
+}

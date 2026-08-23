@@ -2,6 +2,7 @@ export { RatingTag, type RatingTagProps } from './RatingTag';
 export { StatusTag, type StatusTagProps } from './StatusTag';
 export { ContactStatusTag, type ContactStatusTagProps } from './ContactStatusTag';
 export { cn } from './lib/utils';
+export { INDUSTRY_NEWS_LANG_LABELS, industryNewsLangLabel } from './industry-news-lang';
 export { default as sharedTailwindPreset } from './theme/tailwind-preset';
 export * from './components/alert-dialog';
 export * from './components/avatar';

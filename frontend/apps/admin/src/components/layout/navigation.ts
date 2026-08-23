@@ -30,7 +30,7 @@ export const adminNavigationGroups = [
   {
     label: '营销',
     items: [
-      { href: '/intelligence-sources', label: '情报源管理', icon: Globe2 },
+      { href: '/industry-news-sources', label: '动态源管理', icon: Globe2 },
       { href: '/email-templates', label: '邮件模板', icon: Mail },
       { href: '/scoring-templates', label: '评分模板', icon: Star },
       { href: '/contact-classification', label: '联系人规则', icon: Network },

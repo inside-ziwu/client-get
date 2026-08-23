@@ -62,7 +62,8 @@ export function AIConfigPage() {
     if (!query.data) return;
 
     setModels(query.data.models ?? []);
-    setSceneDefaults(query.data.scene_defaults ?? []);
+    // 行业动态上线后隐藏「情报摘要」场景：既不渲染，也不再随整份 PUT 提交
+    setSceneDefaults((query.data.scene_defaults ?? []).filter((item) => item.scene !== 'intelligence_summary'));
   }, [query.data, query.isError]);
 
   const openCreate = () => {
@@ -124,8 +125,14 @@ export function AIConfigPage() {
       await adminApi.aiConfig.deleteModel(id);
       toast.success('模型已删除');
       await load();
-    } catch {
-      toast.error('删除失败');
+    } catch (error) {
+      // 显示后端原因（如「该模型仍被场景默认配置引用」），否则管理员无从排查
+      const detail =
+        (error as { response?: { data?: { error?: { message?: string } } }; message?: string })?.response?.data?.error
+          ?.message ??
+        (error as Error)?.message ??
+        '未知错误';
+      toast.error(`删除失败：${detail}`);
     }
   };
 

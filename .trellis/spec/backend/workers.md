@@ -7,7 +7,7 @@
 | 形态 | 现役例子 | 适用 |
 |---|---|---|
 | 独立进程常驻循环 | `scripts/run_sending_worker.py`：`while True: worker.run_once(engine)`，每轮约 5 秒，每 120 轮（约 10 分钟）跑一次对账；`--once` 单轮用于验证 | 高频、需要外部 I/O 节流、需要独立扩缩容 |
-| API 进程 lifespan 内循环 | `run_wmt_lineage_repair_loop(engine, interval_seconds, stop_event)`：`asyncio.create_task`，`WMT_LINEAGE_REPAIR_ENABLED` 开关（默认 true）、300 秒 / 轮，`stop_event` 优雅退出 | 低频、轻量、不想多一个容器 |
+| API 进程 lifespan 内循环 | `run_wmt_lineage_repair_loop(engine, interval_seconds, stop_event)`：`asyncio.create_task`，`WMT_LINEAGE_REPAIR_ENABLED` 开关（默认 true）、300 秒 / 轮，`stop_event` 优雅退出；`run_industry_news_fetch_loop`（`workers/industry_news_fetch.py`）：`INDUSTRY_NEWS_FETCH_ENABLED` 开关（默认 false）、每天北京 08:00 一轮、整轮单事务 + 事务锁 + 每源 savepoint、不做启动补跑，错过的轮次由管理端「立即抓取」（`trigger_fetch`，后台任务去重）补 | 低频、轻量、不想多一个容器 |
 
 新增后台任务默认选 lifespan 循环 + 环境变量开关（默认关，验证后在目标实例打开）。生产两个实例共库，**开关与锁都要按实例设计**。
 

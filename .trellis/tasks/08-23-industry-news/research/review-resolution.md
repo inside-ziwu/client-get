@@ -54,3 +54,21 @@
 | C10 | 只看未读 + 点击 | 与用户已确认口径一致（行保持可见至下次取数） |
 | 简化 | 删补跑 / 锁改单事务 + savepoint（方案 C）/ 管理端 `success_response` / 不上 tenacity / 保留两 UNIQUE + ON CONFLICT / 保留 `/filters` / 不改 FilterBar、TableState | 全部采纳 |
 | 不同意 | 会话级锁无先例 → 采纳改方案 C；RSS 自动发现须显式删除 → PRD R3 已明确；A8 真站不作合并门槛 → 采纳；AC3 时间键 → 以 run_at 排序解决 |
+
+
+## code-review（PR #97，high，8 视角 × 验证）→ 处置
+
+| # | 发现 | 处置 |
+|---|---|---|
+| CR1 | PCB Update `href_exclude` 裸子串 `pcea` 误杀第三方新闻（fixture 实证 2 条） | 种子改为锚定自家链接；补测试断言 pcdandf `pcea-` 链接保留 |
+| CR2 | `tenants` 行业查询缺 `instance_id`（红线） | SQL 加 `AND instance_id = :instance_id`，`resolve_tenant_industry` 增参数，三处调用同步 |
+| CR3 | 列表 SQL 隔离谓词无测试（红线） | 新增 `test_list_sql_keeps_isolation_predicates_and_params` |
+| CR4 | 非 UUID id → asyncpg DataError 500 | 路由层 `UUID` 类型（路径与 `source_id[]`）→ 422；补测试 |
+| CR5 | 立即抓取跨进程持锁时谎报 triggered | 触发前短事务探测事务锁；后台结果写日志；补两条测试 |
+| CR6 | markRead 失败静默 | `onError` 回滚 `clickedIds` + toast；补用例 |
+| CR7 | 隐藏情报摘要场景后被引用模型删不掉 | 删模型失败 toast 显示后端原因；PR B 删除该场景默认模型行（design §6 / PRD R5 已改） |
+| CR8 | 重定向后仍用种子 URL 作 urljoin 基址 | `_get_text` 返回最终 URL 作解析基址；补 301 测试；design §3.1 已改 |
+| CR9 | CLI `--dry-run` 无语义 | `--once` / `--from-file` 互斥组，删 `--dry-run`；文档同步 |
+| CR10 | 语种码表两份 + 封闭联合与 DB 口径不一致 | `@shared/ui` 统一 `industryNewsLangLabel`，`IndustryNewsLang` 改为开放 `string` |
+| 未报 | 其余清理项（转发方法、三处手抄健康参数、`_list_params`、worker 无用参数）及驳回项 | `_get_text` 死代码随 CR8 清理；其余不扩大本 PR |
+| 存量 | `tenant_messaging_service.py:73/115` 同类查询缺 `instance_id` | 登记 #98 |

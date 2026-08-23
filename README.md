@@ -151,7 +151,7 @@ cd frontend && pnpm type-check
 | 域名与预热管理 | 🟡 | 建域名/选档位可用；**「验证」按钮是假验证，不查 DNS/SPF/DKIM，直接置 verified**（#47）；**预热不会自动升档，只有手动调整**（#48）。`admin_config_service.py:1707` 附近 |
 | AI 模型配置 | 🟡 | 配置与余额查询可用；**系统没有任何真实 LLM 推理调用**（#46）。`backend/app/integrations/openrouter.py` |
 | 平台邮件模板 | ✅ | 含向租户同步；TipTap 编辑器支持加粗、斜体、有序列表、无序列表及变量插入，列表标记与缩进保持可见。admin `/email-templates` |
-| 情报源管理 | 🟡 | 人工导入/发布与列表直接启停可用；**定时自动采集未实现，已排期**（#49）。`intelligence_service.py` |
+| 动态源管理 | ✅ | 行业动态的动态源监控页：种子定义的源列表只读展示 + 启停 + 上次成功时间 / 错误计数 + 「立即抓取」；每实例每天北京 08:00 自动抓取（`INDUSTRY_NEWS_FETCH_ENABLED`）。旧「情报源管理」页面与 `intelligence_*` 表待 PR B 清理。`app/services/industry_news/`、`app/workers/industry_news_fetch.py` |
 | 租户生命周期管理 | ✅ | 创建/暂停/删除、域名、团队、OpenRouter 四块。admin `/tenants`（前端为 984 行单文件，拆分随 #59 Phase C 处理） |
 
 ### 租户侧（tenant）
@@ -166,7 +166,7 @@ cd frontend && pnpm type-check
 | 邮件模板 | 🟡 | 双 Tab 列表、TipTap 富文本、纯文本兜底、测试发送；「AI 生成」当前为启发式桩（#46）；**平台模板“预览”会误调用复制接口，已排期修复**（#65）。tenant `/templates` |
 | 发送计划全生命周期 | ✅ | 4 步向导、收件人预览/锁定、状态机操作、运行中轮询；锁定/启动前校验模板变量，含无法替换的 `{{…}}` 时 422 拦截（防字面量事故，2026-07-23）。tenant `/send-plans/*`，后端 `tenant_messaging_service.py`（3334 行核心文件） |
 | 团队管理 | 🟡 | CRUD 可用；列表前端隐藏当前账号操作并对行级状态提交提供 pending 保护，但**API 层仍缺最后管理员保护与自操作拦截，可把租户锁死**（#44）。`tenant_team_service.py` |
-| 情报中心（阅读侧） | ✅ | 列表/已读/收藏/归档；加载、失败、空数据与刷新状态统一。tenant `/intelligence` |
+| 行业动态（阅读侧） | ✅ | 实例内按行业可见的每日动态流：标题 + 原文链接、来源 / 类别 / 语种筛选、「只看未读」、按用户已读、90 天窗口、同稿去重。tenant `/industry-news`（旧 `/intelligence` 页待 PR B 删除） |
 | 各项设置 | ✅ | 评分模板、AI 供应商、团队。tenant `/settings/*` |
 
 ### 发送与可靠性（worker）

@@ -22,6 +22,7 @@ from app.core.request_context import RequestContextMiddleware
 from app.core.responses import success_response
 from app.db.partitions import ensure_partitions
 from app.db.pools import close_engines, get_engine, initialize_engines
+from app.workers.industry_news_fetch import run_industry_news_fetch_loop
 from app.workers.wmt_lineage_repair import run_wmt_lineage_repair_loop
 
 
@@ -43,6 +44,16 @@ async def lifespan(_: FastAPI):
                 stop_event=repair_stop_event,
             )
         )
+    news_stop_event: asyncio.Event | None = None
+    news_task: asyncio.Task | None = None
+    if settings.industry_news_fetch_enabled:
+        news_stop_event = asyncio.Event()
+        news_task = asyncio.create_task(
+            run_industry_news_fetch_loop(
+                engine,
+                stop_event=news_stop_event,
+            )
+        )
     try:
         yield
     finally:
@@ -52,6 +63,12 @@ async def lifespan(_: FastAPI):
             repair_task.cancel()
             with suppress(asyncio.CancelledError):
                 await repair_task
+        if news_stop_event is not None:
+            news_stop_event.set()
+        if news_task is not None:
+            news_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await news_task
     await close_engines()
 
 
