@@ -12,7 +12,7 @@
   "assignee": "lay",
   "createdAt": "2026-08-23",
   "completedAt": null,
-  "branch": null,
+  "branch": "feat/industry-news",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
