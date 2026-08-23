@@ -31,7 +31,6 @@ const EMPTY_MODEL: ModelFormValues = {
 const SCENE_LABELS: Record<string, string> = {
   scoring: '客户评分',
   email_generation: '邮件生成',
-  intelligence_summary: '情报摘要',
   data_analysis: '数据分析',
   general: '通用',
 };
@@ -62,8 +61,7 @@ export function AIConfigPage() {
     if (!query.data) return;
 
     setModels(query.data.models ?? []);
-    // 行业动态上线后隐藏「情报摘要」场景：既不渲染，也不再随整份 PUT 提交
-    setSceneDefaults((query.data.scene_defaults ?? []).filter((item) => item.scene !== 'intelligence_summary'));
+    setSceneDefaults(query.data.scene_defaults ?? []);
   }, [query.data, query.isError]);
 
   const openCreate = () => {

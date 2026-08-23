@@ -206,7 +206,7 @@ def main() -> None:
         print("[5/6] ai_models")
 
         # ── 6. ai_scene_defaults ───────────────────────────────────────────
-        scenes = ["scoring", "email_generation", "intelligence_summary", "data_analysis"]
+        scenes = ["scoring", "email_generation", "data_analysis"]
         for scene in scenes:
             conn.execute(
                 text(

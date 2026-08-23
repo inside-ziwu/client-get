@@ -41,7 +41,7 @@
 
 ## 分区表
 
-- `audit_logs`、`emails`、`intelligence_articles` 按 `created_at` 月度 RANGE 分区，各有 DEFAULT 分区兜底；`app/db/partitions.py::ensure_partitions` 在启动时建当月与下月分区；`scripts/maintain_partitions.py` 只维护 `emails` 与 `audit_logs` 两张表的分区。
+- `audit_logs`、`emails` 按 `created_at` 月度 RANGE 分区，各有 DEFAULT 分区兜底（`intelligence_articles` 已随 20260824_0002 删除）；`app/db/partitions.py::ensure_partitions` 在启动时建当月与下月分区；`scripts/maintain_partitions.py` 只维护 `emails` 与 `audit_logs` 两张表的分区。
 - 分区表主键必须含分区键（如 `(id, created_at)`），唯一约束同理——跨分区去重只能在应用层做。
 - 父表建索引会自动下发到所有分区。
 

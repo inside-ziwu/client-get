@@ -1,6 +1,6 @@
 # 错误处理
 
-> 事实来源：`app/core/errors.py`、`app/main.py` 异常处理器注册、`app/security/*.py`、`app/services/intelligence_service.py` 等。
+> 事实来源：`app/core/errors.py`、`app/main.py` 异常处理器注册、`app/security/*.py`、`app/services/industry_news/service.py` 等。
 
 ## 错误模型
 
@@ -14,8 +14,8 @@
 - **service 抛 `AppError`**，不 `raise HTTPException`，不返回 `None` 让上层猜。
 - **route 不 try / except** 包装业务异常，交给全局处理器。
 - 鉴权依赖抛 `UNAUTHORIZED`（401：缺 / 无效令牌、用户禁用）或 `FORBIDDEN`（403：kind / iid / slug / 角色不符）。
-- 租户不可见的资源返回 `NOT_FOUND`（404），消息形如"文章不存在或未发布给当前租户"，不暴露存在性。
-- 可预期的外部依赖失败转成带 code 的 `AppError`，调用方按 code 集合分支（参照 `intelligence_service.publish_article` 对 `OPENROUTER_*` / `INSUFFICIENT_BALANCE` 的白名单处理：命中则降级，其他继续抛）。
+- 租户不可见的资源返回 `NOT_FOUND`（404），消息形如"动态不存在或无权访问"（`industry_news/service.py::mark_read`），不暴露存在性。
+- 可预期的外部依赖失败转成带 code 的 `AppError`，调用方按 code 集合分支（参照 `industry_news/service.py::run_once` 对单源抓取失败的处理：`FetchError` 与解析异常在 savepoint 内回滚、只给该源 `error_count +1`，其余源继续；非预期异常同样不拖垮整轮）。
 
 ## 外部服务与 worker
 

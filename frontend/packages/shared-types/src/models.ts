@@ -14,9 +14,6 @@ import type {
   RecipientSource,
   SequenceConditionType,
   EmailStatus,
-  IntelligenceSourceType,
-  IntelligenceArticleStatus,
-  ArticlePublicationStatus,
   DomainVerificationStatus,
   AiModelType,
   NotificationCategory,
@@ -350,59 +347,6 @@ export interface Email {
   replied_at?: string;
   bounced_at?: string;
   created_at: string;
-}
-
-// === 情报 ===
-
-export interface FetchConfig {
-  frequency_hours: number;
-  selector?: string;
-}
-
-export interface IntelligenceSource {
-  id: string;
-  tenant_id: string;
-  name: string;
-  source_type: IntelligenceSourceType;
-  url?: string;
-  fetch_config?: FetchConfig;
-  industry_tags?: string[];
-  is_active: boolean;
-  last_fetched_at?: string;
-  error_count: number;
-  deleted_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface IntelligenceArticle {
-  id: string;
-  source_id: string;
-  title: string;
-  url?: string;
-  author?: string;
-  published_at?: string;
-  content_summary?: string;
-  ai_category?: string;
-  ai_tags?: string[];
-  ai_relevance_score?: number;
-  status: IntelligenceArticleStatus;
-  created_at: string;
-}
-
-export interface IntelligenceArticlePublication {
-  id: string;
-  tenant_id: string;
-  article_id: string;
-  status: ArticlePublicationStatus;
-  read_at?: string;
-  matched_by?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface IntelligenceArticlePublicationWithArticle extends IntelligenceArticlePublication {
-  article: IntelligenceArticle;
 }
 
 // === 域名预热 ===

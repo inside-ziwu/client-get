@@ -27,8 +27,8 @@
 
 | 位置 | 性质 |
 |---|---|
-| `backend/alembic/versions/`（70 个迁移） | 唯一正式 schema 演进渠道；镜像启动自动 `upgrade head` |
-| `backend/app/db/partitions.py:46-67` | **运行时 DDL**：启动时为 `audit_logs`/`emails`/`intelligence_articles` 自动创建当月+次月分区 |
+| `backend/alembic/versions/`（74 个迁移，截至 20260824_0002） | 唯一正式 schema 演进渠道；镜像启动自动 `upgrade head` |
+| `backend/app/db/partitions.py` | **运行时 DDL**：启动时为 `audit_logs`/`emails` 自动创建当月+次月分区（`intelligence_articles` 随 20260824_0002 删表一并移出） |
 | `backend/scripts/maintain_partitions.py` | 分区维护脚本（仅覆盖 `emails`/`audit_logs`，与上者逻辑重叠） |
 | `backend/scripts/restore_quota_incident_enrollments.py:131,142` | 一次性事故恢复脚本，产出过 `backup_quota_incident_*` 备份表 |
 | `backend/03_database/schema.sql` | 手工蓝图，已知漂移（见上），运行时不执行 |
@@ -55,7 +55,6 @@
 | tenant_contacts | `contact_status` | `status` | `tenant_ops_service.py:405` |
 | sending_plans | `sender_email` / `sender_name` | `from_email` / `from_name` | `tenant_messaging_service.py:1825-1826,1859-1860` |
 | sequence_steps | `step_number` | `previous_step` | `tenant_messaging_service.py:2973` |
-| intelligence_article_publications | `status` / `created_at` | `publication_status`→`status`、`published_at`→`published_to_tenant_at` | `intelligence_service.py:375,382` |
 | ai_models | `display_name` / `is_active` | `model_display_name` / `model_is_active` | `admin_config_service.py:872-873` |
 
 （Pydantic `alias=` 全部用于环境变量/Header/Query 绑定，未发现 DB 列映射。）
@@ -75,7 +74,7 @@
 
 ### D. 空表（估算行数为 0，可能是未启用/待接线功能）
 
-`ai_usage_logs`、`company_blacklist`、`intelligence_article_publications`、`intelligence_subscriptions`、`notifications`、`scoring_jobs`、`tenant_scoring_weights`（以及备份表中 4 张 scoring 相关快照）。判断是否废弃需结合代码引用频次（见仓库调查记录）。
+`ai_usage_logs`、`company_blacklist`、`notifications`、`scoring_jobs`、`tenant_scoring_weights`（以及备份表中 4 张 scoring 相关快照）。判断是否废弃需结合代码引用频次（见仓库调查记录）。
 
 ### E. 设计存在但运行链路未接线的设施（2026-07-22 代码扫描证实的负向事实）
 
@@ -93,7 +92,6 @@
 | `tenant_companies.model_score`/`score` | 只有 SELECT 无写入，评分事实存 `company_scores`；前端「大模型评分」实际绑定 `wmt_score` | 预留列 |
 | `groups.auto_rules` | 仅透传存储，无自动分组引擎（`group_members.added_by` 恒写 'manual'） | |
 | `contact_rules.rules` | 租户初始化写入默认值，发送侧无任何消费方 | |
-| `intelligence_sources.last_fetched_at`/`error_count` | 情报定时采集未实现（#49），无写入方 | |
 | `audit_logs.ip_address`/`user_agent`/`request_id`、`ai_usage_logs.latency_ms` | 无填充路径 | 预留 |
 
 **2026-07-23 逐项拍板结果**：
@@ -101,4 +99,4 @@
 - **拆除**：`service_idempotency_keys` 表 + `InternalIdempotencyService`（零调用方，幂等由 `email_send_locks` 承担；305 行已 dump 留档，迁移 20260723_0003）；
 - **保留（预留待接线）**：`scoring_jobs` 队列、`emails.scheduled_at`、`groups.auto_rules`、`contact_rules.rules`（核实修正：发送侧**在用**平台级职位过滤 `v_tenant_contact_classified`，未接线的仅租户自定义规则层）；
 - **文档修正**：`tenant_scoring_weights_service.py` docstring 已改正（原声称评分 worker 读取权重，实际未接线）；
-- intelligence 定时采集继续由 #49 追踪。
+- 情报模块（`intelligence_*` 四表）已于 2026-08 被「行业动态」替换并随迁移 20260824_0002 删除；#49 关闭。

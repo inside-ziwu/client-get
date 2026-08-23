@@ -45,12 +45,3 @@ async def reserve_domain_quota(
     conn=Depends(get_connection),
 ) -> dict:
     return success_response(await service.reserve_domain_quota(conn, payload))
-
-
-@router.post("/intelligence/articles/publish")
-async def publish_article(
-    payload: dict,
-    _: ServiceAuthContext = Depends(require_service_scopes("intelligence:publish")),
-    conn=Depends(get_connection),
-) -> dict:
-    return success_response(await service.publish_article(conn, payload))

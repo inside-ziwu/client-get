@@ -20,7 +20,7 @@ frontend/                     pnpm 10 workspace（Node ≥ 20）
 
 ## 页面模式
 
-**tenant**：`src/app/(dashboard)/<feature>/page.tsx` 首行 `'use client'`，页面内 `useQuery` 取数、`useMutation` 写操作，UI 由 `ListPage` / `DataTable` 等组合（参照 `intelligence/page.tsx`、`companies/page.tsx`）。复杂表单拆到同目录组件文件（如 `companies/add-company-sheet.tsx`）。
+**tenant**：`src/app/(dashboard)/<feature>/page.tsx` 首行 `'use client'`，页面内 `useQuery` 取数、`useMutation` 写操作，UI 由 `ListPage` / `DataTable` 等组合（参照 `industry-news/page.tsx`、`companies/page.tsx`）。复杂表单拆到同目录组件文件（如 `companies/add-company-sheet.tsx`）。
 
 **admin**：每个页面两个文件——
 - `page.tsx`（服务端）：`createPrefetchPage({ queryKey, fetchFn: (token) => serverApi.get('/api/v1/...', { token }), Component })`，用 `HydrationBoundary` 把预取结果交给客户端；

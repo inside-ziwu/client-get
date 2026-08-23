@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 from app.core.config import get_settings
 from app.security.passwords import hash_password
 from app.services.admin_config_service import AdminConfigService
-from app.services.intelligence_service import IntelligenceService
 from app.services.tenant_messaging_service import TenantMessagingService
 from app.services.tenant_ops_service import TenantOpsService
 from app.services.tenant_query_service import TenantQueryService
@@ -65,7 +64,6 @@ tenant_ops_service = TenantOpsService()
 tenant_query_service = TenantQueryService()
 tenant_settings_service = TenantSettingsService()
 tenant_messaging_service = TenantMessagingService()
-intelligence_service = IntelligenceService()
 webhook_service = WebhookService()
 
 
@@ -463,33 +461,6 @@ async def seed_email_activity(conn: AsyncConnection, tenant_id: str, plan_id: st
             )
 
 
-async def ensure_intelligence(conn: AsyncConnection, tenant_id: str, user_id: str, industry: str) -> None:
-    subscriptions = await intelligence_service.get_subscriptions(conn, tenant_id, user_id)
-    if not subscriptions:
-        await intelligence_service.put_subscriptions(
-            conn,
-            tenant_id=tenant_id,
-            user_id=user_id,
-            payload={"industry_tags": [industry.lower()], "min_relevance": 0.3, "notify_enabled": True},
-        )
-    articles = await intelligence_service.list_articles(conn, tenant_id)
-    if articles:
-        return
-    await intelligence_service.publish_article(
-        conn,
-        payload={
-            "title": f"{industry} 行业周报",
-            "url": f"https://news.example.com/{tenant_id}",
-            "author": "ClientGet Demo",
-            "content_raw": f"{industry} 行业出现新的采购与供应链动态，适合开展新一轮触达。",
-            "ai_category": "industry_update",
-            "ai_tags": [industry.lower()],
-            "ai_relevance_score": 0.9,
-            "estimated_cost": "0.5",
-        },
-    )
-
-
 async def seed_tenant(conn: AsyncConnection, platform_user_id: str, cfg: DemoTenantConfig) -> dict:
     tenant = await ensure_tenant(conn, platform_user_id, cfg)
     tenant_id = tenant["id"]
@@ -512,7 +483,6 @@ async def seed_tenant(conn: AsyncConnection, platform_user_id: str, cfg: DemoTen
             template_id=template["id"],
         )
         await seed_email_activity(conn, tenant_id, plan["id"])
-    await ensure_intelligence(conn, tenant_id, admin_user_id, cfg.industry)
     return {
         "tenant_id": tenant_id,
         "slug": cfg.slug,

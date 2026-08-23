@@ -4,7 +4,6 @@ export { createAdminApi } from './admin';
 export { createTenantApi } from './tenant';
 export type { ClassificationLevel, ClassificationCategory, ClassificationKeywordItem } from './admin/contact-classification';
 export type { ScoringTemplate } from './admin/scoring-templates';
-export type { IntelligenceSource } from './admin/intelligence-sources';
 export type { PlatformEmailTemplate } from './admin/email-templates';
 export type { WarmupRules, WarmupRuleLevel } from './admin/warmup-rules';
 export type { AdminCurrentUser } from './admin/auth';
@@ -40,7 +39,6 @@ export type {
 export type { EmailLog } from './tenant/emails';
 export type { TeamUser } from './tenant/team';
 export type { TenantScoringTemplate } from './tenant/scoring';
-export type { IntelligenceArticle, IntelligenceSubscription } from './tenant/intelligence';
 export type {
   IndustryNewsItem,
   IndustryNewsSource,

@@ -8,9 +8,6 @@ from app.schemas.admin_config import (
     AISceneDefaultsUpdate,
     EmailTemplateCreate,
     EmailTemplateUpdate,
-    IntelligenceSourceBatchImport,
-    IntelligenceSourceCreate,
-    IntelligenceSourceUpdate,
     ScoringTemplateCreate,
     ScoringTemplateUpdate,
     TenantDomainCreate,
@@ -94,69 +91,6 @@ async def list_platform_scoring_template_versions(
 ) -> dict:
     items = await service.list_platform_scoring_template_versions(context.connection, template_id)
     return paginated_response(items, total=len(items))
-
-
-@router.get("/intelligence-sources")
-async def list_intelligence_sources(context: PlatformAuthContext = Depends(get_current_platform_user)) -> dict:
-    items = await service.list_intelligence_sources(context.connection)
-    return paginated_response(items, total=len(items))
-
-
-@router.post("/intelligence-sources")
-async def create_intelligence_source(
-    payload: IntelligenceSourceCreate,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    return success_response(
-        await service.create_intelligence_source(
-            context.connection,
-            payload=payload.model_dump(),
-            platform_user_id=context.platform_user_id,
-        )
-    )
-
-
-@router.post("/intelligence-sources/batch-import")
-async def batch_import_intelligence_sources(
-    payload: IntelligenceSourceBatchImport,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    items = payload.model_dump(exclude_unset=True)["items"]
-    created = await service.batch_import_intelligence_sources(
-        context.connection,
-        items=items,
-        platform_user_id=context.platform_user_id,
-    )
-    return paginated_response(created, total=len(created))
-
-
-@router.patch("/intelligence-sources/{source_id}")
-async def patch_intelligence_source(
-    source_id: str,
-    payload: IntelligenceSourceUpdate,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    return success_response(
-        await service.patch_intelligence_source(
-            context.connection,
-            source_id=source_id,
-            payload=payload.model_dump(exclude_unset=True),
-            platform_user_id=context.platform_user_id,
-        )
-    )
-
-
-@router.delete("/intelligence-sources/{source_id}")
-async def delete_intelligence_source(
-    source_id: str,
-    context: PlatformAuthContext = Depends(get_current_platform_user),
-) -> dict:
-    await service.delete_intelligence_source(
-        context.connection,
-        source_id=source_id,
-        platform_user_id=context.platform_user_id,
-    )
-    return success_response({"deleted": True})
 
 
 @router.get("/email-templates")

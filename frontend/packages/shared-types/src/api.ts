@@ -61,13 +61,6 @@ export interface MonitorFilters {
   status?: string;
 }
 
-export interface IntelFilters extends PaginationParams {
-  keyword?: string;
-  category?: string;
-  source_id?: string;
-  status?: string;
-}
-
 // 行业动态列表查询参数；数组键名带 []，axios 序列化为重复参数，后端以 Query(alias="category[]") 收取
 export interface IndustryNewsFilters {
   'category[]'?: string[];
@@ -325,17 +318,6 @@ export interface LlmBalanceResponse {
   usage: number | null;
   limit: number | null;
   balance_status: string;
-}
-
-// Import results
-export interface ImportResult {
-  total: number;
-  success: number;
-  failed: number;
-  errors?: Array<{
-    row: number;
-    message: string;
-  }>;
 }
 
 // Batch operation
