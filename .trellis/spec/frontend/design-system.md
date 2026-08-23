@@ -176,11 +176,11 @@ components:
   control-width-large:
     width: 320px
   table-column-small:
-    width: 96px
+    width: 64px
   table-column-medium:
-    width: 144px
+    width: 96px
   table-column-large:
-    width: 224px
+    width: 144px
   table-state:
     backgroundColor: "{colors.background}"
     textColor: "{colors.muted-foreground}"
@@ -339,7 +339,7 @@ ClientGet 的 Admin 与 Tenant 是高频业务后台，不是营销站。界面�
 
 ### 列宽与密度
 
-- 列宽只有 `sm=96px`、`md=144px`、`lg=224px`、`xl=320px` 四档；checkbox 列和少数图标列由组件保留固定窄宽。
+- 列宽只有 `small=64px`、`medium=96px`、`large=144px` 三档（与 `globals.css` 的 `--ui-table-column-*` 一致；原 96/144/224/320 四档已于 2026-07-24 收紧）；checkbox 列和少数图标列由组件保留固定窄宽。
 - 页面不得出现新的 `w-[Npx]`、`min-w-[Npx]` 列宽。表格最小宽度由列 token 汇总计算。
 - 表头水平 padding 12px、垂直 padding 8px；数据行同密度，默认最小高度 40px。
 - 超长文本单行截断，DOM 保留完整文本，并在 hover/focus 时显示 Tooltip。

@@ -35,5 +35,5 @@
 - [ ] type-check / test / build 通过并附输出
 - [ ] 用了五件套与 `@shared/ui`，无散写像素列宽与颜色 class
 - [ ] 五态可区分；refetch 保留旧行；mutation pending 有反馈
-- [ ] `queryKeys` 工厂；admin 预取 key 一致
+- [ ] 客户端页面用 `queryKeys` 工厂；admin 预取页（server-only，不能引用依赖 zustand 的 `query-keys.ts`）用字面量 key，且 `page.tsx` 与 `client-page.tsx` 两处完全一致
 - [ ] 契约同步（type-safety.md）

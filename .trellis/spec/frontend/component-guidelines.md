@@ -214,7 +214,7 @@ interface DataTableProps<T> {
 
 列类型默认行为：
 
-DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的物理 token：`small=96px`、`medium=144px`、`large=224px`。未声明 `width` 的列默认取 `medium`；少数特殊列可用 `{ custom: number }`，不接受任意宽度 class。相同语义名表示组件族内的相对密度，不强迫表格列与表单控件使用相同像素值。
+DataTable 与 FilterBar 共用 `WidthSpec` 形状，但使用表格列自己的物理 token：`small=64px`、`medium=96px`、`large=144px`（`globals.css` 的 `--ui-table-column-*`，2026-07-24 收紧）。未声明 `width` 的列默认取 `medium`；少数特殊列可用 `{ custom: number }`，不接受任意宽度 class。相同语义名表示组件族内的相对密度，不强迫表格列与表单控件使用相同像素值。
 
 表头与单元格始终使用同一对齐方式。默认按列类型决定：text/date 左对齐、number 右对齐、status/boolean 居中、actions 右对齐；业务列可用 `align` 显式覆盖。禁止分别给表头或单元格追加零散 `text-*` class。
 

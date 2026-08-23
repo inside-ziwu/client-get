@@ -14,7 +14,7 @@
 ## 必备模式
 
 1. **`run_once(engine) -> dict`**：一轮就是一个可单独调用、可测试的函数，返回统计字典；循环只负责 sleep 与异常兜底（`except Exception: logger.exception(...)` 后继续下一轮，不让进程死掉）。
-2. **实例级 advisory lock**：`SELECT pg_try_advisory_xact_lock(CAST(:key AS bigint) + pg_catalog.hashtext(:instance_id))`，拿不到锁就返回 `{"skipped": True, "reason": "lock_busy"}`（`wmt_lineage_repair.py`）。
+2. **实例级 advisory lock**：`SELECT pg_try_advisory_xact_lock(CAST(:key AS bigint) + pg_catalog.hashtext(:instance_id))`，拿不到锁就返回 `{"skipped": True, "reason": "lock_busy"}`（`wmt_lineage_repair.py`）。**事务级锁只覆盖持锁事务**：`wmt_lineage_repair` 只有关系修复阶段在锁内，补评阶段用独立事务、不在锁内。要整轮互斥，就把整轮放进同一事务，并用 `conn.begin_nested()` savepoint 隔离单条失败；不要把事务锁和"每条独立提交"组合——锁在持锁事务结束时即释放。仓库没有会话级锁（`pg_advisory_lock`）先例，不要为单个功能引入。
 3. **可注入的时间与随机**：构造函数接受 `clock` / `sleep` / `random_between` / `log_sink`（`SendingWorker.__init__`），测试里推进虚拟时钟，不用 freezegun。
 4. **结构化事件日志**：`self._log({"event": "quota_circuit_closed", ...})` 这类带 `event` 键的 JSON，线上按字段检索（见 logging-guidelines.md）。
 5. **逐项隔离失败**：批处理里单条失败不回滚整轮（客户池修复：关系事务提交后再逐条补评，单条失败只记日志）。
