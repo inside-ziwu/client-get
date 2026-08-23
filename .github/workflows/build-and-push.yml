@@ -71,6 +71,10 @@ jobs:
           file: ${{ inputs.service == 'backend' && 'backend/Dockerfile' || format('frontend/Dockerfile.{0}', inputs.service) }}
           platforms: linux/amd64
           push: true
+          # 阿里云个人版 ACR 不支持 OCI 1.1 认证清单（config 为 application/vnd.oci.empty.v1+json），
+          # 2026-08-23 runner 升级 buildkit 后默认附带的 provenance 导致推送被拒，显式关闭。
+          provenance: false
+          sbom: false
           tags: ${{ steps.meta.outputs.image }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
