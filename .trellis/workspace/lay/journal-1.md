@@ -60,3 +60,35 @@ PR #97 按 code-review 修 10 项后合并；#99 修公司列表测试；发布 
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: 部署迁移可行性评估（提前结束）
+
+**Date**: 2026-08-24
+**Task**: 部署迁移可行性评估（提前结束）
+**Branch**: `main`
+
+### Summary
+
+完成仓库架构盘点与生产库只读容量体检，确认原始层占主要空间；因用户要求结束且未提供 Sealos 账单明细，未形成最终成本方案。
+
+### Main Changes
+
+- 生产库只读体检确认总容量约 36.6 GB，原始层约占 83.6%。
+- 记录任务终止状态并归档规划材料，未改动产品代码或生产环境。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] 生产数据库连接已复核 transaction_read_only=on，仅查询聚合元数据。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 若未来重启评估，先补充 Sealos 完整月账单、资源规格、目标地域与 RPO/RTO。
