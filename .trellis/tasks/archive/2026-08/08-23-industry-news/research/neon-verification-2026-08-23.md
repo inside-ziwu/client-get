@@ -20,10 +20,10 @@
 ```
 industry_news: 源失败 source=源-assert-bad
 Traceback (most recent call last):
-  File "/Users/lay/Projects/ClientGet/backend/app/services/industry_news/service.py", line 252, in fetch_source_from_network
+  File "/Users/lay/Projects/赵奎/ClientGet/backend/app/services/industry_news/service.py", line 252, in fetch_source_from_network
     items = await self._load_raw_items(source)
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/lay/Projects/ClientGet/backend/app/services/industry_news/service.py", line 242, in _load_raw_items
+  File "/Users/lay/Projects/赵奎/ClientGet/backend/app/services/industry_news/service.py", line 242, in _load_raw_items
     return await self.fetcher.fetch_items(source)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/private/tmp/claude-501/-Users-lay-Projects-ClientGet/8b4530db-1435-4b49-8092-f18f9e32e365/scratchpad/assert_industry_news.py", line 105, in fetch_items

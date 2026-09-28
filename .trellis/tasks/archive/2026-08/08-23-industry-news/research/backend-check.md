@@ -3,7 +3,7 @@
 - 评审人：Check Agent（Claude）· 2026-08-23
 - 对象：`git -C <worktree> status --short` 列出的全部后端改动（基于 main `dac67d1`）
 - 对照：design.md v3 §2 / §3 / §4 / §7、prd.md R2–R4 与 AC、implement.md A1–A9、`research/review-resolution.md` D1–D9 / B1–B7 / C2–C9、`.trellis/spec/backend/*.md`
-- 约束遵守：未连接任何数据库、未 git commit、未动当前目录 `/Users/lay/Projects/ClientGet`、未新增 `.env*`、未改 `schema.sql`
+- 约束遵守：未连接任何数据库、未 git commit、未动当前目录 `/Users/lay/Projects/赵奎/ClientGet`、未新增 `.env*`、未改 `schema.sql`
 
 ## 0. 先说一件事故（已完全恢复）
 
