@@ -284,4 +284,4 @@ client_get/
 3. **行为变更**：影响 §3 矩阵的变更合并时同步修订对应行；影响行为口径的变更修订 `.trellis/spec/backend/domain-rules.md`。
 4. **实施完成**：销账对应 issue——修复 PR 描述带 `Fixes #NN` 随合并自动关闭，无 PR 的用 `gh issue close` 附证据（收尾清单见 [.trellis/spec/guides/delivery-checklist.md](.trellis/spec/guides/delivery-checklist.md)）。
 5. **新教训**：写进 spec 对应的「常见错误」或规则节；`docs/solutions/` 已于 2026-08-23 冻结为历史档案，不再新增。
-6. **历史考古**：旧文档 `git show archive/2026-07-pre-handbook:<路径>`；原 TODO.md 台账 `git show e35335d^:TODO.md`；原 `DESIGN.md` 与 `docs/solutions/conventions/` 见 2026-08-23 迁移提交之前的历史；2026-05-16 前的更早历史在远程分支 `origin/codex/tenant-nextjs-rewrite`、`origin/codex/admin-server-prefetch`。
+6. **历史考古**：旧文档 `git show archive/2026-07-pre-handbook:<路径>`；原 TODO.md 台账 `git show e35335d^:TODO.md`；原 `DESIGN.md` 与 `docs/solutions/conventions/` 见 2026-08-23 迁移提交之前的历史；2026-05-16 合并 monorepo 前的前端历史在标签 `archive/2026-05-pre-monorepo`（`git log archive/2026-05-pre-monorepo`）。
