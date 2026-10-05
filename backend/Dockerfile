@@ -9,14 +9,19 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY 03_database ./03_database
 COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
 COPY scripts ./scripts
 
-RUN pip install --no-cache-dir uv && uv pip install --system .
+# 按 uv.lock 安装，镜像与本地测试同一套版本；--locked 在 lock 与 pyproject 不一致时直接失败
+RUN pip install --no-cache-dir uv \
+    && uv export --locked --no-emit-project --no-hashes -o /tmp/requirements.txt \
+    && uv pip install --system -r /tmp/requirements.txt \
+    && uv pip install --system --no-deps . \
+    && rm /tmp/requirements.txt
 
 # 启动脚本：先跑迁移，再拉起服务
 RUN printf '#!/bin/sh\nset -e\necho ">>> alembic upgrade head"\nalembic upgrade head\necho ">>> starting uvicorn"\nexec uvicorn app.main:app --host 0.0.0.0 --port 8000\n' > /start.sh && chmod +x /start.sh
