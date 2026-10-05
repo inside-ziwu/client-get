@@ -20,7 +20,7 @@ from app.core.errors import (
 from app.core.logging import configure_logging
 from app.core.request_context import RequestContextMiddleware
 from app.core.responses import success_response
-from app.db.partitions import ensure_partitions
+from app.db.partitions import ensure_partitions, run_partition_maintenance_loop
 from app.db.pools import close_engines, get_engine, initialize_engines
 from app.workers.industry_news_fetch import run_industry_news_fetch_loop
 from app.workers.wmt_lineage_repair import run_wmt_lineage_repair_loop
@@ -33,6 +33,10 @@ async def lifespan(_: FastAPI):
     initialize_engines(settings)
     engine = get_engine()
     await ensure_partitions(engine)
+    partition_stop_event = asyncio.Event()
+    partition_task = asyncio.create_task(
+        run_partition_maintenance_loop(engine, stop_event=partition_stop_event)
+    )
     repair_stop_event: asyncio.Event | None = None
     repair_task: asyncio.Task | None = None
     if settings.wmt_lineage_repair_enabled:
@@ -57,6 +61,10 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        partition_stop_event.set()
+        partition_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await partition_task
         if repair_stop_event is not None:
             repair_stop_event.set()
         if repair_task is not None:
