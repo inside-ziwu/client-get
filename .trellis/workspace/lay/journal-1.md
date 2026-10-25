@@ -92,3 +92,24 @@ PR #97 按 code-review 修 10 项后合并；#99 修公司列表测试；发布 
 ### Next Steps
 
 - 若未来重启评估，先补充 Sealos 完整月账单、资源规格、目标地域与 RPO/RTO。
+
+
+## Session 4: 公司列表采集类型新增 Instantly
+
+**Date**: 2026-10-25
+**Task**: 公司列表采集类型新增 Instantly
+**Branch**: `main`
+
+### Summary
+
+采集类型新增独立来源 Instantly：筛选只看标签（@>，jsonb_path_ops 不支持 ?），来源待确认排除 Instantly，列表/详情多值显示；租户端与后台客户库同步。PR #104 已合并，待发布。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0869610` | (see git log) |
+
+### Status
+
+[OK] **Completed**
