@@ -33,6 +33,7 @@ export interface Company {
   description?: string;
   data_source_tags?: string[];
   collection_type: 'manual' | 'keyword' | 'reverse' | 'unknown';
+  collection_types: Array<'manual' | 'keyword' | 'reverse' | 'instantly'>;
   sources?: string[];
   full_address?: string;
   matched_keywords?: string[];

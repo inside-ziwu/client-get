@@ -113,6 +113,18 @@ class TestTenantCompaniesCollectionTypeFilter:
         assert "wc.data_source_tags IS NULL" not in sql
 
     @pytest.mark.asyncio
+    async def test_instantly_filter_matches_tag_and_lists_all_types(self):
+        """collection_type=instantly 只看标签，响应 collection_types 同时列出关键词与 Instantly。"""
+        rows, _total, sql = await _run_companies_page(
+            collection_type="instantly",
+            row=_list_row(data_source_tags=["外贸通关键词采集", "Instantly"]),
+        )
+        assert """COALESCE(wc.data_source_tags, '[]'::jsonb) @> '["Instantly"]'::jsonb""" in sql
+        assert "AND tc.tenant_id = :tenant_id" in sql
+        assert rows[0]["collection_type"] == "keyword"
+        assert rows[0]["collection_types"] == ["keyword", "instantly"]
+
+    @pytest.mark.asyncio
     async def test_none_filter_does_not_add_collection_type_where(self):
         """不传 collection_type 时不添加采集类型 WHERE。"""
         _rows, _total, sql = await _run_companies_page()

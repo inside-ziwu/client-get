@@ -5,7 +5,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.services.collection_source import build_collection_type_filter, compute_collection_type
+from app.services.collection_source import (
+    build_collection_type_filter,
+    compute_collection_type,
+    compute_collection_types,
+)
 from app.services.company_filter_sql import append_employee_count_range
 from app.services.tenant_ai_provider_service import TenantAiProviderService
 from app.utils.beijing_time import beijing_day_bounds
@@ -373,6 +377,11 @@ class TenantQueryService:
                     source_id=row["source_id"],
                     has_source_competitor=row["has_source_competitor"],
                 ),
+                "collection_types": compute_collection_types(
+                    row["data_source_tags"],
+                    source_id=row["source_id"],
+                    has_source_competitor=row["has_source_competitor"],
+                ),
                 "company_size": row["company_size"],
                 "business_status": row["business_status"],
                 "data_status": row["data_status"],
@@ -504,6 +513,11 @@ class TenantQueryService:
             "description": row["description"],
             "sources": list(row["data_source_tags"] or []),
             "collection_type": compute_collection_type(
+                row["data_source_tags"],
+                source_id=row["source_id"],
+                has_source_competitor=row["has_source_competitor"],
+            ),
+            "collection_types": compute_collection_types(
                 row["data_source_tags"],
                 source_id=row["source_id"],
                 has_source_competitor=row["has_source_competitor"],

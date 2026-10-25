@@ -1,6 +1,6 @@
 import type { Company } from '@shared/api';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/api', () => ({
@@ -34,6 +34,7 @@ const rows: Company[] = [
     tc_id: 'tenant-company-1',
     name: '远航科技',
     collection_type: 'keyword',
+    collection_types: ['keyword'],
     country_iso3: 'CHN',
     contacts_count: 3,
   },
@@ -41,7 +42,8 @@ const rows: Company[] = [
     id: 'company-2',
     tc_id: 'tenant-company-2',
     name: '星海贸易',
-    collection_type: 'reverse',
+    collection_type: 'keyword',
+    collection_types: ['keyword', 'instantly'],
     country_iso3: 'USA',
     contacts_count: 2,
   },
@@ -110,6 +112,15 @@ describe('CompaniesPage Pattern 打样', () => {
       expect(detailButton.parentElement).toHaveClass('justify-center');
       expect(detailButton.closest('td')).toHaveClass('text-center');
     }
+  });
+
+  it('采集类型列显示全部类型', async () => {
+    renderPage();
+    const table = await screen.findByRole('table', { name: '公司列表' });
+    await screen.findByText('远航科技');
+
+    expect(within(table).getByText('关键词采集')).toBeInTheDocument();
+    expect(within(table).getByText('关键词采集、Instantly')).toBeInTheDocument();
   });
 
   it('查询只提交 draft，并在翻页时原子更新页码且清空 selection', async () => {

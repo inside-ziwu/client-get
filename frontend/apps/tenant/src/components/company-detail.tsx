@@ -17,13 +17,15 @@ function formatUsd(v: number | null | undefined) {
   return `$${v.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
-function collectionTypeLabel(value: Company['collection_type']) {
-  return {
-    manual: '手工录入',
-    keyword: '关键词采集',
-    reverse: '精准反推',
-    unknown: '来源待确认',
-  }[value];
+const COLLECTION_TYPE_LABELS: Record<Company['collection_types'][number], string> = {
+  manual: '手工录入',
+  keyword: '关键词采集',
+  instantly: 'Instantly',
+  reverse: '精准反推',
+};
+
+function collectionTypesLabel(values: Company['collection_types']) {
+  return values.length > 0 ? values.map((value) => COLLECTION_TYPE_LABELS[value]).join('、') : '来源待确认';
 }
 
 const contactColumns: ReadonlyArray<DataTableColumn<CompanyContact>> = [
@@ -116,7 +118,7 @@ export default function CompanyDetail({ company: c, onGroupAdd, onSaved }: Props
         <div className="grid grid-cols-2 gap-x-8 gap-y-2">
           <InfoRow label="网站" value={c.website} />
           <InfoRow label="评级" value={c.grade} />
-          <InfoRow label="采集类型" value={collectionTypeLabel(c.collection_type)} />
+          <InfoRow label="采集类型" value={collectionTypesLabel(c.collection_types)} />
           <InfoRow label="国家" value={c.country_iso3} />
           <InfoRow label="总分" value={c.wmt_score} />
           <InfoRow label="细分行业" value={c.sub_industry} />

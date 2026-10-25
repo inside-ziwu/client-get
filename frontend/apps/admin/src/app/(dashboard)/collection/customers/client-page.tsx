@@ -54,13 +54,15 @@ function emptyPage(): PageData {
   return { data: [], pagination: { cursor: null, has_more: false, total: 0 } };
 }
 
-function collectionTypeLabel(value: WmtCleanCompanyRow['collection_type']) {
-  return {
-    manual: '手工录入',
-    keyword: '关键词采集',
-    reverse: '精准反推',
-    unknown: '来源待确认',
-  }[value];
+const COLLECTION_TYPE_LABELS: Record<WmtCleanCompanyRow['collection_types'][number], string> = {
+  manual: '手工录入',
+  keyword: '关键词采集',
+  instantly: 'Instantly',
+  reverse: '精准反推',
+};
+
+function collectionTypesLabel(values: WmtCleanCompanyRow['collection_types']) {
+  return values.length > 0 ? values.map((value) => COLLECTION_TYPE_LABELS[value]).join('、') : '来源待确认';
 }
 
 export function CustomerArchivePage() {
@@ -183,6 +185,7 @@ export function CustomerArchivePage() {
                 <SelectContent>
                   <SelectItem value="all">采集类型（不限）</SelectItem>
                   <SelectItem value="keyword">关键词采集</SelectItem>
+                  <SelectItem value="instantly">Instantly</SelectItem>
                   <SelectItem value="reverse">精准反推</SelectItem>
                   <SelectItem value="manual">手工录入</SelectItem>
                   <SelectItem value="unknown">来源待确认</SelectItem>
@@ -261,7 +264,7 @@ export function CustomerArchivePage() {
                     <td className="px-3 py-2">{dash(row.employee_size)}</td>
                     <td className="w-[60px] px-3 py-2">{dash(row.founded_year)}</td>
                     <td className="px-3 py-2">
-                      {collectionTypeLabel(row.collection_type)}
+                      {collectionTypesLabel(row.collection_types)}
                     </td>
                     <td className="w-[50px] px-3 py-2">
                       {row.grade ? <RatingTag grade={row.grade} variant="model" /> : '-'}

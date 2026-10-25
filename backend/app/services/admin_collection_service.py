@@ -6,7 +6,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.errors import AppError
-from app.services.collection_source import build_collection_type_filter, compute_collection_type
+from app.services.collection_source import (
+    build_collection_type_filter,
+    compute_collection_type,
+    compute_collection_types,
+)
 
 _BEIJING_TZ = ZoneInfo("Asia/Shanghai")
 
@@ -1111,10 +1115,16 @@ COALESCE(
             item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
             item["product_tags"] = list(item["product_tags"] or [])
             item["data_source_tags"] = list(item["data_source_tags"] or [])
+            has_source_competitor = item.pop("has_source_competitor")
             item["collection_type"] = compute_collection_type(
                 item["data_source_tags"],
                 source_id=item.get("source_id"),
-                has_source_competitor=item.pop("has_source_competitor"),
+                has_source_competitor=has_source_competitor,
+            )
+            item["collection_types"] = compute_collection_types(
+                item["data_source_tags"],
+                source_id=item.get("source_id"),
+                has_source_competitor=has_source_competitor,
             )
             item["created_at"] = self._datetime_iso(item.get("created_at"))
             item["updated_at"] = self._datetime_iso(item.get("updated_at"))
@@ -1162,10 +1172,16 @@ COALESCE(
         item["trade_amount_3y_usd"] = float(item["trade_amount_3y_usd"]) if item.get("trade_amount_3y_usd") is not None else None
         item["product_tags"] = list(item["product_tags"] or [])
         item["data_source_tags"] = list(item["data_source_tags"] or [])
+        has_source_competitor = item.pop("has_source_competitor")
         item["collection_type"] = compute_collection_type(
             item["data_source_tags"],
             source_id=item.get("source_id"),
-            has_source_competitor=item.pop("has_source_competitor"),
+            has_source_competitor=has_source_competitor,
+        )
+        item["collection_types"] = compute_collection_types(
+            item["data_source_tags"],
+            source_id=item.get("source_id"),
+            has_source_competitor=has_source_competitor,
         )
         item["created_at"] = self._datetime_iso(item.get("created_at"))
         item["updated_at"] = self._datetime_iso(item.get("updated_at"))

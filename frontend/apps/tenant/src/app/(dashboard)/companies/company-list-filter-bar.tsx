@@ -191,6 +191,7 @@ export function CompanyListFilterBar({
       placeholder: '不限',
       options: [
         { value: 'keyword', label: '关键词采集' },
+        { value: 'instantly', label: 'Instantly' },
         { value: 'reverse', label: '精准反推' },
         { value: 'manual', label: '手工录入' },
         { value: 'unknown', label: '来源待确认' },

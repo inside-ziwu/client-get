@@ -100,6 +100,7 @@ export interface WmtCleanCompanyRow {
   product_tags: string[];
   data_source_tags: string[];
   collection_type: 'manual' | 'keyword' | 'reverse' | 'unknown';
+  collection_types: Array<'manual' | 'keyword' | 'reverse' | 'instantly'>;
   has_trade_data: boolean | null;
   trade_amount_3y_usd: number | null;
   trade_count: number | null;
