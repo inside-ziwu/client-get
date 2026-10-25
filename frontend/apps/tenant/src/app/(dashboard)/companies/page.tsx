@@ -25,13 +25,15 @@ function dash(value: string | number | null | undefined) {
   return String(value);
 }
 
-function collectionTypeLabel(value: Company['collection_type']) {
-  return {
-    manual: '手工录入',
-    keyword: '关键词采集',
-    reverse: '精准反推',
-    unknown: '来源待确认',
-  }[value];
+const COLLECTION_TYPE_LABELS: Record<Company['collection_types'][number], string> = {
+  manual: '手工录入',
+  keyword: '关键词采集',
+  instantly: 'Instantly',
+  reverse: '精准反推',
+};
+
+function collectionTypesLabel(values: Company['collection_types']) {
+  return values.length > 0 ? values.map((value) => COLLECTION_TYPE_LABELS[value]).join('、') : '来源待确认';
 }
 
 function countAppliedFilters(filters: FilterValues) {
@@ -115,7 +117,7 @@ export default function CompaniesPage() {
       ),
     },
     { id: 'country', header: '国家', width: 'small', align: 'center', type: 'text', value: 'country_iso3', format: (value) => countryZh(value as string | undefined) },
-    { id: 'collectionType', header: '采集类型', width: 'large', align: 'center', type: 'text', value: 'collection_type', format: (value) => collectionTypeLabel(value as Company['collection_type']) },
+    { id: 'collectionType', header: '采集类型', width: 'large', align: 'center', type: 'text', value: 'collection_types', format: (value) => collectionTypesLabel(value as Company['collection_types']) },
     { id: 'domain', header: '域名', width: 'large', type: 'text', value: 'domain' },
     { id: 'industry', header: '行业', width: 'large', type: 'text', value: 'industry_desc' },
     { id: 'employees', header: '员工规模', width: 'small', align: 'center', type: 'text', value: 'employee_num' },

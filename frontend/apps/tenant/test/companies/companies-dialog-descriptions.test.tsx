@@ -33,6 +33,7 @@ const company: Company = {
   tc_id: 'tenant-company-1',
   name: '示例公司',
   collection_type: 'manual',
+  collection_types: ['manual'],
   country_iso3: 'CHN',
 };
 

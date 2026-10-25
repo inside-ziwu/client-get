@@ -33,6 +33,7 @@ const firstPageRow: Company = {
   tc_id: 'tenant-company-1',
   name: '第一页公司',
   collection_type: 'keyword',
+  collection_types: ['keyword'],
   country_iso3: 'CHN',
 };
 
@@ -41,6 +42,7 @@ const secondPageRow: Company = {
   tc_id: 'tenant-company-2',
   name: '第二页公司',
   collection_type: 'reverse',
+  collection_types: ['reverse'],
   country_iso3: 'USA',
 };
 

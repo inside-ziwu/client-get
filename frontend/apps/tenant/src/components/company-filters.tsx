@@ -227,6 +227,7 @@ export default function CompanyFilters({ filtersOptions: fo, onApply, onReset, c
               <SelectContent>
                 <SelectItem value="all">不限</SelectItem>
                 <SelectItem value="keyword">关键词采集</SelectItem>
+                <SelectItem value="instantly">Instantly</SelectItem>
                 <SelectItem value="reverse">精准反推</SelectItem>
                 <SelectItem value="manual">手工录入</SelectItem>
                 <SelectItem value="unknown">来源待确认</SelectItem>

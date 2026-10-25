@@ -18,7 +18,7 @@
 | 状态对账 | webhook 为主，对账 worker 约每 10 分钟主动查询兜底 |
 | 仪表盘统计 | 邮件统计**排除 failed**；「已评分公司」只计入租户当前活跃模板的最新版本分数 |
 | 租户评分 | 确定性规则引擎（非 AI），结果归租户所有；平台模板只是创建租户时的默认种子。「AI 评级 / 邮件生成」当前为启发式桩（#46） |
-| 采集类型 | `manual` 看 `source_id LIKE 'manual-%'`；`keyword` 看精确标签「外贸通关键词采集」；`reverse` 看精确「腾道」标签或非空 `source_competitor`；其余为 `unknown`。优先级 manual > keyword > reverse |
+| 采集类型 | `manual` 看 `source_id LIKE 'manual-%'`；`keyword` 看精确标签「外贸通关键词采集」；`reverse` 看精确「腾道」标签或非空 `source_competitor`；其余为 `unknown`。优先级 manual > keyword > reverse（单值 `collection_type`，评分「有中国 PCB 供应商」依赖它）。`instantly` 看精确「Instantly」标签，独立于优先级叠加：筛选只看标签（`@> '["Instantly"]'`，索引为 `jsonb_path_ops` 不可用 `?`），`unknown` 筛选排除它；展示用多值 `collection_types`，无类型时显示「来源待确认」 |
 | PCB 供应商评分 | 只有显式 `reverse` 才视为「有中国 PCB 供应商」；keyword / manual / unknown 均为否 |
 | 域名验证 | **当前为假验证**：点击即置 verified，不做任何 DNS 校验（#47，勿向客户承诺） |
 | 预热升档 | 仅手动调整，无自动升档（#48） |

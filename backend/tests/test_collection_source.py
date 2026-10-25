@@ -1,11 +1,14 @@
 """采集来源共享口径测试。"""
 
 from app.services.collection_source import (
+    INSTANTLY_COLLECTION_TAG,
+    INSTANTLY_TAG_JSONB,
     KEYWORD_COLLECTION_TAG,
     KEYWORD_TAG_JSONB,
     TENGDAO_COLLECTION_TAG,
     build_collection_type_filter,
     compute_collection_type,
+    compute_collection_types,
 )
 
 
@@ -54,6 +57,50 @@ class TestCollectionSource:
         assert compute_collection_type(None) == "unknown"
         assert compute_collection_type([]) == "unknown"
         assert compute_collection_type(["精准反推数据"]) == "unknown"
+
+    def test_instantly_does_not_change_primary_type(self):
+        """Instantly 不参与单值优先级，评分依赖的 collection_type 不变。"""
+        assert compute_collection_type([INSTANTLY_COLLECTION_TAG]) == "unknown"
+        tags = [TENGDAO_COLLECTION_TAG, INSTANTLY_COLLECTION_TAG]
+        assert compute_collection_type(tags) == "reverse"
+
+    def test_collection_types_appends_instantly(self):
+        """多标签时列出全部类型；只有 Instantly 时不再显示 unknown。"""
+        assert compute_collection_types([INSTANTLY_COLLECTION_TAG]) == ["instantly"]
+        assert compute_collection_types([KEYWORD_COLLECTION_TAG, INSTANTLY_COLLECTION_TAG]) == [
+            "keyword",
+            "instantly",
+        ]
+        assert compute_collection_types([TENGDAO_COLLECTION_TAG, INSTANTLY_COLLECTION_TAG]) == [
+            "reverse",
+            "instantly",
+        ]
+        assert compute_collection_types([INSTANTLY_COLLECTION_TAG], source_id="manual-1") == [
+            "manual",
+            "instantly",
+        ]
+        assert compute_collection_types(None) == []
+        assert compute_collection_types([KEYWORD_COLLECTION_TAG]) == ["keyword"]
+
+    def test_instantly_filter_uses_indexable_contains(self):
+        """instantly SQL 只看标签，并用 jsonb_path_ops 索引可命中的 @>。"""
+        sql = build_collection_type_filter("instantly", company_alias="wc")
+
+        assert sql == f"COALESCE(wc.data_source_tags, '[]'::jsonb) @> {INSTANTLY_TAG_JSONB}"
+        assert "manual-%" not in sql
+
+    def test_unknown_filter_excludes_instantly(self):
+        """来源待确认不再包含带 Instantly 标签的公司。"""
+        sql = build_collection_type_filter("unknown", company_alias="wc")
+
+        instantly = f"COALESCE(wc.data_source_tags, '[]'::jsonb) @> {INSTANTLY_TAG_JSONB}"
+        assert f"AND NOT ({instantly})" in sql
+
+    def test_keyword_and_reverse_filters_ignore_instantly(self):
+        """关键词采集 / 精准反推原规则不变，多标签公司仍能被筛到。"""
+        for collection_type in ("keyword", "reverse"):
+            sql = build_collection_type_filter(collection_type, company_alias="wc")
+            assert INSTANTLY_TAG_JSONB not in sql
 
     def test_keyword_tag_jsonb_literal(self):
         """SQL 片段使用 jsonb 包含表达式需要的字面量。"""

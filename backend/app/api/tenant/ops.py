@@ -72,7 +72,9 @@ async def list_companies(
     grades: list[str] = Query(default=[], alias="grades[]", description="大模型评级多选 OR"),
     system_grades: list[str] = Query(default=[], alias="system_grades[]", description="当前模板评级多选 OR (S/A/B/C/D)"),
     group_id: str | None = Query(None, description="群组ID过滤"),
-    collection_type: str | None = Query(None, description="采集类型：keyword/reverse"),
+    collection_type: str | None = Query(
+        None, description="采集类型：manual/keyword/instantly/reverse/unknown"
+    ),
     limit: int = Query(50, ge=1, le=1000, description="每页条数"),
     cursor: str | None = Query(None, description="游标分页"),
     page: int | None = Query(None, ge=1, description="页码分页页号"),
