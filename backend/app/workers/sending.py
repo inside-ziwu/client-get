@@ -10,27 +10,77 @@ from typing import Any
 
 import httpx
 
-from app.integrations.engagelab import EngageLabClient, EngageLabSendError
+from app.core.config import get_settings
+from app.core.errors import AppError
+from app.integrations.engagelab import EngageLabClient, EngageLabSendError, classify_send_error
 from app.services.tenant_messaging_service import TenantMessagingService
 from app.utils.beijing_time import beijing_day_bounds
 
 logger = logging.getLogger(__name__)
 
+RECEIPT_RETRY_DELAYS = (1, 5, 30)
+PENDING_FINALIZE_LIMIT = 20
+PENDING_FINALIZE_LEASE = timedelta(seconds=15)
+PENDING_FINALIZE_BACKOFF = timedelta(seconds=60)
+UNSENT_LOCK_STALE_MINUTES = 30
+UNSENT_LOCK_RECOVERY_INTERVAL = timedelta(seconds=60)
 
-QUOTA_KEYWORDS = (
-    "balance is not enough",
-    "recharge soon",
-    '"code": 30877',
-    '"code":30877',
-    "code 30877",
-    "daily quota",
-    "quota exceeded",
-    "配额",
-    "余额不足",
-    "已达上限",
+_SAFE_LOG_KEYS = frozenset(
+    {
+        "event",
+        "instance_id",
+        "tenant_id",
+        "domain_id",
+        "email_id",
+        "phase",
+        "http_status",
+        "provider_code",
+        "error_class",
+        "decision",
+        "resume_at",
+        "message_id_length",
+        "count",
+        "enrollment_ids",
+        "isolated_count",
+        "sleep_seconds",
+        "domain_ids",
+        "paused_until",
+        "elapsed_ms",
+        "finalized_count",
+        "attempt",
+    }
 )
-QUOTA_STATUS_CODES: frozenset[int] = frozenset()
-RATE_LIMIT_SIGNALS = ("rate limit", "too many requests")
+_PUBLIC_ITEM_KEYS = frozenset(
+    {
+        "email_id",
+        "status",
+        "provider_status",
+        "duplicate",
+        "send_attempt_count",
+        "retry_seconds",
+        "resume_at",
+        "error_class",
+        "decision",
+        "provider_code",
+        "http_status",
+        "message_id_length",
+    }
+)
+
+
+def sanitize_round_result(result: dict) -> dict:
+    """轮次输出只留安全字段。reason / 回执原文 / SQL 不得进入 print。"""
+    items = []
+    for item in result.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        items.append({key: item[key] for key in _PUBLIC_ITEM_KEYS if key in item})
+    return {
+        "claimed_count": result.get("claimed_count", 0),
+        "processed_count": result.get("processed_count", 0),
+        "finalized_count": result.get("finalized_count", 0),
+        "items": items,
+    }
 
 
 class SendingWorker:
@@ -55,6 +105,7 @@ class SendingWorker:
         self.domain_rate_limit_hits: dict[str, list[datetime]] = {}
         self.enrollment_quota_defer_counts: dict[str, int] = {}
         self._stale_locks_recovered = False
+        self._next_unsent_recovery_at: datetime | None = None
 
     async def run_once(
         self,
@@ -63,19 +114,46 @@ class SendingWorker:
         service_instance: str,
         idle_poll_seconds: int = 5,
     ) -> dict:
-        """执行一轮发送任务：发现域名、选择一个到期域名、领取并发送一封。"""
+        """执行一轮：先本地恢复，再按域名领取并发送一封。"""
         if not self._stale_locks_recovered:
             async with engine.begin() as conn:
                 recovered = await self.service.recover_stale_locks(conn)
             self._stale_locks_recovered = True
-            if recovered["recovered_count"]:
+            if recovered["recovered_count"] or recovered.get("isolated_count"):
                 self._log(
                     {
                         "event": "stale_lock_recovered",
                         "count": recovered["recovered_count"],
+                        "isolated_count": recovered.get("isolated_count", 0),
                         "enrollment_ids": recovered["enrollment_ids"],
                     }
                 )
+
+        try:
+            async with engine.begin() as conn:
+                isolated = await self.service.isolate_timed_out_dispatches(conn)
+            if isolated.get("isolated_count"):
+                self._log(
+                    {
+                        "event": "send_outcome_uncertain",
+                        "phase": "dispatch_timeout",
+                        "error_class": "outcome_uncertain",
+                        "decision": "isolate",
+                        "count": isolated["isolated_count"],
+                    }
+                )
+        except Exception:
+            self._log(
+                {
+                    "event": "send_finalize_failed",
+                    "phase": "dispatch_timeout",
+                    "error_class": "internal_finalize",
+                    "decision": "isolate",
+                }
+            )
+
+        await self._release_unsent_locks_if_due(engine)
+        finalized_count = await self._finalize_pending(engine)
 
         async with engine.begin() as conn:
             domain_ids = await self.service.list_running_domain_ids(conn)
@@ -95,7 +173,14 @@ class SendingWorker:
             self._log({"event": "no_running_domains"})
             if idle_poll_seconds > 0:
                 await self.sleep(idle_poll_seconds)
-            return {"claimed_count": 0, "processed_count": 0, "items": []}
+            return sanitize_round_result(
+                {
+                    "claimed_count": 0,
+                    "processed_count": 0,
+                    "finalized_count": finalized_count,
+                    "items": [],
+                }
+            )
 
         available_domain_ids = self._available_domain_ids(domain_ids, now)
         if not available_domain_ids:
@@ -108,7 +193,14 @@ class SendingWorker:
             )
             if idle_poll_seconds > 0:
                 await self.sleep(idle_poll_seconds)
-            return {"claimed_count": 0, "processed_count": 0, "items": []}
+            return sanitize_round_result(
+                {
+                    "claimed_count": 0,
+                    "processed_count": 0,
+                    "finalized_count": finalized_count,
+                    "items": [],
+                }
+            )
 
         selected_domain = self._select_due_domain(available_domain_ids, now)
         if selected_domain is None:
@@ -126,7 +218,14 @@ class SendingWorker:
             )
             if sleep_seconds > 0:
                 await self.sleep(sleep_seconds)
-            return {"claimed_count": 0, "processed_count": 0, "items": []}
+            return sanitize_round_result(
+                {
+                    "claimed_count": 0,
+                    "processed_count": 0,
+                    "finalized_count": finalized_count,
+                    "items": [],
+                }
+            )
 
         async with engine.begin() as conn:
             timezone_config = await self.service.load_timezone_config(conn)
@@ -142,164 +241,153 @@ class SendingWorker:
         for item in claimed["items"]:
             started_at = self._now()
             try:
-                provider_result = await self.provider.send_email(
-                    {
-                        "from_email": item["from_email"],
-                        "from_name": item.get("from_name"),
-                        "to_email": item["to_email"],
-                        "to_name": item.get("to_name"),
-                        "subject": item["subject"],
-                        "body_html": item["body_html"],
-                        "body_text": item.get("body_text"),
-                        "idempotency_key": f"{item['enrollment_id']}:{item['step_id']}",
-                    }
-                )
-                async with engine.begin() as conn:
-                    result = await self.service.mark_email_sent(
-                        conn,
-                        email_id=item["email_id"],
-                        payload={"engagelab_message_id": provider_result["engagelab_message_id"]},
-                    )
-                processed.append(result | {"provider_status": "sent"})
-                self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
-                self._log(
-                    {
-                        "event": "send_ok",
-                        "domain_id": item["domain_id"],
-                        "email_id": item["email_id"],
-                        "elapsed_ms": self._elapsed_ms(started_at),
-                    }
-                )
-
-            except EngageLabSendError as exc:
-                classification = self._classify_provider_error(exc.status_code, str(exc))
-                if (
-                    classification["error_type"] == "rate_limit"
-                    and self._record_rate_limit_hit(item["domain_id"], self._now()) >= 3
-                ):
-                    classification = {
-                        "is_permanent": False,
-                        "error_type": "quota",
-                        "error_category": "quota",
-                    }
-                if classification["error_type"] == "quota":
-                    if self.enrollment_quota_defer_counts.get(item["enrollment_id"], 0) < 3:
-                        paused_until = self._open_quota_circuit(item=item, exc=exc)
-                        outcome = await self._defer_for_quota(
-                            engine,
-                            item=item,
-                            exc=exc,
-                            paused_until=paused_until,
+                try:
+                    async with engine.begin() as conn:
+                        dispatch = await self.service.begin_dispatch(
+                            conn,
+                            email_id=item["email_id"],
+                            tenant_id=item["tenant_id"],
+                            enrollment_id=item["enrollment_id"],
+                            step_id=item["step_id"],
                         )
-                        result = outcome["result"]
-                        if outcome["deferred"]:
-                            processed.append(result | {"provider_status": "quota_deferred"})
-                            continue
-                        processed.append(result | {"provider_status": "failed"})
-                        if result.get("status") == "failed":
-                            self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
-                        self._log(
-                            {
-                                "event": "send_failed",
-                                "domain_id": item["domain_id"],
-                                "email_id": item["email_id"],
-                                "error_type": "quota",
-                                "status_code": exc.status_code,
-                                "attempt": result.get("send_attempt_count"),
-                                "elapsed_ms": self._elapsed_ms(started_at),
-                            }
+                except Exception:
+                    self._log(
+                        self._safe_context(
+                            item,
+                            event="send_finalize_failed",
+                            phase="begin_dispatch",
+                            error_class="internal_finalize",
+                            decision="isolate",
+                        )
+                    )
+                    processed.append(
+                        self._public_item(
+                            item,
+                            status="dispatch_not_started",
+                            provider_status="not_sent",
+                            error_class="internal_finalize",
+                            decision="isolate",
+                        )
+                    )
+                    continue
+                if not dispatch.get("started"):
+                    self._log(
+                        self._safe_context(
+                            item,
+                            event="send_outcome_uncertain",
+                            phase="begin_dispatch",
+                            error_class="outcome_uncertain",
+                            decision="isolate",
+                        )
+                    )
+                    processed.append(
+                        self._public_item(
+                            item,
+                            status="dispatch_not_started",
+                            provider_status="not_sent",
+                            error_class="outcome_uncertain",
+                            decision="isolate",
+                        )
+                    )
+                    continue
+
+                try:
+                    provider_result = await self.provider.send_email(self._provider_payload(item))
+                except EngageLabSendError as exc:
+                    if exc.outcome == "uncertain":
+                        processed.append(
+                            await self._isolate_uncertain(engine, item, exc, started_at)
                         )
                         continue
-                    # 连续配额失败日的计数只被成功发送中断；同进程跨 3 个北京日后降级为临时失败，
-                    # 且不熔断域名——毒药防护：若关键词误判了永久性错误，熔断会让单封邮件
-                    # 连续多日封锁整域；真实额度耗尽时下一封 count<3 的邮件会立即重新熔断。
-                    self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
-                    classification = {
-                        "is_permanent": False,
-                        "error_type": "temporary",
-                        "error_category": classification["error_category"],
-                    }
-                async with engine.begin() as conn:
-                    result = await self.service.mark_email_failed(
-                        conn,
-                        email_id=item["email_id"],
-                        payload={
-                            "reason": str(exc),
-                            "error_code": "ENGAGELAB_ERROR",
-                            "error_message": str(exc),
-                            "status_code": exc.status_code,
-                            "is_permanent": classification["is_permanent"],
-                            "error_category": classification["error_category"],
-                            "domain_id": item["domain_id"],
-                        },
+                    processed.append(
+                        await self._handle_provider_rejection(engine, item, exc, started_at)
                     )
-                if classification["is_permanent"] or result.get("status") == "failed":
-                    self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
-                processed.append(result | {"provider_status": "failed"})
-                self._log(
-                    {
-                        "event": "send_failed",
-                        "domain_id": item["domain_id"],
-                        "email_id": item["email_id"],
-                        "error_type": classification["error_type"],
-                        "status_code": exc.status_code,
-                        "attempt": result.get("send_attempt_count"),
-                        "elapsed_ms": self._elapsed_ms(started_at),
-                    }
-                )
+                    continue
+                except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError):
+                    processed.append(await self._isolate_uncertain(engine, item, None, started_at))
+                    continue
+                except Exception:
+                    processed.append(await self._isolate_uncertain(engine, item, None, started_at))
+                    continue
 
-            except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as exc:
-                async with engine.begin() as conn:
-                    result = await self.service.mark_email_failed(
-                        conn,
-                        email_id=item["email_id"],
-                        payload={
-                            "reason": str(exc),
-                            "error_code": "UNKNOWN_ERROR",
-                            "error_message": str(exc),
-                            "is_permanent": False,
-                            "domain_id": item["domain_id"],
-                        },
+                message_id = provider_result["engagelab_message_id"]
+                recorded = await self._persist_receipt(engine, item, message_id)
+                if recorded is None:
+                    self._log(
+                        self._safe_context(
+                            item,
+                            event="send_finalize_failed",
+                            phase="receipt",
+                            error_class="internal_finalize",
+                            decision="isolate",
+                            message_id_length=len(message_id),
+                            elapsed_ms=self._elapsed_ms(started_at),
+                        )
                     )
-                processed.append(result | {"provider_status": "failed"})
-                self._log(
-                    {
-                        "event": "send_failed",
-                        "domain_id": item["domain_id"],
-                        "email_id": item["email_id"],
-                        "error_type": "temporary",
-                        "status_code": None,
-                        "attempt": result.get("send_attempt_count"),
-                        "elapsed_ms": self._elapsed_ms(started_at),
-                    }
-                )
-
-            except Exception as exc:  # pragma: no cover - 未知异常保守走临时重试
-                async with engine.begin() as conn:
-                    result = await self.service.mark_email_failed(
-                        conn,
-                        email_id=item["email_id"],
-                        payload={
-                            "reason": str(exc),
-                            "error_code": "UNKNOWN_ERROR",
-                            "error_message": str(exc),
-                            "is_permanent": False,
-                            "domain_id": item["domain_id"],
-                        },
+                    processed.append(
+                        self._public_item(
+                            item,
+                            status="accepted_unpersisted",
+                            provider_status="accepted_unpersisted",
+                            error_class="internal_finalize",
+                            decision="isolate",
+                            message_id_length=len(message_id),
+                        )
                     )
-                processed.append(result | {"provider_status": "failed"})
-                self._log(
-                    {
-                        "event": "send_failed",
-                        "domain_id": item["domain_id"],
-                        "email_id": item["email_id"],
-                        "error_type": "temporary",
-                        "status_code": None,
-                        "attempt": result.get("send_attempt_count"),
-                        "elapsed_ms": self._elapsed_ms(started_at),
-                    }
-                )
+                    continue
 
+                try:
+                    async with engine.begin() as conn:
+                        result = await self.service.mark_email_sent(
+                            conn,
+                            email_id=item["email_id"],
+                            payload={"engagelab_message_id": message_id},
+                        )
+                except Exception:
+                    self._log(
+                        self._safe_context(
+                            item,
+                            event="send_finalize_failed",
+                            phase="finalize",
+                            error_class="internal_finalize",
+                            decision="isolate",
+                            message_id_length=len(message_id),
+                            elapsed_ms=self._elapsed_ms(started_at),
+                        )
+                    )
+                    processed.append(
+                        self._public_item(
+                            item,
+                            status="accepted_pending",
+                            provider_status="accepted_pending",
+                            error_class="internal_finalize",
+                            decision="isolate",
+                            message_id_length=len(message_id),
+                        )
+                    )
+                    continue
+
+                self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
+                processed.append(
+                    self._public_item(
+                        result,
+                        provider_status="sent",
+                        error_class="accepted",
+                        decision="sent",
+                        message_id_length=len(message_id),
+                    )
+                )
+                self._log(
+                    self._safe_context(
+                        item,
+                        event="send_accepted",
+                        phase="finalize",
+                        error_class="accepted",
+                        decision="sent",
+                        message_id_length=len(message_id),
+                        elapsed_ms=self._elapsed_ms(started_at),
+                    )
+                )
             finally:
                 self.domain_clocks[selected_domain] = self._now() + timedelta(
                     seconds=self._delay_seconds(item.get("send_strategy"))
@@ -315,10 +403,366 @@ class SendingWorker:
                 }
             )
 
+        return sanitize_round_result(
+            {
+                "claimed_count": len(claimed["items"]),
+                "processed_count": len(processed),
+                "finalized_count": finalized_count,
+                "items": processed,
+            }
+        )
+
+    async def _release_unsent_locks_if_due(self, engine) -> None:
+        """进程运行中也回收未外发的新锁。启动时那一次不够，且不能每轮全表扫。"""
+        now = self._now()
+        if self._next_unsent_recovery_at is not None and now < self._next_unsent_recovery_at:
+            return
+        self._next_unsent_recovery_at = now + UNSENT_LOCK_RECOVERY_INTERVAL
+        try:
+            async with engine.begin() as conn:
+                released = await self.service.release_unsent_locks(
+                    conn,
+                    as_of=now,
+                    stale_minutes=UNSENT_LOCK_STALE_MINUTES,
+                )
+        except Exception:
+            self._log(
+                {
+                    "event": "send_finalize_failed",
+                    "phase": "unsent_locked",
+                    "error_class": "internal_finalize",
+                    "decision": "isolate",
+                }
+            )
+            return
+        if released.get("recovered_count"):
+            self._log(
+                {
+                    "event": "stale_lock_recovered",
+                    "phase": "unsent_locked",
+                    "count": released["recovered_count"],
+                    "enrollment_ids": released.get("enrollment_ids") or [],
+                }
+            )
+
+    async def _finalize_pending(self, engine) -> int:
+        now = self._now()
+        try:
+            async with engine.begin() as conn:
+                pending = await self.service.list_accepted_pending(
+                    conn,
+                    limit=PENDING_FINALIZE_LIMIT,
+                    as_of=now,
+                    lease_until=now + PENDING_FINALIZE_LEASE,
+                )
+        except Exception:
+            self._log(
+                {
+                    "event": "send_finalize_failed",
+                    "phase": "recovery",
+                    "error_class": "internal_finalize",
+                    "decision": "isolate",
+                }
+            )
+            return 0
+
+        finalized = 0
+        for row in pending:
+            message_id = row.get("provider_message_id") or ""
+            payload = {"engagelab_message_id": message_id}
+            accepted_at = row.get("provider_accepted_at")
+            if isinstance(accepted_at, datetime):
+                payload["sent_at"] = accepted_at
+            try:
+                async with engine.begin() as conn:
+                    await self.service.mark_email_sent(
+                        conn,
+                        email_id=row["email_id"],
+                        payload=payload,
+                    )
+            except Exception:
+                self._log(
+                    {
+                        "event": "send_finalize_failed",
+                        "phase": "recovery",
+                        "error_class": "internal_finalize",
+                        "decision": "isolate",
+                        "tenant_id": row.get("tenant_id"),
+                        "email_id": row.get("email_id"),
+                        "message_id_length": len(message_id),
+                    }
+                )
+                try:
+                    async with engine.begin() as conn:
+                        await self.service.defer_accepted_pending(
+                            conn,
+                            email_id=row["email_id"],
+                            tenant_id=row["tenant_id"],
+                            enrollment_id=row["enrollment_id"],
+                            step_id=row["step_id"],
+                            not_before=self._now() + PENDING_FINALIZE_BACKOFF,
+                        )
+                except Exception:
+                    self._log(
+                        {
+                            "event": "send_finalize_failed",
+                            "phase": "recovery_backoff",
+                            "error_class": "internal_finalize",
+                            "decision": "isolate",
+                            "tenant_id": row.get("tenant_id"),
+                            "email_id": row.get("email_id"),
+                        }
+                    )
+                continue
+            finalized += 1
+            self._log(
+                {
+                    "event": "send_accepted",
+                    "phase": "recovery",
+                    "error_class": "accepted",
+                    "decision": "sent",
+                    "tenant_id": row.get("tenant_id"),
+                    "email_id": row.get("email_id"),
+                    "message_id_length": len(message_id),
+                }
+            )
+        return finalized
+
+    async def _persist_receipt(self, engine, item: dict, message_id: str) -> dict | None:
+        attempts = 1 + len(RECEIPT_RETRY_DELAYS)
+        accepted_at = self._now()
+        for attempt in range(attempts):
+            if attempt:
+                await self.sleep(RECEIPT_RETRY_DELAYS[attempt - 1])
+            try:
+                async with engine.begin() as conn:
+                    recorded = await self.service.record_provider_acceptance(
+                        conn,
+                        email_id=item["email_id"],
+                        tenant_id=item["tenant_id"],
+                        enrollment_id=item["enrollment_id"],
+                        step_id=item["step_id"],
+                        provider_message_id=message_id,
+                        accepted_at=accepted_at,
+                    )
+            except AppError as exc:
+                if exc.code == "RECEIPT_CONFLICT":
+                    self._log(
+                        self._safe_context(
+                            item,
+                            event="send_finalize_failed",
+                            phase="receipt",
+                            error_class="receipt_conflict",
+                            decision="isolate",
+                            message_id_length=len(message_id),
+                        )
+                    )
+                    return None
+                continue
+            except Exception:
+                continue
+            if recorded.get("conflict"):
+                self._log(
+                    self._safe_context(
+                        item,
+                        event="send_finalize_failed",
+                        phase="receipt",
+                        error_class="receipt_conflict",
+                        decision="isolate",
+                        message_id_length=len(message_id),
+                    )
+                )
+                return None
+            if recorded.get("persisted"):
+                return recorded
+        return None
+
+    async def _isolate_uncertain(
+        self,
+        engine,
+        item: dict,
+        exc: EngageLabSendError | None,
+        started_at: datetime,
+    ) -> dict:
+        try:
+            async with engine.begin() as conn:
+                await self.service.mark_dispatch_uncertain(
+                    conn,
+                    email_id=item["email_id"],
+                    tenant_id=item["tenant_id"],
+                    enrollment_id=item["enrollment_id"],
+                    step_id=item["step_id"],
+                )
+        except Exception:
+            self._log(
+                self._safe_context(
+                    item,
+                    event="send_finalize_failed",
+                    phase="uncertain",
+                    error_class="internal_finalize",
+                    decision="isolate",
+                    elapsed_ms=self._elapsed_ms(started_at),
+                )
+            )
+        self._log(
+            self._safe_context(
+                item,
+                event="send_outcome_uncertain",
+                phase="send",
+                error_class="outcome_uncertain",
+                decision="isolate",
+                http_status=exc.http_status if exc else None,
+                provider_code=exc.provider_code if exc else None,
+                elapsed_ms=self._elapsed_ms(started_at),
+            )
+        )
+        return self._public_item(
+            item,
+            status="uncertain",
+            provider_status="uncertain",
+            error_class="outcome_uncertain",
+            decision="isolate",
+            http_status=exc.http_status if exc else None,
+            provider_code=exc.provider_code if exc else None,
+        )
+
+    async def _handle_provider_rejection(
+        self, engine, item: dict, exc: EngageLabSendError, started_at: datetime
+    ) -> dict:
+        classification = classify_send_error(exc)
+        if (
+            classification["error_type"] == "rate_limit"
+            and self._record_rate_limit_hit(item["domain_id"], self._now()) >= 3
+        ):
+            classification = {
+                **classification,
+                "is_permanent": False,
+                "error_type": "quota",
+                "error_category": "quota",
+                "error_class": "rate_limit",
+                "decision": "defer_quota",
+            }
+        if classification["error_type"] == "quota":
+            if self.enrollment_quota_defer_counts.get(item["enrollment_id"], 0) < 3:
+                paused_until = self._open_quota_circuit(item=item, classification=classification)
+                outcome = await self._defer_for_quota(
+                    engine,
+                    item=item,
+                    exc=exc,
+                    paused_until=paused_until,
+                    classification=classification,
+                )
+                result = outcome["result"]
+                if outcome["deferred"]:
+                    return self._public_item(
+                        result,
+                        provider_status="quota_deferred",
+                        error_class=classification["error_class"],
+                        decision="defer_quota",
+                        provider_code=classification["provider_code"],
+                        http_status=classification["http_status"],
+                    )
+                if result.get("status") == "failed":
+                    self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
+                self._log(
+                    self._safe_context(
+                        item,
+                        event="send_rejected",
+                        phase="quota_fallback",
+                        error_class=classification["error_class"],
+                        decision="retry",
+                        provider_code=classification["provider_code"],
+                        http_status=classification["http_status"],
+                        attempt=result.get("send_attempt_count"),
+                        elapsed_ms=self._elapsed_ms(started_at),
+                    )
+                )
+                return self._public_item(
+                    result,
+                    provider_status="failed",
+                    error_class=classification["error_class"],
+                    decision="retry",
+                    provider_code=classification["provider_code"],
+                    http_status=classification["http_status"],
+                )
+            self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
+            classification = {
+                **classification,
+                "is_permanent": False,
+                "error_type": "temporary",
+                "error_class": classification["error_class"],
+                "decision": "retry",
+            }
+        try:
+            async with engine.begin() as conn:
+                result = await self.service.mark_email_failed(
+                    conn,
+                    email_id=item["email_id"],
+                    payload={
+                        "error_code": "ENGAGELAB_ERROR",
+                        "status_code": exc.status_code,
+                        "is_permanent": classification["is_permanent"],
+                        "error_category": classification["error_category"],
+                        "domain_id": item["domain_id"],
+                        "provider_code": classification["provider_code"],
+                    },
+                )
+        except Exception:
+            self._log(
+                self._safe_context(
+                    item,
+                    event="send_finalize_failed",
+                    phase="reject",
+                    error_class="internal_finalize",
+                    decision="isolate",
+                    http_status=classification["http_status"],
+                    provider_code=classification["provider_code"],
+                    elapsed_ms=self._elapsed_ms(started_at),
+                )
+            )
+            return self._public_item(
+                item,
+                status="reject_unrecorded",
+                provider_status="failed",
+                error_class="internal_finalize",
+                decision="isolate",
+                http_status=classification["http_status"],
+                provider_code=classification["provider_code"],
+            )
+        if classification["is_permanent"] or result.get("status") == "failed":
+            self.enrollment_quota_defer_counts.pop(item["enrollment_id"], None)
+        self._log(
+            self._safe_context(
+                item,
+                event="send_rejected",
+                phase="provider",
+                error_class=classification["error_class"],
+                decision=classification["decision"],
+                provider_code=classification["provider_code"],
+                http_status=classification["http_status"],
+                attempt=result.get("send_attempt_count"),
+                elapsed_ms=self._elapsed_ms(started_at),
+            )
+        )
+        return self._public_item(
+            result,
+            provider_status="failed",
+            error_class=classification["error_class"],
+            decision=classification["decision"],
+            provider_code=classification["provider_code"],
+            http_status=classification["http_status"],
+        )
+
+    def _provider_payload(self, item: dict) -> dict:
         return {
-            "claimed_count": len(claimed["items"]),
-            "processed_count": len(processed),
-            "items": processed,
+            "from_email": item["from_email"],
+            "from_name": item.get("from_name"),
+            "to_email": item["to_email"],
+            "to_name": item.get("to_name"),
+            "subject": item["subject"],
+            "body_html": item["body_html"],
+            "body_text": item.get("body_text"),
+            "idempotency_key": f"{item['enrollment_id']}:{item['step_id']}",
         }
 
     def _select_due_domain(self, domain_ids: list[str], now: datetime) -> str | None:
@@ -350,7 +794,13 @@ class SendingWorker:
         return available
 
     async def _defer_for_quota(
-        self, engine, *, item: dict, exc: EngageLabSendError, paused_until: datetime
+        self,
+        engine,
+        *,
+        item: dict,
+        exc: EngageLabSendError,
+        paused_until: datetime,
+        classification: dict,
     ) -> dict:
         now = self._now()
         try:
@@ -361,14 +811,17 @@ class SendingWorker:
                     resume_at=paused_until,
                     now_utc=now,
                 )
-        except Exception as defer_exc:
+        except Exception:
             self._log(
-                {
-                    "event": "quota_defer_failed",
-                    "domain_id": item["domain_id"],
-                    "email_id": item["email_id"],
-                    "error": str(defer_exc),
-                }
+                self._safe_context(
+                    item,
+                    event="quota_defer_failed",
+                    phase="quota",
+                    error_class=classification["error_class"],
+                    decision="retry",
+                    provider_code=classification["provider_code"],
+                    http_status=classification["http_status"],
+                )
             )
             try:
                 async with engine.begin() as conn:
@@ -376,31 +829,31 @@ class SendingWorker:
                         conn,
                         email_id=item["email_id"],
                         payload={
-                            "reason": str(exc),
                             "error_code": "ENGAGELAB_ERROR",
-                            "error_message": str(exc),
                             "status_code": exc.status_code,
                             "is_permanent": False,
                             "error_category": "quota",
                             "domain_id": item["domain_id"],
+                            "provider_code": classification["provider_code"],
                         },
                     )
-            except Exception as fallback_exc:
+            except Exception:
                 self._log(
-                    {
-                        "event": "quota_defer_fallback_failed",
-                        "domain_id": item["domain_id"],
-                        "email_id": item["email_id"],
-                        "defer_error": str(defer_exc),
-                        "fallback_error": str(fallback_exc),
-                    }
+                    self._safe_context(
+                        item,
+                        event="quota_defer_fallback_failed",
+                        phase="quota",
+                        error_class="internal_finalize",
+                        decision="isolate",
+                        provider_code=classification["provider_code"],
+                        http_status=classification["http_status"],
+                    )
                 )
                 return {
                     "deferred": False,
                     "result": {
                         "email_id": item["email_id"],
                         "status": "quota_defer_fallback_failed",
-                        "reason": str(exc),
                     },
                 }
             return {"deferred": False, "result": result}
@@ -410,17 +863,21 @@ class SendingWorker:
         )
         return {"deferred": True, "result": result}
 
-    def _open_quota_circuit(self, *, item: dict, exc: Exception) -> datetime:
+    def _open_quota_circuit(self, *, item: dict, classification: dict) -> datetime:
         paused_until = self._next_beijing_midnight(self._now())
         self.domain_quota_paused[item["domain_id"]] = paused_until
         self._log(
-            {
-                "event": "quota_circuit_open",
-                "domain_id": item["domain_id"],
-                "email_id": item["email_id"],
-                "paused_until": paused_until,
-                "error": str(exc),
-            }
+            self._safe_context(
+                item,
+                event="quota_circuit_open",
+                phase="quota",
+                error_class=classification["error_class"],
+                decision="defer_quota",
+                provider_code=classification["provider_code"],
+                http_status=classification["http_status"],
+                paused_until=paused_until,
+                resume_at=paused_until,
+            )
         )
         return paused_until
 
@@ -454,31 +911,6 @@ class SendingWorker:
         high = max(float(interval[1]), low)
         return self.random_between(low, high)
 
-    def _classify_provider_error(
-        self, status_code: int | None, error_message: str | None = None
-    ) -> dict[str, Any]:
-        normalized_message = (error_message or "").casefold()
-        is_client_error = status_code is not None and 400 <= status_code < 500
-        if is_client_error and any(
-            keyword.casefold() in normalized_message for keyword in QUOTA_KEYWORDS
-        ):
-            return {"is_permanent": False, "error_type": "quota", "error_category": "quota"}
-        if status_code in QUOTA_STATUS_CODES:
-            return {"is_permanent": False, "error_type": "quota", "error_category": "quota"}
-        if status_code == 429 or (
-            is_client_error and any(signal in normalized_message for signal in RATE_LIMIT_SIGNALS)
-        ):
-            return {"is_permanent": False, "error_type": "rate_limit", "error_category": None}
-        if status_code is None:
-            return {"is_permanent": False, "error_type": "temporary", "error_category": None}
-        if status_code in {401, 403} or status_code >= 500:
-            return {"is_permanent": False, "error_type": "temporary", "error_category": None}
-        if status_code == 422:
-            return {"is_permanent": True, "error_type": "permanent", "error_category": "invalid"}
-        if 400 <= status_code < 500:
-            return {"is_permanent": False, "error_type": "temporary", "error_category": None}
-        return {"is_permanent": False, "error_type": "temporary", "error_category": None}
-
     def _now(self) -> datetime:
         value = self.clock()
         if value.tzinfo is None:
@@ -488,8 +920,22 @@ class SendingWorker:
     def _elapsed_ms(self, started_at: datetime) -> int:
         return int((self._now() - started_at).total_seconds() * 1000)
 
+    def _safe_context(self, item: dict, **fields: Any) -> dict[str, Any]:
+        return {
+            "tenant_id": item.get("tenant_id"),
+            "domain_id": item.get("domain_id"),
+            "email_id": item.get("email_id"),
+            **fields,
+        }
+
+    def _public_item(self, result: dict, **extra: Any) -> dict[str, Any]:
+        merged = {**result, **extra}
+        return {key: merged[key] for key in _PUBLIC_ITEM_KEYS if key in merged}
+
     def _log(self, record: dict[str, Any]) -> None:
+        safe = {key: record[key] for key in _SAFE_LOG_KEYS if key in record}
+        safe.setdefault("instance_id", get_settings().instance_id)
         if self.log_sink:
-            self.log_sink(record)
+            self.log_sink(safe)
             return
-        logger.info(json.dumps(record, ensure_ascii=False, default=str))
+        logger.info(json.dumps(safe, ensure_ascii=False, default=str))

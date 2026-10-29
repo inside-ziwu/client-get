@@ -6,11 +6,165 @@ import httpx
 
 from app.core.config import Settings, get_settings
 
+# 官方 POST /v1/mail/send：request_id 最长 128，1 小时内重复提交返回上次结果。
+# https://www.engagelab.com/docs/email/rest-api/deliverlies
+REQUEST_ID_MAX_LENGTH = 128
+
+# 2026-07-02 生产原文：HTTP 400 + {"code": 30877, "message": "...balance is not enough..."}.
+# 见 docs/solutions/integration-issues/engagelab-quota-exhaustion-cascade.md。
+# 不把其余 308xx 推断成额度或收件人无效。
+VERIFIED_QUOTA_CODE = 30877
+VERIFIED_QUOTA_PHRASES = (
+    "balance is not enough",
+    "recharge soon",
+    "余额不足",
+)
+
+# 官方错误示例，属于请求参数，不是收件人无效，也不能当额度熔断。
+REQUEST_PARAMETER_CODES = frozenset({30801, 30893})
+
+# 发送接口没有已核实的「接单前地址不存在」业务码。webhook 的 invalid_email
+# 发生在接单之后，不能拿来在发送分类里把联系人标 invalid。有出处之前保持为空。
+RECIPIENT_PERMANENT_CODES: frozenset[int] = frozenset()
+RECIPIENT_POLICY_CODES: frozenset[int] = frozenset()
+
+RATE_LIMIT_PHRASES = ("rate limit", "too many requests")
+
 
 class EngageLabSendError(Exception):
-    def __init__(self, message: str, *, status_code: int | None = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        status_code: int | None = None,
+        provider_code: int | None = None,
+        http_status: int | None = None,
+        retry_after: str | None = None,
+        outcome: str = "rejected",
+        detail: str | None = None,
+    ) -> None:
+        self.http_status = http_status if http_status is not None else status_code
+        self.status_code = self.http_status
+        self.provider_code = provider_code
+        self.retry_after = retry_after
+        self.outcome = outcome
+        self.detail = message if detail is None else detail
+        super().__init__(self.safe_text())
+
+    def safe_text(self) -> str:
+        return f"engagelab_{self.outcome}:{self.http_status}:{self.provider_code}"
+
+
+def classify_send_error(exc: EngageLabSendError) -> dict[str, Any]:
+    """把结构化拒发分成可执行决策。不读 SQL 异常，也不把 400/422 整段当成无效地址。"""
+    if exc.outcome == "uncertain":
+        return _decision(
+            error_type="uncertain",
+            error_class="outcome_uncertain",
+            decision="isolate",
+            is_permanent=False,
+            error_category=None,
+            exc=exc,
+        )
+
+    code = exc.provider_code
+    status_code = exc.http_status
+    is_client_error = status_code is not None and 400 <= status_code < 500
+    detail = (exc.detail or "").casefold()
+
+    if code == VERIFIED_QUOTA_CODE or (
+        is_client_error and any(phrase.casefold() in detail for phrase in VERIFIED_QUOTA_PHRASES)
+    ):
+        return _decision(
+            error_type="quota",
+            error_class="quota",
+            decision="defer_quota",
+            is_permanent=False,
+            error_category="quota",
+            exc=exc,
+        )
+    if code in RECIPIENT_PERMANENT_CODES:
+        return _decision(
+            error_type="permanent",
+            error_class="recipient_permanent",
+            decision="stop_enrollment",
+            is_permanent=True,
+            error_category="invalid",
+            exc=exc,
+        )
+    if code in RECIPIENT_POLICY_CODES:
+        return _decision(
+            error_type="permanent",
+            error_class="recipient_policy",
+            decision="stop_enrollment",
+            is_permanent=True,
+            error_category="policy",
+            exc=exc,
+        )
+    if status_code == 429 or (
+        is_client_error and any(phrase in detail for phrase in RATE_LIMIT_PHRASES)
+    ):
+        return _decision(
+            error_type="rate_limit",
+            error_class="rate_limit",
+            decision="retry",
+            is_permanent=False,
+            error_category=None,
+            exc=exc,
+        )
+    if code in REQUEST_PARAMETER_CODES:
+        return _decision(
+            error_type="temporary",
+            error_class="request_rejected",
+            decision="retry",
+            is_permanent=False,
+            error_category=None,
+            exc=exc,
+        )
+    if status_code in {401, 403}:
+        return _decision(
+            error_type="temporary",
+            error_class="auth",
+            decision="retry",
+            is_permanent=False,
+            error_category=None,
+            exc=exc,
+        )
+    return _decision(
+        error_type="temporary",
+        error_class="unknown",
+        decision="retry",
+        is_permanent=False,
+        error_category=None,
+        exc=exc,
+    )
+
+
+def _decision(
+    *,
+    error_type: str,
+    error_class: str,
+    decision: str,
+    is_permanent: bool,
+    error_category: str | None,
+    exc: EngageLabSendError,
+) -> dict[str, Any]:
+    return {
+        "is_permanent": is_permanent,
+        "error_type": error_type,
+        "error_category": error_category,
+        "error_class": error_class,
+        "decision": decision,
+        "provider_code": exc.provider_code,
+        "http_status": exc.http_status,
+        "retry_after": _safe_retry_after(exc.retry_after),
+    }
+
+
+def _safe_retry_after(value: str | None) -> str | None:
+    if not value or "@" in value or len(value) > 40:
+        return None
+    return value
 
 
 class EngageLabClient:
@@ -32,10 +186,11 @@ class EngageLabClient:
     def _validate_config(self) -> None:
         """校验必需配置项是否存在"""
         if not self.settings.engagelab_base_url:
-            raise EngageLabSendError("未配置 ENGAGELAB_BASE_URL")
+            raise EngageLabSendError("未配置 ENGAGELAB_BASE_URL", outcome="rejected")
         if not (self.settings.engagelab_api_user and self.settings.engagelab_credential):
             raise EngageLabSendError(
-                "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置"
+                "ENGAGELAB_API_USER 和 ENGAGELAB_CREDENTIAL 必须同时配置",
+                outcome="rejected",
             )
 
     async def query_email_status(
@@ -47,7 +202,6 @@ class EngageLabClient:
         results: list[dict[str, Any]] = []
 
         if email_ids:
-            # API 限制每次最多 20 个 email_ids
             for i in range(0, len(email_ids), 20):
                 batch_ids = email_ids[i : i + 20]
                 batch_results = await self._fetch_status_page(
@@ -78,14 +232,15 @@ class EngageLabClient:
             while True:
                 params["offset"] = str(offset)
                 params["limit"] = limit
-                response = await client.get(
-                    "/v1/email_status", headers=headers, params=params
-                )
+                response = await client.get("/v1/email_status", headers=headers, params=params)
                 if response.status_code >= 400:
+                    code, detail, retry_after = self._parse_provider_error(response)
                     raise EngageLabSendError(
-                        f"查询失败，status={response.status_code}: "
-                        f"{self._sanitize_provider_text(response.text)}",
+                        outcome="rejected",
                         status_code=response.status_code,
+                        provider_code=code,
+                        retry_after=retry_after,
+                        detail=detail or "",
                     )
                 data = self._safe_json(response)
                 batch = data.get("result", [])
@@ -119,16 +274,23 @@ class EngageLabClient:
                 json=request_body,
             )
         if response.status_code >= 400:
+            code, detail, retry_after = self._parse_provider_error(response)
             raise EngageLabSendError(
-                f"发送失败，provider status={response.status_code}: "
-                f"{self._sanitize_provider_text(response.text)}",
+                outcome="rejected",
                 status_code=response.status_code,
+                provider_code=code,
+                retry_after=retry_after,
+                detail=detail or "",
             )
 
         data = self._safe_json(response)
         message_id = self._extract_message_id(data, response)
         if not message_id:
-            raise EngageLabSendError("provider 返回成功但缺少 message_id")
+            raise EngageLabSendError(
+                outcome="uncertain",
+                status_code=response.status_code,
+                detail="",
+            )
         return {
             "engagelab_message_id": message_id,
             "provider_response": data,
@@ -139,7 +301,7 @@ class EngageLabClient:
             "html": payload["body_html"],
             "text": payload.get("body_text") or "",
         }
-        body = {
+        body: dict[str, Any] = {
             "from": payload["from_email"],
             "to": [payload["to_email"]],
             "body": {
@@ -154,18 +316,41 @@ class EngageLabClient:
                 },
             },
         }
-        if payload.get("idempotency_key"):
-            body["idempotency_key"] = payload["idempotency_key"]
+        # 本地幂等键只映射到官方 request_id。超长不截断、不改名发送 idempotency_key。
+        # request_id 只覆盖约 1 小时；跨日防重由 email_send_locks 承担。
+        request_id = payload.get("idempotency_key")
+        if isinstance(request_id, str) and 0 < len(request_id) <= REQUEST_ID_MAX_LENGTH:
+            body["request_id"] = request_id
         return body
 
     def _safe_json(self, response: httpx.Response) -> dict[str, Any]:
         try:
             data = response.json()
         except ValueError:
-            return {"raw_text": response.text}
+            return {}
         if isinstance(data, dict):
             return data
         return {"data": data}
+
+    def _parse_provider_error(
+        self, response: httpx.Response
+    ) -> tuple[int | None, str | None, str | None]:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after and ("@" in retry_after or len(retry_after) > 40):
+            retry_after = None
+        try:
+            data = response.json()
+        except ValueError:
+            return None, None, retry_after
+        if not isinstance(data, dict):
+            return None, None, retry_after
+        code = data.get("code")
+        if isinstance(code, str) and code.isdigit():
+            code = int(code)
+        if not isinstance(code, int):
+            code = None
+        message = data.get("message") if isinstance(data.get("message"), str) else None
+        return code, message, retry_after
 
     def _extract_message_id(self, data: dict[str, Any], response: httpx.Response) -> str | None:
         candidates = [
@@ -199,9 +384,7 @@ class EngageLabClient:
 
     def _sanitize_provider_text(self, text: str) -> str:
         sanitized = text
-        for secret in (
-            self.settings.engagelab_credential,
-        ):
+        for secret in (self.settings.engagelab_credential,):
             if secret:
                 sanitized = sanitized.replace(secret, "[redacted]")
         try:

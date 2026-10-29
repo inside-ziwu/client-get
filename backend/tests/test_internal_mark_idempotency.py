@@ -1,7 +1,7 @@
 """mark_email_sent / mark_email_failed 幂等闸门测试。
 
-闸门语义：email_send_locks 上 `status = 'locked'` 的条件更新是唯一入场券——
-0 行即重复/迟到回调，直接幂等返回，跳过全部副作用（计数、enrollment 推进、配额释放）。
+闸门语义：email_send_locks 上 accepted_pending，或 locked 且调用方带有回执，
+才是入场券。0 行即重复/迟到回调，直接幂等返回，跳过全部副作用。
 闸门必须放锁表而非 emails.status：webhook 可能先于回调把 emails.status 推进到
 delivered 等后续态，那不是重复回调。
 """
@@ -17,9 +17,11 @@ EMAIL_ROW = {
     "id": "email-001",
     "created_at": datetime(2026, 7, 23, 8, 0, 0, tzinfo=timezone.utc),
     "status": "queued",
+    "tenant_id": "tenant-001",
     "tenant_contact_id": "contact-001",
     "plan_id": "plan-001",
     "step_number": 1,
+    "step_id": "step-001",
     "enrollment_id": "enroll-001",
 }
 
@@ -55,10 +57,13 @@ class TestMarkEmailSentIdempotency:
             ]
         )
         service = TenantMessagingService()
-        result = await service.mark_email_sent(conn, email_id="email-001", payload={})
+        result = await service.mark_email_sent(
+            conn, email_id="email-001", payload={"engagelab_message_id": "msg-001"}
+        )
 
         assert result == {"email_id": "email-001", "status": "sent"}
         assert conn.execute.await_count == 7
+        assert "accepted_pending" in _executed_sql(conn)
         assert "sent_count = sent_count + 1" in _executed_sql(conn)
 
     @pytest.mark.asyncio
@@ -91,7 +96,9 @@ class TestMarkEmailSentIdempotency:
             ]
         )
         service = TenantMessagingService()
-        result = await service.mark_email_sent(conn, email_id="email-001", payload={})
+        result = await service.mark_email_sent(
+            conn, email_id="email-001", payload={"engagelab_message_id": "msg-001"}
+        )
 
         assert result == {"email_id": "email-001", "status": "sent"}
         assert "sent_count = sent_count + 1" in _executed_sql(conn)

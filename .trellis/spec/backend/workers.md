@@ -18,15 +18,18 @@
 3. **可注入的时间与随机**：构造函数接受 `clock` / `sleep` / `random_between` / `log_sink`（`SendingWorker.__init__`），测试里推进虚拟时钟，不用 freezegun。
 4. **结构化事件日志**：`self._log({"event": "quota_circuit_closed", ...})` 这类带 `event` 键的 JSON，线上按字段检索（见 logging-guidelines.md）。
 5. **逐项隔离失败**：批处理里单条失败不回滚整轮（客户池修复：关系事务提交后再逐条补评，单条失败只记日志）。
-6. **幂等**：发送幂等键 `enrollment_id:step_id`；回调闸门放 `email_send_locks`（`UPDATE ... SET status='sent' WHERE email_id=:id AND status='locked' RETURNING id`，0 行即重复回调）；stale lock 启动时回收一次（`recover_stale_locks`）。
+6. **幂等**：本地键 `enrollment_id:step_id` 只映射到 EngageLab `request_id`（最长 128，约 1 小时去重）；超长则省略该字段，不截断、不改名发送 `idempotency_key`。跨日防重由 `email_send_locks` 承担。`mark_email_sent` 只接受已持有回执的 `accepted_pending`，或调用方已带 message id 的 `locked`（内部回调）。0 行即重复或状态不符。`recover_stale_locks` 每个进程启动回收一次。运行中另有节流的 `release_unsent_locks`（默认 60 秒一次，阈值 30 分钟），只释放有 `quota_usage_date`、尚未 `dispatch_started_at`、没有回执的新 `locked`，并按原占用日退额度。旧锁、`dispatching`、`uncertain`、`accepted_pending` 不在这条路径里重发。
 
 ## 发送 worker 的可靠性机制（改动前必读）
 
 - 发送间隔固定 3 秒；按域名轮转（`_select_due_domain`）。
-- 外部错误分类 `_classify_provider_error(status_code, text)`：quota / rate_limit / permanent / transient 四类，关键词表 `QUOTA_KEYWORDS` / `RATE_LIMIT_SIGNALS` 在文件头。
-- **配额熔断**：同域名连续 3 次配额错误 → `domain_quota_paused` 到北京时间次日零点（`_next_beijing_midnight`），期间该域名邮件 **defer 而非 fail**（`_defer_for_quota`，单 enrollment 最多 3 次）；全部域名暂停时记 `all_domains_quota_paused` 事件后空转等待。
-- **限流熔断**：10 分钟窗口内 3 次 429 → 按 quota 处理（`_record_rate_limit_hit`）。
-- 对账 worker 主动查 EngageLab `GET /v1/email_status`（每批 20 个 id）补齐 webhook 丢失的状态。
+- 外发与本地回写分开：`begin_dispatch` 把 `locked` 提交为 `dispatching` 之后才 POST。拿到完整 id 后 `record_provider_acceptance` 写入 `accepted_pending`；回执重试 1/5/30 秒，接单时间只取第一次，不在重试时重算。三次都失败则留下 `dispatching`，不调用 `mark_email_failed`、不释放额度、不增加 attempt、不计限流。`mark_email_sent` 失败保持 `accepted_pending`。`sent_at`、`last_step_sent_at` 和 `next_step_due_at` 用锁上的 `provider_accepted_at`；`updated_at` 用恢复当时。下一次发送仍走当前工作窗口。每轮先 `isolate_timed_out_dispatches`，再按节流回收未外发新锁，然后最多本地恢复 20 条到期的 `accepted_pending`（`finalize_not_before` 未到的跳过；失败把该条推迟 60 秒）。只 finalize，不 `send_email`。然后才领取新邮件。
+- 超时、断连、2xx 无 id、外发后的未知异常：`dispatching` → `uncertain`，不自动重发，不把联系人标 invalid。
+- 错误分类在 `classify_send_error`（`app/integrations/engagelab.py`）。已核实配额只有 HTTP 4xx 且（code `30877`，或正文含 `balance is not enough` / `recharge soon` / `余额不足`）。`30801` / `30893` 是请求参数错误。裸 422 不是永久 invalid。`RECIPIENT_PERMANENT_CODES` 与 `RECIPIENT_POLICY_CODES` 在有发送接口出处前保持为空。SQL 异常文本不参与配额或限流判断。
+- **配额熔断**：同域名连续 3 次已核实配额错误 → `domain_quota_paused` 到北京时间次日零点（`_next_beijing_midnight`），期间该域名邮件 **defer 而非 fail**（`_defer_for_quota`，单 enrollment 最多 3 次）；全部域名暂停时记 `all_domains_quota_paused` 事件后空转等待。本地回写失败不计入这 3 次。释放额度使用锁上的 `quota_usage_date`，跨过北京零点也不改记到失败日。
+- **限流熔断**：10 分钟窗口内 3 次 429 或明确频控文案 → 按 quota 处理（`_record_rate_limit_hit`）。
+- 领取 SQL 排除 `locked` / `sent` / `dispatching` / `accepted_pending` / `uncertain`，避免被占住的报名占满候选窗口。不要同时跑旧版和新版 sending worker。
+- 对账 worker 主动查 EngageLab `GET /v1/email_status`（每批 20 个 id）补齐 webhook 丢失的状态。对账仍只处理已经 `sent` 且有 provider id 的行。
 
 2026-07-02 的教训：没有熔断时额度耗尽会把 13,950 封排队邮件逐封打成 failed 并终止序列，仪表盘还把 failed 计入发送数。任何改动不得削弱 defer / 熔断语义；统计口径排除 failed（见 domain-rules.md）。
 

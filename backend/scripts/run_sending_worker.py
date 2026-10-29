@@ -10,9 +10,10 @@ import json
 import logging
 
 from app.core.config import get_settings
+from app.core.logging import configure_logging
 from app.db.pools import close_engines, get_engine, initialize_engines
 from app.workers.reconciliation import ReconciliationWorker
-from app.workers.sending import SendingWorker
+from app.workers.sending import SendingWorker, sanitize_round_result
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ RECONCILE_EVERY_N_LOOPS = 120  # 约 10 分钟（每轮 ~5 秒）
 
 async def run(args: argparse.Namespace) -> None:
     settings = get_settings()
+    configure_logging(settings.debug)
     initialize_engines(settings)
     engine = get_engine()
     worker = SendingWorker()
@@ -33,7 +35,7 @@ async def run(args: argparse.Namespace) -> None:
                 service_instance=args.service_instance,
                 idle_poll_seconds=args.idle_poll_seconds,
             )
-            print(json.dumps(result, ensure_ascii=False, default=str))
+            print(json.dumps(sanitize_round_result(result), ensure_ascii=False, default=str))
             return
         while True:
             result = await worker.run_once(
@@ -41,7 +43,7 @@ async def run(args: argparse.Namespace) -> None:
                 service_instance=args.service_instance,
                 idle_poll_seconds=args.idle_poll_seconds,
             )
-            print(json.dumps(result, ensure_ascii=False, default=str))
+            print(json.dumps(sanitize_round_result(result), ensure_ascii=False, default=str))
 
             loop_count += 1
             if loop_count >= RECONCILE_EVERY_N_LOOPS:

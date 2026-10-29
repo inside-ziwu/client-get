@@ -78,14 +78,66 @@ class _Service:
         self.deferred_payloads = []
         self.sent_payloads = []
         self.recover_calls = 0
+        self.unsent_release_calls = []
         self.claim_calls = []
+        self.dispatch_calls = []
+        self.acceptance_calls = []
+        self.uncertain_calls = []
+        self.pending_items = []
         self.defer_error: Exception | None = None
         self.fail_error: Exception | None = None
+        self.acceptance_error: Exception | None = None
+        self.dispatch_started = True
         self.failed_status = "retry_scheduled"
 
     async def recover_stale_locks(self, conn):
         self.recover_calls += 1
+        return {"recovered_count": 0, "enrollment_ids": [], "isolated_count": 0}
+
+    async def isolate_timed_out_dispatches(self, conn, *, stale_minutes=30):
+        return {"isolated_count": 0, "enrollment_ids": []}
+
+    async def list_accepted_pending(self, conn, *, limit=20, as_of=None, lease_until=None):
+        del as_of, lease_until
+        return list(self.pending_items)
+
+    async def defer_accepted_pending(
+        self, conn, *, email_id, tenant_id, enrollment_id, step_id, not_before
+    ):
+        return {"deferred": True, "email_id": email_id, "not_before": not_before}
+
+    async def release_unsent_locks(self, conn, *, as_of, stale_minutes=30):
+        self.unsent_release_calls.append({"as_of": as_of, "stale_minutes": stale_minutes})
         return {"recovered_count": 0, "enrollment_ids": []}
+
+    async def begin_dispatch(self, conn, *, email_id, tenant_id, enrollment_id, step_id):
+        self.dispatch_calls.append(email_id)
+        return {"started": self.dispatch_started}
+
+    async def record_provider_acceptance(
+        self,
+        conn,
+        *,
+        email_id,
+        tenant_id,
+        enrollment_id,
+        step_id,
+        provider_message_id,
+        accepted_at,
+    ):
+        if self.acceptance_error:
+            raise self.acceptance_error
+        self.acceptance_calls.append(provider_message_id)
+        return {
+            "persisted": True,
+            "duplicate": False,
+            "status": "accepted_pending",
+            "conflict": False,
+        }
+
+    async def mark_dispatch_uncertain(self, conn, *, email_id, tenant_id, enrollment_id, step_id):
+        self.uncertain_calls.append(email_id)
+        return {"status": "uncertain", "updated": True}
 
     async def list_running_domain_ids(self, conn):
         return self.domains
@@ -164,7 +216,8 @@ async def test_engagelab_error_carries_status_code():
 async def test_engagelab_request_body_includes_idempotency_key():
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content.decode())
-        assert body["idempotency_key"] == "enrollment-001:step-001"
+        assert body["request_id"] == "enrollment-001:step-001"
+        assert "idempotency_key" not in body
         return httpx.Response(200, json={"message_id": "msg-001"})
 
     client = EngageLabClient(settings=_settings(), transport=httpx.MockTransport(handler))
@@ -204,7 +257,9 @@ async def test_worker_sends_one_email_and_sets_domain_clock():
     assert service.claim_calls[0]["domain_id"] == "domain-a"
     assert provider.payloads[0]["idempotency_key"] == "enrollment-001:step-001"
     assert worker.domain_clocks["domain-a"] == clock.value + timedelta(seconds=45)
-    assert logs[-1]["event"] == "send_ok"
+    assert logs[-1]["event"] == "send_accepted"
+    assert service.dispatch_calls == ["email-001"]
+    assert service.acceptance_calls == ["msg-001"]
 
 
 @pytest.mark.asyncio
@@ -285,7 +340,7 @@ async def test_worker_treats_401_as_temporary_failure():
 
 
 @pytest.mark.asyncio
-async def test_worker_treats_422_as_invalid_permanent_failure():
+async def test_worker_does_not_treat_bare_422_as_invalid():
     service = _Service(items=[_claimed_item("domain-a")])
     worker = SendingWorker(
         service=service,
@@ -297,8 +352,8 @@ async def test_worker_treats_422_as_invalid_permanent_failure():
 
     await worker.run_once(_Engine(), service_instance="worker-1")
 
-    assert service.failed_payloads[0]["is_permanent"] is True
-    assert service.failed_payloads[0]["error_category"] == "invalid"
+    assert service.failed_payloads[0]["is_permanent"] is False
+    assert service.failed_payloads[0]["error_category"] is None
 
 
 @pytest.mark.asyncio
@@ -607,7 +662,12 @@ async def test_all_domains_quota_paused_sleeps_without_crashing():
 
     result = await worker.run_once(_Engine(), service_instance="worker-1", idle_poll_seconds=5)
 
-    assert result == {"claimed_count": 0, "processed_count": 0, "items": []}
+    assert result == {
+        "claimed_count": 0,
+        "processed_count": 0,
+        "finalized_count": 0,
+        "items": [],
+    }
     assert service.claim_calls == []
     assert provider.payloads == []
     sleep.assert_awaited_once_with(5)
@@ -635,7 +695,7 @@ async def test_quota_defer_error_falls_back_to_temporary_failure():
     assert service.deferred_payloads == []
     assert "domain-a" in worker.domain_quota_paused
     assert any(record["event"] == "quota_defer_failed" for record in logs)
-    assert any(record["event"] == "send_failed" for record in logs)
+    assert any(record["event"] == "send_rejected" for record in logs)
 
 
 @pytest.mark.asyncio
@@ -657,7 +717,7 @@ async def test_quota_defer_and_fallback_errors_do_not_escape_run_once():
     assert result["items"][0]["provider_status"] == "failed"
     assert result["items"][0]["status"] == "quota_defer_fallback_failed"
     assert any(record["event"] == "quota_defer_fallback_failed" for record in logs)
-    assert any(record["event"] == "send_failed" for record in logs)
+    assert any(record["event"] == "send_rejected" for record in logs)
 
 
 @pytest.mark.asyncio
@@ -729,7 +789,9 @@ async def test_mark_email_failed_schedules_incremental_retry():
             return_value={
                 "id": "email-001",
                 "created_at": datetime.now(UTC),
+                "tenant_id": "tenant-001",
                 "enrollment_id": "enrollment-001",
+                "step_id": "step-001",
                 "tenant_contact_id": "contact-001",
                 "plan_id": "plan-001",
             },
@@ -761,7 +823,9 @@ async def test_mark_email_failed_exhausts_after_fourth_temporary_failure():
             return_value={
                 "id": "email-001",
                 "created_at": datetime.now(UTC),
+                "tenant_id": "tenant-001",
                 "enrollment_id": "enrollment-001",
+                "step_id": "step-001",
                 "tenant_contact_id": "contact-001",
                 "plan_id": "plan-001",
             },
@@ -792,7 +856,9 @@ async def test_mark_email_failed_updates_invalid_contact_for_422():
             return_value={
                 "id": "email-001",
                 "created_at": datetime.now(UTC),
+                "tenant_id": "tenant-001",
                 "enrollment_id": "enrollment-001",
+                "step_id": "step-001",
                 "tenant_contact_id": "contact-001",
                 "plan_id": "plan-001",
             },
@@ -843,8 +909,10 @@ async def test_mark_email_sent_resets_attempt_count_when_advancing():
         return_value={
             "id": "email-001",
             "created_at": datetime.now(UTC),
+            "tenant_id": "tenant-001",
             "plan_id": "plan-001",
             "step_number": 1,
+            "step_id": "step-001",
             "tenant_contact_id": "contact-001",
             "enrollment_id": "enrollment-001",
         },
@@ -911,6 +979,8 @@ async def test_recover_stale_locks_releases_quota_without_email_id():
                     "enrollment_id": "enrollment-001",
                     "email_id": None,
                     "plan_id": "plan-001",
+                    "outcome": "released",
+                    "quota_usage_date": None,
                 }
             ]
         )
@@ -919,9 +989,38 @@ async def test_recover_stale_locks_releases_quota_without_email_id():
     with patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock) as release_quota:
         result = await svc.recover_stale_locks(conn)
 
-    assert result == {"recovered_count": 1, "enrollment_ids": ["enrollment-001"]}
+    assert result["recovered_count"] == 1
+    assert result["enrollment_ids"] == ["enrollment-001"]
+    assert result["isolated_count"] == 0
     release_quota.assert_awaited_once()
     assert release_quota.await_args.kwargs["plan_id"] == "plan-001"
+
+
+@pytest.mark.asyncio
+async def test_recover_stale_locks_isolates_legacy_locked_without_releasing_quota():
+    svc = TenantMessagingService()
+    conn = AsyncMock()
+    conn.execute = AsyncMock(
+        return_value=_result(
+            all_rows=[
+                {
+                    "enrollment_id": "enrollment-legacy",
+                    "email_id": "email-legacy",
+                    "plan_id": "plan-001",
+                    "outcome": "uncertain",
+                    "quota_usage_date": None,
+                }
+            ]
+        )
+    )
+
+    with patch.object(svc, "_release_reserved_quota", new_callable=AsyncMock) as release_quota:
+        result = await svc.recover_stale_locks(conn)
+
+    assert result["recovered_count"] == 0
+    assert result["isolated_count"] == 1
+    assert result["isolated_enrollment_ids"] == ["enrollment-legacy"]
+    release_quota.assert_not_awaited()
 
 
 def _claim_row(enrollment_id: str, to_email: str) -> dict:

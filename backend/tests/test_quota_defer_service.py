@@ -31,6 +31,7 @@ class FakeQuotaDeferConn:
     def __init__(self, *, email=DEFAULT_EMAIL):
         self.email = _email_row() if email is DEFAULT_EMAIL else email
         self.executions = []
+        self.lock_usage_date = None
 
     async def execute(self, statement, params=None):
         sql = str(statement)
@@ -43,6 +44,9 @@ class FakeQuotaDeferConn:
         if "SELECT domain_id FROM sending_plans" in sql:
             return FakeResult({"domain_id": DOMAIN_ID})
 
+        if "UPDATE email_send_locks" in sql:
+            return FakeResult({"quota_usage_date": self.lock_usage_date})
+
         return FakeResult(None)
 
     def statements_containing(self, needle: str):
@@ -54,6 +58,8 @@ def _email_row(**overrides) -> dict:
         "id": EMAIL_ID,
         "created_at": EMAIL_CREATED_AT,
         "plan_id": PLAN_ID,
+        "tenant_id": UUID("019f2b25-6666-7666-8666-666666666666"),
+        "step_id": UUID("019f2b25-7777-7777-8777-777777777777"),
         "enrollment_id": ENROLLMENT_ID,
         "tenant_contact_id": CONTACT_ID,
         "sent_at": None,
@@ -81,21 +87,24 @@ async def test_defer_email_for_quota_deletes_unsent_email_and_defers_enrollment(
     }
 
     delete_sql, delete_params = conn.statements_containing("DELETE FROM emails")[0]
-    assert "WHERE id = :email_id AND created_at = :created_at" in " ".join(delete_sql.split())
-    assert delete_params == {"email_id": EMAIL_ID, "created_at": EMAIL_CREATED_AT}
+    assert "WHERE id = :email_id" in " ".join(delete_sql.split())
+    assert delete_params["email_id"] == EMAIL_ID
+    assert delete_params["created_at"] == EMAIL_CREATED_AT
 
-    lock_sql, lock_params = conn.statements_containing("UPDATE email_send_locks")[0]
+    lock_sql, _lock_params = conn.statements_containing("UPDATE email_send_locks")[0]
     normalized_lock_sql = " ".join(lock_sql.split())
     assert "status = 'released'" in normalized_lock_sql
     assert "email_id = NULL" in normalized_lock_sql
-    assert lock_params == {"email_id": str(EMAIL_ID)}
+    assert "dispatching" in normalized_lock_sql
+    assert "provider_message_id IS NULL" in normalized_lock_sql
 
     enrollment_sql, enrollment_params = conn.statements_containing("UPDATE sequence_enrollments")[0]
     normalized_enrollment_sql = " ".join(enrollment_sql.split())
     assert "next_step_due_at = :resume_at" in normalized_enrollment_sql
     assert "status = 'active'" in normalized_enrollment_sql
     assert "send_attempt_count" not in normalized_enrollment_sql
-    assert enrollment_params == {"enrollment_id": ENROLLMENT_ID, "resume_at": RESUME_AT}
+    assert enrollment_params["enrollment_id"] == ENROLLMENT_ID
+    assert enrollment_params["resume_at"] == RESUME_AT
 
 
 @pytest.mark.asyncio
