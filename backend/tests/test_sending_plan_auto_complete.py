@@ -62,8 +62,10 @@ def _email_row(**overrides):
     row = {
         "id": "email-001",
         "created_at": datetime.now(UTC),
+        "tenant_id": "tenant-001",
         "plan_id": "plan-001",
         "step_number": 2,
+        "step_id": "step-001",
         "tenant_contact_id": "contact-001",
         "enrollment_id": "enrollment-001",
     }

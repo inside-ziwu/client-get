@@ -1,0 +1,159 @@
+{
+  "result": "failed",
+  "host": "127.0.0.1",
+  "port": 55432,
+  "database": "prelaunch_f36204c45b83",
+  "data_dir_name": "clientget-prelaunch-20261028-42580",
+  "postgres_version": "PostgreSQL 16.15 on aarch64-apple-darwin24.6.0, compiled by Apple clang version 17.0.0 (clang-1700.0.13.5), 64-bit",
+  "python": "3.13.13",
+  "commands": [
+    "mise x aqua:theseus-rs/postgresql-binaries@16.15.1 -- initdb -D <fresh-tmpdir> --auth trust --locale=C",
+    "mise x aqua:theseus-rs/postgresql-binaries@16.15.1 -- pg_ctl -D <fresh-tmpdir> -o '-p 55432 -c listen_addresses=127.0.0.1' -w start",
+    "python -m alembic stamp 20260824_0002",
+    "python -m alembic upgrade 20261028_0001",
+    "python -m alembic downgrade 20260824_0002"
+  ],
+  "server_addr": "127.0.0.1/32",
+  "revision_before_stamp": null,
+  "alembic_upgrade_tail": [
+    "INFO  [alembic.runtime.migration] Will assume transactional DDL.",
+    "INFO  [alembic.runtime.migration] Will assume transactional DDL.",
+    "INFO  [alembic.runtime.migration] Running upgrade 20260824_0002 -> 20261028_0001, 把 emails.engagelab_message_id 扩为 TEXT，并为发送锁补上接单阶段。",
+    "INFO  [alembic.runtime.migration] Running upgrade 20260824_0002 -> 20261028_0001, 把 emails.engagelab_message_id 扩为 TEXT，并为发送锁补上接单阶段。"
+  ],
+  "revision_after_upgrade": "20261028_0001",
+  "message_types_after_upgrade": {
+    "emails": [
+      "text",
+      null
+    ],
+    "emails_p_2026_08": [
+      "text",
+      null
+    ],
+    "emails_p_2026_10": [
+      "text",
+      null
+    ]
+  },
+  "indexes_after_upgrade": [
+    "email_send_locks_enrollment_id_step_id_key",
+    "email_send_locks_pkey",
+    "idx_email_send_locks_accepted_pending",
+    "idx_email_send_locks_dispatching",
+    "idx_email_send_locks_finalize_due",
+    "idx_email_send_locks_unsent_locked"
+  ],
+  "constraint_after_upgrade": "CHECK (((status)::text = ANY ((ARRAY['locked'::character varying, 'sent'::character varying, 'failed'::character varying, 'released'::character varying, 'dispatching'::character varying, 'accepted_pending'::character varying, 'uncertain'::character varying])::text[])))",
+  "synthetic_id_length": 107,
+  "synthetic_id_equal": true,
+  "synthetic_partition": "emails_p_2026_10",
+  "skip_locked": {
+    "sizes": [
+      1,
+      20
+    ],
+    "disjoint": true,
+    "covers_pending": true
+  },
+  "next_step_finalize": {
+    "raised": true,
+    "ambiguous_parameter": true,
+    "reuses_send_at_with_interval": true,
+    "lock_status": "accepted_pending",
+    "sent_count": 0
+  },
+  "concurrent_finalize": {
+    "path": "last_step",
+    "duplicate_flags": [
+      false,
+      true
+    ],
+    "sent_count": 1,
+    "current_step": 1,
+    "last_step_sent_at": "2026-10-26 08:30:00-07:00",
+    "next_step_due_at": null,
+    "completed_at": "2026-10-26 08:30:00-07:00",
+    "sent_at": "2026-10-26 08:30:00-07:00",
+    "email_status": "sent"
+  },
+  "workers": {
+    "path": "last_step",
+    "finalized": [
+      0,
+      1
+    ],
+    "send_calls": [],
+    "newest_status": "sent",
+    "deferred_pending": 20,
+    "plan_sent_count": 2,
+    "newest_sent_at": "2026-10-26 08:30:20-07:00",
+    "newest_completed_at": "2026-10-26 08:30:20-07:00",
+    "newest_current_step": 1,
+    "log_contains_raw_id": false
+  },
+  "lease_expiry": {
+    "leased_ids": [
+      "fede4c25-8c84-4792-93cf-c2c26571fd8a"
+    ],
+    "hidden_while_leased": [],
+    "visible_after_expiry": [
+      "fede4c25-8c84-4792-93cf-c2c26571fd8a"
+    ]
+  },
+  "quota": {
+    "recovered": 1,
+    "recovered_again": 0,
+    "default_reserved": 3,
+    "other_reserved": 4,
+    "recovery_day_rows": 0,
+    "statuses": {
+      "unsent": "released",
+      "legacy": "locked",
+      "dispatching": "dispatching",
+      "uncertain": "uncertain",
+      "other": "locked"
+    }
+  },
+  "downgrade_refused": {
+    "returncode": 1,
+    "mentions_guard": true,
+    "revision": "20261028_0001",
+    "synthetic_kept": true
+  },
+  "after_empty_downgrade": {
+    "revision": "20260824_0002",
+    "message_types": {
+      "emails": [
+        "character varying",
+        100
+      ],
+      "emails_p_2026_08": [
+        "character varying",
+        100
+      ],
+      "emails_p_2026_10": [
+        "character varying",
+        100
+      ]
+    },
+    "constraint": "CHECK (((status)::text = ANY ((ARRAY['locked'::character varying, 'sent'::character varying, 'failed'::character varying, 'released'::character varying])::text[])))",
+    "new_indexes": [],
+    "survivor_id": "short-receipt-20261028",
+    "survivor_status": "locked"
+  },
+  "revision_after_reupgrade": "20261028_0001",
+  "uncertain_downgrade": {
+    "returncode": 1,
+    "mentions_guard": true,
+    "revision": "20261028_0001",
+    "status": "uncertain",
+    "started_at_kept": true,
+    "short_id": "short-receipt-20261028"
+  },
+  "cleanup": {
+    "drop_database": "gone",
+    "pg_ctl_stop": 0,
+    "data_dir": "removed"
+  }
+}

@@ -857,7 +857,7 @@ AI 调用用量与成本流水，先建 pending 再收尾为 completed/failed。
 | status | VARCHAR(20) | ✗ | `'pending'` | 投递状态机：queued 建行待发→sent 接单→delivered 及打开/点击/回复推进；退信/投诉/退订为负反馈，发送失败为 failed；默认值 pending 代码未使用；取值: pending, queued, sent, delivered, opened, clicked, replied, bounced… |
 | is_ai_personalized | BOOLEAN | ✗ | `false` | 是否 AI 个性化内容；当前发送链路未写入，恒默认 false |
 | ai_usage_log_id | UUID | ✓ |  | 关联 AI 用量日志 FK；当前发送链路未写入；FK → `ai_usage_logs.id` |
-| engagelab_message_id | VARCHAR(100) | ✓ |  | EngageLab 返回的 email_id；webhook 与对账以此反查回写 |
+| engagelab_message_id | TEXT | ✓ |  | EngageLab 返回的 email_id，完整保存，不截断到 100/255；webhook 与对账按等值反查。迁移 `20261028_0001` |
 | scheduled_at | TIMESTAMPTZ | ✓ |  | 预定发送时间；全库无代码消费（配额事故复盘明确） |
 | sent_at | TIMESTAMPTZ | ✓ |  | 服务商接单时间；统计实发口径用 sent_at IS NOT NULL |
 | delivered_at | TIMESTAMPTZ | ✓ |  | 投递成功时间（webhook/对账回写） |
@@ -902,7 +902,7 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 
 ### email_send_locks
 
-(enrollment,step) 粒度的发送幂等锁，保证同一序列步骤至多成功发送一次——「不重复发送」的落库机制；worker 领取时抢锁并按结果流转，locked 超 30 分钟按僵尸锁回收。
+(enrollment,step) 粒度的发送幂等锁，保证同一序列步骤至多成功发送一次。worker 领取时写入 `locked`，外发前提交 `dispatching`，服务商返回完整 id 后写入 `accepted_pending`，本地回写成功后才到 `sent`。`failed` / `released` 才允许 ON CONFLICT 重抢；`dispatching` / `accepted_pending` / `uncertain` 不能重抢。新领取的 `locked` 且尚未外发（有 `quota_usage_date`、`dispatch_started_at` 为空）超过 30 分钟可释放并退回占用日额度；迁移前遗留的 `locked`（`quota_usage_date` 为空）和超时 `dispatching` 改为 `uncertain`，不释放额度、不自动重发。`accepted_pending` 只做本地回写恢复。
 
 估算行数 463,090。
 
@@ -912,16 +912,25 @@ EngageLab webhook 回传的投递事件流水：原始 payload 存档并幂等�
 | tenant_id | UUID | ✗ |  | 租户隔离键（service 层 SQL 显式过滤，AGENTS.md §1）；FK → `tenants.id` |
 | enrollment_id | UUID | ✗ |  | 报名 FK，幂等键前半；FK → `sequence_enrollments.id` |
 | step_id | UUID | ✗ |  | 步骤 FK；(enrollment_id,step_id) 唯一构成幂等键；FK → `sequence_steps.id` |
-| status | VARCHAR(20) | ✗ | `'locked'` | 锁状态：locked 抢占中、sent 永久占位防重发、failed/released 允许 ON CONFLICT 重抢；取值: locked, sent, failed, released |
+| status | VARCHAR(20) | ✗ | `'locked'` | 锁状态。可重抢：failed、released。不可重抢：locked、sent、dispatching、accepted_pending、uncertain。`accepted_pending` 16 字符，列宽仍是 20。约束名 `email_send_locks_status_check` |
 | locked_by | VARCHAR(100) | ✓ |  | 抢锁 worker 实例标识（默认 sending-service） |
-| locked_at | TIMESTAMPTZ | ✗ | `now()` | 抢锁时间；locked 超 30 分钟判僵尸回收 |
+| locked_at | TIMESTAMPTZ | ✗ | `now()` | 抢锁时间；未外发的新 locked 超过 30 分钟可回收 |
 | released_at | TIMESTAMPTZ | ✓ |  | 锁释放/终结时间 |
 | email_id | UUID | ✓ |  | 本次锁定创建的邮件行 id；配额推迟删邮件时清空 |
 | email_created_at | TIMESTAMPTZ | ✓ |  | 邮件行 created_at，配合 email_id 定位分区行 |
+| provider_message_id | TEXT | ✓ |  | 服务商接单回执，完整保存；与 emails.engagelab_message_id 等值，不截断 |
+| provider_accepted_at | TIMESTAMPTZ | ✓ |  | 回执落锁时间 |
+| dispatch_started_at | TIMESTAMPTZ | ✓ |  | 进入 dispatching、即将外发的时间；为空表示尚未 POST |
+| quota_usage_date | DATE | ✓ |  | 领取时的北京日期。释放额度用这一天，不用失败当天。NULL 表示迁移前遗留锁 |
+| finalize_not_before | TIMESTAMPTZ | ✓ |  | 已接单本地恢复的最早重试时间。NULL 表示可立即恢复；失败后写成退避时刻，避免同一批失败占满每轮名额 |
 
 **唯一约束**：`enrollment_id, step_id`
 
 **外键**：`enrollment_id` → `sequence_enrollments(id)`；`step_id` → `sequence_steps(id)`；`tenant_id` → `tenants(id)`
+
+**部分索引**：`idx_email_send_locks_accepted_pending` (provider_accepted_at, id) WHERE status = 'accepted_pending'；`idx_email_send_locks_dispatching` (dispatch_started_at) WHERE status = 'dispatching'；`idx_email_send_locks_unsent_locked` (locked_at) WHERE status = 'locked' AND quota_usage_date IS NOT NULL AND dispatch_started_at IS NULL；`idx_email_send_locks_finalize_due` (finalize_not_before, provider_accepted_at, id) WHERE status = 'accepted_pending'
+
+`backend/03_database/schema_snapshot.json` 仍对应已合并 head `20260824_0002`，禁止手改。迁移 `20261028_0001` 实际提交到目标库之后，再跑 `backend/scripts/schema_snapshot.py`；diff 应只含这次扩列、五个锁字段、CHECK 和四个部分索引。开发库预演会回滚，不会更新该快照。
 
 ## 发送窗口与域名信誉
 

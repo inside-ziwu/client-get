@@ -1723,6 +1723,16 @@ class TenantMessagingService:
                   AND shc.email IS NOT NULL
                   AND tn.instance_id = :instance_id
                   AND (CAST(:domain_id AS text) IS NULL OR p.domain_id = CAST(:domain_id AS uuid))
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM email_send_locks esl
+                    WHERE esl.enrollment_id = e.id
+                      AND esl.step_id = s.id
+                      AND esl.tenant_id = e.tenant_id
+                      AND esl.status IN (
+                        'locked', 'sent', 'dispatching', 'accepted_pending', 'uncertain'
+                      )
+                  )
                 ORDER BY e.next_step_due_at ASC
                 LIMIT :candidate_limit
                 FOR UPDATE OF e SKIP LOCKED
@@ -1766,16 +1776,22 @@ class TenantMessagingService:
                 text(
                     """
                     INSERT INTO email_send_locks
-                      (id, tenant_id, enrollment_id, step_id, status, locked_by, locked_at)
+                      (id, tenant_id, enrollment_id, step_id, status, locked_by, locked_at,
+                       quota_usage_date)
                     VALUES
-                      (:id, :tenant_id, :enrollment_id, :step_id, 'locked', :locked_by, now())
+                      (:id, :tenant_id, :enrollment_id, :step_id, 'locked', :locked_by, now(),
+                       :quota_usage_date)
                     ON CONFLICT (enrollment_id, step_id) DO UPDATE
                     SET status = 'locked',
                         locked_by = excluded.locked_by,
                         locked_at = now(),
                         released_at = NULL,
                         email_id = NULL,
-                        email_created_at = NULL
+                        email_created_at = NULL,
+                        provider_message_id = NULL,
+                        provider_accepted_at = NULL,
+                        dispatch_started_at = NULL,
+                        quota_usage_date = excluded.quota_usage_date
                     WHERE email_send_locks.status IN ('failed', 'released')
                     RETURNING id
                     """
@@ -1786,6 +1802,7 @@ class TenantMessagingService:
                     "enrollment_id": row["enrollment_id"],
                     "step_id": row["step_id"],
                     "locked_by": service_instance,
+                    "quota_usage_date": usage_date,
                 },
             )
             if inserted.mappings().first() is None:
@@ -2057,6 +2074,343 @@ class TenantMessagingService:
         hour, minute = value.split(":")
         return int(hour) * 60 + int(minute)
 
+    def _instance_id(self) -> str:
+        return get_settings().instance_id
+
+    def _lock_identity(self, email) -> dict:
+        return {
+            "email_id": email["id"],
+            "tenant_id": email["tenant_id"],
+            "enrollment_id": email["enrollment_id"],
+            "step_id": email["step_id"],
+            "instance_id": self._instance_id(),
+        }
+
+    async def begin_dispatch(
+        self,
+        conn: AsyncConnection,
+        *,
+        email_id: str,
+        tenant_id: str,
+        enrollment_id: str,
+        step_id: str,
+    ) -> dict:
+        """locked → dispatching。只有这次提交成功后，调用方才能访问服务商。"""
+        result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET status = 'dispatching',
+                    dispatch_started_at = now(),
+                    provider_message_id = NULL,
+                    provider_accepted_at = NULL
+                WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id = :step_id
+                  AND status = 'locked'
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                RETURNING id, quota_usage_date
+                """
+            ),
+            {
+                "email_id": email_id,
+                "tenant_id": tenant_id,
+                "enrollment_id": enrollment_id,
+                "step_id": step_id,
+                "instance_id": self._instance_id(),
+            },
+        )
+        row = result.mappings().first()
+        if row is None:
+            return {"started": False}
+        return {"started": True, "quota_usage_date": row["quota_usage_date"]}
+
+    async def record_provider_acceptance(
+        self,
+        conn: AsyncConnection,
+        *,
+        email_id: str,
+        tenant_id: str,
+        enrollment_id: str,
+        step_id: str,
+        provider_message_id: str,
+        accepted_at: datetime,
+    ) -> dict:
+        """短事务保存完整回执。同一回执可重入；不同回执拒绝覆盖。"""
+        if not provider_message_id:
+            raise AppError(code="INVALID_STATE", message="缺少服务商回执", status_code=409)
+        result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET status = CASE WHEN status = 'sent' THEN status ELSE 'accepted_pending' END,
+                    provider_message_id = :provider_message_id,
+                    provider_accepted_at = COALESCE(provider_accepted_at, :accepted_at)
+                WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id = :step_id
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                  AND (
+                    (
+                      status = 'dispatching'
+                      AND (
+                        provider_message_id IS NULL
+                        OR provider_message_id = :provider_message_id
+                      )
+                    )
+                    OR (status = 'accepted_pending' AND provider_message_id = :provider_message_id)
+                    OR (status = 'sent' AND provider_message_id = :provider_message_id)
+                  )
+                RETURNING id, status,
+                  (provider_accepted_at IS DISTINCT FROM :accepted_at) AS already_recorded
+                """
+            ),
+            {
+                "email_id": email_id,
+                "tenant_id": tenant_id,
+                "enrollment_id": enrollment_id,
+                "step_id": step_id,
+                "provider_message_id": provider_message_id,
+                "accepted_at": accepted_at,
+                "instance_id": self._instance_id(),
+            },
+        )
+        row = result.mappings().first()
+        if row is not None:
+            return {
+                "persisted": True,
+                "duplicate": bool(row["already_recorded"]),
+                "status": "sent" if row["status"] == "sent" else "accepted_pending",
+                "conflict": False,
+            }
+        existing = await conn.execute(
+            text(
+                """
+                SELECT esl.status, esl.provider_message_id
+                FROM email_send_locks esl
+                JOIN tenants t ON t.id = esl.tenant_id
+                WHERE esl.email_id = :email_id
+                  AND esl.tenant_id = :tenant_id
+                  AND esl.enrollment_id = :enrollment_id
+                  AND esl.step_id = :step_id
+                  AND t.instance_id = :instance_id
+                """
+            ),
+            {
+                "email_id": email_id,
+                "tenant_id": tenant_id,
+                "enrollment_id": enrollment_id,
+                "step_id": step_id,
+                "instance_id": self._instance_id(),
+            },
+        )
+        current = existing.mappings().first()
+        stored_message_id = None if current is None else current["provider_message_id"]
+        if stored_message_id not in {None, provider_message_id}:
+            raise AppError(
+                code="RECEIPT_CONFLICT",
+                message="同一发送尝试的回执不一致",
+                status_code=409,
+            )
+        return {"persisted": False, "duplicate": False, "conflict": False, "status": None}
+
+    async def mark_dispatch_uncertain(
+        self,
+        conn: AsyncConnection,
+        *,
+        email_id: str,
+        tenant_id: str,
+        enrollment_id: str,
+        step_id: str,
+    ) -> dict:
+        """外发结果不确定。不释放额度、不增加尝试、不把联系人标无效。"""
+        result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET status = 'uncertain'
+                WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id = :step_id
+                  AND status = 'dispatching'
+                  AND provider_message_id IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                RETURNING id
+                """
+            ),
+            {
+                "email_id": email_id,
+                "tenant_id": tenant_id,
+                "enrollment_id": enrollment_id,
+                "step_id": step_id,
+                "instance_id": self._instance_id(),
+            },
+        )
+        row = result.mappings().first()
+        return {"status": "uncertain", "updated": row is not None}
+
+    async def list_accepted_pending(
+        self,
+        conn: AsyncConnection,
+        *,
+        limit: int = 20,
+        as_of: datetime | None = None,
+        lease_until: datetime | None = None,
+    ) -> list[dict]:
+        """取本轮可恢复的已接单锁。失败项写入 finalize_not_before 后不再占住队首。"""
+        moment = as_of or datetime.now(UTC)
+        if lease_until is None:
+            result = await conn.execute(
+                text(
+                    """
+                    SELECT esl.email_id, esl.tenant_id, esl.enrollment_id, esl.step_id,
+                           esl.provider_message_id, esl.provider_accepted_at
+                    FROM email_send_locks esl
+                    JOIN tenants t ON t.id = esl.tenant_id
+                    WHERE esl.status = 'accepted_pending'
+                      AND t.instance_id = :instance_id
+                      AND esl.provider_message_id IS NOT NULL
+                      AND esl.email_id IS NOT NULL
+                      AND (
+                        esl.finalize_not_before IS NULL
+                        OR esl.finalize_not_before <= :as_of
+                      )
+                    ORDER BY esl.provider_accepted_at ASC NULLS LAST, esl.id ASC
+                    LIMIT :limit
+                    """
+                ),
+                {"instance_id": self._instance_id(), "limit": limit, "as_of": moment},
+            )
+        else:
+            result = await conn.execute(
+                text(
+                    """
+                    WITH due AS (
+                        SELECT esl.id
+                        FROM email_send_locks esl
+                        JOIN tenants t ON t.id = esl.tenant_id
+                        WHERE esl.status = 'accepted_pending'
+                          AND t.instance_id = :instance_id
+                          AND esl.provider_message_id IS NOT NULL
+                          AND esl.email_id IS NOT NULL
+                          AND (
+                            esl.finalize_not_before IS NULL
+                            OR esl.finalize_not_before <= :as_of
+                          )
+                        ORDER BY esl.provider_accepted_at ASC NULLS LAST, esl.id ASC
+                        LIMIT :limit
+                        FOR UPDATE OF esl SKIP LOCKED
+                    )
+                    UPDATE email_send_locks esl
+                    SET finalize_not_before = :lease_until
+                    FROM due
+                    WHERE esl.id = due.id
+                    RETURNING esl.email_id, esl.tenant_id, esl.enrollment_id, esl.step_id,
+                              esl.provider_message_id, esl.provider_accepted_at
+                    """
+                ),
+                {
+                    "instance_id": self._instance_id(),
+                    "limit": limit,
+                    "as_of": moment,
+                    "lease_until": lease_until,
+                },
+            )
+        return [self._pending_row(row) for row in result.mappings().all()]
+
+    def _pending_row(self, row) -> dict:
+        return {
+            "email_id": str(row["email_id"]),
+            "tenant_id": str(row["tenant_id"]),
+            "enrollment_id": str(row["enrollment_id"]),
+            "step_id": str(row["step_id"]),
+            "provider_message_id": row["provider_message_id"],
+            "provider_accepted_at": row["provider_accepted_at"],
+        }
+
+    async def defer_accepted_pending(
+        self,
+        conn: AsyncConnection,
+        *,
+        email_id: str,
+        tenant_id: str,
+        enrollment_id: str,
+        step_id: str,
+        not_before: datetime,
+    ) -> dict:
+        """本地回写失败后把这一条推迟到 not_before，让出本轮恢复名额。"""
+        result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks
+                SET finalize_not_before = :not_before
+                WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id = :step_id
+                  AND status = 'accepted_pending'
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                RETURNING id
+                """
+            ),
+            {
+                "email_id": email_id,
+                "tenant_id": tenant_id,
+                "enrollment_id": enrollment_id,
+                "step_id": step_id,
+                "not_before": not_before,
+                "instance_id": self._instance_id(),
+            },
+        )
+        return {"deferred": result.mappings().first() is not None}
+
+    async def isolate_timed_out_dispatches(
+        self,
+        conn: AsyncConnection,
+        *,
+        stale_minutes: int = 30,
+    ) -> dict:
+        result = await conn.execute(
+            text(
+                """
+                UPDATE email_send_locks esl
+                SET status = 'uncertain'
+                FROM tenants t
+                WHERE t.id = esl.tenant_id
+                  AND t.instance_id = :instance_id
+                  AND esl.status = 'dispatching'
+                  AND COALESCE(esl.dispatch_started_at, esl.locked_at)
+                      < now() - make_interval(mins => :stale_minutes)
+                RETURNING esl.enrollment_id
+                """
+            ),
+            {"instance_id": self._instance_id(), "stale_minutes": stale_minutes},
+        )
+        rows = result.mappings().all()
+        return {
+            "isolated_count": len(rows),
+            "enrollment_ids": [str(row["enrollment_id"]) for row in rows],
+        }
+
     async def mark_email_sent(
         self,
         conn: AsyncConnection,
@@ -2065,38 +2419,88 @@ class TenantMessagingService:
         payload: dict,
     ) -> dict:
         email = await self._load_email(conn, email_id)
+        message_id = payload.get("engagelab_message_id") or None
+        has_provider_id = bool(message_id)
+        payload_accepted = self._coerce_datetime(payload.get("sent_at"))
         # 幂等闸门放锁表而非 emails.status：webhook 可能先于回调把 status 推进到
-        # delivered/opened 等后续态，emails.status 区分不了「回调已处理」与「事件抢跑」
+        # delivered/opened 等后续态。accepted_pending 是新 worker 的入场券；
+        # locked 仅在调用方已经持有回执时兼容内部回调，避免无证据地推进。
+        # 已写入的 provider_accepted_at 是发送事实，恢复时不改成 now()。
         lock_result = await conn.execute(
             text(
                 """
                 UPDATE email_send_locks
-                SET status = 'sent', released_at = now()
-                WHERE email_id = :email_id AND status = 'locked'
-                RETURNING id
+                SET status = 'sent',
+                    released_at = now(),
+                    provider_message_id = COALESCE(provider_message_id, :engagelab_message_id),
+                    provider_accepted_at = COALESCE(
+                      provider_accepted_at, CAST(:accepted_at AS timestamptz), now()
+                    )
+                WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id IS NOT DISTINCT FROM :step_id
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                  AND (
+                    provider_message_id IS NULL
+                    OR provider_message_id = :engagelab_message_id
+                  )
+                  AND (
+                    (
+                      status = 'accepted_pending'
+                      AND provider_message_id IS NOT NULL
+                      AND (
+                        CAST(:has_provider_id AS boolean) IS NOT TRUE
+                        OR provider_message_id = :engagelab_message_id
+                      )
+                    )
+                    OR (
+                      status = 'locked'
+                      AND CAST(:has_provider_id AS boolean) IS TRUE
+                    )
+                  )
+                RETURNING id, provider_message_id, provider_accepted_at
                 """
             ),
-            {"email_id": email_id},
+            {
+                **self._lock_identity(email),
+                "engagelab_message_id": message_id,
+                "has_provider_id": has_provider_id,
+                "accepted_at": payload_accepted,
+            },
         )
-        if lock_result.mappings().first() is None:
+        lock_row = lock_result.mappings().first()
+        if lock_row is None:
             return {"email_id": email_id, "status": email["status"], "duplicate": True}
+        returned_id = lock_row.get("provider_message_id")
+        if not isinstance(returned_id, str):
+            returned_id = None
+        stored_id = returned_id or message_id
+        send_at = lock_row.get("provider_accepted_at")
+        if not isinstance(send_at, datetime):
+            send_at = payload_accepted or datetime.now(UTC)
         await conn.execute(
             text(
                 """
                 UPDATE emails
                 SET status = CASE WHEN status = 'queued' THEN 'sent' ELSE status END,
                     engagelab_message_id = COALESCE(:engagelab_message_id, engagelab_message_id),
-                    sent_at = COALESCE(:sent_at, sent_at, now())
-                WHERE id = :email_id AND created_at = :created_at
+                    sent_at = COALESCE(sent_at, :send_at)
+                WHERE id = :email_id
+                  AND created_at = :created_at
+                  AND tenant_id = :tenant_id
                 """
             ),
             {
                 "email_id": email["id"],
                 "created_at": email["created_at"],
-                "engagelab_message_id": payload.get("engagelab_message_id"),
-                "sent_at": self._parse_datetime(payload.get("sent_at"))
-                if payload.get("sent_at")
-                else None,
+                "tenant_id": email["tenant_id"],
+                "engagelab_message_id": stored_id,
+                "send_at": send_at,
             },
         )
         await conn.execute(
@@ -2109,9 +2513,13 @@ class TenantMessagingService:
                     END,
                     updated_at = now()
                 WHERE id = :tenant_contact_id
+                  AND tenant_id = :tenant_id
                 """
             ),
-            {"tenant_contact_id": email["tenant_contact_id"]},
+            {
+                "tenant_contact_id": email["tenant_contact_id"],
+                "tenant_id": email["tenant_id"],
+            },
         )
         next_step = await conn.execute(
             text(
@@ -2132,14 +2540,19 @@ class TenantMessagingService:
                     UPDATE sequence_enrollments
                     SET status = 'completed',
                         send_attempt_count = 0,
-                        last_step_sent_at = now(),
+                        last_step_sent_at = :send_at,
                         next_step_due_at = NULL,
-                        completed_at = now(),
+                        completed_at = :send_at,
                         updated_at = now()
                     WHERE id = :enrollment_id
+                      AND tenant_id = :tenant_id
                     """
                 ),
-                {"enrollment_id": email["enrollment_id"]},
+                {
+                    "enrollment_id": email["enrollment_id"],
+                    "tenant_id": email["tenant_id"],
+                    "send_at": send_at,
+                },
             )
             should_check_plan_completion = True
         else:
@@ -2149,16 +2562,20 @@ class TenantMessagingService:
                     UPDATE sequence_enrollments
                     SET current_step = :current_step,
                         send_attempt_count = 0,
-                        last_step_sent_at = now(),
-                        next_step_due_at = now() + make_interval(days => :delay_days),
+                        last_step_sent_at = CAST(:send_at AS timestamptz),
+                        next_step_due_at = CAST(:send_at AS timestamptz)
+                          + make_interval(days => :delay_days),
                         updated_at = now()
                     WHERE id = :enrollment_id
+                      AND tenant_id = :tenant_id
                     """
                 ),
                 {
                     "enrollment_id": email["enrollment_id"],
+                    "tenant_id": email["tenant_id"],
                     "current_step": next_row["step_number"],
                     "delay_days": next_row["delay_days"],
+                    "send_at": send_at,
                 },
             )
         await conn.execute(
@@ -2167,9 +2584,10 @@ class TenantMessagingService:
                 UPDATE sending_plans
                 SET sent_count = sent_count + 1, updated_at = now()
                 WHERE id = :plan_id
+                  AND tenant_id = :tenant_id
                 """
             ),
-            {"plan_id": email["plan_id"]},
+            {"plan_id": email["plan_id"], "tenant_id": email["tenant_id"]},
         )
         if should_check_plan_completion:
             await complete_running_plan_if_finished(conn, plan_id=email["plan_id"])
@@ -2187,28 +2605,40 @@ class TenantMessagingService:
         domain_id = payload.get("domain_id")
         status_code = payload.get("status_code")
         error_category = payload.get("error_category")
-        # 幂等闸门，理由同 mark_email_sent
+        # 幂等闸门。已接单（回执已写入）的尝试不能从这里失败或释放额度。
         lock_result = await conn.execute(
             text(
                 """
                 UPDATE email_send_locks
                 SET status = 'failed', released_at = now()
-                WHERE email_id = :email_id AND status = 'locked'
-                RETURNING id
+                WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id IS NOT DISTINCT FROM :step_id
+                  AND status IN ('locked', 'dispatching')
+                  AND provider_message_id IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                RETURNING id, quota_usage_date
                 """
             ),
-            {"email_id": email_id},
+            self._lock_identity(email),
         )
-        if lock_result.mappings().first() is None:
+        lock_row = lock_result.mappings().first()
+        if lock_row is None:
             enrollment_result = await conn.execute(
                 text(
                     """
                     SELECT send_attempt_count
                     FROM sequence_enrollments
                     WHERE id = :enrollment_id
+                      AND tenant_id = :tenant_id
                     """
                 ),
-                {"enrollment_id": email["enrollment_id"]},
+                {"enrollment_id": email["enrollment_id"], "tenant_id": email["tenant_id"]},
             )
             enrollment = enrollment_result.mappings().first()
             return {
@@ -2226,15 +2656,25 @@ class TenantMessagingService:
                 UPDATE emails
                 SET status = 'failed'
                 WHERE id = :email_id AND created_at = :created_at
+                  AND tenant_id = :tenant_id
                   AND status = 'queued'
                 """
             ),
             {
                 "email_id": email["id"],
                 "created_at": email["created_at"],
+                "tenant_id": email["tenant_id"],
             },
         )
-        await self._release_reserved_quota(conn, domain_id=domain_id, plan_id=email["plan_id"])
+        stored_usage_date = lock_row.get("quota_usage_date")
+        if not isinstance(stored_usage_date, date):
+            stored_usage_date = None
+        await self._release_reserved_quota(
+            conn,
+            domain_id=domain_id,
+            plan_id=email["plan_id"],
+            usage_date=stored_usage_date,
+        )
 
         enrollment_result = await conn.execute(
             text(
@@ -2242,10 +2682,11 @@ class TenantMessagingService:
                 SELECT send_attempt_count
                 FROM sequence_enrollments
                 WHERE id = :enrollment_id
+                  AND tenant_id = :tenant_id
                 FOR UPDATE
                 """
             ),
-            {"enrollment_id": email["enrollment_id"]},
+            {"enrollment_id": email["enrollment_id"], "tenant_id": email["tenant_id"]},
         )
         enrollment = enrollment_result.mappings().first()
         current_attempts = int(enrollment["send_attempt_count"] or 0) if enrollment else 0
@@ -2258,12 +2699,14 @@ class TenantMessagingService:
                     SET status = 'failed',
                         updated_at = now()
                     WHERE id = :enrollment_id
+                      AND tenant_id = :tenant_id
                     """
                 ),
-                {"enrollment_id": email["enrollment_id"]},
+                {"enrollment_id": email["enrollment_id"], "tenant_id": email["tenant_id"]},
             )
             await self._update_contact_for_permanent_failure(
                 conn,
+                tenant_id=email["tenant_id"],
                 tenant_contact_id=email["tenant_contact_id"],
                 status_code=status_code,
                 error_category=error_category,
@@ -2287,10 +2730,12 @@ class TenantMessagingService:
                         next_step_due_at = now() + make_interval(secs => :retry_seconds),
                         updated_at = now()
                     WHERE id = :enrollment_id
+                      AND tenant_id = :tenant_id
                     """
                 ),
                 {
                     "enrollment_id": email["enrollment_id"],
+                    "tenant_id": email["tenant_id"],
                     "send_attempt_count": next_attempts,
                     "retry_seconds": int(retry_delay.total_seconds()),
                 },
@@ -2312,10 +2757,12 @@ class TenantMessagingService:
                     next_step_due_at = NULL,
                     updated_at = now()
                 WHERE id = :enrollment_id
+                  AND tenant_id = :tenant_id
                 """
             ),
             {
                 "enrollment_id": email["enrollment_id"],
+                "tenant_id": email["tenant_id"],
                 "send_attempt_count": next_attempts,
             },
         )
@@ -2335,7 +2782,6 @@ class TenantMessagingService:
         resume_at: datetime,
         now_utc: datetime | None = None,
     ) -> dict:
-        usage_date = beijing_today(now_utc)
         email = await self._load_email(conn, email_id)
         if email.get("sent_at") is not None or email.get("engagelab_message_id") is not None:
             raise AppError(
@@ -2344,33 +2790,66 @@ class TenantMessagingService:
                 status_code=409,
             )
 
-        await conn.execute(
-            text(
-                """
-                DELETE FROM emails
-                WHERE id = :email_id AND created_at = :created_at
-                """
-            ),
-            {"email_id": email["id"], "created_at": email["created_at"]},
-        )
-        await conn.execute(
+        lock_result = await conn.execute(
             text(
                 """
                 UPDATE email_send_locks
                 SET status = 'released',
                     email_id = NULL,
                     email_created_at = NULL,
-                    released_at = now()
+                    released_at = now(),
+                    provider_message_id = NULL,
+                    provider_accepted_at = NULL,
+                    dispatch_started_at = NULL
                 WHERE email_id = :email_id
+                  AND tenant_id = :tenant_id
+                  AND enrollment_id = :enrollment_id
+                  AND step_id IS NOT DISTINCT FROM :step_id
+                  AND status IN ('locked', 'dispatching')
+                  AND provider_message_id IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM tenants t
+                    WHERE t.id = email_send_locks.tenant_id
+                      AND t.instance_id = :instance_id
+                  )
+                RETURNING quota_usage_date
                 """
             ),
-            {"email_id": email_id},
+            self._lock_identity(email),
+        )
+        lock_row = lock_result.mappings().first()
+        if lock_row is None:
+            raise AppError(
+                code="INVALID_STATE",
+                message="当前发送尝试不能按配额推迟",
+                status_code=409,
+            )
+        stored_usage_date = lock_row.get("quota_usage_date")
+        if not isinstance(stored_usage_date, date):
+            stored_usage_date = None
+        usage_date = stored_usage_date or beijing_today(now_utc)
+
+        await conn.execute(
+            text(
+                """
+                DELETE FROM emails
+                WHERE id = :email_id
+                  AND created_at = :created_at
+                  AND tenant_id = :tenant_id
+                """
+            ),
+            {
+                "email_id": email["id"],
+                "created_at": email["created_at"],
+                "tenant_id": email["tenant_id"],
+            },
         )
         await self._release_reserved_quota(
             conn,
             domain_id=None,
             plan_id=email["plan_id"],
             usage_date=usage_date,
+            now_utc=now_utc,
         )
         await conn.execute(
             text(
@@ -2380,15 +2859,115 @@ class TenantMessagingService:
                     next_step_due_at = :resume_at,
                     updated_at = now()
                 WHERE id = :enrollment_id
+                  AND tenant_id = :tenant_id
                 """
             ),
-            {"enrollment_id": email["enrollment_id"], "resume_at": resume_at},
+            {
+                "enrollment_id": email["enrollment_id"],
+                "tenant_id": email["tenant_id"],
+                "resume_at": resume_at,
+            },
         )
         return {
             "email_id": email_id,
             "status": "deferred_for_quota",
             "resume_at": resume_at.isoformat(),
         }
+
+    async def release_unsent_locks(
+        self,
+        conn: AsyncConnection,
+        *,
+        as_of: datetime,
+        stale_minutes: int = 30,
+    ) -> dict:
+        """回收确认未外发的新锁，并按领取日退回额度。旧锁和已外发状态不动。"""
+        result = await conn.execute(
+            text(
+                """
+                WITH locked_rows AS (
+                    SELECT esl.id
+                    FROM email_send_locks esl
+                    JOIN tenants t ON t.id = esl.tenant_id
+                    WHERE t.instance_id = :instance_id
+                      AND esl.status = 'locked'
+                      AND esl.quota_usage_date IS NOT NULL
+                      AND esl.dispatch_started_at IS NULL
+                      AND esl.provider_message_id IS NULL
+                      AND esl.provider_accepted_at IS NULL
+                      AND esl.locked_at < CAST(:as_of AS timestamptz)
+                          - make_interval(mins => :stale_minutes)
+                    FOR UPDATE OF esl
+                ),
+                updated AS (
+                    UPDATE email_send_locks esl
+                    SET status = 'released',
+                        released_at = CAST(:as_of AS timestamptz)
+                    FROM locked_rows
+                    WHERE esl.id = locked_rows.id
+                    RETURNING esl.enrollment_id, esl.email_id, esl.quota_usage_date,
+                              esl.tenant_id
+                )
+                SELECT updated.enrollment_id,
+                       updated.email_id,
+                       updated.quota_usage_date,
+                       sequence_enrollments.plan_id
+                FROM updated
+                JOIN sequence_enrollments
+                  ON sequence_enrollments.id = updated.enrollment_id
+                 AND sequence_enrollments.tenant_id = updated.tenant_id
+                """
+            ),
+            {
+                "instance_id": self._instance_id(),
+                "as_of": as_of,
+                "stale_minutes": stale_minutes,
+            },
+        )
+        released = list(result.mappings().all())
+        await self._return_quota_for_released(conn, released)
+        return {
+            "recovered_count": len(released),
+            "enrollment_ids": [str(row["enrollment_id"]) for row in released],
+        }
+
+    async def _return_quota_for_released(self, conn: AsyncConnection, rows) -> None:
+        for row in rows:
+            usage_date = row.get("quota_usage_date")
+            if not isinstance(usage_date, date):
+                usage_date = None
+            if row["email_id"]:
+                email = await self._load_email(conn, str(row["email_id"]))
+                await conn.execute(
+                    text(
+                        """
+                        UPDATE emails
+                        SET status = 'failed'
+                        WHERE id = :email_id
+                          AND created_at = :created_at
+                          AND tenant_id = :tenant_id
+                          AND status = 'queued'
+                        """
+                    ),
+                    {
+                        "email_id": email["id"],
+                        "created_at": email["created_at"],
+                        "tenant_id": email["tenant_id"],
+                    },
+                )
+                await self._release_reserved_quota(
+                    conn,
+                    domain_id=None,
+                    plan_id=email["plan_id"],
+                    usage_date=usage_date,
+                )
+            else:
+                await self._release_reserved_quota(
+                    conn,
+                    domain_id=None,
+                    plan_id=row["plan_id"],
+                    usage_date=usage_date,
+                )
 
     async def recover_stale_locks(
         self,
@@ -2400,49 +2979,72 @@ class TenantMessagingService:
         result = await conn.execute(
             text(
                 """
-                WITH recovered AS (
+                WITH locked_rows AS (
+                    SELECT esl.id
+                    FROM email_send_locks esl
+                    JOIN tenants t ON t.id = esl.tenant_id
+                    WHERE t.instance_id = :instance_id
+                      AND (
+                        (
+                          esl.status = 'locked'
+                          AND esl.locked_at < now() - make_interval(mins => :stale_minutes)
+                        )
+                        OR (
+                          esl.status = 'dispatching'
+                          AND COALESCE(esl.dispatch_started_at, esl.locked_at)
+                              < now() - make_interval(mins => :stale_minutes)
+                        )
+                      )
+                    FOR UPDATE OF esl
+                ),
+                updated AS (
                     UPDATE email_send_locks esl
-                    SET status = 'released',
-                        released_at = now()
-                    FROM tenants t
-                    WHERE t.id = esl.tenant_id
-                      AND esl.status = 'locked'
-                      AND esl.locked_at < now() - make_interval(mins => :stale_minutes)
-                      AND t.instance_id = :instance_id
-                    RETURNING esl.enrollment_id, esl.email_id
+                    SET status = CASE
+                          WHEN esl.status = 'locked'
+                           AND esl.quota_usage_date IS NOT NULL
+                           AND esl.dispatch_started_at IS NULL
+                          THEN 'released'
+                          ELSE 'uncertain'
+                        END,
+                        released_at = CASE
+                          WHEN esl.status = 'locked'
+                           AND esl.quota_usage_date IS NOT NULL
+                           AND esl.dispatch_started_at IS NULL
+                          THEN now()
+                          ELSE esl.released_at
+                        END
+                    FROM locked_rows
+                    WHERE esl.id = locked_rows.id
+                    RETURNING esl.enrollment_id, esl.email_id, esl.status, esl.quota_usage_date,
+                              esl.tenant_id
                 )
-                SELECT recovered.enrollment_id,
-                       recovered.email_id,
+                SELECT updated.enrollment_id,
+                       updated.email_id,
+                       updated.status AS outcome,
+                       updated.quota_usage_date,
                        sequence_enrollments.plan_id
-                FROM recovered
+                FROM updated
                 JOIN sequence_enrollments
-                  ON sequence_enrollments.id = recovered.enrollment_id
+                  ON sequence_enrollments.id = updated.enrollment_id
+                 AND sequence_enrollments.tenant_id = updated.tenant_id
                 """
             ),
             {"stale_minutes": stale_minutes, "instance_id": instance_id},
         )
         recovered = result.mappings().all()
+        released = []
+        isolated = []
         for row in recovered:
-            if row["email_id"]:
-                email = await self._load_email(conn, str(row["email_id"]))
-                await conn.execute(
-                    text(
-                        """
-                        UPDATE emails
-                        SET status = 'failed'
-                        WHERE id = :email_id
-                          AND created_at = :created_at
-                          AND status = 'queued'
-                        """
-                    ),
-                    {"email_id": email["id"], "created_at": email["created_at"]},
-                )
-                await self._release_reserved_quota(conn, domain_id=None, plan_id=email["plan_id"])
-            else:
-                await self._release_reserved_quota(conn, domain_id=None, plan_id=row["plan_id"])
+            if row.get("outcome") != "released":
+                isolated.append(row)
+                continue
+            released.append(row)
+        await self._return_quota_for_released(conn, released)
         return {
-            "recovered_count": len(recovered),
-            "enrollment_ids": [str(row["enrollment_id"]) for row in recovered],
+            "recovered_count": len(released),
+            "enrollment_ids": [str(row["enrollment_id"]) for row in released],
+            "isolated_count": len(isolated),
+            "isolated_enrollment_ids": [str(row["enrollment_id"]) for row in isolated],
         }
 
     async def list_running_domain_ids(self, conn: AsyncConnection) -> list[str]:
@@ -2500,12 +3102,14 @@ class TenantMessagingService:
         self,
         conn: AsyncConnection,
         *,
+        tenant_id,
         tenant_contact_id,
         status_code: int | None,
         error_category: str | None,
     ) -> None:
+        del status_code
         next_status = None
-        if error_category == "invalid" or status_code == 422:
+        if error_category == "invalid":
             next_status = "invalid"
         elif error_category == "bounce":
             next_status = "bounced"
@@ -2518,9 +3122,14 @@ class TenantMessagingService:
                 SET contact_status = :contact_status,
                     updated_at = now()
                 WHERE id = :tenant_contact_id
+                  AND tenant_id = :tenant_id
                 """
             ),
-            {"tenant_contact_id": tenant_contact_id, "contact_status": next_status},
+            {
+                "tenant_contact_id": tenant_contact_id,
+                "tenant_id": tenant_id,
+                "contact_status": next_status,
+            },
         )
 
     async def reserve_domain_quota(
@@ -3143,14 +3752,16 @@ class TenantMessagingService:
         result = await conn.execute(
             text(
                 """
-                SELECT *
-                FROM emails
-                WHERE id = :email_id
-                ORDER BY created_at DESC
+                SELECT e.*
+                FROM emails e
+                JOIN tenants t ON t.id = e.tenant_id
+                WHERE e.id = :email_id
+                  AND t.instance_id = :instance_id
+                ORDER BY e.created_at DESC
                 LIMIT 1
                 """
             ),
-            {"email_id": email_id},
+            {"email_id": email_id, "instance_id": self._instance_id()},
         )
         row = result.mappings().first()
         if row is None:
@@ -3258,6 +3869,13 @@ class TenantMessagingService:
 
     def _to_json(self, value) -> str:
         return json.dumps(value, ensure_ascii=False)
+
+    def _coerce_datetime(self, value) -> datetime | None:
+        if isinstance(value, datetime):
+            return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+        if isinstance(value, str) and value:
+            return self._parse_datetime(value)
+        return None
 
     def _parse_datetime(self, value: str) -> datetime:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))

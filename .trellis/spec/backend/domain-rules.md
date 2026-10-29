@@ -13,8 +13,11 @@
 | 发送间隔 | 固定 **3 秒**（worker fallback 与新建计划默认 `[3,3]`） |
 | 收件人选取 | 按联系人等级排序选取，**单公司上限 8 人**；排除 unsubscribed / bounced / invalid |
 | 发送窗口 | 按**收件人国家**的工作日历（工作日 + 节假日 + 时区）决定；不在窗口内则顺延 |
-| 配额熔断 | 同域名连续 3 次配额错误 → 熔断至北京时间次日凌晨；10 分钟窗口内 3 次 429 → 限流熔断 |
-| 发送幂等键 | `enrollment_id:step_id` |
+| 配额熔断 | 同域名连续 3 次**已核实**配额错误 → 熔断至北京时间次日凌晨。已核实指 HTTP 4xx 且 code 为 30877，或正文含 `balance is not enough` / `recharge soon` / `余额不足`。宽泛的「配额 / 已达上限 / daily quota」不熔断。10 分钟窗口内 3 次 429 → 仍按配额熔断。本地回写失败不计入 |
+| 发送幂等键 | 本地 `enrollment_id:step_id`。它映射为 EngageLab `request_id`（≤128 字符，约 1 小时）；更长则省略。跨日防重靠 `email_send_locks`，不能宣称服务商侧已按该键跨日去重 |
+| 服务商 message id | `emails.engagelab_message_id` 与锁上的 `provider_message_id` 均为 TEXT，完整等值保存。截断会让 webhook 和对账匹配失败 |
+| 接单时间 | `provider_accepted_at` 是发送事实。延迟恢复时 `sent_at` / `last_step_sent_at` / 下一步间隔都用它，对账按这个时间的北京日期查询。恢复动作的 `updated_at` 用当时时间 |
+| 拒发与联系人 | 只有 `error_category=invalid` 才把联系人标 invalid，`bounce` 才标退信。裸 HTTP 422 不更新联系人。接单后的 webhook invalid_email 不回写成发送时的无效地址 |
 | 状态对账 | webhook 为主，对账 worker 约每 10 分钟主动查询兜底 |
 | 仪表盘统计 | 邮件统计**排除 failed**；「已评分公司」只计入租户当前活跃模板的最新版本分数 |
 | 租户评分 | 确定性规则引擎（非 AI），结果归租户所有；平台模板只是创建租户时的默认种子。「AI 评级 / 邮件生成」当前为启发式桩（#46） |
